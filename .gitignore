@@ -1,0 +1,16 @@
+venv/
+__pycache__/
+*.pyc
+
+# Real user data — never commit the live database or its backups
+personae.db
+personae.db-shm
+personae.db-wal
+personae.db.backup*
+personae.logs.jsonl
+
+# User-uploaded content
+media/
+
+# Local scratch
+files/
