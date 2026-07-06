@@ -15,7 +15,6 @@ import os
 import json
 import re
 import time
-import asyncio
 import hashlib
 import secrets
 from cryptography.fernet import Fernet, InvalidToken
@@ -24,6 +23,7 @@ from uuid import uuid4
 import sqlalchemy as sa
 from sqlalchemy import and_, or_, select, insert, update, delete, func, text
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
 
 _THINK_RE = re.compile(r"<think>.*?</think>\s*", re.S)
@@ -34,14 +34,8 @@ def _preview(content: str, n: int = 80) -> str:
 
 
 _engine: AsyncEngine | None = None
+_is_pg: bool = False
 _fernet: Fernet | None = None
-# Serializes each logical multi-statement write as a critical section. SQLite is a
-# single-writer database and this app shares one process; without this a second
-# request's commit could land mid-way through another request's sequence of
-# executes, committing half-finished state. Hold this lock around any function
-# that issues more than one write in a single logical operation. (This stays until
-# the actual cut-over to Postgres, whose MVCC makes it removable — a later phase.)
-_write_lock = asyncio.Lock()
 
 
 # ── schema ──────────────────────────────────────────────────────────────────
@@ -227,15 +221,36 @@ def _set_sqlite_pragma(dbapi_conn, _rec):
     cur.close()
 
 
+def engine() -> AsyncEngine:
+    return _engine
+
+
+def is_pg() -> bool:
+    return _is_pg
+
+
+def _upsert(table):
+    """Dialect-correct INSERT with ON CONFLICT support (.on_conflict_do_update / .excluded)."""
+    return pg_insert(table) if _is_pg else sqlite_insert(table)
+
+
 async def init(path: str):
-    global _engine, _fernet
-    _engine = create_async_engine("sqlite+aiosqlite:///" + path)
-    sa.event.listen(_engine.sync_engine, "connect", _set_sqlite_pragma)
+    global _engine, _is_pg, _fernet
+    database_url = os.environ.get("DATABASE_URL", "").strip()
+    _is_pg = bool(database_url)
+    if _is_pg:
+        _engine = create_async_engine(database_url)
+    else:
+        _engine = create_async_engine("sqlite+aiosqlite:///" + path)
+        sa.event.listen(_engine.sync_engine, "connect", _set_sqlite_pragma)
 
     async with _engine.begin() as conn:
         # Migration must run before create_all so existing tables gain new columns;
-        # create_all (checkfirst) then only adds tables that don't exist yet.
-        await _migrate(conn)
+        # create_all (checkfirst) then only adds tables that don't exist yet. The
+        # additive migration is SQLite-only (uses sqlite_master/PRAGMA introspection);
+        # on Postgres the schema is created fresh with every column already present.
+        if not _is_pg:
+            await _migrate(conn)
         await conn.run_sync(_meta.create_all)
 
     # Bring-your-own-endpoint API keys (per-user and flagged-pending-review) are
@@ -542,11 +557,10 @@ async def update_user_role(uid: str, is_admin: bool):
 
 
 async def delete_user(uid: str):
-    async with _write_lock:
-        async with _engine.begin() as conn:
-            await conn.execute(delete(auth_sessions).where(auth_sessions.c.user_id == uid))
-            await conn.execute(delete(user_settings).where(user_settings.c.user_id == uid))
-            await conn.execute(delete(users).where(users.c.id == uid))
+    async with _engine.begin() as conn:
+        await conn.execute(delete(auth_sessions).where(auth_sessions.c.user_id == uid))
+        await conn.execute(delete(user_settings).where(user_settings.c.user_id == uid))
+        await conn.execute(delete(users).where(users.c.id == uid))
 
 
 # ── auth sessions ────────────────────────────────────────────────────────────
@@ -598,21 +612,20 @@ async def get_user_settings(user_id: str) -> dict:
 
 async def set_user_settings(user_id: str, items: dict):
     """Upsert non-None values; delete the key when value is None."""
-    async with _write_lock:
-        async with _engine.begin() as conn:
-            for k, v in items.items():
-                if v is None:
-                    await conn.execute(delete(user_settings).where(and_(
-                        user_settings.c.user_id == user_id, user_settings.c.key == k)))
-                    continue
-                if k == "api_key" and isinstance(v, str) and v:
-                    v = _encrypt_secret(v)
-                stmt = sqlite_insert(user_settings).values(
-                    user_id=user_id, key=k, value=json.dumps(v))
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=["user_id", "key"],
-                    set_={"value": stmt.excluded.value})
-                await conn.execute(stmt)
+    async with _engine.begin() as conn:
+        for k, v in items.items():
+            if v is None:
+                await conn.execute(delete(user_settings).where(and_(
+                    user_settings.c.user_id == user_id, user_settings.c.key == k)))
+                continue
+            if k == "api_key" and isinstance(v, str) and v:
+                v = _encrypt_secret(v)
+            stmt = _upsert(user_settings).values(
+                user_id=user_id, key=k, value=json.dumps(v))
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["user_id", "key"],
+                set_={"value": stmt.excluded.value})
+            await conn.execute(stmt)
 
 
 async def clear_user_settings(user_id: str):
@@ -771,13 +784,12 @@ async def delete_character(cid: str) -> list[str]:
     """Delete character and all related data. Returns list of deleted session ids."""
     sids = [r["id"] for r in await _q(
         select(sessions.c.id).where(sessions.c.char_id == cid))]
-    async with _write_lock:
-        async with _engine.begin() as conn:
-            if sids:
-                await conn.execute(delete(messages).where(messages.c.session_id.in_(sids)))
-            await conn.execute(delete(sessions).where(sessions.c.char_id == cid))
-            await conn.execute(delete(lore).where(lore.c.char_id == cid))
-            await conn.execute(delete(characters).where(characters.c.id == cid))
+    async with _engine.begin() as conn:
+        if sids:
+            await conn.execute(delete(messages).where(messages.c.session_id.in_(sids)))
+        await conn.execute(delete(sessions).where(sessions.c.char_id == cid))
+        await conn.execute(delete(lore).where(lore.c.char_id == cid))
+        await conn.execute(delete(characters).where(characters.c.id == cid))
     return sids
 
 
@@ -791,17 +803,16 @@ def _persona_row(row) -> dict:
 
 async def create_persona(data: dict, user_id: str = None) -> dict:
     pid = nid("p")
-    async with _write_lock:
-        async with _engine.begin() as conn:
-            if data.get("is_default"):
-                await conn.execute(update(personas)
-                                   .where(personas.c.owner_id == user_id)
-                                   .values(is_default=0))
-            await conn.execute(insert(personas).values(
-                id=pid, name=data.get("name") or "You",
-                description=_encrypt_secret(data.get("description") or ""),
-                is_default=1 if data.get("is_default") else 0,
-                owner_id=user_id, created=time.time()))
+    async with _engine.begin() as conn:
+        if data.get("is_default"):
+            await conn.execute(update(personas)
+                               .where(personas.c.owner_id == user_id)
+                               .values(is_default=0))
+        await conn.execute(insert(personas).values(
+            id=pid, name=data.get("name") or "You",
+            description=_encrypt_secret(data.get("description") or ""),
+            is_default=1 if data.get("is_default") else 0,
+            owner_id=user_id, created=time.time()))
     return await get_persona(pid)
 
 
@@ -862,16 +873,15 @@ async def update_persona(pid: str, data: dict, user_id: str = None) -> dict | No
     p = await get_persona(pid)
     if not p:
         return None
-    async with _write_lock:
-        async with _engine.begin() as conn:
-            if data.get("is_default"):
-                await conn.execute(update(personas)
-                                   .where(personas.c.owner_id == user_id)
-                                   .values(is_default=0))
-            await conn.execute(update(personas).where(personas.c.id == pid).values(
-                name=data.get("name", p["name"]),
-                description=_encrypt_secret(data.get("description", p["description"]) or ""),
-                is_default=1 if data.get("is_default") else p["is_default"]))
+    async with _engine.begin() as conn:
+        if data.get("is_default"):
+            await conn.execute(update(personas)
+                               .where(personas.c.owner_id == user_id)
+                               .values(is_default=0))
+        await conn.execute(update(personas).where(personas.c.id == pid).values(
+            name=data.get("name", p["name"]),
+            description=_encrypt_secret(data.get("description", p["description"]) or ""),
+            is_default=1 if data.get("is_default") else p["is_default"]))
     return await get_persona(pid)
 
 
@@ -1041,10 +1051,9 @@ async def set_char_state(sid: str, doing: str | None, location: str | None, know
 
 
 async def delete_session(sid: str):
-    async with _write_lock:
-        async with _engine.begin() as conn:
-            await conn.execute(delete(messages).where(messages.c.session_id == sid))
-            await conn.execute(delete(sessions).where(sessions.c.id == sid))
+    async with _engine.begin() as conn:
+        await conn.execute(delete(messages).where(messages.c.session_id == sid))
+        await conn.execute(delete(sessions).where(sessions.c.id == sid))
 
 
 # ── messages ─────────────────────────────────────────────────────────────────
@@ -1052,13 +1061,12 @@ async def delete_session(sid: str):
 async def add_message(sid: str, role: str, content: str, lang: str | None = None) -> dict:
     mid = nid("m")
     ts = int(time.time())
-    async with _write_lock:
-        async with _engine.begin() as conn:
-            await conn.execute(insert(messages).values(
-                id=mid, session_id=sid, role=role,
-                content=_encrypt_secret(content or ""), ts=ts, lang=lang))
-            await conn.execute(update(sessions).where(sessions.c.id == sid)
-                               .values(updated=time.time()))
+    async with _engine.begin() as conn:
+        await conn.execute(insert(messages).values(
+            id=mid, session_id=sid, role=role,
+            content=_encrypt_secret(content or ""), ts=ts, lang=lang))
+        await conn.execute(update(sessions).where(sessions.c.id == sid)
+                           .values(updated=time.time()))
     return {"id": mid, "role": role, "content": content, "ts": ts, "lang": lang}
 
 
@@ -1188,18 +1196,17 @@ async def delete_message(sid: str, mid: str):
 
 
 async def pop_trailing_assistant(sid: str):
-    async with _write_lock:
-        async with _engine.begin() as conn:
-            while True:
-                res = await conn.execute(
-                    select(messages.c.seq, messages.c.role)
-                    .where(messages.c.session_id == sid)
-                    .order_by(messages.c.seq.desc()).limit(1))
-                row = res.fetchone()
-                if not row or row._mapping["role"] != "assistant":
-                    break
-                await conn.execute(delete(messages).where(
-                    messages.c.seq == row._mapping["seq"]))
+    async with _engine.begin() as conn:
+        while True:
+            res = await conn.execute(
+                select(messages.c.seq, messages.c.role)
+                .where(messages.c.session_id == sid)
+                .order_by(messages.c.seq.desc()).limit(1))
+            row = res.fetchone()
+            if not row or row._mapping["role"] != "assistant":
+                break
+            await conn.execute(delete(messages).where(
+                messages.c.seq == row._mapping["seq"]))
 
 
 # ── global settings ──────────────────────────────────────────────────────────
@@ -1215,13 +1222,12 @@ async def all_settings() -> dict:
 
 
 async def set_settings(items: dict):
-    async with _write_lock:
-        async with _engine.begin() as conn:
-            for k, v in items.items():
-                stmt = sqlite_insert(settings).values(key=k, value=json.dumps(v))
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=["key"], set_={"value": stmt.excluded.value})
-                await conn.execute(stmt)
+    async with _engine.begin() as conn:
+        for k, v in items.items():
+            stmt = _upsert(settings).values(key=k, value=json.dumps(v))
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["key"], set_={"value": stmt.excluded.value})
+            await conn.execute(stmt)
 
 
 # ── localization cache ──────────────────────────────────────────────────────
@@ -1246,27 +1252,25 @@ async def get_localizations(hashes: list[str], lang: str) -> dict:
 async def set_localizations(items: list[tuple], lang: str, kind: str = "content"):
     """items: [(src_hash, source, translated), ...] — write-through cache insert."""
     now = time.time()
-    async with _write_lock:
-        async with _engine.begin() as conn:
-            for h, src, tr in items:
-                stmt = sqlite_insert(localization).values(
-                    src_hash=h, lang=lang, kind=kind, source=src,
-                    translated=tr, created=now)
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=["src_hash", "lang"],
-                    set_={"translated": stmt.excluded.translated})
-                await conn.execute(stmt)
+    async with _engine.begin() as conn:
+        for h, src, tr in items:
+            stmt = _upsert(localization).values(
+                src_hash=h, lang=lang, kind=kind, source=src,
+                translated=tr, created=now)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["src_hash", "lang"],
+                set_={"translated": stmt.excluded.translated})
+            await conn.execute(stmt)
 
 
 # ── admin ────────────────────────────────────────────────────────────────────
 
 async def purge_content():
     """Delete all chat/character content. Leaves users, auth, and user_settings intact."""
-    async with _write_lock:
-        async with _engine.begin() as conn:
-            for tbl in (messages, sessions, lore, characters, personas):
-                await conn.execute(delete(tbl))
-            # settings holds global config, but _secret_enc_key must survive — wiping it
-            # would silently make every already-encrypted user api_key undecryptable
-            # (_decrypt_secret fails closed and returns "") on the next restart.
-            await conn.execute(delete(settings).where(settings.c.key != "_secret_enc_key"))
+    async with _engine.begin() as conn:
+        for tbl in (messages, sessions, lore, characters, personas):
+            await conn.execute(delete(tbl))
+        # settings holds global config, but _secret_enc_key must survive — wiping it
+        # would silently make every already-encrypted user api_key undecryptable
+        # (_decrypt_secret fails closed and returns "") on the next restart.
+        await conn.execute(delete(settings).where(settings.c.key != "_secret_enc_key"))

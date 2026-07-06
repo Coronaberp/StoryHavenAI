@@ -9,9 +9,9 @@ RisuAI / SpicyChat).
 ```
   browser ──►  server.py (FastAPI, also serves the SPA from static/)
                   │
-                  ├─► SQLite    users · characters · personas · lorebooks · sessions · messages
-                  │             (encrypted at rest — see "Encryption" below)
-                  ├─► Redis     vectors only (memory + lore embeddings), async
+                  ├─► SQLite + Redis, or PostgreSQL + pgvector (pick one — see "Storage backends")
+                  │             users · characters · personas · lorebooks · sessions · messages
+                  │             (encrypted at rest — see "Encryption" below), plus vector search
                   ├─► any OpenAI-compatible server, chat and embeddings can be different servers
                   │             (llama.cpp, Ollama, LM Studio, vLLM, a hosted API like DeepSeek/OpenAI …)
                   └─► ComfyUI (optional)   image generation for chat scenes / standalone gen
@@ -133,23 +133,34 @@ the *initial* values on first run.
   character public (Community), allow it to be played as a persona by others,
   and/or allow other users to export/download its card.
 
-## Why two databases
+## Storage backends: SQLite+Redis, or PostgreSQL+pgvector
 
-They do different jobs, so each gets the store it's good at:
+Two interchangeable backend pairs, same code, same function signatures either way:
 
-- **SQLite** holds everything you'd want to read as plain rows — users,
-  characters, personas, lorebook entries, sessions and messages. One file
-  (`personae.db`), transactional, trivial to back up or inspect with any
-  SQLite tool. Schema changes are additive (`db._migrate`, `ALTER TABLE ...
-  ADD COLUMN`) — data is never dropped or rewritten by an upgrade.
-- **Redis** holds *only* vectors: one embedding per memory and one per lore
-  entry, in an HNSW cosine index. Lore content stays in SQLite; Redis stores the
-  lore *id* and its vector, so semantic search returns ids that are resolved
-  back to text from SQLite. All Redis access is async.
+- **SQLite + Redis** (the default — nothing to configure): SQLite holds
+  everything you'd want to read as plain rows — users, characters, personas,
+  lorebook entries, sessions and messages — in one file (`personae.db`),
+  trivial to back up or inspect with any SQLite tool. Redis holds *only*
+  vectors: one embedding per memory and one per lore entry, in an HNSW cosine
+  index. Lore content stays in SQLite; Redis stores the lore *id* and its
+  vector, so semantic search returns ids resolved back to text from SQLite.
+- **PostgreSQL + pgvector** (opt in via `DATABASE_URL`): one database instead
+  of two — the same tables live in Postgres, and two additional tables
+  (`memory_vectors`, `lore_vectors`) hold embeddings with an HNSW cosine index
+  via the `pgvector` extension, queried with the `<=>` operator instead of
+  Redis's KNN syntax. Real multi-writer transactions replace the hand-rolled
+  write-serialization lock SQLite needed.
 
-The SQLite layer is written with SQLAlchemy Core (not raw SQL strings), which
-keeps it dialect-portable — a future move to PostgreSQL + pgvector (folding both
-stores into one) is a planned migration, not a rewrite.
+Both `db.py` and `vectors.py` are written with SQLAlchemy Core (not raw SQL
+strings or Redis-specific code paths mixed into business logic), which is what
+makes this a config switch rather than a rewrite. Set `DATABASE_URL` (e.g.
+`postgresql+asyncpg://user:pass@host:5432/dbname`) to switch; leave it unset to
+keep using SQLite + Redis. Moving *existing* data over uses the one-time
+scripts `migrate_to_postgres.py` (rows) and `migrate_vectors_to_pgvector.py`
+(embeddings, copied directly rather than re-run through the embedding model) —
+run both once, verify row/vector counts match, then set `DATABASE_URL` and
+restart. Neither the original SQLite file nor Redis's data is touched or
+deleted by either script, so the old backend stays intact as a fallback.
 
 ## Encryption
 
@@ -380,7 +391,8 @@ abandoned generation is never remembered.
 | `CHAT_MODEL` | `Gemma-4-E4B-Uncensored-HauhauCS-Aggressive` | generation model |
 | `EMBED_MODEL` | `nomic-embed-text` | embedding model |
 | `EMBED_DIM` | `768` | must match the embedding model |
-| `REDIS_URL` | `redis://roleplay-redis:6379` | Redis location |
+| `REDIS_URL` | `redis://roleplay-redis:6379` | Redis location (ignored if `DATABASE_URL` is set) |
+| `DATABASE_URL` | _(empty = use SQLite + Redis)_ | set to a `postgresql+asyncpg://` URL to run on PostgreSQL + pgvector instead |
 | `DB_PATH` | `./personae.db` | SQLite file |
 | `HISTORY_TURNS` | `16` | recent messages kept verbatim |
 | `TOP_K_MEMORY` / `TOP_K_LORE` | `4` / `6` | items retrieved per turn |
