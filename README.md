@@ -9,7 +9,7 @@ RisuAI / SpicyChat).
 ```
   browser ──►  server.py (FastAPI, also serves the SPA from static/)
                   │
-                  ├─► SQLite + Redis, or PostgreSQL + pgvector (pick one — see "Storage backends")
+                  ├─► PostgreSQL + pgvector (see "Storage")
                   │             users · characters · personas · lorebooks · sessions · messages
                   │             (encrypted at rest — see "Encryption" below), plus vector search
                   ├─► any OpenAI-compatible server, chat and embeddings can be different servers
@@ -33,8 +33,8 @@ ai-frontend/
 ├── chat_service.py    Endpoint resolution, retrieval, memory, the core chat generation flow
 ├── routers/           One file per domain: characters, personas, lore, sessions, profile,
 │                       settings, admin, misc — every route lives here, server.py just wires them up
-├── db.py              SQLite (async, SQLAlchemy Core over aiosqlite) — all CRUD, schema migrations
-├── vectors.py         Redis async — vector storage + similarity search
+├── db.py              PostgreSQL (async, SQLAlchemy Core over asyncpg) — all CRUD, schema
+├── vectors.py         pgvector (same Postgres engine) — vector storage + similarity search
 ├── llm.py             OpenAI-compatible client (chat / embeddings / models)
 ├── imagegen.py        ComfyUI client (submit workflow, poll, websocket live preview)
 ├── schemas.py         Pydantic request models
@@ -47,8 +47,8 @@ ai-frontend/
 
 `server.py` only assembles the app and includes the routers — it doesn't contain
 route handlers or business logic itself anymore. Every router module only calls
-into `db`/`vectors`/`chat_service` functions, never raw SQL or Redis commands
-directly, so the storage layer can change underneath without touching routes.
+into `db`/`vectors`/`chat_service` functions, never raw SQL directly, so the
+storage layer can change underneath without touching routes.
 
 There is no local `docker-compose.yml`/`compose.yaml` in *this* repo — this
 checkout is bind-mounted into a container managed by a compose stack that lives
@@ -86,10 +86,16 @@ just slower). Any other OpenAI-compatible server (Ollama, LM Studio, vLLM, or a
 hosted API like DeepSeek/OpenAI) works too — just point `LLM_BASE_URL`/
 `EMBED_BASE_URL` at it instead.
 
-You also need Redis Stack (for vector search) reachable at `REDIS_URL`:
+You also need PostgreSQL with the `pgvector` extension (for both relational data
+and vector search) reachable at `DATABASE_URL`:
 ```bash
-docker run -d --name redis-stack -p 6379:6379 redis/redis-stack:latest
+docker run -d --name storyhaven-postgres -p 5432:5432 \
+  -e POSTGRES_USER=storyhaven -e POSTGRES_PASSWORD=storyhaven \
+  -e POSTGRES_DB=storyhaven \
+  pgvector/pgvector:pg16
 ```
+The app creates its own tables and the `vector` extension on first startup —
+no manual schema step.
 
 Then the app itself:
 ```bash
@@ -98,7 +104,7 @@ pip install -r requirements.txt
 
 export LLM_BASE_URL=http://localhost:5001/v1
 export EMBED_BASE_URL=http://localhost:5002/v1
-export REDIS_URL=redis://localhost:6379
+export DATABASE_URL=postgresql+asyncpg://storyhaven:storyhaven@localhost:5432/storyhaven
 
 uvicorn server:app --port 3000
 # open http://localhost:3000
@@ -133,34 +139,28 @@ the *initial* values on first run.
   character public (Community), allow it to be played as a persona by others,
   and/or allow other users to export/download its card.
 
-## Storage backends: SQLite+Redis, or PostgreSQL+pgvector
+## Storage
 
-Two interchangeable backend pairs, same code, same function signatures either way:
+**PostgreSQL + pgvector** is the one and only backend. A single database holds
+everything: the relational tables (users, characters, personas, lorebook
+entries, sessions, messages) plus two vector tables (`memory_vectors`,
+`lore_vectors`) that store embeddings with an HNSW cosine index via the
+`pgvector` extension, queried with the `<=>` distance operator. Lore content
+stays in the relational `lore` table; `lore_vectors` stores only the lore *id*
+and its vector, so semantic search returns ids resolved back to text. Postgres's
+own MVCC handles concurrent writes.
 
-- **SQLite + Redis** (the default — nothing to configure): SQLite holds
-  everything you'd want to read as plain rows — users, characters, personas,
-  lorebook entries, sessions and messages — in one file (`personae.db`),
-  trivial to back up or inspect with any SQLite tool. Redis holds *only*
-  vectors: one embedding per memory and one per lore entry, in an HNSW cosine
-  index. Lore content stays in SQLite; Redis stores the lore *id* and its
-  vector, so semantic search returns ids resolved back to text from SQLite.
-- **PostgreSQL + pgvector** (opt in via `DATABASE_URL`): one database instead
-  of two — the same tables live in Postgres, and two additional tables
-  (`memory_vectors`, `lore_vectors`) hold embeddings with an HNSW cosine index
-  via the `pgvector` extension, queried with the `<=>` operator instead of
-  Redis's KNN syntax. Real multi-writer transactions replace the hand-rolled
-  write-serialization lock SQLite needed.
+`db.py` and `vectors.py` are written with SQLAlchemy Core and share one async
+engine. Set `DATABASE_URL` (e.g.
+`postgresql+asyncpg://user:pass@host:5432/dbname`) — it is **required**, and the
+server fails fast at startup if it's unset. The app creates its own tables and
+the `vector` extension automatically on first run; there's no manual schema step.
 
-Both `db.py` and `vectors.py` are written with SQLAlchemy Core (not raw SQL
-strings or Redis-specific code paths mixed into business logic), which is what
-makes this a config switch rather than a rewrite. Set `DATABASE_URL` (e.g.
-`postgresql+asyncpg://user:pass@host:5432/dbname`) to switch; leave it unset to
-keep using SQLite + Redis. Moving *existing* data over uses the one-time
-scripts `migrate_to_postgres.py` (rows) and `migrate_vectors_to_pgvector.py`
+The repo also contains two historical one-time migration scripts —
+`migrate_to_postgres.py` (rows) and `migrate_vectors_to_pgvector.py`
 (embeddings, copied directly rather than re-run through the embedding model) —
-run both once, verify row/vector counts match, then set `DATABASE_URL` and
-restart. Neither the original SQLite file nor Redis's data is touched or
-deleted by either script, so the old backend stays intact as a fallback.
+for anyone migrating an old SQLite/Redis install onto Postgres from scratch.
+They are not needed for a fresh or already-Postgres deployment.
 
 ## Encryption
 
@@ -171,7 +171,7 @@ bring-your-own API keys are encrypted the same way and are never returned by
 any API response, not even to an admin.
 
 The encryption key is generated once and stored in the database by default
-(safe, no setup required — protects against casually opening the SQLite file,
+(safe, no setup required — protects against casually reading the database,
 not against someone stealing it outright). Set `SECRET_ENCRYPTION_KEY` to keep
 the key outside the database for real separation — generate one with:
 ```bash
@@ -196,7 +196,7 @@ SSRF:
 
 1. The hostname must resolve to a real public IP — anything private,
    loopback, link-local, or reserved is rejected outright (this is what stops
-   a user from pointing the server at Redis, ComfyUI, or any other container
+   a user from pointing the server at Postgres, ComfyUI, or any other container
    on the internal network).
 2. The endpoint must actually answer like a chat server on at least one known
    shape (OpenAI-style `/models`, Ollama-native `/api/tags`, `/api/version`) —
@@ -264,7 +264,7 @@ model didn't produce it, so the feature never silently no-ops.
 Settings are two-tier:
 
 - **Global** (admin-only) — seeded from env vars, then overlaid from the
-  SQLite `settings` table, applied immediately without a restart. Covers the
+  `settings` table, applied immediately without a restart. Covers the
   default chat/embed endpoints, sampling defaults, image-gen defaults, and the
   instance-wide default display language.
 - **Local** (per-user) — a user's own overrides win over global for the keys
@@ -273,7 +273,7 @@ Settings are two-tier:
   guarded). The API key field is write-only — you can set it or clear it, but
   it's never echoed back once saved.
 
-Changing the embedding dimension rebuilds the Redis index automatically.
+Changing the embedding dimension rebuilds the pgvector tables automatically.
 
 ### Advanced sampling (SillyTavern-style)
 
@@ -391,9 +391,7 @@ abandoned generation is never remembered.
 | `CHAT_MODEL` | `Gemma-4-E4B-Uncensored-HauhauCS-Aggressive` | generation model |
 | `EMBED_MODEL` | `nomic-embed-text` | embedding model |
 | `EMBED_DIM` | `768` | must match the embedding model |
-| `REDIS_URL` | `redis://roleplay-redis:6379` | Redis location (ignored if `DATABASE_URL` is set) |
-| `DATABASE_URL` | _(empty = use SQLite + Redis)_ | set to a `postgresql+asyncpg://` URL to run on PostgreSQL + pgvector instead |
-| `DB_PATH` | `./personae.db` | SQLite file |
+| `DATABASE_URL` | _(required)_ | `postgresql+asyncpg://user:pass@host:5432/dbname` — startup fails fast if unset |
 | `HISTORY_TURNS` | `16` | recent messages kept verbatim |
 | `TOP_K_MEMORY` / `TOP_K_LORE` | `4` / `6` | items retrieved per turn |
 | `MEM_MAX_DIST` / `LORE_MAX_DIST` | `0.80` | cosine-distance cutoffs (lower = stricter) |
@@ -406,12 +404,12 @@ abandoned generation is never remembered.
 (no env-var default worth documenting here — configure them from Settings).
 
 If you change the embedding model, set `EMBED_DIM` to match and rebuild the
-indexes (vectors of different sizes can't share an index) — or just change it
-from Settings, which does this for you automatically:
+vector tables (vectors of different sizes can't share an index) — or just change
+it from Settings, which does this for you automatically:
 
-```bash
-redis-cli FT.DROPINDEX mem_idx DD
-redis-cli FT.DROPINDEX lore_idx DD
+```sql
+DROP TABLE IF EXISTS memory_vectors;
+DROP TABLE IF EXISTS lore_vectors;
 ```
 
 ## Notes

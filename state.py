@@ -100,11 +100,9 @@ log.addHandler(_log_buffer)
 # ----------------------------------------------------------------------------
 # Config
 # ----------------------------------------------------------------------------
-DB_PATH    = os.environ.get("DB_PATH", "./personae.db")
-# When set, db.py + vectors.py run against PostgreSQL + pgvector instead of
-# SQLite + Redis. Empty (default) keeps the SQLite/Redis stack — backward compatible.
+# Required: db.py + vectors.py run against PostgreSQL + pgvector. db.init()
+# fails fast at startup if this is unset.
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
-REDIS_URL  = os.environ.get("REDIS_URL", "redis://roleplay-redis:6379")
 MEDIA_DIR  = os.environ.get("MEDIA_DIR", "./media")
 STATIC_DIR = os.environ.get("STATIC_DIR", "./static")
 

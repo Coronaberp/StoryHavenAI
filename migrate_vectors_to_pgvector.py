@@ -1,5 +1,10 @@
 """One-time Redis -> pgvector data migration.
 
+HISTORICAL: for a one-time SQLite/Redis -> Postgres/pgvector cutover only. The
+live deployment already runs on pgvector and does not need this — kept for
+reference and for anyone migrating an old Redis-based install from scratch.
+(Requires the `redis` package, which is no longer in requirements.txt.)
+
 Reads the raw float32 embedding bytes out of every mem:* / lorevec:* Redis hash
 (the exact encoding vectors.py writes with numpy tobytes) and inserts them into
 the memory_vectors / lore_vectors pgvector tables — no re-embedding, so the

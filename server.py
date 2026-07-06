@@ -29,18 +29,18 @@ from fastapi.staticfiles import StaticFiles
 import db
 import vectors
 import llm
-from state import (CFG, DB_PATH, REDIS_URL, MEDIA_DIR, STATIC_DIR,
+from state import (CFG, MEDIA_DIR, STATIC_DIR,
                    apply_llm_config, log, api, auth_router)
 from auth import _prune_login_attempts
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await db.init(DB_PATH)
+    await db.init()
     saved = await db.all_settings()
     for k, v in saved.items():
         if k in CFG and v is not None:
             CFG[k] = v
-    vectors.connect(REDIS_URL)
+    vectors.connect()
     await vectors.ensure_indexes(CFG["embed_dim"])
     apply_llm_config()
 

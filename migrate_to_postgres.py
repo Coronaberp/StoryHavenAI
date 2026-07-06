@@ -1,5 +1,9 @@
 """One-time SQLite -> PostgreSQL data migration.
 
+HISTORICAL: for a one-time SQLite/Redis -> Postgres/pgvector cutover only. The
+live deployment already runs on Postgres and does not need this — kept for
+reference and for anyone migrating an old SQLite-based install from scratch.
+
 Reads every row from the live SQLite database and inserts it unchanged into the
 Postgres database, using db.py's own SQLAlchemy Table metadata for both sides so
 column names/types line up exactly. Fernet-encrypted columns are copied

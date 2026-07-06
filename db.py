@@ -1,15 +1,13 @@
 """
-db.py — SQLite persistence (async, via SQLAlchemy Core + aiosqlite).
+db.py — PostgreSQL persistence (async, via SQLAlchemy Core + asyncpg).
 
 All structured data lives here: characters, personas, lore, sessions, messages,
 settings, users, auth tokens, and per-user LLM overrides.
-Vector embeddings live in Redis (vectors.py).
+Vector embeddings live in pgvector tables (vectors.py), sharing this engine.
 
-The query layer is written with SQLAlchemy Core (Table objects + expression API)
-so it stays dialect-portable for a future PostgreSQL migration — but this file
-still runs against the same SQLite file with zero data migration. The Fernet
-encryption layer (_encrypt_secret/_decrypt_secret) operates on plain Python
-strings before/after they touch SQL and is unaffected by the query builder.
+The query layer is written with SQLAlchemy Core (Table objects + expression API).
+The Fernet encryption layer (_encrypt_secret/_decrypt_secret) operates on plain
+Python strings before/after they touch SQL and is unaffected by the query builder.
 """
 import os
 import json
@@ -22,7 +20,6 @@ from uuid import uuid4
 
 import sqlalchemy as sa
 from sqlalchemy import and_, or_, select, insert, update, delete, func, text
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
 
@@ -34,7 +31,6 @@ def _preview(content: str, n: int = 80) -> str:
 
 
 _engine: AsyncEngine | None = None
-_is_pg: bool = False
 _fernet: Fernet | None = None
 
 
@@ -159,7 +155,6 @@ messages = sa.Table(
     sa.Column("image_positive", sa.Text),
     sa.Column("image_negative", sa.Text),
     sa.Column("image_ts", sa.Integer),
-    sqlite_autoincrement=True,
 )
 
 settings = sa.Table(
@@ -214,43 +209,21 @@ def nid(prefix: str = "") -> str:
     return prefix + uuid4().hex[:12]
 
 
-def _set_sqlite_pragma(dbapi_conn, _rec):
-    cur = dbapi_conn.cursor()
-    cur.execute("PRAGMA journal_mode=WAL")
-    cur.execute("PRAGMA foreign_keys=ON")
-    cur.close()
-
-
 def engine() -> AsyncEngine:
     return _engine
 
 
-def is_pg() -> bool:
-    return _is_pg
-
-
-def _upsert(table):
-    """Dialect-correct INSERT with ON CONFLICT support (.on_conflict_do_update / .excluded)."""
-    return pg_insert(table) if _is_pg else sqlite_insert(table)
-
-
-async def init(path: str):
-    global _engine, _is_pg, _fernet
+async def init():
+    global _engine, _fernet
     database_url = os.environ.get("DATABASE_URL", "").strip()
-    _is_pg = bool(database_url)
-    if _is_pg:
-        _engine = create_async_engine(database_url)
-    else:
-        _engine = create_async_engine("sqlite+aiosqlite:///" + path)
-        sa.event.listen(_engine.sync_engine, "connect", _set_sqlite_pragma)
+    if not database_url:
+        raise RuntimeError(
+            "DATABASE_URL is required (e.g. "
+            "postgresql+asyncpg://user:pass@host:5432/dbname) — this app runs on "
+            "PostgreSQL + pgvector only.")
+    _engine = create_async_engine(database_url)
 
     async with _engine.begin() as conn:
-        # Migration must run before create_all so existing tables gain new columns;
-        # create_all (checkfirst) then only adds tables that don't exist yet. The
-        # additive migration is SQLite-only (uses sqlite_master/PRAGMA introspection);
-        # on Postgres the schema is created fresh with every column already present.
-        if not _is_pg:
-            await _migrate(conn)
         await conn.run_sync(_meta.create_all)
 
     # Bring-your-own-endpoint API keys (per-user and flagged-pending-review) are
@@ -260,7 +233,7 @@ async def init(path: str):
     #
     # Key source, in order of preference:
     #   1. SECRET_ENCRYPTION_KEY env var — the key lives outside the database, so
-    #      stealing personae.db alone does not hand over the plaintext keys. This
+    #      stealing the database alone does not hand over the plaintext keys. This
     #      is the recommended posture for real encryption-at-rest.
     #   2. Fallback: generate once and store in the settings table. Convenient and
     #      non-breaking (no required migration), but the key sits next to the
@@ -340,118 +313,6 @@ async def _scalar(stmt):
 async def _w(stmt):
     async with _engine.begin() as conn:
         await conn.execute(stmt)
-
-
-async def _table_exists(conn, name: str) -> bool:
-    res = await conn.execute(
-        text("SELECT 1 FROM sqlite_master WHERE type='table' AND name=:n"), {"n": name})
-    return res.fetchone() is not None
-
-
-async def _columns(conn, table: str) -> set[str]:
-    if not await _table_exists(conn, table):
-        return set()
-    res = await conn.execute(text(f"PRAGMA table_info({table})"))
-    return {r._mapping["name"] for r in res.fetchall()}
-
-
-async def _migrate(conn):
-    """Idempotent: add columns introduced after initial release. Runs raw ALTER
-    statements — ad-hoc additive migrations don't need the expression API."""
-    async def ex(sql):
-        await conn.execute(text(sql))
-
-    char_cols = await _columns(conn, "characters")
-    if char_cols:
-        if "mode" not in char_cols:
-            await ex("ALTER TABLE characters ADD COLUMN mode TEXT NOT NULL DEFAULT 'character'")
-            await ex("UPDATE characters SET mode='rpg'")
-        if "assets" not in char_cols:
-            await ex("ALTER TABLE characters ADD COLUMN assets TEXT NOT NULL DEFAULT '{}'")
-        if "owner_id" not in char_cols:
-            await ex("ALTER TABLE characters ADD COLUMN owner_id TEXT")
-        if "is_public" not in char_cols:
-            await ex("ALTER TABLE characters ADD COLUMN is_public INTEGER NOT NULL DEFAULT 0")
-            await ex("UPDATE characters SET is_public=1 WHERE owner_id IS NULL")
-        if "presentation_html" not in char_cols:
-            await ex("ALTER TABLE characters ADD COLUMN presentation_html TEXT NOT NULL DEFAULT ''")
-        if "can_be_persona" not in char_cols:
-            await ex("ALTER TABLE characters ADD COLUMN can_be_persona INTEGER NOT NULL DEFAULT 0")
-        if "allow_download" not in char_cols:
-            await ex("ALTER TABLE characters ADD COLUMN allow_download INTEGER NOT NULL DEFAULT 0")
-        if "description" not in char_cols:
-            await ex("ALTER TABLE characters ADD COLUMN description TEXT NOT NULL DEFAULT ''")
-        if "is_explicit" not in char_cols:
-            await ex("ALTER TABLE characters ADD COLUMN is_explicit INTEGER NOT NULL DEFAULT 0")
-
-    sess_cols = await _columns(conn, "sessions")
-    if sess_cols:
-        if "user_id" not in sess_cols:
-            await ex("ALTER TABLE sessions ADD COLUMN user_id TEXT")
-        if "style_key" not in sess_cols:
-            await ex("ALTER TABLE sessions ADD COLUMN style_key TEXT NOT NULL DEFAULT 'unspecified'")
-        if "style_prompt" not in sess_cols:
-            await ex("ALTER TABLE sessions ADD COLUMN style_prompt TEXT")
-        if "language" not in sess_cols:
-            await ex("ALTER TABLE sessions ADD COLUMN language TEXT")
-        if "char_doing" not in sess_cols:
-            await ex("ALTER TABLE sessions ADD COLUMN char_doing TEXT")
-        if "char_location" not in sess_cols:
-            await ex("ALTER TABLE sessions ADD COLUMN char_location TEXT")
-        if "known_names" not in sess_cols:
-            await ex("ALTER TABLE sessions ADD COLUMN known_names TEXT NOT NULL DEFAULT '[]'")
-        if "author_note" not in sess_cols:
-            await ex("ALTER TABLE sessions ADD COLUMN author_note TEXT")
-        if "glossary" not in sess_cols:
-            await ex("ALTER TABLE sessions ADD COLUMN glossary TEXT NOT NULL DEFAULT '{}'")
-
-    user_cols = await _columns(conn, "users")
-    if user_cols and "status" not in user_cols:
-        await ex("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
-    for col, ddl in (("display_name", "ALTER TABLE users ADD COLUMN display_name TEXT"),
-                     ("bio", "ALTER TABLE users ADD COLUMN bio TEXT"),
-                     ("avatar", "ALTER TABLE users ADD COLUMN avatar TEXT"),
-                     ("banner_color", "ALTER TABLE users ADD COLUMN banner_color TEXT"),
-                     ("accent_color", "ALTER TABLE users ADD COLUMN accent_color TEXT"),
-                     ("banner_img", "ALTER TABLE users ADD COLUMN banner_img TEXT"),
-                     ("social_links", "ALTER TABLE users ADD COLUMN social_links TEXT NOT NULL DEFAULT '{}'"),
-                     ("profile_html", "ALTER TABLE users ADD COLUMN profile_html TEXT NOT NULL DEFAULT ''")):
-        if user_cols and col not in user_cols:
-            await ex(ddl)
-
-    msg_cols = await _columns(conn, "messages")
-    if msg_cols and "lang" not in msg_cols:
-        await ex("ALTER TABLE messages ADD COLUMN lang TEXT")
-    if msg_cols and "image" not in msg_cols:
-        await ex("ALTER TABLE messages ADD COLUMN image TEXT")
-    if msg_cols and "image_positive" not in msg_cols:
-        await ex("ALTER TABLE messages ADD COLUMN image_positive TEXT")
-    if msg_cols and "image_negative" not in msg_cols:
-        await ex("ALTER TABLE messages ADD COLUMN image_negative TEXT")
-    if msg_cols and "image_ts" not in msg_cols:
-        await ex("ALTER TABLE messages ADD COLUMN image_ts INTEGER")
-
-    persona_cols = await _columns(conn, "personas")
-    if persona_cols:
-        if "owner_id" not in persona_cols:
-            await ex("ALTER TABLE personas ADD COLUMN owner_id TEXT")
-        if "source_char_id" not in persona_cols:
-            await ex("ALTER TABLE personas ADD COLUMN source_char_id TEXT")
-
-    lore_cols = await _columns(conn, "lore")
-    if lore_cols:
-        if "image" not in lore_cols:
-            await ex("ALTER TABLE lore ADD COLUMN image TEXT NOT NULL DEFAULT ''")
-        if "category" not in lore_cols:
-            await ex("ALTER TABLE lore ADD COLUMN category TEXT NOT NULL DEFAULT ''")
-        if "hidden" not in lore_cols:
-            await ex("ALTER TABLE lore ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0")
-        if "name" not in lore_cols:
-            await ex("ALTER TABLE lore ADD COLUMN name TEXT NOT NULL DEFAULT ''")
-        if "appearance_tags" not in lore_cols:
-            await ex("ALTER TABLE lore ADD COLUMN appearance_tags TEXT NOT NULL DEFAULT ''")
-        if "appearance_tags_negative" not in lore_cols:
-            await ex("ALTER TABLE lore ADD COLUMN appearance_tags_negative TEXT NOT NULL DEFAULT ''")
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -620,7 +481,7 @@ async def set_user_settings(user_id: str, items: dict):
                 continue
             if k == "api_key" and isinstance(v, str) and v:
                 v = _encrypt_secret(v)
-            stmt = _upsert(user_settings).values(
+            stmt = pg_insert(user_settings).values(
                 user_id=user_id, key=k, value=json.dumps(v))
             stmt = stmt.on_conflict_do_update(
                 index_elements=["user_id", "key"],
@@ -1224,7 +1085,7 @@ async def all_settings() -> dict:
 async def set_settings(items: dict):
     async with _engine.begin() as conn:
         for k, v in items.items():
-            stmt = _upsert(settings).values(key=k, value=json.dumps(v))
+            stmt = pg_insert(settings).values(key=k, value=json.dumps(v))
             stmt = stmt.on_conflict_do_update(
                 index_elements=["key"], set_={"value": stmt.excluded.value})
             await conn.execute(stmt)
@@ -1254,7 +1115,7 @@ async def set_localizations(items: list[tuple], lang: str, kind: str = "content"
     now = time.time()
     async with _engine.begin() as conn:
         for h, src, tr in items:
-            stmt = _upsert(localization).values(
+            stmt = pg_insert(localization).values(
                 src_hash=h, lang=lang, kind=kind, source=src,
                 translated=tr, created=now)
             stmt = stmt.on_conflict_do_update(

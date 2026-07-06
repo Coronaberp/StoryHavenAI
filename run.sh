@@ -12,8 +12,8 @@
 if [ ! -x /usr/bin/python3.12 ]; then
   apk add --no-cache python3 >/tmp/apk.log 2>&1 || { cat /tmp/apk.log; exit 1; }
 fi
-# server.py resolves STATIC_DIR/MEDIA_DIR/DB_PATH relative to the process cwd
-# (./static, ./media, ./personae.db) — uvicorn's --app-dir only affects where
+# server.py resolves STATIC_DIR/MEDIA_DIR relative to the process cwd
+# (./static, ./media) — uvicorn's --app-dir only affects where
 # it imports the `server` module from, it does NOT chdir there. The compose
 # service's working_dir is /app (shared with the sibling round-robin-story
 # mount), so without this cd every relative path resolves one level too high.
