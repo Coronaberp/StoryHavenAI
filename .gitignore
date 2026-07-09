@@ -9,8 +9,17 @@ personae.db-wal
 personae.db.backup*
 personae.logs.jsonl
 
+# Retired pre-Postgres SQLite database + backups (dead weight, kept locally only)
+legacy/
+
 # User-uploaded content
 media/
 
 # Local scratch
 files/
+
+# StoryHaven AI installer-generated files (contain secrets)
+.env
+docker-compose.yml
+installer/Output/
+backup_before_encrypt_backfill.sql

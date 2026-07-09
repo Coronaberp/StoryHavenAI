@@ -1,0 +1,263 @@
+  .lora-row .lora-row-sel{flex:1;min-width:0;}
+  .lora-row .lora-row-strength{width:90px;flex:none;}
+  .lora-row .lora-row-val{width:32px;flex:none;text-align:right;}
+  .img-pick-box{position:relative;display:inline-block;margin:10px 10px 0 0;}
+  .img-pick-x{position:absolute;top:-10px;right:-10px;width:22px;height:22px;padding:0;border-radius:50%;cursor:pointer;z-index:2;
+    display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;
+    background:var(--paper);border:1px solid var(--line-2);box-shadow:0 2px 6px rgba(0,0,0,.4);}
+  .img-pick-x:hover{background:var(--warn);border-color:var(--warn);color:#fff;}
+  .img-pick-empty{display:grid;place-items:center;color:var(--muted);cursor:pointer;background:var(--surface-2);border:1px dashed var(--line-2);}
+  .img-pick-empty:hover{color:var(--accent);border-color:var(--accent);}
+  .img-pick-empty svg{width:26px;height:26px;}
+  .ig-ref-preview{position:relative;display:inline-block;margin-bottom:10px;}
+  .ig-ref-preview img{display:block;width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--line);}
+  .ig-ref-empty{width:96px;height:96px;border-radius:8px;margin-bottom:10px;}
+  .ig-tags-label{font-family:var(--mono);font-weight:700;font-size:13px;width:16px;text-align:center;flex:none;}
+  .ig-tags-label.ig-tags-pos{color:#4caf6d;}
+  .ig-tags-label.ig-tags-neg{color:#e05a5a;}
+  .ig-tag{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid transparent;}
+  .ig-tag-pos{background:color-mix(in srgb, #4caf6d 16%, transparent);border-color:color-mix(in srgb, #4caf6d 40%, transparent);color:#4caf6d;}
+  .ig-tag-neg{background:color-mix(in srgb, #e05a5a 16%, transparent);border-color:color-mix(in srgb, #e05a5a 40%, transparent);color:#e05a5a;}
+  .stage-editor > summary{cursor:pointer;list-style:none;padding:14px 0;font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);}
+  .stage-editor > summary::-webkit-details-marker{display:none;}
+  .stage-editor .stage-body{padding-bottom:18px;}
+  h3.sec{font-size:15px;margin:22px 0 14px;border-top:1px solid var(--line);padding-top:18px;}
+  .set-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;}
+  .set-tab{background:none;border:none;border-bottom:2px solid transparent;padding:10px 16px;font-size:13.5px;font-weight:500;color:var(--muted);cursor:pointer;margin-bottom:-1px;}
+  .set-tab:hover{color:var(--ink);}
+  .set-tab.on{color:var(--accent);border-bottom-color:var(--accent);}
+  .set-panel{animation:none;}
+  .slider-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;margin-bottom:14px;}
+  .slider-field{margin:0 0 4px;}
+  .slider-row{display:flex;align-items:center;gap:10px;}
+  .slider-row input[type="range"]{flex:1;accent-color:var(--accent);}
+  .slider-row input[type="number"]{width:68px;flex:none;text-align:center;
+    background:var(--surface);border:1px solid var(--line);border-radius:8px;
+    padding:7px 4px;font-family:inherit;font-size:13.5px;color:var(--ink);outline:none;transition:.15s;
+    -moz-appearance:textfield;}
+  .slider-row input[type="number"]:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .slider-row input[type="number"]::-webkit-outer-spin-button,
+  .slider-row input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .ap-md-layout{display:grid;grid-template-columns:1fr 260px;gap:24px;align-items:start;}
+  .ap-md-controls{min-width:0;}
+  .ap-style-row label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+  .ap-style-controls{display:flex;gap:8px;}
+  .ap-style-controls>.lang-ac{flex:1;min-width:0;}
+  .ap-style-font{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:11px 13px;font-size:14px;color:var(--ink);}
+  .ap-swatch{width:52px;flex:none;height:40px;border:1px solid var(--line);border-radius:9px;padding:0;cursor:pointer;}
+  .ap-swatch:hover{border-color:var(--accent);}
+  .style-toggle-group{display:flex;gap:4px;flex:none;}
+  .style-toggle-btn{width:32px;height:40px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--muted);font-size:12.5px;font-weight:700;cursor:pointer;}
+  .style-toggle-btn:hover{color:var(--ink);}
+  .style-toggle-btn[data-flag="i"]{font-style:italic;}
+  .style-toggle-btn[data-flag="u"]{text-decoration:underline;}
+  .style-toggle-btn[data-flag="s"]{text-decoration:line-through;}
+  .style-toggle-btn.on{background:var(--accent-soft);color:var(--accent-deep);border-color:var(--accent);}
+  @media (max-width:480px){ .style-toggle-group{flex-wrap:wrap;} }
+  @media (max-width:480px){ .ap-style-controls{flex-direction:column;} .ap-swatch{width:100%;} }
+  .ap-color-controls{display:flex;gap:8px;}
+  .ap-color-controls input[type="text"]{flex:1;min-width:0;}
+  .ap-color-controls .lang-ac{flex:1;min-width:0;}
+  .ap-color-controls .ap-swatch{width:40px;}
+  .cp-pop{position:absolute;z-index:200;width:220px;background:var(--surface);border:1px solid var(--line-2);border-radius:12px;padding:14px;box-shadow:0 20px 48px -16px rgba(0,0,0,.6);}
+  .cp-sv{position:relative;width:100%;height:140px;border-radius:8px;margin-bottom:12px;cursor:crosshair;
+    background-image:linear-gradient(to top, #000, rgba(0,0,0,0)), linear-gradient(to right, #fff, rgba(255,255,255,0));}
+  .cp-sv-thumb{position:absolute;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.4);transform:translate(-50%,-50%);pointer-events:none;}
+  .cp-hue{width:100%;margin-bottom:12px;-webkit-appearance:none;appearance:none;height:12px;border-radius:6px;cursor:pointer;
+    background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);}
+  .cp-hue::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid var(--line-2);box-shadow:0 1px 4px rgba(0,0,0,.5);}
+  .cp-hue::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:2px solid var(--line-2);}
+  .cp-hexrow{display:flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;}
+  .cp-hexrow span{color:var(--muted);font-family:var(--mono);font-size:13px;}
+  .cp-hexrow input{flex:1;min-width:0;background:none;border:none;outline:none;color:var(--ink);font-family:var(--mono);font-size:13px;text-transform:uppercase;}
+  /* Must render above .scrim (z-index:9999) since this is routinely anchored
+     to a control inside an open modal (e.g. Settings' NSFW toggle) — it's
+     appended straight to <body>, a sibling of #scrim, not a child of it, so
+     it needs its own z-index higher than the modal system's, not just a
+     "big enough" number picked in isolation. This is exactly what silently
+     broke the NSFW-enable confirmation chain after .scrim's z-index was
+     bumped for an unrelated fix: the popover kept rendering (visible in the
+     DOM/query selectors) but sat underneath the modal for hit-testing, so
+     its buttons never actually received the click. */
+  .confirm-pop{position:absolute;z-index:10000;width:250px;background:var(--surface);border:1px solid var(--line-2);border-radius:12px;padding:14px;box-shadow:0 20px 48px -16px rgba(0,0,0,.6);}
+  .confirm-pop p{margin:0 0 12px;font-size:13.5px;color:var(--ink);line-height:1.5;}
+  .confirm-pop-actions{display:flex;justify-content:flex-end;gap:8px;}
+  .ap-md-preview{position:sticky;top:0;}
+  .ap-preview-label{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+  .ap-preview-card{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px 16px;font-size:14px;line-height:1.65;}
+  @media (max-width:720px){ .ap-md-layout{grid-template-columns:1fr;} .ap-md-preview{position:static;} }
+  .ep-group{background:var(--surface-2);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-bottom:12px;}
+  .ep-group-head{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;}
+  .ep-group .field{margin-bottom:10px;}
+  .ep-group .field:last-child{margin-bottom:0;}
+  .settings-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+  .settings-row .field{margin:0;}
+  .s-fold{border:1px solid var(--line);border-radius:11px;margin:8px 0;overflow:hidden;}
+  .s-fold>summary{cursor:pointer;list-style:none;padding:12px 16px;font-size:13.5px;font-weight:500;color:var(--ink);display:flex;align-items:center;gap:8px;user-select:none;}
+  .s-fold>summary::-webkit-details-marker{display:none;}
+  .s-fold>summary::before{content:"▸";font-size:11px;color:var(--muted);transition:transform .15s;}
+  .s-fold[open]>summary::before{transform:rotate(90deg);}
+  .s-fold>summary:hover{background:var(--surface-2);}
+  .s-fold>.s-fold-body{padding:4px 16px 16px;}
+  .model-pill{background:var(--surface-2);border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:12px;font-family:var(--mono);cursor:pointer;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+  .model-pill:hover{border-color:var(--accent);color:var(--accent);}
+  .model-pill-close{background:none;border:none;color:var(--muted);font-size:16px;line-height:1;cursor:pointer;padding:0 4px;align-self:center;flex-shrink:0;}
+  .model-pill-close:hover{color:var(--ink);}
+  .tag-filter{cursor:pointer;transition:.12s;} .tag-filter:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-deep);}
+  .chat-more-menu{position:absolute;right:0;top:calc(100% + 4px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px;min-width:200px;z-index:20;box-shadow:0 8px 24px -8px var(--violet-soft);}
+  .chat-more-item{display:block;width:100%;text-align:left;padding:8px 12px;border:none;background:none;border-radius:7px;cursor:pointer;font-size:14px;color:var(--ink);font-family:inherit;white-space:nowrap;}
+  .chat-more-item:hover{background:var(--surface-2);} .chat-more-item.danger{color:var(--warn);}
+  .chat-more-item.active{color:var(--accent);font-weight:600;}
+  .chat-more-sep{height:1px;background:var(--line);margin:4px 2px;}
+  .stage-editor label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--sec);margin-bottom:5px;}
+  .stage-editor input,.stage-editor textarea{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;color:var(--ink);font-family:var(--mono);outline:none;}
+  .stage-editor input:focus,.stage-editor textarea:focus{border-color:var(--accent);}
+  .stage-editor textarea{resize:vertical;}
+  .pres-warning{background:var(--warn-soft);border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.5;color:var(--sec);margin-bottom:14px;}
+  .pres-tip{font-style:italic;font-size:12px;line-height:1.5;color:var(--muted);margin-bottom:14px;}
+  .pres-split{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .pres-col{min-width:0;}
+  .pres-col-label{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--sec);margin-bottom:5px;}
+  .pres-split textarea{height:260px;width:100%;resize:vertical;margin:0;}
+  .pres-preview{height:260px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:10px;min-width:0;}
+  .pres-preview *{max-width:100%;}
+  @media (max-width:720px){ .pres-split{grid-template-columns:1fr;} }
+  .stage-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;min-width:0;}
+  .stage-grid > div{min-width:0;}
+  .moods-label{margin:18px 0 8px !important;}
+  .media-field{display:flex;gap:4px;align-items:center;}
+  .media-field input{flex:1;min-width:0;}
+  .media-field .btn{flex:none;padding:5px 8px;font-size:11px;}
+  .mood-head,.mood-row{display:grid;grid-template-columns:.7fr 1fr 1fr 1fr 28px;gap:8px;align-items:center;min-width:0;}
+  .mood-row > *{min-width:0;}
+  .mood-head{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+  .mood-row{margin-bottom:8px;}
+  .mood-row .m-del{color:var(--muted);}
+  .mood-row .m-del:hover{color:var(--warn);}
+
+  /* Full-width themed banner pinned to the very top of the viewport, above
+     everything else (modals included — z-index higher than .confirm-pop's
+     10000), always closeable via the [x] — every toast (plain or error)
+     shares this exact shell so a validation message like "Model name is
+     required" reads and behaves the same as a generation-error banner
+     instead of a separate low-z-index bottom box that modals could bury. */
+  .toast{position:fixed;top:0;left:0;right:0;bottom:auto;
+    transform:translateY(-100%);
+    background:var(--surface);color:var(--ink);border:none;border-bottom:1px solid var(--accent);
+    max-width:none;width:100%;max-height:40vh;overflow:auto;text-align:left;
+    display:flex;align-items:flex-start;gap:10px;padding:14px 44px 14px 16px;
+    border-radius:0;box-shadow:0 10px 34px -8px rgba(0,0,0,.5);pointer-events:none;
+    z-index:10001;box-sizing:border-box;font-size:14px;transition:.25s;}
+  .toast.show{transform:translateY(0);pointer-events:auto;}
+  .toast::before{content:"";flex:none;width:4px;align-self:stretch;border-radius:2px;background:var(--accent);}
+  .toast .toast-error-msg{flex:1;white-space:pre-wrap;word-break:break-word;line-height:1.5;}
+  .toast .toast-error-close{position:absolute;top:10px;right:12px;flex:none;background:none;border:none;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:4px 8px;border-radius:6px;}
+  .toast .toast-error-close:hover{color:var(--accent);background:var(--accent-tint);}
+  .toast .toast-error-close:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accent-soft);}
+  /* Error variant just swaps the accent-colored bar/hover for the warn color
+     and gets a longer auto-dismiss (set in JS) since it's worth reading. */
+  .toast.error{border-bottom-color:var(--warn);}
+  .toast.error::before{background:var(--warn);}
+  .toast.error .toast-error-close:hover{color:var(--warn);background:color-mix(in srgb, var(--warn) 12%, transparent);}
+
+  .update-banner{position:fixed;top:0;left:0;right:0;z-index:90;background:var(--accent);color:var(--gold-ink);font-family:var(--sans);font-size:13.5px;font-weight:600;text-align:center;padding:9px 14px;display:flex;gap:12px;align-items:center;justify-content:center;box-shadow:0 4px 16px -6px rgba(0,0,0,.4);}
+  .update-banner button{background:var(--gold-ink);color:var(--accent);border:none;border-radius:7px;padding:5px 12px;font-family:var(--sans);font-size:12.5px;font-weight:700;}
+  .update-banner #updateBannerSecs{font-variant-numeric:tabular-nums;}
+  .update-banner button:hover{opacity:.85;}
+
+  /* mobile tweaks to existing components
+     (previously missing this @media wrapper entirely — these were
+     unconditionally overriding the desktop sizes above on every viewport) */
+  @media (max-width:900px){
+    .catalog.catalog-card{grid-template-columns:repeat(2,1fr);}
+    .toolbar .search{flex:1 1 100%;order:-1;}
+    .chat-shell{height:calc(100vh - 112px);height:calc(100dvh - 112px);}
+    .chat-top{padding:12px 14px;gap:8px;}
+    .chat-top .who .s{display:none;}
+    .thread{padding:18px 14px 10px;}
+    .composer{padding:10px 14px 12px;}
+    .composer .inner{padding:6px 6px 6px 12px;}
+    .send{width:44px;height:44px;font-size:18px;}
+    .doss-hero{height:130px;border-radius:12px;}
+    .doss-card{flex-wrap:wrap;margin:-30px 6px 0;padding:14px;}
+    .doss-card-ava{width:58px;height:58px;}
+    .doss-card-row{gap:8px;}
+    .doss-card-row h1{font-size:20px;}
+    .pf-banner-full{height:140px;}
+    .pf-card{margin-top:-48px;}
+    .pf-ava-wrap{width:64px;height:64px;margin-top:-36px;}
+    .pf-head{gap:10px;flex-wrap:wrap;}
+    .pf-name{font-size:19px;}
+    .pf-head .btn{margin-left:0;}
+    .actions{gap:8px;}
+    .entry{grid-template-columns:1fr 50px;gap:12px;padding:16px 4px;}
+    .entry h3{font-size:18px;}
+    .stage-grid{grid-template-columns:1fr;}
+    .mood-head,.mood-row{grid-template-columns:1fr;gap:4px;}
+    .mood-head{display:none;}
+    .mood-row{border-bottom:1px solid var(--line);padding-bottom:8px;}
+    .modal{padding:20px 18px;max-height:90vh;}
+    .slider-grid{grid-template-columns:1fr;}
+    .set-tabs{overflow-x:auto;}
+    /* The drawer is a fixed-height overlay on mobile — its own scrollbar reads
+       as broken/janky on touch (fights the swipe-to-close backdrop gesture).
+       Keep nav/foot always fully visible and let only the recent-chats list
+       (already independently bounded) absorb any overflow, more tightly
+       capped here than on desktop so the whole drawer reliably fits. */
+    .rail{overflow:hidden;padding:16px 14px;}
+    .recent{max-height:22vh;}
+  }
+
+  .stage-toggle{position:absolute;top:10px;right:10px;z-index:3;background:color-mix(in srgb, var(--surface-2) 88%, transparent);border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12px;color:var(--sec);backdrop-filter:blur(6px);}
+  .chat-shell.stage-hidden .stage{display:none;}
+
+  /* the stage image dominates less on small screens: dimmer, more blurred behind
+     the thread, and the sprite is capped smaller so it doesn't crowd the text.
+     Desktop keeps the original full-immersion look (see @media min-width:901px). */
+  @media (max-width:900px){
+    .stage-bg.on{opacity:.55;}
+    .stage-sprite{max-height:52%;max-width:38%;}
+    .chat-shell.has-stage .thread{background:color-mix(in srgb, var(--paper) 88%, transparent);backdrop-filter:blur(4px);}
+  }
+
+  /* ---------- DESKTOP (persistent sidebar, no mobile chrome) ---------- */
+  @media (min-width:901px){
+    .shell{display:grid;grid-template-columns:248px 1fr;height:100vh;}
+    .mtop,.tabbar,.scrim-nav{display:none;}
+    .rail{position:static;transform:none;width:auto;max-width:none;z-index:auto;
+          border-right:1px solid var(--line);}
+    .main {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        overflow-y: auto;
+        padding-top: 0;
+        padding-bottom: 0;
+        height: 100%;
+    }
+    .wrap, .catalog {
+        width: 100%;
+        max-width: none;
+        padding: 10px 18px;
+    }
+    .chat-shell{height:100%;width:100%;}
+    .chat-top{padding:14px 22px;}
+    .thread{padding:30px 26px 10px;}
+    .composer{padding:14px 26px 18px;}
+    .entry {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 20px;
+        width: 100%; /* Forces the card to stretch to container width */
+    }
+    .entry h3{font-size:20px;}
+    .doss-card-ava{width:88px;height:88px;}
+    .pf-ava{width:96px;height:96px;}
+    .stage-grid{grid-template-columns:1fr 1fr 1fr;}
+    .mood-head,.mood-row{grid-template-columns:.7fr 1fr 1fr 1fr 28px;}
+    .mood-head{display:grid;}
+  }
+
+/* ── Response Style picker — a grid of flippable mood cards ──────────── */
+.style-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px;}
+.style-section-label{grid-column:1/-1;font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin:4px 0 -2px;}

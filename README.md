@@ -24,36 +24,63 @@ nothing to configure, no CORS.
 
 ```
 ai-frontend/
-├── server.py          FastAPI app assembly — lifespan, router includes, static/media mounts
-├── state.py           Shared config (CFG), config-key lists, logging, upload/cookie constants
-├── auth.py            Auth dependencies, session cookie, login rate limiting, /api/auth/*
-├── ssrf.py            Bring-your-own chat endpoint safety checks
-├── prompt.py          System prompt assembly, RPG mode prompts, macros, dice, mood parsing
-├── media.py           Image upload validation/optimization/save
-├── chat_service.py    Endpoint resolution, retrieval, memory, the core chat generation flow
-├── routers/           One file per domain: characters, personas, lore, sessions, profile,
-│                       settings, admin, misc — every route lives here, server.py just wires them up
-├── db.py              PostgreSQL (async, SQLAlchemy Core over asyncpg) — all CRUD, schema
-├── vectors.py         pgvector (same Postgres engine) — vector storage + similarity search
-├── llm.py             OpenAI-compatible client (chat / embeddings / models)
-├── imagegen.py        ComfyUI client (submit workflow, poll, websocket live preview)
-├── schemas.py         Pydantic request models
+├── server.py          FastAPI app assembly — lifespan, router includes, static/media mounts.
+│                       The only .py file at the repo root; everything else app-side is in backend/
+├── backend/
+│   ├── state.py           Shared config (CFG), config-key lists, logging, upload/cookie constants
+│   ├── auth.py            Auth dependencies, session cookie, login rate limiting, /api/auth/*
+│   ├── ssrf.py            Bring-your-own chat endpoint safety checks
+│   ├── prompt.py          System prompt assembly, RPG mode prompts, macros, dice, mood parsing
+│   ├── media.py           Image upload validation/optimization/save
+│   ├── chat_service.py    Endpoint resolution, retrieval, memory, the core chat generation flow
+│   ├── routers/           One file per domain: characters, personas, lore, sessions, profile,
+│   │                       settings, admin, comments, emojis, forum, health, notifications, misc —
+│   │                       every route lives here, server.py just wires them up
+│   ├── db.py              PostgreSQL (async, SQLAlchemy Core over asyncpg) — all CRUD, schema
+│   ├── vectors.py         pgvector (same Postgres engine) — vector storage + similarity search
+│   ├── llm.py             OpenAI-compatible client (chat / embeddings / models)
+│   ├── imagegen.py        ComfyUI client (submit workflow, poll, websocket live preview)
+│   ├── ratelimit.py       Shared rate-limit helper used across routers
+│   └── schemas.py         Pydantic request models
+├── modules/py/        Standalone scripts not imported by the running app — one-time migrations
+│                       and backfills, run manually, never at startup
+├── docs/              SETUP.md, MIGRATION_POSTGRES.md, features.md
+├── VersionReports/    Per-release audit reports
 ├── requirements.txt
 └── static/
     ├── index.html     app shell (nav, layout)
-    ├── app.js          the whole SPA — vanilla JS, no build step
-    └── style.css
+    ├── js/            the whole SPA's JS, one file per feature area — vanilla JS, no build step
+    └── css/           one stylesheet per feature area
 ```
 
 `server.py` only assembles the app and includes the routers — it doesn't contain
-route handlers or business logic itself anymore. Every router module only calls
-into `db`/`vectors`/`chat_service` functions, never raw SQL directly, so the
+route handlers or business logic itself anymore. Everything under `backend/` imports
+its siblings with absolute `from backend.x import y` / `from backend import x` (never
+bare `import x`), since `server.py` at the root sits outside the `backend` package.
+Every router module only calls into `db`/`vectors`/`chat_service` functions, never raw SQL directly, so the
 storage layer can change underneath without touching routes.
 
 There is no local `docker-compose.yml`/`compose.yaml` in *this* repo — this
 checkout is bind-mounted into a container managed by a compose stack that lives
 elsewhere (see `CLAUDE.md` for exactly how). The setup below is written for
 running this standalone, e.g. for development or a from-scratch deployment.
+
+### Why there's a `legacy/` and a `VersionReports/`
+
+Two directories exist purely for history, not for the running app:
+
+- **`legacy/`** holds the retired pre-Postgres SQLite database and its backups
+  (`personae.db` + snapshots), kept from before the app moved to
+  PostgreSQL + pgvector as its only backend. Nothing in the app reads from it
+  anymore — it's gitignored and left on disk only in case anyone ever needs to
+  recover something from the old database. Safe to delete once you're confident
+  you don't need it.
+- **`VersionReports/`** holds the audit report written at the end of each
+  release's prep work (`V1_FINAL_REPORT.md`, `FINAL_REPORT_V1.1.md`, …), plus a
+  frozen copy of `docs/features.md` as it read at that release (`features_v1.md`,
+  …). These are a paper trail of what was checked and fixed before each release
+  shipped — not documentation of the current app, so don't treat them as
+  up-to-date; check the live code for that instead.
 
 ## Setup
 
@@ -156,7 +183,8 @@ engine. Set `DATABASE_URL` (e.g.
 server fails fast at startup if it's unset. The app creates its own tables and
 the `vector` extension automatically on first run; there's no manual schema step.
 
-The repo also contains two historical one-time migration scripts —
+The repo also contains two historical one-time migration scripts, in
+`modules/py/` alongside the other standalone (non-app) scripts —
 `migrate_to_postgres.py` (rows) and `migrate_vectors_to_pgvector.py`
 (embeddings, copied directly rather than re-run through the embedding model) —
 for anyone migrating an old SQLite/Redis install onto Postgres from scratch.
@@ -420,7 +448,6 @@ DROP TABLE IF EXISTS lore_vectors;
   JSON card with the character's lorebook embedded as `character_book`, so it
   re-imports cleanly into Tavern, chub, RisuAI, or back into StoryHaven AI. Export
   is owner-only unless the character explicitly allows others to download it.
-- Static assets (`app.js`, `style.css`) are served with `Cache-Control:
+- Static assets (`static/js/*.js`, `static/css/*.css`) are served with `Cache-Control:
   no-cache`, so front-end edits show up without a container restart; an
   in-app update banner polls `/version` to prompt a refresh when they change.
-# StoryHavenAI
