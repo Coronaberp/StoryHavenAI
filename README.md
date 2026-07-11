@@ -409,11 +409,19 @@ Modal call (not just a flag the UI stops polling for), so an abort stops
 GPU billing immediately rather than leaving an orphaned run.
 
 Base checkpoints are uploaded to a Modal Volume once and reused by every later
-job instead of re-uploading multi-GB files per run. The finished LoRA is
-fetched back as a plain chunked binary transfer, never embedded inline in the
-progress stream. `MODAL_TOKEN_ID`/`MODAL_TOKEN_SECRET` (env vars) authenticate
-to Modal itself; the deployed training app is first-use auto-deployed and
-protected by a generated shared secret, both handled for you.
+job instead of re-uploading multi-GB files per run — checkpoint caching and
+finished-LoRA retrieval talk to the Volume directly via Modal's own Python
+SDK, not a hand-rolled HTTP upload/download. `MODAL_TOKEN_ID`/`MODAL_TOKEN_SECRET`
+(env vars) authenticate to Modal itself; the deployed training app is
+first-use auto-deployed and protected by a generated shared secret, both
+handled for you.
+
+A job can resume from an existing LoRA instead of always starting fresh —
+pick a previous job's checkpoint and continue training on top of it for a
+further N steps, useful after an abort or a stall. If the training process
+itself goes completely silent for too long (no output, no error), it's
+killed automatically well before the multi-hour ceiling, instead of quietly
+burning GPU time doing nothing.
 
 ## Thinking (model reasoning)
 
