@@ -8,6 +8,11 @@ storyhavenai.db-shm
 storyhavenai.db-wal
 storyhavenai.db.backup*
 storyhavenai.logs.jsonl
+personae.logs.jsonl
+
+# Contains real account credentials — never commit
+CLAUDE.md
+.claude/
 
 # Retired pre-Postgres SQLite database + backups (dead weight, kept locally only)
 legacy/
