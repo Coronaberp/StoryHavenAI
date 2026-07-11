@@ -14,7 +14,7 @@ import numpy as np
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-log = logging.getLogger("personae")
+log = logging.getLogger("storyhavenai")
 
 MEM_INDEX, LORE_INDEX = "mem_idx", "lore_idx"
 
@@ -208,4 +208,5 @@ async def stats():
             l = (await conn.execute(sa.select(sa.func.count()).select_from(_lore_tbl))).scalar()
         return {"memories": int(m), "lore_vectors": int(l), "ok": True}
     except Exception as e:
+        log.warning("vectors stats query failed: %s: %s", type(e).__name__, e)
         return {"ok": False, "error": str(e)}

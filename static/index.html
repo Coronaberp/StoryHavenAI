@@ -65,7 +65,7 @@
         <a href="/" data-route="library"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> <span data-i18n="nav_library">Library</span></a>
         <a href="/community" data-route="community"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> <span data-i18n="nav_community">Community</span></a>
         <a href="/personas" data-route="personas"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg> <span data-i18n="nav_personas">Personas</span></a>
-        <a href="/images" data-route="images"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg> <span data-i18n="nav_images">Images</span></a>
+        <a href="/images" data-route="images"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/><circle cx="12" cy="12" r="2.5"/></svg> <span data-i18n="nav_images">Creations</span></a>
         <a href="/forum" data-route="forum"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> <span data-i18n="nav_forum">Forum</span></a>
         <a href="/admin" data-route="admin" id="adminNavLink" style="display:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> <span data-i18n="nav_admin">Admin</span></a>
         <a href="/create" class="new"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span data-i18n="nav_new_character">New character</span></a>
@@ -110,18 +110,49 @@
 <div class="scrim" id="scrim"></div>
 <div class="toast" id="toast"></div>
 
-<script src="/js/core.js"></script>
+<script src="/js/state-store.js"></script>
+<script src="/js/app-session.js"></script>
+<script src="/js/i18n.js"></script>
+<script src="/js/appearance.js"></script>
+<script src="/js/dom-utils.js"></script>
+<script src="/js/autocomplete-widgets.js"></script>
+<script src="/js/ui-popovers.js"></script>
+<script src="/js/card-sandbox.js"></script>
+<script src="/js/card-utils.js"></script>
+<script src="/js/toast.js"></script>
+<script src="/js/imagegen-picker.js"></script>
+<script src="/js/report-image.js"></script>
+<script src="/js/recent-sessions.js"></script>
 <script src="/js/auth.js"></script>
 <script src="/js/nav.js"></script>
 <script src="/js/library.js"></script>
-<script src="/js/admin.js"></script>
+<script src="/js/forum.js"></script>
+<script src="/js/admin-users.js"></script>
+<script src="/js/admin-moderation.js"></script>
+<script src="/js/admin-previews.js"></script>
+<script src="/js/admin-emojis.js"></script>
+<script src="/js/admin-config.js"></script>
+<script src="/js/admin-health.js"></script>
+<script src="/js/admin-core.js"></script>
+<script src="/js/emoji-picker.js"></script>
 <script src="/js/comments.js"></script>
 <script src="/js/dossier.js"></script>
 <script src="/js/chat.js"></script>
+<script src="/js/chat-modals.js"></script>
+<script src="/js/chat-actions.js"></script>
+<script src="/js/card-template.js"></script>
 <script src="/js/editor.js"></script>
 <script src="/js/personas.js"></script>
+<script src="/js/imagegen.js"></script>
+<script src="/js/imagegen-feed.js"></script>
+<script src="/js/imagegen-detail.js"></script>
+<script src="/js/lora-training.js"></script>
 <script src="/js/lorebook.js"></script>
-<script src="/js/modal-settings.js"></script>
+<script src="/js/modal-core.js"></script>
+<script src="/js/compliance.js"></script>
+<script src="/js/user-settings.js"></script>
+<script src="/js/version-watch.js"></script>
+<script src="/js/notifications.js"></script>
 <script src="/js/boot.js"></script>
 </body>
 </html>

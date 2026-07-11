@@ -12,14 +12,19 @@
   .ig-ref-preview{position:relative;display:inline-block;margin-bottom:10px;}
   .ig-ref-preview img{display:block;width:96px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--line);}
   .ig-ref-empty{width:96px;height:96px;border-radius:8px;margin-bottom:10px;}
+  .ig-train-drop{width:44px;height:44px;border-radius:8px;}
+  .ig-train-drop svg{width:20px;height:20px;}
   .ig-tags-label{font-family:var(--mono);font-weight:700;font-size:13px;width:16px;text-align:center;flex:none;}
   .ig-tags-label.ig-tags-pos{color:#4caf6d;}
   .ig-tags-label.ig-tags-neg{color:#e05a5a;}
   .ig-tag{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid transparent;}
   .ig-tag-pos{background:color-mix(in srgb, #4caf6d 16%, transparent);border-color:color-mix(in srgb, #4caf6d 40%, transparent);color:#4caf6d;}
   .ig-tag-neg{background:color-mix(in srgb, #e05a5a 16%, transparent);border-color:color-mix(in srgb, #e05a5a 40%, transparent);color:#e05a5a;}
-  .stage-editor > summary{cursor:pointer;list-style:none;padding:14px 0;font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);}
+  .stage-editor > summary{cursor:pointer;list-style:none;padding:14px 0;font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:8px;}
   .stage-editor > summary::-webkit-details-marker{display:none;}
+  .pf-html-copy-instructions{width:24px;height:24px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:6px;background:var(--surface);color:var(--sec);margin-left:auto;}
+  .pf-html-copy-instructions:hover{color:var(--accent);border-color:var(--accent);}
+  .pf-html-copy-instructions svg{width:13px;height:13px;}
   .stage-editor .stage-body{padding-bottom:18px;}
   h3.sec{font-size:15px;margin:22px 0 14px;border-top:1px solid var(--line);padding-top:18px;}
   .set-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;}
@@ -59,7 +64,32 @@
   .ap-color-controls input[type="text"]{flex:1;min-width:0;}
   .ap-color-controls .lang-ac{flex:1;min-width:0;}
   .ap-color-controls .ap-swatch{width:40px;}
-  .cp-pop{position:absolute;z-index:200;width:220px;background:var(--surface);border:1px solid var(--line-2);border-radius:12px;padding:14px;box-shadow:0 20px 48px -16px rgba(0,0,0,.6);}
+  .theme-preset-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+  .theme-preset-tile{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 8px;border:1px solid var(--line);border-radius:12px;background:var(--surface);cursor:pointer;}
+  .theme-preset-tile:hover{border-color:var(--accent);}
+  .theme-preset-tile.on{border-color:var(--accent);background:var(--accent-soft);}
+  .theme-preset-swatch{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);}
+  .theme-preset-name{font-size:13px;color:var(--ink);text-align:center;}
+  @media (max-width:480px){ .theme-preset-grid{grid-template-columns:repeat(2,1fr);} }
+  .theme-mode-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;}
+  .theme-mode-tab{display:inline-flex;align-items:center;gap:8px;background:var(--surface);
+    color:var(--muted);border:1px solid var(--line-2);border-radius:8px;padding:9px 16px 9px 12px;font-family:var(--sans);
+    font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;line-height:1.6;cursor:pointer;}
+  .theme-mode-tab:hover{border-color:var(--accent);color:var(--ink);}
+  .theme-mode-tab.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-deep);}
+  .theme-mode-tab-dot{width:11px;height:11px;border-radius:50%;flex:none;}
+  /* Custom (no longer matching any named preset) gets an animated rainbow
+     dot instead of a flat accent swatch — conic-gradient hue sweep, rotated
+     continuously so it reads as "this doesn't have one fixed color anymore"
+     at a glance rather than needing to read the label text. */
+  .theme-mode-tab-dot.custom{background:conic-gradient(from 0deg,#ff5b5b,#ffb84d,#f5e34d,#5be86b,#4dc4ff,#8a6bff,#ff5be0,#ff5b5b);
+    animation:theme-dot-spin 3s linear infinite;}
+  @keyframes theme-dot-spin{to{transform:rotate(360deg);}}
+  /* Appended straight to <body>, same as .emoji-pop/.gif-pop/.mention-dd —
+     needs a z-index above .scrim's (9999) or it renders visually underneath
+     the modal it was opened from, exactly like those other body-level
+     popovers needed fixing for the same reason. */
+  .cp-pop{position:absolute;z-index:10000;width:220px;background:var(--surface);border:1px solid var(--line-2);border-radius:12px;padding:14px;box-shadow:0 20px 48px -16px rgba(0,0,0,.6);}
   .cp-sv{position:relative;width:100%;height:140px;border-radius:8px;margin-bottom:12px;cursor:crosshair;
     background-image:linear-gradient(to top, #000, rgba(0,0,0,0)), linear-gradient(to right, #fff, rgba(255,255,255,0));}
   .cp-sv-thumb{position:absolute;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.4);transform:translate(-50%,-50%);pointer-events:none;}
@@ -136,18 +166,19 @@
   .mood-row .m-del:hover{color:var(--warn);}
 
   /* Full-width themed banner pinned to the very top of the viewport, above
-     everything else (modals included — z-index higher than .confirm-pop's
-     10000), always closeable via the [x] — every toast (plain or error)
-     shares this exact shell so a validation message like "Model name is
-     required" reads and behaves the same as a generation-error banner
-     instead of a separate low-z-index bottom box that modals could bury. */
+     everything else including .crop-modal-overlay (studio2.css, 10002) — the
+     single highest z-index anywhere else in the app — always closeable via
+     the [x]. Every toast (plain or error) shares this exact shell so a
+     validation message like "Model name is required" reads and behaves the
+     same as a generation-error banner instead of a separate low-z-index
+     bottom box that modals could bury. */
   .toast{position:fixed;top:0;left:0;right:0;bottom:auto;
     transform:translateY(-100%);
     background:var(--surface);color:var(--ink);border:none;border-bottom:1px solid var(--accent);
     max-width:none;width:100%;max-height:40vh;overflow:auto;text-align:left;
     display:flex;align-items:flex-start;gap:10px;padding:14px 44px 14px 16px;
     border-radius:0;box-shadow:0 10px 34px -8px rgba(0,0,0,.5);pointer-events:none;
-    z-index:10001;box-sizing:border-box;font-size:14px;transition:.25s;}
+    z-index:10010;box-sizing:border-box;font-size:14px;transition:.25s;}
   .toast.show{transform:translateY(0);pointer-events:auto;}
   .toast::before{content:"";flex:none;width:4px;align-self:stretch;border-radius:2px;background:var(--accent);}
   .toast .toast-error-msg{flex:1;white-space:pre-wrap;word-break:break-word;line-height:1.5;}
@@ -173,6 +204,7 @@
     .toolbar .search{flex:1 1 100%;order:-1;}
     .chat-shell{height:calc(100vh - 112px);height:calc(100dvh - 112px);}
     .chat-top{padding:12px 14px;gap:8px;}
+    .chat-top .who{min-width:88px;}
     .chat-top .who .s{display:none;}
     .thread{padding:18px 14px 10px;}
     .composer{padding:10px 14px 12px;}

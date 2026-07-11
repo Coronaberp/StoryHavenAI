@@ -15,10 +15,13 @@ from fastapi import Depends
 
 from backend import db
 from backend import llm
+from backend import modal_provision
+from backend.repositories import health as health_repo
+from backend.repositories import lora_training as lora_training_repo
 from backend.state import api, CFG, VISION_CLASSIFY, log, PROCESS_START_TIME
 from backend.auth import get_admin
 
-SERVICES = ("database", "chat_llm", "embed_llm", "comfyui", "image_classify_llm")
+SERVICES = ("database", "chat_llm", "embed_llm", "comfyui", "image_classify_llm", "modal")
 
 
 async def _check_database() -> tuple[bool, float | None, str]:
@@ -76,12 +79,36 @@ async def _check_comfyui() -> tuple[bool, float | None, str]:
         return False, None, str(e)
 
 
+async def _check_modal() -> tuple[bool, float | None, str]:
+    # Unlike every other dependency here, Modal is *supposed* to sit stopped
+    # whenever nothing is training — it isn't a always-on service, so
+    # reporting it DOWN with no active job would just be a permanent false
+    # alarm between runs. Only actually probe it (and only actually count a
+    # stopped app as unhealthy) while a job is queued/provisioning/training;
+    # otherwise report healthy regardless of the app's current state.
+    active = await lora_training_repo.list_jobs()
+    if not any(j["status"] in ("queued", "provisioning", "training") for j in active):
+        return True, None, ""
+    url, secret = CFG.get("modal_checkpoint_url"), CFG.get("modal_shared_secret")
+    if not url or not secret:
+        return False, None, "a job is in progress but Modal was never successfully deployed for it"
+    t0 = time.monotonic()
+    try:
+        alive = await modal_provision._is_alive(url, secret)
+        latency_ms = (time.monotonic() - t0) * 1000
+        return alive, latency_ms, ("" if alive else "a job is in progress but the deployed app isn't responding "
+                                                    "(stopped from the Modal dashboard?)")
+    except Exception as e:
+        return False, None, str(e)
+
+
 _CHECKS = {
     "database": _check_database,
     "chat_llm": _check_chat_llm,
     "embed_llm": _check_embed_llm,
     "comfyui": _check_comfyui,
     "image_classify_llm": _check_image_classify_llm,
+    "modal": _check_modal,
 }
 
 
@@ -91,7 +118,7 @@ async def run_all_checks_and_record() -> dict[str, tuple[bool, float | None, str
         ok, latency_ms, error = await fn()
         out[name] = (ok, latency_ms, error)
         try:
-            await db.record_health_ping(name, ok, latency_ms, error)
+            await health_repo.record_ping(name, ok, latency_ms, error)
         except Exception:
             log.exception("service-health: failed to record ping for %s", name)
     return out
@@ -101,7 +128,7 @@ async def health_ping_loop():
     while True:
         try:
             await run_all_checks_and_record()
-            await db.prune_health_pings(older_than_days=7)
+            await health_repo.prune_old_pings(older_than_days=7)
         except Exception:
             log.exception("service-health: background ping loop failed")
         await asyncio.sleep(5 * 60)
@@ -118,8 +145,8 @@ async def admin_service_health(hours: float = 24, _: dict = Depends(get_admin)):
     services = []
     for name in SERVICES:
         ok, latency_ms, error = live[name]
-        history = await db.health_history(name, limit=limit, since=since)
-        uptime_24h = await db.health_uptime_pct(name, hours=24)
+        history = await health_repo.history(name, limit=limit, since=since)
+        uptime_24h = await health_repo.uptime_pct(name, hours=24)
         latencies = [h["latency_ms"] for h in history if h["latency_ms"] is not None]
         avg_latency_ms = round(sum(latencies) / len(latencies), 1) if latencies else None
         services.append({

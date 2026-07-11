@@ -4,14 +4,55 @@ import json
 from fastapi import HTTPException, Depends
 
 from backend import db
+from backend.repositories import notifications as notification_repo
 from backend import vectors
 from backend import llm
-from backend.state import api, CFG
+from backend.state import api, CFG, log
 from backend.auth import get_current_user
 from backend.chat_service import (_eff_cfg, _endpoints, _ui_language, _chat_language,
                           _localize_texts, _own_session, _glossary_note, _src_hash)
-from backend.prompt import strip_think, build_sampling_params
-from backend.schemas import UiTranslateIn, LocalizeIn, TranslateIn
+from backend.repositories import content_reports as content_report_repo
+from backend.repositories import localization as localization_repo
+from backend.prompt import strip_think
+from backend.sampling import build_sampling_params
+from backend.schemas import UiTranslateIn, LocalizeIn, TranslateIn, ContentReportIn
+
+
+@api.post("/report-image")
+async def report_image(body: ContentReportIn, current_user: dict = Depends(get_current_user)):
+    """Generic "lodge a report" for any image on the site that isn't already
+    covered by its own structured review queue (standalone generated images —
+    see /api/imagegen/standalone/{id}/report — and emoji/sticker uploads both
+    have a dedicated approve/deny flow already). Unlike those, there's no
+    per-item column to flip here (an avatar, a banner, a pasted lore-image
+    URL inside custom HTML, ...) — so this writes a content_reports row
+    carrying the actual image URL and target id, so the admin queue's Review
+    button can show the image directly and resolve SFW/NSFW right there —
+    same as every other rating-report queue in the app — instead of just
+    linking off to go look at it manually.
+
+    Duplicate-guard is a real DB lookup for an existing PENDING report from
+    this same reporter against this same target, not a blind time window —
+    a time-window guard kept blocking re-reports for minutes after an admin
+    had already resolved the first one, which read as a broken button."""
+    kind = (body.kind or "").strip()[:40] or "content"
+    label = (body.label or "").strip()[:200] or "an image"
+    note = (body.note or "").strip()[:500]
+    target_id = (body.target_id or "").strip()[:100]
+    image = (body.image or "").strip()[:500]
+    if target_id:
+        existing = await content_report_repo.get_pending_for(current_user["id"], kind, target_id)
+        if existing:
+            raise HTTPException(429, "You already reported this — an admin hasn't reviewed it yet.")
+    rep = await content_report_repo.create(kind, label, target_id, image, current_user["id"], note)
+    await notification_repo.notify_admins(
+        "admin_image_report", "Content reported for review",
+        f"{current_user['username']} reported {label} — please take a look."
+        + (f" Note: {note}" if note else ""),
+        "/admin/moderation", related_id=rep["id"])
+    log.info("report-image: created id=%s kind=%s target=%s by=%s",
+             rep["id"], kind, target_id, current_user["username"])
+    return {"ok": True}
 
 @api.post("/ui-translations")
 async def ui_translations(body: UiTranslateIn, current_user: dict = Depends(get_current_user)):
@@ -71,12 +112,12 @@ async def translate_text(body: TranslateIn, current_user: dict = Depends(get_cur
             s = await _own_session(body.sid, current_user)
             known_names = json.loads(s.get("known_names") or "[]")
             glossary = json.loads(s.get("glossary") or "{}")
-        except HTTPException:
-            pass
+        except HTTPException as e:
+            log.debug("translate: session lookup failed sid=%s status=%s", body.sid, e.status_code)
     lang = target.lower()
     gl_fp = json.dumps(sorted(glossary.items()), ensure_ascii=False) if glossary else ""
     cache_key = _src_hash(text + "\x00" + "\x00".join(sorted(known_names)) + gl_fp)
-    cached = await db.get_localizations([cache_key], lang)
+    cached = await localization_repo.get([cache_key], lang)
     if cache_key in cached:
         return {"translated": cached[cache_key]}
     names_note = (
@@ -106,7 +147,7 @@ async def translate_text(body: TranslateIn, current_user: dict = Depends(get_cur
             result += chunk
     result = result.strip()
     if result:
-        await db.set_localizations([(cache_key, text, result)], lang, kind="translate")
+        await localization_repo.set([(cache_key, text, result)], lang, kind="translate")
     return {"translated": result}
 
 
@@ -162,6 +203,8 @@ async def summarize_session(sid: str, current_user: dict = Depends(get_current_u
             if channel == "content":
                 result.append(chunk)
     except Exception as e:
+        log.warning("summarize: failed sid=%s by=%s: %s: %s",
+                    sid, current_user["username"], type(e).__name__, e)
         raise HTTPException(502, f"summarize failed: {e}")
     return {"summary": "".join(result).strip()}
 

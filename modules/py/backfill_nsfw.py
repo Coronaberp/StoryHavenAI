@@ -13,7 +13,7 @@ import asyncio
 import sqlalchemy as sa
 
 import db
-import chat_service
+import classify
 from state import log, MEDIA_DIR
 
 _MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
@@ -41,7 +41,7 @@ async def _classify(url: str) -> bool | None:
     data, mime = _load(url)
     if data is None:
         return None
-    explicit, _confidence = await chat_service.classify_image_nsfw(data, mime)
+    explicit, _confidence = await classify.classify_image_nsfw(data, mime)
     return explicit
 
 

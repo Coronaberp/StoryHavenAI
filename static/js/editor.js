@@ -24,6 +24,11 @@ async function viewEditor(main, cid, importPrefill){
         <button type="button" class="seg-btn ${(c.mode||'character')==='rpg'?'on':''}" data-mode="rpg"><b>${esc(t("ed_mode_rpg"))}</b><span>${esc(t("ed_mode_rpg_hint"))}</span></button>
       </div>
     </div>
+    ${c.is_explicit?`<div class="field-group" style="border-color:var(--warn);">
+      <div class="field-group-label" style="color:var(--warn);">${esc(t("ed_flagged_label"))}</div>
+      <p class="hint">${esc(t("ed_flagged_hint"))}</p>
+      <button type="button" class="btn" id="ed_request_review">🚩 ${esc(t("pf_request_review"))}</button>
+    </div>`:""}
     <div class="field"><label>${esc(t("ed_avatar"))} <span class="hint">${esc(t("ed_avatar_hint"))}</span></label>
       <div class="ava-edit" id="avaEdit">
         <div class="img-pick-box ava-edit-box" id="avaBox">
@@ -79,7 +84,9 @@ async function viewEditor(main, cid, importPrefill){
       <textarea id="f_greeting" style="min-height:120px">${esc(c.greeting)}</textarea>${macroRow("f_greeting")}</div>
     <div class="field"><label>${esc(t("ed_dialogue"))} <span class="hint">${esc(t("ed_dialogue_hint"))}</span></label>
       <textarea id="f_dialogue" placeholder="{{user}}: Hello, how are you?&#10;{{char}}: *adjusts glasses* I'm well, thank you for asking.">${esc(c.dialogue)}</textarea>${macroRow("f_dialogue")}</div>
-    <div class="field"><label>${esc(t("ed_tags"))} <span class="hint">${esc(t("ed_tags_hint"))}</span></label><input type="text" id="f_tags" value="${esc((c.tags||[]).join(", "))}"></div>
+    <div class="field"><label>${esc(t("ed_tags"))} <span class="hint">${esc(t("ed_tags_hint"))}</span></label>
+      <div class="tags-input" id="f_tags_pills"></div>
+      <input type="hidden" id="f_tags" value="${esc((c.tags||[]).join(", "))}"></div>
     <div class="field"><label>${esc(t("ed_creator"))} <span class="hint">${esc(t("ed_creator_hint"))}</span></label><input type="text" id="f_creator" value="${esc(c.creator||"")}"></div>
     <div class="field"><label>${esc(t("ed_sysprompt"))} <span class="hint">${esc(t("ed_sysprompt_hint"))}</span></label>
       <textarea id="f_sysprompt" style="min-height:80px">${esc(c.system_prompt||"")}</textarea>${macroRow("f_sysprompt")}</div>
@@ -220,6 +227,12 @@ async function viewEditor(main, cid, importPrefill){
       $("#avaFile").value="";
     });
   };
+  if($("#ed_request_review")) $("#ed_request_review").onclick=async e=>{
+    try{
+      await api("/api/report-image", j("POST", {kind:"character", label:t("report_flag_character").replace("{name}", c.name||""), target_id:cid||"", image:mediaURL(c.avatar||((c.assets||{}).banner)||""), note:t("ed_request_review_note")}));
+      e.target.disabled=true; toast(t("report_sent"));
+    }catch(err){ errorToast(t("report_failed")+": "+err.message); }
+  };
   $("#avaGen").onclick=()=>{
     openImageGenPickerModal(genBlob=>{
       openCropper(URL.createObjectURL(genBlob), "1", 512, 512, async blob=>{
@@ -284,6 +297,31 @@ async function viewEditor(main, cid, importPrefill){
     mseg.querySelectorAll(".seg-btn").forEach(x=>x.classList.toggle("on", x.dataset.mode===charMode));
     $("#canBePersonaRow").style.display = charMode==="rpg" ? "none" : ""; };
 
+  const tagsWrap=$("#f_tags_pills"), tagsHidden=$("#f_tags");
+  let tagList=(tagsHidden.value||"").split(",").map(s=>s.trim()).filter(Boolean);
+  const syncTagsHidden=()=>{ tagsHidden.value=tagList.join(", "); };
+  const renderTagPills=()=>{
+    tagsWrap.innerHTML=tagList.map((tg,i)=>
+      `<span class="tag-pill">${esc(tg)}<button type="button" class="tag-pill-x" data-i="${i}">✕</button></span>`).join("")
+      +`<input type="text" class="tag-pill-input" id="tagPillInput" placeholder="${tagList.length?"":esc(t("ed_tags_hint"))}">`;
+    tagsWrap.querySelectorAll(".tag-pill-x").forEach(b=>b.onclick=()=>{
+      tagList.splice(parseInt(b.dataset.i,10),1); syncTagsHidden(); renderTagPills();
+    });
+    const inp=$("#tagPillInput");
+    const commit=()=>{
+      const v=inp.value.replace(/,/g,"").trim();
+      if(v && !tagList.includes(v)) tagList.push(v);
+      inp.value=""; syncTagsHidden();
+    };
+    inp.addEventListener("keydown", e=>{
+      if(e.key==="Enter"||e.key===","){ e.preventDefault(); if(inp.value.trim()){ commit(); renderTagPills(); $("#tagPillInput").focus(); } }
+      else if(e.key==="Backspace" && !inp.value && tagList.length){ tagList.pop(); syncTagsHidden(); renderTagPills(); $("#tagPillInput").focus(); }
+    });
+    inp.addEventListener("blur", ()=>{ if(inp.value.trim()){ commit(); renderTagPills(); } });
+  };
+  renderTagPills();
+  const refreshTagPills=()=>{ tagList=(tagsHidden.value||"").split(",").map(s=>s.trim()).filter(Boolean); renderTagPills(); };
+
   const srcTabs=$("#edSourceTabs"), manualFields=$("#manualFields"), genPanel=$("#generatePanel");
   const showSource=s=>{
     if(!srcTabs) return;
@@ -305,6 +343,7 @@ async function viewEditor(main, cid, importPrefill){
       $("#f_greeting").value=g.greeting||"";
       $("#f_dialogue").value=g.dialogue||"";
       $("#f_tags").value=(g.tags||[]).join(", ");
+      refreshTagPills();
       setMode(g.mode);
       ["f_name","f_persona","f_scenario","f_greeting","f_dialogue"].forEach(id=>$("#"+id).dispatchEvent(new Event("input")));
       showSource("manual");
@@ -517,142 +556,4 @@ async function doImport(main, f){
       + (prefill.lore&&prefill.lore.length ? ` (+${prefill.lore.length} lore entries staged)` : ""));
     viewEditor(main, null, prefill);
   }catch(e){ errorToast("Import failed: "+e.message); }
-}
-
-function renderProfileLinksHTML(links){
-  const entries = SOCIAL_PLATFORMS.filter(sp=>(links||{})[sp.key]);
-  if(!entries.length) return "";
-  return `<div class="gl-links">${entries.map(sp=>{
-    const raw=(links[sp.key]||"").trim();
-    const href = /^https?:\/\//.test(raw) ? raw
-      : sp.key==="twitter" ? `https://x.com/${raw.replace(/^@/,"")}`
-      : sp.key==="twitch" ? `https://twitch.tv/${raw}`
-      : sp.key==="instagram" ? `https://instagram.com/${raw.replace(/^@/,"")}`
-      : sp.key==="pixiv" ? `https://pixiv.net/users/${raw}`
-      : sp.key==="youtube" ? `https://youtube.com/${raw.startsWith('@')?raw:'@'+raw}`
-      : sp.key==="patreon" ? `https://patreon.com/${raw}`
-      : sp.key==="kofi" ? `https://ko-fi.com/${raw}`
-      : raw;
-    return `<a class="gl-link" data-platform="${sp.key}" href="${esc(href)}" target="_blank" rel="noopener noreferrer" title="${esc(t("pf_social_"+sp.key))}" style="--gl-color:${sp.color}">
-      <svg class="gl-link-icon" viewBox="0 0 24 24" fill="currentColor" width="16" height="16">${sp.icon}</svg>
-      <span class="gl-link-host">${esc(sp.host)}</span>
-    </a>`;
-  }).join("")}</div>`;
-}
-function renderProfileCharactersHTML(chars){
-  if(!chars || !chars.length) return `<div class="empty"><div class="big">${esc(t("pf_no_chars"))}</div></div>`;
-  return `<div class="gl-characters">${chars.map(c=>`
-    <a class="gl-character-card" href="/c/${c.id}">
-      <div class="gl-character-thumb">${avatar(c,"gl-character-img")}</div>
-      <div class="gl-character-title">${esc(c.name)}</div>
-      <div class="gl-character-summary">${esc(logline(c))}</div>
-      <div class="gl-character-meta">
-        <span class="gl-character-chats">${c.chats||0}</span>
-        ${(c.tags||[]).length?`<span class="gl-character-tags">${(c.tags||[]).slice(0,3).map(tg=>`<span class="gl-tag">${esc(tg)}</span>`).join("")}</span>`:""}
-      </div>
-    </a>`).join("")}</div>`;
-}
-const PROFILE_GL_DEFAULT_CSS = `
-.gl-links{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
-.gl-link{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;gap:6px;background:var(--gl-color,#c9a227);color:#fff;flex:none;text-decoration:none;transition:transform .15s,opacity .15s;}
-.gl-link:hover{transform:translateY(-2px);opacity:.9;}
-.gl-link-host{display:none;}
-.gl-characters{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;}
-.gl-character-card{display:block;background:#1a1a1a;border:1px solid #333;border-radius:12px;overflow:hidden;color:inherit;text-decoration:none;transition:.15s;}
-.gl-character-card:hover{border-color:#c9a227;transform:translateY(-2px);}
-.gl-character-thumb{aspect-ratio:1;overflow:hidden;background:#222;}
-.gl-character-thumb .gl-character-img{width:100%;height:100%;object-fit:cover;display:block;border-radius:0;border:none;}
-.gl-character-title{font-weight:600;font-size:14px;padding:8px 10px 0;color:#fff;}
-.gl-character-summary{font-size:12px;color:#999;padding:2px 10px 8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.gl-character-meta{display:flex;align-items:center;gap:8px;font-size:11px;color:#c9a227;padding:0 10px 10px;flex-wrap:wrap;}
-.gl-character-chats{color:#c9a227;}
-.gl-character-chats::before{content:'💬';margin-right:4px;}
-.gl-character-tags{display:flex;gap:5px;flex-wrap:wrap;}
-.gl-tag{background:rgba(255,255,255,.08);color:#ccc;padding:1px 6px;border-radius:4px;text-transform:uppercase;font-size:9px;letter-spacing:.03em;}
-.gl-share{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;text-decoration:none;font-size:13px;cursor:pointer;border:1px solid rgba(255,255,255,.15);}
-.gl-share:hover{background:rgba(255,255,255,.15);}
-.gl-edit{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:var(--profile-gradient-start,#E3BD6C);color:#111;text-decoration:none;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;}
-.gl-edit:hover{opacity:.9;}
-.gl-comments{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;text-decoration:none;font-size:13px;cursor:pointer;border:1px solid rgba(255,255,255,.15);font-family:inherit;}
-.gl-comments:hover{background:rgba(255,255,255,.15);}
-.gl-block{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;text-decoration:none;font-size:13px;cursor:pointer;border:1px solid rgba(255,255,255,.15);font-family:inherit;}
-.gl-block:hover{background:rgba(180,35,24,.35);border-color:rgba(180,35,24,.5);}
-`;
-/* Minimal CSS for the {{comments}} placeholder on character cards, which have
-   no other injected default stylesheet the way profile cards do (no
-   gradient/links/characters grid system) — just enough to make the button
-   look like a real control instead of unstyled browser default. */
-const CARD_COMMENTS_CSS = `.gl-comments{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;text-decoration:none;font-size:13px;cursor:pointer;border:1px solid rgba(255,255,255,.15);font-family:inherit;}
-.gl-comments:hover{background:rgba(255,255,255,.15);}`;
-function substituteProfileTemplate(html, p, socialLinks, own){
-  const shareUrl = `${location.origin}/u/${encodeURIComponent(p.username||"")}`;
-  const map = {
-    "{{share}}": `<a class="gl-share" href="${esc(shareUrl)}" data-share-url="${esc(shareUrl)}">⤴ ${esc(t("doss_share"))}</a>`,
-    "{{edit}}": own ? `<a class="gl-edit" href="#" data-edit="1">✎ ${esc(t("pf_edit"))}</a>` : "",
-    "{{comments}}": `<button class="gl-comments" data-comments="1" type="button">💬 ${esc(t("doss_comments"))}</button>`,
-    "{{block}}": (!own && ME) ? `<button class="gl-block" data-block="1" type="button">${p.blocked_by_viewer?"Unblock":"🚫 Block"}</button>` : "",
-    "{{display_name}}": esc(p.display_name||p.username||""),
-    "{{bio}}": esc(p.bio||""),
-    "{{rank}}": (p.title_status==="approved"&&p.title)?esc(p.title):(p.is_admin?(p.username==="zukaarimoto"?"Dev":esc(t("pf_admin"))):""),
-    "{{title}}": esc(p.title_status==="approved"?(p.title||""):""),
-    "{{avatar_url}}": esc(mediaURL(p.avatar||"")),
-    "{{banner_url}}": esc(mediaURL(p.banner_img||"")),
-    "{{character_count}}": String((p.stats&&p.stats.characters)||(p.characters||[]).length||0),
-    "{{chat_count}}": String((p.stats&&p.stats.chats)||0),
-    "{{member_since}}": p.joined ? new Date(p.joined*1000).toLocaleDateString() : "",
-    "{{characters}}": renderProfileCharactersHTML(p.characters||[]),
-    "{{links}}": renderProfileLinksHTML(socialLinks||p.social_links),
-  };
-  const out = html.replace(/\{\{[a-z_]+\}\}/g, m=>map[m]!==undefined?map[m]:m);
-  const g1=esc(p.banner_color||"#E3BD6C"), g2=esc(p.accent_color||p.banner_color||"#A97F2C");
-  const bannerUrl = p.banner_img ? `url('${esc(mediaURL(p.banner_img))}')` : "none";
-  const varStyle = `<style>:root{--profile-gradient-start:${g1};--profile-gradient-end:${g2};--profile-banner-url:${bannerUrl};}\n${PROFILE_GL_DEFAULT_CSS}</style>`;
-  return varStyle + out;
-}
-function wireProfileTemplateButtons(doc, {onEdit, onBlockToggle, blockedUsername, blockedByViewer}={}){
-  doc.querySelectorAll(".gl-share, #pfShare").forEach(el=>{
-    el.addEventListener("click", e=>{
-      e.preventDefault();
-      const url=el.dataset.shareUrl || `${location.origin}/u/${encodeURIComponent(ME?.username||"")}`;
-      navigator.clipboard?.writeText(url).then(()=>toast(t("doss_share_copied"))).catch(()=>{});
-    });
-  });
-  if(onEdit) doc.querySelectorAll(".gl-edit, #pfEdit").forEach(el=>{
-    el.addEventListener("click", e=>{ e.preventDefault(); onEdit(); });
-  });
-  if(blockedUsername) doc.querySelectorAll(".gl-block").forEach(el=>{
-    el.addEventListener("click", e=>{
-      e.preventDefault();
-      if(blockedByViewer){
-        api("/api/users/"+encodeURIComponent(blockedUsername)+"/unblock",{method:"POST"})
-          .then(()=>{ toast("Unblocked."); if(onBlockToggle) onBlockToggle(); })
-          .catch(err=>errorToast(err.message));
-        return;
-      }
-      openBlockUserModal(blockedUsername, ()=>navigate("/"));
-    });
-  });
-}
-/* Wires the {{comments}} placeholder (character and profile custom cards
-   alike) to the same comments modal + live count the standalone Comments
-   button always used — the button now lives wherever the card author placed
-   it instead of a bar bolted above the iframe. `doc` may be the iframe's own
-   contentDocument (custom-card path) or the top-level `document` (default,
-   non-custom pages still using a real #cmtBtn/#pfCmtBtn, harmlessly a no-op
-   match there since those don't carry the .gl-comments class). */
-function wireCardCommentsButtons(doc, targetType, targetId, ctx){
-  doc.querySelectorAll(".gl-comments").forEach(btn=>{
-    btn.addEventListener("click", e=>{ e.preventDefault(); openCommentsModal(targetType, targetId, ctx||{}); });
-    updateCommentBtn(btn, targetType, targetId);
-  });
-}
-/* Character cards have no other template-substitution system (no
-   {{display_name}}-style tokens like profiles) — {{comments}} is the first
-   and only token characters support so far, kept intentionally minimal. */
-function substituteCharacterTemplate(html, c){
-  const map = {
-    "{{comments}}": `<button class="gl-comments" data-comments="1" type="button">💬 ${esc(t("doss_comments"))}</button>`,
-  };
-  const out=(html||"").replace(/\{\{[a-z_]+\}\}/g, m=>map[m]!==undefined?map[m]:m);
-  return `<style>${CARD_COMMENTS_CSS}</style>` + out;
 }

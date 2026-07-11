@@ -11,12 +11,12 @@ from backend import llm
 from fastapi import APIRouter
 
 PROCESS_START_TIME = time.time()
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
                     datefmt="%Y-%m-%d %H:%M:%S")
-log = logging.getLogger("personae")
+log = logging.getLogger("storyhavenai")
 log.setLevel(logging.INFO)
 
 
@@ -41,7 +41,8 @@ class _RingBufferHandler(logging.Handler):
     admin Logs panel survives server restarts (the buffer used to be memory-only,
     which meant every restart wiped it). Same privacy rule as before: only what
     the app explicitly logs — never raw request lines, chat content, or keys."""
-    PERSIST = os.environ.get("LOG_BUFFER_PATH", "./personae.logs.jsonl")
+    PERSIST = os.environ.get("LOG_BUFFER_PATH", "./storyhavenai.logs.jsonl")
+    MAX_AGE_SECONDS = 24 * 3600
 
     def __init__(self, capacity=2000):
         super().__init__()
@@ -55,8 +56,15 @@ class _RingBufferHandler(logging.Handler):
                         pass
         except OSError:
             pass
+        self._prune()
+
+    def _prune(self):
+        cutoff = time.time() - self.MAX_AGE_SECONDS
+        while self.buffer and self.buffer[0]["ts"] < cutoff:
+            self.buffer.popleft()
 
     def emit(self, record):
+        self._prune()
         entry = {
             "ts": record.created,
             "level": record.levelname,
@@ -159,7 +167,59 @@ CFG = {
         "tenor.com", "media.tenor.com", "giphy.com", "media.giphy.com",
         "media.discordapp.net", "cdn.discordapp.com", "imgur.com", "i.imgur.com",
     ],
+    # Modal (modal.com) GPU-backed LoRA training. modal_train_url is the single
+    # streaming web endpoint URL printed by `modal deploy modal_app/lora_train.py`
+    # (one open POST request carries the whole training run: progress, loss,
+    # preview images, and the finished LoRA, over one connection — no separate
+    # submit/poll/download round trips). modal_shared_secret is this app's own
+    # bearer token on top of that endpoint (set as the Modal Secret
+    # "lora-train-secret" value at deploy time — Modal web endpoints are
+    # otherwise public). Trained .safetensors files are written directly into
+    # ComfyUI's loras volume, bind-mounted read-write into this container at
+    # LORA_OUTPUT_DIR.
+    "modal_train_url": os.environ.get("MODAL_LORA_TRAIN_URL", ""),
+    "modal_shared_secret": os.environ.get("MODAL_LORA_SHARED_SECRET", ""),
+    # Second, lightweight (no-GPU) Modal endpoint from the same deploy —
+    # signals the in-progress `train` run to save+stream an extra checkpoint
+    # right now instead of waiting for the next scheduled one. See
+    # request_checkpoint in modal_app/lora_train.py and POST
+    # /admin/lora-training/jobs/{jid}/checkpoint.
+    "modal_checkpoint_url": os.environ.get("MODAL_LORA_CHECKPOINT_URL", ""),
+    # Two more lightweight (no-GPU) endpoints from the same deploy, used to
+    # upload a base checkpoint to Modal's model-cache Volume once instead of
+    # re-uploading a multi-GB file on every training job — see
+    # backend/modal_client.py's ensure_model_cached and modal_app/lora_train.py's
+    # check_model_cached/upload_model.
+    "modal_check_cached_url": os.environ.get("MODAL_LORA_CHECK_CACHED_URL", ""),
+    "modal_upload_model_url": os.environ.get("MODAL_LORA_UPLOAD_MODEL_URL", ""),
+    # Streams a finished LoRA/checkpoint back as raw bytes after training —
+    # see modal_client.download_output and modal_app/lora_train.py's
+    # download_output/_publish_output.
+    "modal_download_output_url": os.environ.get("MODAL_LORA_DOWNLOAD_OUTPUT_URL", ""),
 }
+
+# ComfyUI's whole models volume, bind-mounted read-write into this container
+# (see ~/.sillytavern/compose.yaml's story-game volumes) so trained LoRAs can
+# be written straight into it and existing checkpoints can be read as a base
+# model for training. Files written here land owned by host UID 1000 by
+# default (this container's root maps to host UID 1000) — lora_training.py
+# chowns them to container-UID 1000 (== host UID 525287, the rootless-podman
+# remap ComfyUI's own files are already owned by) right after writing, same
+# fix the model_requests curl flow applies manually.
+# Absolute, not relative to STATIC_DIR/MEDIA_DIR's cwd convention — this volume
+# is mounted at the container root (a sibling of /app/ai-frontend), not inside
+# the ai-frontend bind mount itself (see ~/.sillytavern/compose.yaml).
+COMFYUI_MODELS_DIR = os.environ.get("COMFYUI_MODELS_DIR", "/app/comfyui_models")
+LORA_OUTPUT_DIR = os.path.join(COMFYUI_MODELS_DIR, "loras")
+CHECKPOINTS_DIR = os.path.join(COMFYUI_MODELS_DIR, "checkpoints")
+UPSCALE_MODELS_DIR = os.path.join(COMFYUI_MODELS_DIR, "upscale_models")
+# Anima's base model is a UNet-only file (no CheckpointLoaderSimple bundle) —
+# see imagegen.py's ANIMA_CLIP_NAME/ANIMA_VAE_NAME comment — so training it
+# needs these two extra directories the plain SDXL/Illustrious path doesn't.
+DIFFUSION_MODELS_DIR = os.path.join(COMFYUI_MODELS_DIR, "diffusion_models")
+TEXT_ENCODERS_DIR = os.path.join(COMFYUI_MODELS_DIR, "text_encoders")
+VAE_DIR = os.path.join(COMFYUI_MODELS_DIR, "vae")
+COMFYUI_OWNER_UID = int(os.environ.get("COMFYUI_OWNER_UID", "1000"))
 
 # Dedicated vision endpoint for automatic NSFW image classification. This is
 # intentionally NOT the general chat endpoint (which an admin may point at a
@@ -188,6 +248,10 @@ PUBLIC_CFG_KEYS = [
     "system_suffix", "post_history", "default_language",
     "comfyui_url", "comfyui_checkpoint", "comfyui_workflow",
     "model_request_hosts", "embed_link_hosts",
+    "modal_train_url", "modal_checkpoint_url", "modal_check_cached_url", "modal_upload_model_url",
+    "modal_download_output_url",
+    # modal_shared_secret deliberately excluded — write-only, same treatment as
+    # api_key (see _scrub_modal_secret in routers/settings.py)
 ]
 
 # Keys that a regular user can override per-session (NOT embed_dim, embed_model,

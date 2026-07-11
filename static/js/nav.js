@@ -69,9 +69,10 @@ async function viewExploreCommunity(main){
         <div class="page-eyebrow">${esc(t("comm_eyebrow"))}</div>
         <h1 class="page">${esc(t("comm_title"))}</h1>
         <div class="page-sub" id="commSub">${esc(t("comm_sub"))}</div>
+        ${browseTabsHTML()}
       </div>
       <div class="explore-comm-controls">
-        ${searchFilterHTML(true)}
+        ${searchFilterHTML()}
         <div class="view-switch" id="modeSwitch" role="group" aria-label="Mode">
           <button type="button" class="vs-btn" data-mode="all">${esc(t("comm_mode_all"))}</button>
           <button type="button" class="vs-btn" data-mode="rpg">${esc(t("badge_rpg"))}</button>
@@ -131,7 +132,10 @@ async function viewExploreCharacter(main, cid){
   const hasCustom=(c.presentation_html||"").trim().length>0;
   const exploreDescription = substMacros(c.description, c.name, "You");
   main.innerHTML=`<div class="wrap">
-    <div class="doss-hero${nsfwCls(c)}"${heroImg?` style="background-image:url('${esc(heroImg)}')"`:""}><div class="doss-hero-fade"></div></div>
+    <div class="doss-hero${nsfwCls(c)}"${heroImg?` style="background-image:url('${esc(heroImg)}')"`:""}>
+      <div class="doss-hero-fade"></div>
+      ${(heroImg&&ME)?reportImageBtnHTML("character", t("report_flag_character").replace("{name}", c.name||""), cid, heroImg).replace("class=\"tool report-flag-btn\"", "class=\"tool report-flag-btn report-flag-overlay\""):""}
+    </div>
     <div class="doss-card">
       <div class="doss-card-ava">${avatar(c)}</div>
       <div class="doss-card-body">
@@ -148,7 +152,7 @@ async function viewExploreCharacter(main, cid){
       const loreCardHTML = `<div class="lore-card">
         <div class="lore-card-head"><span>${esc(t("doss_lore_card_title"))}</span></div>
         ${lore.length?lore.map(l=>`<div class="lore-link-row" data-lore="${esc(l.id)}">
-          ${l.image?`<div class="lore-link-ava"><img class="ava" src="${esc(mediaURL(l.image))}" alt=""></div>`:""}
+          ${l.image?`<div class="lore-link-ava"><img class="ava${nsfwCls(l)}" src="${esc(mediaURL(l.image))}" alt=""></div>`:""}
           <div class="lore-link-info">
             <div class="t">${esc(l.name||(l.keys&&l.keys[0])||l.category||t("doss_lore_untitled"))}</div>
             <div class="s">${esc(l.category||t("doss_lore_group"))}</div>
@@ -157,17 +161,22 @@ async function viewExploreCharacter(main, cid){
       </div>`;
       if(hasCustom){
         return `<div class="doss-layout">
-          <div class="doss-main"><div class="doss-presentation" id="dossPresentation"></div></div>
+          <div class="doss-main"><div class="doss-presentation${nsfwCls(c)}" id="dossPresentation"></div></div>
           <div class="doss-sidebar">${loreCardHTML}</div>
         </div>`;
       }
       return loreCardHTML ? `<div class="section">${loreCardHTML}</div>` : "";
     })()}
   </div>`;
-  if(hasCustom) mountSandboxedHTML($("#dossPresentation"), substituteCharacterTemplate(c.presentation_html, c), {onReady:doc=>wireCardCommentsButtons(doc, "character", cid, {ownerId:c.owner_id})});
+  if(hasCustom) mountSandboxedHTML($("#dossPresentation"), substituteCharacterTemplate(c.presentation_html, c, false), {onReady:doc=>{
+    wireCardCommentsButtons(doc, "character", cid, {ownerId:c.owner_id});
+    blurExplicitLoreImages(doc, lore);
+    wireCardReportButtons(doc, "character", t("report_flag_character").replace("{name}", c.name||""), cid, heroImg);
+  }});
   main.querySelectorAll("[data-lore]").forEach(row=>row.onclick=()=>{
     loreEntryModal(cid, lore.find(x=>x.id===row.dataset.lore), false, ()=>{});
   });
+  wireReportImageButtons(main);
 }
 
 /* ============================ ROUTER ============================ */
@@ -196,7 +205,7 @@ async function route(){
     if(seg.length===0) return viewLibrary(main);
     if(seg[0]==="community") return viewCommunity(main, seg[1]==="creators"?"creators":seg[1]==="images"?"images":"bots");
     if(seg[0]==="personas") return viewPersonas(main);
-    if(seg[0]==="images") return viewImages(main, ["generate","gallery","community"].includes(seg[1])?seg[1]:"generate");
+    if(seg[0]==="images") return viewImages(main, ["generate","gallery","community","training","test-lora"].includes(seg[1])?seg[1]:"generate");
     if(seg[0]==="gallery") return viewImages(main, "gallery");
     if(seg[0]==="imagegen") return viewImages(main, "generate");
     if(seg[0]==="forum" && seg[1]) return viewForumThread(main, seg[1]);

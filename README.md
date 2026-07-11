@@ -30,18 +30,31 @@ ai-frontend/
 │   ├── state.py           Shared config (CFG), config-key lists, logging, upload/cookie constants
 │   ├── auth.py            Auth dependencies, session cookie, login rate limiting, /api/auth/*
 │   ├── ssrf.py            Bring-your-own chat endpoint safety checks
-│   ├── prompt.py          System prompt assembly, RPG mode prompts, macros, dice, mood parsing
+│   ├── prompt.py          System prompt assembly + RPG mode prompts (splits out sampling.py,
+│   │                       mood.py, dice.py for sampling params, mood parsing, dice mechanics)
 │   ├── media.py           Image upload validation/optimization/save
-│   ├── chat_service.py    Endpoint resolution, retrieval, memory, the core chat generation flow
-│   ├── routers/           One file per domain: characters, personas, lore, sessions, profile,
-│   │                       settings, admin, comments, emojis, forum, health, notifications, misc —
-│   │                       every route lives here, server.py just wires them up
-│   ├── db.py              PostgreSQL (async, SQLAlchemy Core over asyncpg) — all CRUD, schema
+│   ├── chat_service.py    The core SSE generation loop (splits out retrieval.py — lore/memory
+│   │                       KNN, classify.py — turn-signal extraction, ai_helpers.py — side LLM calls)
+│   ├── routers/           One file per domain: characters, personas, lore, profile, settings,
+│   │                       admin, comments, emojis, forum, health, notifications, misc, and
+│   │                       sessions split into chat.py, imagegen.py, model_previews.py,
+│   │                       lora_training.py — every route lives here, server.py just wires them up
+│   ├── repositories/      One file per domain (users, characters, personas, lore, sessions,
+│   │                       messages, settings, forum, comments, emojis, lora_training, model
+│   │                       requests, …) — plain async functions wrapping the CRUD for that domain
+│   ├── db.py              Schema (SQLAlchemy Core Table defs) + async engine lifecycle only —
+│   │                       CRUD itself lives in repositories/
 │   ├── vectors.py         pgvector (same Postgres engine) — vector storage + similarity search
 │   ├── llm.py             OpenAI-compatible client (chat / embeddings / models)
-│   ├── imagegen.py        ComfyUI client (submit workflow, poll, websocket live preview)
+│   ├── imagegen.py        ComfyUI client core (submit/poll/websocket) — workflow graph building
+│   │                       and option listing split into imagegen_workflows.py / imagegen_options.py
+│   ├── modal_client.py    HTTP client for the Modal-deployed LoRA trainer (upload/download/stream)
+│   ├── modal_provision.py Auto-deploys/redeploys modal_app/lora_train.py onto Modal
 │   ├── ratelimit.py       Shared rate-limit helper used across routers
+│   ├── tests/             pytest + pytest-asyncio, transaction-rollback DB fixture
 │   └── schemas.py         Pydantic request models
+├── modal_app/         lora_train.py — the actual training app, deployed onto Modal's infra,
+│                       not run in this container (vendored kohya-ss/sd-scripts)
 ├── modules/py/        Standalone scripts not imported by the running app — one-time migrations
 │                       and backfills, run manually, never at startup
 ├── docs/              SETUP.md, MIGRATION_POSTGRES.md, features.md
@@ -165,6 +178,9 @@ the *initial* values on first run.
 - Characters/lore/personas are private by default; a creator can mark a
   character public (Community), allow it to be played as a persona by others,
   and/or allow other users to export/download its card.
+- A third role, **Dev**, sits above Admin (`users.role`, additive to the older
+  `is_admin` flag) — it's needed to grant/revoke Dev on other accounts, so an
+  Admin alone can't self-escalate.
 
 ## Storage
 
@@ -378,6 +394,26 @@ Optional per-message or standalone image generation against a ComfyUI backend
   session, with the scene text and copyable generation tags.
 - Checkpoint/LoRA pickers are populated live from ComfyUI's own `/object_info`,
   so they always match whatever's actually installed.
+
+## Train your own LoRA (Modal)
+
+Admins can train a LoRA (SDXL or Anima) from an uploaded image set, on rented
+GPU time via [Modal](https://modal.com) — no local GPU needed. `POST
+/admin/lora-training/jobs` returns immediately; the run itself is a fully
+decoupled background task, not tied to the request or any open connection, so
+closing the tab never stops it. The browser only ever polls for job status —
+a page reload just resumes watching the same run. Only one job trains at a
+time; further submissions queue and start automatically as the current job
+finishes. Aborting a queued or running job actually cancels the in-flight
+Modal call (not just a flag the UI stops polling for), so an abort stops
+GPU billing immediately rather than leaving an orphaned run.
+
+Base checkpoints are uploaded to a Modal Volume once and reused by every later
+job instead of re-uploading multi-GB files per run. The finished LoRA is
+fetched back as a plain chunked binary transfer, never embedded inline in the
+progress stream. `MODAL_TOKEN_ID`/`MODAL_TOKEN_SECRET` (env vars) authenticate
+to Modal itself; the deployed training app is first-use auto-deployed and
+protected by a generated shared secret, both handled for you.
 
 ## Thinking (model reasoning)
 

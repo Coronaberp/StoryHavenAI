@@ -10,7 +10,11 @@ async function viewDossier(main, cid, activeCat="__all"){
   const dossDescription = substMacros(c.description, c.name, dossUserName);
   const heroImg = mediaURL((c.assets||{}).banner||"") || mediaURL((c.assets&&c.assets.stage&&c.assets.stage.default)||"") || mediaURL(c.avatar);
   const hasCustom = (c.presentation_html||"").trim().length>0;
-  const heroHTML = `<div class="doss-hero${nsfwCls(c)}"${heroImg?` style="background-image:url('${esc(heroImg)}')"`:""}><div class="doss-hero-fade"></div></div>`;
+  const isOwnerForHero = c.owner_id===ME.id;
+  const heroHTML = `<div class="doss-hero${nsfwCls(c)}"${heroImg?` style="background-image:url('${esc(heroImg)}')"`:""}>
+    <div class="doss-hero-fade"></div>
+    ${(!isOwnerForHero && heroImg)?reportImageBtnHTML("character", t("report_flag_character").replace("{name}", c.name||""), cid, heroImg).replace("class=\"tool report-flag-btn\"", "class=\"tool report-flag-btn report-flag-overlay\""):""}
+  </div>`;
   const canEdit = c.owner_id===ME.id||ME.is_admin;
   const isOwner = c.owner_id===ME.id;
   const greetingCount = (c.greeting?1:0) + (c.alt_greetings||[]).length;
@@ -69,7 +73,7 @@ async function viewDossier(main, cid, activeCat="__all"){
           ${lore.length?lore.map(l=>{
             const rowCat=l.category||"";
             return `<div class="lore-link-row" data-lore="${esc(l.id)}" data-cat="${esc(rowCat)}">
-            ${l.image?`<div class="lore-link-ava"><img class="ava" src="${esc(mediaURL(l.image))}" alt=""></div>`:""}
+            ${l.image?`<div class="lore-link-ava"><img class="ava${nsfwCls(l)}" src="${esc(mediaURL(l.image))}" alt=""></div>`:""}
             <div class="lore-link-info">
               <div class="t" data-lorename="${esc(l.id)}">${esc(l.name||(l.keys&&l.keys[0])||l.category||t("doss_lore_untitled"))}</div>
               <div class="s">${esc(l.category||(l.global?t("doss_lore_global"):t("doss_lore_group")))}</div>
@@ -81,7 +85,7 @@ async function viewDossier(main, cid, activeCat="__all"){
       if(hasCustom){
         return `<div class="doss-layout">
           <div class="doss-main">
-            <div class="doss-presentation" id="dossPresentation"></div>
+            <div class="doss-presentation${nsfwCls(c)}" id="dossPresentation"></div>
           </div>
           <div class="doss-sidebar">${loreCardHTML}</div>
         </div>`;
@@ -96,8 +100,10 @@ async function viewDossier(main, cid, activeCat="__all"){
     updateCommentBtn(cmtBtn, "character", cid);
   }
 
-  if(hasCustom) mountSandboxedHTML($("#dossPresentation"), substituteCharacterTemplate(c.presentation_html, c), {onReady:(doc)=>{
+  if(hasCustom) mountSandboxedHTML($("#dossPresentation"), substituteCharacterTemplate(c.presentation_html, c, isOwner), {onReady:(doc)=>{
     wireCardCommentsButtons(doc, "character", cid, {ownerId:c.owner_id});
+    blurExplicitLoreImages(doc, lore);
+    wireCardReportButtons(doc, "character", t("report_flag_character").replace("{name}", c.name||""), cid, heroImg);
     if(!isOwner) return;
     const reasons=cardComplianceReasons(c.presentation_html, doc, "character");
     if(!reasons.length) return;
@@ -177,6 +183,7 @@ async function viewDossier(main, cid, activeCat="__all"){
   });
   const addBtn=$("#loreAddBtn");
   if(addBtn) addBtn.onclick=(ev)=>{ ev.preventDefault(); loreModal(cid, null, ()=>viewDossier(main,cid,curCat())); };
+  wireReportImageButtons(main);
 }
 
 async function startChat(cid, cname){

@@ -6,7 +6,7 @@ import asyncio
 from PIL import Image, ImageFilter
 from fastapi import HTTPException
 
-from backend.state import MEDIA_DIR, MAX_UPLOAD_BYTES
+from backend.state import MEDIA_DIR, MAX_UPLOAD_BYTES, log
 
 # GIF's per-frame LZW compression makes a small file with tens of thousands of
 # frames cheap to craft — without a cap, re-encoding every frame (RGBA
@@ -33,14 +33,24 @@ def _optimize_image(data: bytes, ext: str, max_dim: int = 1024) -> tuple[bytes, 
                 img.seek(i)
                 frame = img.convert("RGBA")
                 frame.thumbnail((gif_dim, gif_dim), Image.LANCZOS)
-                frames.append(frame.convert("P", palette=Image.ADAPTIVE))
+                frames.append(frame)
                 durations.append(img.info.get("duration", 80))
+            # Lossless WebP, not GIF: GIF forces a 256-color-per-frame palette and
+            # only LZW-compresses each frame independently, so real-world avatar/
+            # emoji GIFs were coming out several MB even after the downscale above.
+            # Lossless WebP keeps full RGBA color depth (strictly equal or better
+            # fidelity than GIF's palette) and inter-frame delta compression, which
+            # is why it comes out smaller for the same pixels — not a quality trade.
+            # method=4, not 6: still fully lossless (method only trades encoder
+            # search effort for size, never fidelity) but method=6 measured at
+            # ~200s for a 131-frame animation vs ~2s at method=4, for under 1%
+            # extra size reduction — 6 would make every animated upload hang.
             buf = io.BytesIO()
-            frames[0].save(buf, format="GIF", save_all=True, append_images=frames[1:],
+            frames[0].save(buf, format="WEBP", save_all=True, append_images=frames[1:],
                            duration=durations, loop=img.info.get("loop", 0),
-                           optimize=True, disposal=2)
+                           lossless=True, quality=100, method=4)
             out = buf.getvalue()
-            return (out, ".gif") if len(out) < len(data) else (data, ext)
+            return (out, ".webp") if len(out) < len(data) else (data, ext)
         img = img.convert("RGBA") if img.mode not in ("RGB", "RGBA") else img
         img.thumbnail((max_dim, max_dim), Image.LANCZOS)
         buf = io.BytesIO()
@@ -49,8 +59,34 @@ def _optimize_image(data: bytes, ext: str, max_dim: int = 1024) -> tuple[bytes, 
         return (out, ".webp") if len(out) < len(data) else (data, ext)
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        log.warning("media: optimize failed, storing original ext=%s size=%d error=%s", ext, len(data), e)
         return data, ext
+
+
+def _reencode_webp_sync(data: bytes, quality: int = 90) -> bytes:
+    """Re-encode to WebP at full resolution (no thumbnailing — unlike
+    _optimize_image, this exists specifically for a 4x-upscaled result, where
+    shrinking the dimensions back down would undo the whole point of
+    upscaling). A raw PNG straight out of ComfyUI's upscale node easily blows
+    past MAX_UPLOAD_BYTES for a detailed 4096px+ image; WebP at this quality
+    is visually near-identical and typically 60-80% smaller. Falls back to
+    the original bytes on any decode/encode failure — never blocks the
+    upscale result on a re-encode problem."""
+    try:
+        img = Image.open(io.BytesIO(data))
+        img = img.convert("RGBA") if img.mode not in ("RGB", "RGBA") else img
+        buf = io.BytesIO()
+        img.save(buf, format="WEBP", quality=quality, method=6)
+        out = buf.getvalue()
+        return out if len(out) < len(data) else data
+    except Exception as e:
+        log.warning("media: re-encode failed, keeping original size=%d error=%s", len(data), e)
+        return data
+
+
+async def reencode_webp(data: bytes, quality: int = 90) -> bytes:
+    return await asyncio.get_running_loop().run_in_executor(None, _reencode_webp_sync, data, quality)
 
 
 def _validate_image_sync(data: bytes):

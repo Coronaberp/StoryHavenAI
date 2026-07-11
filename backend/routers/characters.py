@@ -7,16 +7,20 @@ import time
 import uuid
 
 from PIL import Image
-from fastapi import UploadFile, File, HTTPException, Response, Depends
+from fastapi import UploadFile, File, HTTPException, Response, Depends, Request
 
 from backend import db
+from backend.repositories import characters
+from backend.repositories import personas
 from backend import vectors
 from backend.state import api, MEDIA_DIR, IMG_EXTS, CFG, log
 from backend.auth import get_current_user, get_current_user_optional
 from backend.media import _save_uploaded_image, _check_upload_size, _write_file
-from backend.chat_service import (index_lore, generate_character_from_description,
-                          _endpoints, _eff_cfg, classify_image_background)
-from backend.schemas import CharacterIn, GenerateCharacterIn
+from backend.chat_service import _endpoints, _eff_cfg
+from backend.retrieval import index_lore
+from backend.ai_helpers import generate_character_from_description
+from backend.classify import classify_image_background
+from backend.schemas import CharacterIn
 from backend.ratelimit import SlidingWindow
 
 _GENERATE_LIMIT = SlidingWindow(
@@ -34,9 +38,9 @@ async def list_characters(q: str | None = None, scope: str | None = None,
         # for anyone (anon or opted-out) who shouldn't see them plainly, same
         # gate logged-in SFW-mode users get. Hiding them outright here would
         # also break shared links to explicit characters for anon visitors.
-        return await db.list_characters(q, scope="community",
+        return await characters.list_all(q, scope="community",
                                         tags=tag_list, creator=creator)
-    rows = await db.list_characters(q, user_id=current_user["id"],
+    rows = await characters.list_all(q, user_id=current_user["id"],
                                     is_admin=current_user["is_admin"],
                                     scope=scope, tags=tag_list, creator=creator)
     hidden = await db.hidden_user_ids(current_user["id"])
@@ -47,12 +51,12 @@ async def list_characters(q: str | None = None, scope: str | None = None,
 
 @api.get("/characters/persona-pool")
 async def persona_pool(current_user: dict = Depends(get_current_user)):
-    return await db.list_persona_pool_characters(current_user["id"], current_user["is_admin"])
+    return await personas.list_pool_characters(current_user["id"], current_user["is_admin"])
 
 
 @api.get("/characters/{cid}")
 async def get_character(cid: str, current_user: dict | None = Depends(get_current_user_optional)):
-    c = await db.get_character(cid)
+    c = await characters.get(cid)
     if not c:
         raise HTTPException(404, "character not found")
     is_owner = bool(current_user) and c.get("owner_id") == current_user["id"]
@@ -77,7 +81,7 @@ async def create_character(body: CharacterIn, current_user: dict = Depends(get_c
         data["creator"] = current_user["username"]
     data["assets"] = _decode_media_paths(data.get("assets") or {})
     # is_public stays from body (default False = library-only)
-    c = await db.create_character(data)
+    c = await characters.create(data)
     log.info("character created: id=%s owner=%s public=%s", c["id"], current_user["id"], data.get("is_public"))
     return c
 
@@ -85,7 +89,7 @@ async def create_character(body: CharacterIn, current_user: dict = Depends(get_c
 @api.put("/characters/{cid}")
 async def update_character(cid: str, body: CharacterIn,
                            current_user: dict = Depends(get_current_user)):
-    c = await db.get_character(cid)
+    c = await characters.get(cid)
     if not c:
         raise HTTPException(404, "character not found")
     # Editing is owner-only — admins can delete (moderation) but not touch content
@@ -95,13 +99,15 @@ async def update_character(cid: str, body: CharacterIn,
     data.pop("is_private", None)            # remove legacy field if client sends it
     data["owner_id"] = c["owner_id"]        # ownership never changes via edit
     data["assets"] = _decode_media_paths(data.get("assets") or {})
-    return await db.update_character(cid, data)
+    c = await characters.update(cid, data)
+    log.info("character updated: id=%s by=%s", cid, current_user["id"])
+    return c
 
 
 @api.post("/characters/{cid}/avatar")
 async def upload_avatar(cid: str, file: UploadFile = File(...),
                         current_user: dict = Depends(get_current_user)):
-    c = await db.get_character(cid)
+    c = await characters.get(cid)
     if not c:
         raise HTTPException(404, "character not found")
     if c.get("owner_id") != current_user["id"]:
@@ -112,18 +118,19 @@ async def upload_avatar(cid: str, file: UploadFile = File(...),
     data = await file.read()
     ext = await _save_uploaded_image(data, cid, ext)
     fname = f"{cid}{ext}"
-    char = await db.update_character(cid, {"avatar": f"/media/{fname}?v={int(time.time())}"})
+    char = await characters.update(cid, {"avatar": f"/media/{fname}?v={int(time.time())}"})
     if not c.get("is_explicit"):
         classify_image_background(data, "image/png", current_user["id"], current_user.get("is_admin", False),
-                                  lambda: db.update_character(cid, {"is_explicit": True}),
+                                  lambda: characters.update(cid, {"is_explicit": True}),
                                   review_context="a character avatar")
+    log.info("character avatar uploaded: id=%s by=%s", cid, current_user["id"])
     return {"avatar": char["avatar"]}
 
 
 @api.post("/characters/{cid}/media")
 async def upload_media(cid: str, file: UploadFile = File(...),
                        current_user: dict = Depends(get_current_user)):
-    c = await db.get_character(cid)
+    c = await characters.get(cid)
     if not c:
         raise HTTPException(404, "character not found")
     if c.get("owner_id") != current_user["id"]:
@@ -139,19 +146,20 @@ async def upload_media(cid: str, file: UploadFile = File(...),
         ext = await _save_uploaded_image(data, basename, ext)
     else:
         await _write_file(os.path.join(MEDIA_DIR, basename + ext), data)
+    log.info("character media uploaded: id=%s by=%s file=%s", cid, current_user["id"], basename + ext)
     return {"url": f"/media/{basename}{ext}"}
 
 
 @api.delete("/characters/{cid}")
 async def delete_character(cid: str, current_user: dict = Depends(get_current_user)):
-    c = await db.get_character(cid)
+    c = await characters.get(cid)
     if not c:
         raise HTTPException(404, "character not found")
     owner_id = c.get("owner_id")
     # Owner can always delete their own character; admin can delete anything
     if owner_id != current_user["id"] and not current_user["is_admin"]:
         raise HTTPException(403, "Not authorized to delete this character")
-    await db.delete_character(cid)
+    await characters.delete(cid)
     await vectors.delete_by_tag(vectors.MEM_INDEX, "chartag", cid)
     await vectors.delete_by_tag(vectors.LORE_INDEX, "chartag", cid)
     log.info("character deleted: id=%s by=%s", cid, current_user["id"])
@@ -220,7 +228,8 @@ def _decode_lore_image(image_data: str | None) -> str:
         if ext == "jpeg":
             ext = "jpg"
         data = base64.b64decode(b64)
-    except Exception:
+    except Exception as e:
+        log.warning("lore image decode failed: %s: %s", type(e).__name__, e)
         return ""
     fname = f"{db.nid('limg')}.{ext}"
     with open(os.path.join(MEDIA_DIR, fname), "wb") as fh:
@@ -256,6 +265,8 @@ async def import_character(file: UploadFile = File(...),
     try:
         card = parse_card(file.filename, data)
     except Exception as e:
+        log.warning("character import: card parse failed by=%s: %s: %s",
+                    current_user["username"], type(e).__name__, e)
         raise HTTPException(400, f"Could not read card: {e}")
     is_image_card = not (file.filename or "").lower().endswith(".json")
     avatar_data_url = None
@@ -271,7 +282,8 @@ async def import_character(file: UploadFile = File(...),
             content = "\n".join(content)
         if not content:
             continue
-        meta = (e.get("extensions") or {}).get("personae") or {}
+        extensions = e.get("extensions") or {}
+        meta = extensions.get("storyhavenai") or extensions.get("personae") or {}
         lore.append({
             "keys": e.get("keys") or [], "content": content, "always": bool(e.get("constant")),
             "category": meta.get("category", ""), "name": meta.get("name") or e.get("comment") or "",
@@ -294,12 +306,16 @@ async def import_character(file: UploadFile = File(...),
 
 
 @api.post("/characters/generate-from-description")
-async def generate_from_description(body: GenerateCharacterIn,
+async def generate_from_description(request: Request,
                                     current_user: dict = Depends(get_current_user)):
     """Expand a plaintext description into structured character fields via the
     LLM and return them for the editor to prefill — no DB write, same as the
     import preview. The user reviews the filled form and must click Save."""
-    desc = (body.description or "").strip()
+    try:
+        raw = await request.json()
+    except Exception:
+        raw = None
+    desc = str(raw.get("description") or "").strip() if isinstance(raw, dict) else ""
     if not desc:
         raise HTTPException(400, "description is required")
     _GENERATE_LIMIT.check_and_record(current_user["id"])
@@ -317,7 +333,7 @@ async def reimport_character(cid: str, file: UploadFile = File(...),
     (name, persona, scenario, greeting, dialogue, system prompt, tags, alternate
     greetings) in place. Ownership, visibility, creator attribution, stage assets,
     existing lore, and chats are untouched; a PNG card also refreshes the avatar."""
-    c = await db.get_character(cid)
+    c = await characters.get(cid)
     if not c:
         raise HTTPException(404, "character not found")
     if c.get("owner_id") != current_user["id"]:
@@ -327,13 +343,15 @@ async def reimport_character(cid: str, file: UploadFile = File(...),
     try:
         card = parse_card(file.filename, data)
     except Exception as e:
+        log.warning("character reimport: card parse failed id=%s by=%s: %s: %s",
+                    cid, current_user["username"], type(e).__name__, e)
         raise HTTPException(400, f"Could not read card: {e}")
     upd = {k: card[k] for k in ("name", "persona", "scenario", "greeting", "dialogue",
                                 "system_prompt", "tags", "alt_greetings")}
     if not (file.filename or "").lower().endswith(".json"):
         img_ext = await _save_uploaded_image(data, cid, ".png")
         upd["avatar"] = f"/media/{cid}{img_ext}"
-    char = await db.update_character(cid, upd)
+    char = await characters.update(cid, upd)
     log.info("character reimported: id=%s by=%s", cid, current_user["username"])
     return char
 
@@ -382,7 +400,7 @@ def build_card(char: dict, lore: list, spec: str = "v2") -> dict:
             "selective": bool(keys), "insertion_order": i, "enabled": True,
             "position": "before_char", "case_sensitive": False, "id": i,
             "extensions": {
-                "personae": {
+                "storyhavenai": {
                     "name": e.get("name", "") or "",
                     "category": e.get("category", "") or "",
                     "hidden": bool(e.get("hidden")),
@@ -442,7 +460,7 @@ async def export_character(cid: str, spec: str = "v2",
                            current_user: dict = Depends(get_current_user)):
     if spec not in ("v2", "v3", "storyhaven"):
         raise HTTPException(400, "spec must be 'v2', 'v3', or 'storyhaven'")
-    c = await db.get_character(cid)
+    c = await characters.get(cid)
     if not c:
         raise HTTPException(404, "character not found")
     is_owner = c.get("owner_id") == current_user["id"]

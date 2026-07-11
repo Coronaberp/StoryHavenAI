@@ -206,7 +206,7 @@ function openAccountModal(){
       ${ME.avatar?`<img src="${esc(mediaURL(ME.avatar))}" alt="" style="width:48px;height:48px;border-radius:50%;object-fit:cover;">`:`<div class="rail-ava-mono" style="width:48px;height:48px;font-size:20px;">${esc((ME.username||"?")[0].toUpperCase())}</div>`}
       <div>
         <div style="font-weight:600;font-size:16px;">${esc(ME.username)}</div>
-        ${ME.is_admin?`<span class="badge always" style="font-size:9px;">${ME.username==="zukaarimoto"?"dev":"admin"}</span>`:""}
+        ${ME.is_admin?`<span class="badge always" style="font-size:9px;">${ME.role==="dev"?"dev":"admin"}</span>`:""}
       </div>
     </div>
     <div style="margin-bottom:14px;">
@@ -285,7 +285,7 @@ function renderUserMenu(){
     <button id="userInfoBtn" style="width:100%;font-size:13px;color:var(--sec);padding:4px 10px 6px;display:flex;align-items:center;gap:8px;background:none;border:none;text-align:left;">
       ${avaHTML}
       <span style="flex:1;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(ME.username)}</span>
-      ${ME.is_admin?`<span class="badge always" style="font-size:9px;flex:none;">${ME.username==="zukaarimoto"?"dev":"admin"}</span>`:""}
+      ${ME.is_admin?`<span class="badge always" style="font-size:9px;flex:none;">${ME.role==="dev"?"dev":"admin"}</span>`:""}
     </button>
   `;
   document.getElementById("userInfoBtn").onclick = openAccountModal;

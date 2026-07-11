@@ -26,4 +26,9 @@ cd /app/ai-frontend || exec echo "FATAL: /app/ai-frontend not mounted"
 # from 127.0.0.1 by default, but cloudflared reaches uvicorn over the
 # sillytavern_net bridge network, not localhost, so the default trust list
 # never matches it and the header gets ignored.
-exec /app/ai-frontend/venv/bin/uvicorn server:app --host 0.0.0.0 --port 3000 --reload --proxy-headers --forwarded-allow-ips='*'
+# --reload-exclude modal_app/*: those files are never imported by server.py
+# (they're deployed to Modal separately, see modal_provision.py) — without
+# this, editing one mid-deploy triggers a full uvicorn worker reload that
+# kills whatever `modal deploy` subprocess that same request just spawned,
+# aborting the deploy with Modal's own "Stopping app - unknown reason".
+exec /app/ai-frontend/venv/bin/uvicorn server:app --host 0.0.0.0 --port 3000 --reload --reload-exclude 'modal_app/*' --proxy-headers --forwarded-allow-ips='*'

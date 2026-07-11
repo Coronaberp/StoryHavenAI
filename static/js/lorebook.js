@@ -121,7 +121,7 @@ function loreEntryModal(cid, entry, canEdit, onChange){
     $(".modal").innerHTML=`
       <button class="modal-close" id="leClose">${esc(t("btn_close"))}</button>
       <div class="lore-entry-modal">
-        ${img?`<div class="lore-entry-img"><img src="${esc(img)}" alt=""></div>`:""}
+        ${img?`<div class="lore-entry-img" style="position:relative;"><img class="${nsfwCls(e2).trim()}" src="${esc(img)}" alt="">${reportImageBtnHTML("lore", t("report_flag_lore").replace("{name}", title), e2.id, img).replace("class=\"tool report-flag-btn\"", "class=\"tool report-flag-btn report-flag-overlay\"")}</div>`:""}
         <div class="lore-entry-body">
           <div class="lore-entry-eyebrow">${esc(eyebrow)}</div>
           <h3>${esc(title)}</h3>
@@ -152,6 +152,7 @@ function loreEntryModal(cid, entry, canEdit, onChange){
       const tags=b.closest(".ig-tags-row").dataset.tags;
       navigator.clipboard?.writeText(tags).then(()=>toast(t("gallery_tags_copied"))).catch(()=>{});
     });
+    wireReportImageButtons($(".modal"));
   };
   openModal("");
   renderView();

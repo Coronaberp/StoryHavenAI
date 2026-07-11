@@ -1,3 +1,4 @@
+  #imagesMyCreationsBtn svg,#imagesPastJobsBtn svg{width:15px;height:15px;flex:none;}
   .ig-sec-body{padding:0 0 8px;}
   .ig-sec.collapsed .ig-sec-body{display:none;}
   .ig-panel textarea.ig-autosize{min-height:32px;padding:8px 10px;}
@@ -26,8 +27,8 @@
     .ig-tile-thumb{width:32px;height:32px;font-size:14px;}
     .ig-tile-thumb.lg{width:42px;height:42px;font-size:17px;}
     .ig-tile-thumb.sm{width:26px;height:26px;font-size:12px;border-radius:6px;}
-    .ig-model-summary-txt b{font-size:14px;}
-    .ig-model-summary-txt span{font-size:11.5px;}
+    .ig-model-summary-txt b{font-size:15px;}
+    .ig-model-summary-txt span{font-size:13px;}
     .ig-grid{gap:8px;}
     .ig-grid-tile{padding:9px 6px;gap:5px;}
     .ig-grid-tile .ig-tile-name{font-size:12px;}
@@ -69,8 +70,8 @@
   .ig-mcard:hover{border-color:var(--accent);}
   .ig-mthumb{display:block;position:relative;cursor:pointer;overflow:hidden;background:var(--surface-3,var(--surface));}
   .ig-mthumb img{display:block;width:100%;height:auto;}
-  .ig-shared-badge{position:absolute;top:8px;right:8px;left:auto;background:var(--accent);color:var(--gold-ink);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:6px;font-family:var(--mono);}
-  .rating-badge{position:absolute;top:8px;left:8px;z-index:2;background:color-mix(in srgb, var(--accent) 55%, transparent);border:1px solid color-mix(in srgb, var(--accent) 40%, transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#111;font-size:10px;letter-spacing:.05em;font-weight:700;padding:3px 7px;border-radius:6px;font-family:var(--mono);pointer-events:none;}
+  .ig-shared-badge{position:absolute;top:8px;right:8px;left:auto;display:inline-flex;align-items:center;line-height:1;background:var(--accent);color:var(--gold-ink);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:6px;font-family:var(--mono);}
+  .rating-badge{position:absolute;top:8px;left:8px;z-index:2;display:inline-flex;align-items:center;line-height:1;background:color-mix(in srgb, var(--accent) 55%, transparent);border:1px solid color-mix(in srgb, var(--accent) 40%, transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#111;font-size:10px;letter-spacing:.05em;font-weight:700;padding:3px 7px;border-radius:6px;font-family:var(--mono);pointer-events:none;}
   :root[data-theme="light"] .rating-badge{color:#111;background:color-mix(in srgb, var(--accent) 55%, #e9c979);border-color:color-mix(in srgb, var(--accent) 55%, transparent);}
   :root[data-theme="dark"] .rating-badge{color:#111;}
   .ig-creations-grid .rating-badge,.ig-chatgallery-grid .rating-badge{top:4px;left:4px;padding:2px 4px;font-size:8px;}
@@ -102,11 +103,23 @@
      revealing the rest — collapsed by default so the panel stays compact
      enough to fit without page-level scroll even with many installed
      checkpoints/LoRAs. */
-  .ig-model-summary{display:flex;align-items:center;gap:8px;padding:8px;background:var(--accent-soft);border:1px solid var(--line-2);border-radius:10px;margin-bottom:8px;}
-  .ig-model-summary .ig-model-thumb{width:38px;height:38px;flex:none;font-size:16px;aspect-ratio:auto;}
-  .ig-model-summary-txt{min-width:0;display:flex;flex-direction:column;}
-  .ig-model-summary-txt b{font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .ig-model-summary-txt span{font-size:10px;color:var(--muted);}
+  .ig-model-summary{display:flex;align-items:center;gap:10px;padding:10px;background:var(--accent-soft);border:1px solid var(--line-2);border-radius:10px;margin-bottom:8px;}
+  .ig-model-summary .ig-model-thumb{width:44px;height:44px;flex:none;font-size:18px;aspect-ratio:auto;}
+  .ig-model-summary-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .ig-model-summary-txt b{font-size:14.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ig-model-summary-txt span{font-size:12.5px;color:var(--muted);}
+  /* Per-selected-LoRA summary in the picker grid — identical thumb+bold-name+
+     type+desc structure as the checkpoint picker's single summary header
+     (same .ig-model-summary base), just always shown once selected (not only
+     when a description happens to be set) with two additions: the
+     description clamps to one line with an ellipsis since this repeats per
+     selected tile rather than appearing once at the top of the whole grid,
+     and this LoRA's trigger/activation keywords render as pills underneath. */
+  .ig-lora-summaries{display:flex;flex-direction:column;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line-2);}
+  .ig-lora-summary{align-items:flex-start;margin:0;}
+  .ig-lora-summary-desc{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;white-space:normal;}
+  .ig-lora-summary-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .ig-lora-summary-tags .tag{font-size:13px;padding:4px 11px;}
   .ig-tile-thumb{width:28px;height:28px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;}
   .ig-tile-thumb.lg{width:36px;height:36px;font-size:15px;}
   .ig-tile-thumb.sm{width:20px;height:20px;font-size:11px;border-radius:5px;}
@@ -130,8 +143,8 @@
   .ig-model-thumb{position:relative;width:100%;aspect-ratio:1/1;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:26px;background-size:cover;background-position:center;overflow:hidden;}
   .ig-model-thumb-arch-row{position:absolute;top:4px;left:4px;right:4px;display:flex;flex-wrap:wrap;gap:3px;}
   .ig-model-thumb-arch{background:color-mix(in srgb, var(--paper) 78%, transparent);
-    color:var(--accent);border:1px solid var(--line-2);border-radius:5px;padding:1px 5px;font-family:var(--sans);
-    font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;line-height:1.4;}
+    color:var(--accent);border:1px solid var(--line-2);border-radius:6px;padding:2px 7px;font-family:var(--sans);
+    font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;line-height:1.4;}
   /* Too small/compact a context for a text badge to fit legibly. */
   .ig-model-summary .ig-model-thumb-arch-row,
   .ig-picker-btn .ig-model-thumb-arch-row{display:none;}
@@ -140,9 +153,18 @@
      so the fallback letter still scales with this tile's own larger size */
   .ig-model-thumb.ava.mono{font-size:26px;}
   .ig-model-summary .ig-model-thumb.ava.mono{font-size:16px;}
+  .ig-model-summary-arch-row{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0;}
   .ig-lora-tile-wrap{display:flex;flex-direction:column;}
-  .ig-lora-strength{display:flex;flex-direction:column;gap:2px;padding:4px 2px 0;}
-  .ig-lora-strength input{width:100%;}
+  .ig-lora-strength{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:4px 2px 0;}
+  .ig-lora-strength .hint{flex:none;}
+  .ig-lora-strength input{width:100%;order:3;flex-basis:100%;}
+  .ig-lora-val-pill{flex:none;background:color-mix(in srgb, var(--accent) 16%, var(--surface));
+    border:1px solid color-mix(in srgb, var(--accent) 45%, var(--line-2));border-radius:8px;padding:2px 9px;
+    font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent);line-height:1.4;}
+  .lt-eta-pill{flex:none;display:none;align-items:center;background:color-mix(in srgb, #2ecc71 14%, var(--surface));
+    border:1px solid color-mix(in srgb, #2ecc71 55%, var(--line-2));border-radius:8px;padding:6px 12px;
+    font-family:var(--mono);font-size:12.5px;font-weight:600;color:#2ecc71;line-height:1.3;white-space:nowrap;}
+  .lt-eta-pill.show{display:inline-flex;}
   .ig-show-more{margin-top:6px;background:none;border:none;color:var(--accent);font-size:11.5px;cursor:pointer;padding:4px;width:100%;text-align:center;}
   .ig-picker-btn{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;background:var(--surface);border:1px solid var(--line-2);border-radius:9px;color:var(--ink);font-size:13px;cursor:pointer;text-align:left;transition:.12s;}
   .ig-picker-btn:hover{border-color:var(--accent);}
@@ -154,12 +176,12 @@
   /* single-row scroll strips (not wrap) — keeps aspect/resolution controls
      from growing the panel's height even with the Custom option appended */
   .ig-ratio-row,.ig-res-row{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:5px;align-items:center;scrollbar-width:thin;}
-  .ig-ratio-btn{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;min-width:38px;padding:6px 5px;background:var(--surface);border:1px solid var(--line-2);border-radius:7px;color:var(--sec);font-size:9.5px;cursor:pointer;transition:.12s;}
+  .ig-ratio-btn{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;min-width:54px;padding:10px 8px;background:var(--surface);border:1px solid var(--line-2);border-radius:8px;color:var(--sec);font-size:12.5px;cursor:pointer;transition:.12s;}
   .ig-ratio-btn:hover{border-color:var(--accent);}
   .ig-ratio-btn.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-deep);}
   .ig-ratio-box{display:block;border:1.5px solid currentColor;border-radius:2px;opacity:.7;}
-  .ig-ratio-custom{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:12px;}
-  .ig-res-btn{flex:none;padding:5px 11px;background:var(--surface);border:1px solid var(--line-2);border-radius:7px;color:var(--sec);cursor:pointer;font-size:12px;transition:.12s;}
+  .ig-ratio-custom{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:15px;}
+  .ig-res-btn{flex:none;padding:8px 16px;background:var(--surface);border:1px solid var(--line-2);border-radius:8px;color:var(--sec);cursor:pointer;font-size:14px;transition:.12s;}
   .ig-res-btn:hover{border-color:var(--accent);}
   .ig-res-btn.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-deep);}
   .ig-res-dims{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:auto;}
@@ -168,8 +190,21 @@
 
   /* Full model-picker modal (search + full grid + detail panel / Request tab) */
   .ig-mp-tabs{margin:14px 0 16px;}
-  .ig-mp-search{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:10px 13px;font-family:inherit;font-size:14px;color:var(--ink);outline:none;margin-bottom:14px;}
-  .ig-mp-category-tabs{margin-bottom:14px;flex-wrap:wrap;}
+  .ig-mp-search-row{display:flex;gap:8px;align-items:stretch;margin-bottom:14px;}
+  .ig-mp-search{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:10px 13px;font-family:inherit;font-size:14px;color:var(--ink);outline:none;margin-bottom:0;}
+  .ig-cat-filter{position:relative;flex:none;}
+  .ig-cat-filter-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--line-2);border-radius:9px;background:var(--surface);color:var(--sec);cursor:pointer;}
+  .ig-cat-filter-btn:hover{color:var(--accent);border-color:var(--accent);}
+  .ig-cat-filter-btn svg{width:17px;height:17px;}
+  .ig-cat-filter-menu{display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:180px;z-index:40;
+    background:var(--surface-2);border:1px solid var(--line-2);border-radius:10px;padding:6px;
+    box-shadow:0 14px 32px -12px rgba(0,0,0,.5);flex-direction:column;gap:2px;}
+  .ig-cat-filter-menu.show{display:flex;}
+  .ig-cat-filter-opt{text-align:left;background:none;border:none;border-radius:7px;padding:8px 10px;
+    font-family:inherit;font-size:13.5px;color:var(--ink);cursor:pointer;}
+  .ig-cat-filter-opt:hover{background:var(--surface);}
+  .ig-cat-filter-opt.on{color:var(--accent);font-weight:600;}
   .ig-mp-hide-legacy{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);margin-bottom:14px;cursor:pointer;user-select:none;}
   .ig-mp-hide-legacy input{margin:0;}
   .ig-mp-body{display:grid;grid-template-columns:1fr 260px;gap:18px;align-items:start;}
@@ -193,6 +228,7 @@
   .ig-mr-status-pending{color:var(--muted);background:var(--surface-2);}
   .ig-mr-status-approved{color:#4caf7d;background:rgba(76,175,125,.12);}
   .ig-mr-status-rejected{color:#e05d5d;background:rgba(224,93,93,.12);}
+  .ig-mr-status-implemented{color:#4caf7d;background:rgba(76,175,125,.12);}
 
   /* small gold accent bar next to a section label, used above content grids */
   .section-heading{font-family:var(--display);font-weight:600;font-size:19px;padding-left:12px;border-left:3px solid var(--accent);}
@@ -206,13 +242,16 @@
 .cmt-count{display:inline-block;min-width:20px;padding:1px 8px;margin-left:4px;border-radius:20px;background:var(--accent-tint);color:var(--accent);font-size:13px;font-weight:600;}
 .cmt-composer{display:flex;align-items:flex-start;gap:10px;margin-bottom:18px;}
 .cmt-composer-main{flex:1;min-width:0;}
-.cmt-composer-row{display:flex;align-items:center;gap:10px;}
+.cmt-composer-row{display:flex;align-items:flex-start;gap:10px;}
+.cmt-composer-row>.lang-ac,.cmt-replyform>.lang-ac{flex:1;min-width:0;}
+.cmt-composer-row>.lang-ac .cmt-input,.cmt-replyform>.lang-ac .cmt-input{width:100%;}
 .cmt-attach-btn{flex:none;width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;
   border-radius:50%;border:1px solid var(--line-2);background:var(--surface);color:var(--muted);cursor:pointer;transition:.15s;font-size:15px;}
 .cmt-attach-btn svg{width:16px;height:16px;flex:none;}
 .cmt-attach-btn:hover{border-color:var(--accent);color:var(--accent);}
 #cmtGifBtn{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.02em;}
 .cmt-input{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:22px;background:var(--surface);color:var(--ink);font-size:14px;}
+.cmt-new-ta{resize:none;overflow-y:auto;line-height:1.4;max-height:160px;font:inherit;border-radius:16px;}
 .cmt-attach-preview{position:relative;display:inline-block;margin-top:8px;}
 .cmt-attach-preview img,.cmt-attach-preview video{max-width:120px;max-height:120px;border-radius:8px;display:block;border:1px solid var(--line);}
 

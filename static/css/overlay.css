@@ -83,6 +83,15 @@
   .field input[type=text], .field input[type=password], .field textarea{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:11px 13px;font-family:inherit;font-size:15px;color:var(--ink);outline:none;transition:.15s;}
   .field textarea{resize:vertical;min-height:90px;line-height:1.55;}
   .field textarea.ig-autosize{resize:none;min-height:auto;overflow:hidden;line-height:1.5;}
+  .tags-input{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%;background:var(--surface);
+    border:1px solid var(--line);border-radius:9px;padding:8px 10px;transition:.15s;}
+  .tags-input:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .tag-pill{display:inline-flex;align-items:center;gap:5px;background:color-mix(in srgb, var(--accent) 16%, var(--surface-2));
+    border:1px solid color-mix(in srgb, var(--accent) 40%, var(--line-2));border-radius:20px;padding:4px 6px 4px 11px;
+    font-size:13.5px;color:var(--ink);}
+  .tag-pill-x{background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;line-height:1;padding:2px 4px;border-radius:50%;}
+  .tag-pill-x:hover{color:var(--danger,#e05d5d);}
+  .tag-pill-input{flex:1;min-width:120px;background:none;border:none;outline:none;font-family:inherit;font-size:15px;color:var(--ink);padding:4px 2px;}
   .field select{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:11px 36px 11px 13px;font-family:inherit;font-size:15px;color:var(--ink);outline:none;transition:.15s;appearance:none;-webkit-appearance:none;cursor:pointer;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1L6 6L11 1' stroke='%23968B7A' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat:no-repeat;background-position:right 13px center;}
@@ -165,11 +174,13 @@
      to cover it. */
   body.modal-open .shell,body.modal-open .mtop,body.modal-open .tabbar{visibility:hidden;}
   .modal-layer{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;}
-  /* A stacked layer's own blur+dim wasn't strong enough to actually hide the
-     parent modal's content behind it (a small high-contrast badge stayed
-     legible through a 35%-opacity/2px blur) — opaque enough that nothing
-     behind is visible at all, since the point is full coverage, not a dim. */
-  .modal-layer:not(:first-child){background:var(--surface);backdrop-filter:blur(6px);}
+  /* Same GPU-compositing paint-order bug as the .scrim comment above: an
+     opaque background + blur on the topmost stacked layer still let a small
+     high-contrast badge (e.g. a rating badge) from an earlier layer paint
+     through underneath it. Covering isn't reliable — only actually removing
+     the earlier layer from the paint tree is, so every layer but the topmost
+     is hidden outright while stacked. */
+  .modal-layer:not(:last-child){visibility:hidden;}
   .modal{background:var(--paper);border:1px solid var(--line-2);border-radius:16px;max-width:560px;width:100%;max-height:86vh;overflow-y:auto;padding:26px 28px;box-shadow:0 24px 60px -20px var(--violet-soft);}
   .modal.modal-wide{max-width:min(1100px,92vw);}
   .compliance-modal{max-width:520px;}
@@ -185,7 +196,7 @@
   .switch-nsfw{background:var(--warn-bg);border:1px solid var(--warn-soft);border-radius:10px;padding:12px 14px;gap:6px 10px;}
   .switch-nsfw input{width:18px;height:18px;accent-color:var(--warn);}
   .switch-nsfw .hint{color:var(--sec);}
-  .modal-foot{display:flex;gap:10px;justify-content:flex-end;margin-top:8px;}
+  .modal-foot{display:flex;gap:10px;justify-content:flex-end;margin:8px -28px -26px;padding:14px 28px 26px;position:sticky;bottom:-26px;background:var(--paper);border-top:1px solid var(--line-2);}
   .tag.gold{color:var(--accent);text-transform:uppercase;font-weight:700;letter-spacing:.03em;border-color:color-mix(in srgb,var(--accent) 35%,transparent);background:var(--accent-tint);}
   .lore-img-edit{display:flex;align-items:center;gap:14px;}
   .lore-img-box{flex:none;}
@@ -217,6 +228,13 @@
     border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(4px);transition:.15s;}
   .ig-detail-download svg{width:16px;height:16px;flex:none;}
   .ig-detail-download:hover{background:var(--accent);color:var(--gold-ink);border-color:var(--accent);}
+  .report-flag-overlay{position:absolute;bottom:10px;right:10px;width:30px;height:30px;padding:0;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;background:rgba(10,10,10,.55);color:#fff;
+    border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(4px);transition:.15s;z-index:2;}
+  .report-flag-overlay svg{width:15px;height:15px;flex:none;}
+  .report-flag-overlay:hover{background:var(--warn);color:#fff;border-color:var(--warn);}
+  .report-flag-overlay-sm{position:absolute;bottom:0;right:0;width:24px;height:24px;}
+  .report-flag-overlay-sm svg{width:12px;height:12px;}
   .lore-entry-img-empty{width:100%;aspect-ratio:1;display:grid;place-items:center;color:var(--muted);font-size:34px;}
   .lore-entry-body{flex:1;min-width:0;}
   .lore-entry-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:4px;}
@@ -250,8 +268,12 @@
   .ig-tags-lock{margin-left:auto;font-size:12px;filter:grayscale(.3);opacity:.8;}
   .ig-tags-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 10px;}
   .ig-tags-row-copy .tool{margin-left:auto;}
-  .ig-preview-box{position:relative;max-width:520px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface-2);min-height:120px;display:flex;align-items:center;justify-content:center;}
+  .ig-preview-box{position:relative;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface-2);min-height:120px;display:flex;align-items:center;justify-content:center;}
   .ig-preview-empty .ig-preview-box .ig-detail-download{display:none;}
+  .ig-status-pill{position:absolute;top:10px;left:10px;z-index:2;padding:5px 12px;border-radius:20px;
+    background:color-mix(in srgb, var(--accent) 85%, black 15%);color:#fff;font-size:12px;font-weight:600;
+    box-shadow:0 6px 16px -6px rgba(0,0,0,.5);}
+  #igResultActions.ig-upscaling #ig_save,#igResultActions.ig-upscaling #ig_discard{display:none;}
   .ig-unsaved-warning{display:flex;align-items:center;gap:8px;background:var(--warn-bg);border:1px solid var(--warn-soft);border-radius:10px;padding:10px 14px;margin:0 0 18px;font-size:13.5px;color:var(--sec);}
   .ig-preview-box img{width:100%;height:auto;display:block;}
   .lora-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}

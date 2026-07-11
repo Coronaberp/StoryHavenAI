@@ -4,17 +4,36 @@ Everything the platform does, in plain language, one line at a time.
 
 ---
 
-## What's new in V1.1
+## What's new in V1.2
+- **Train your own LoRA** — fine-tune a style or character add-on from your own reference images, right from the Creations page's Train LoRA tab, on a rented Modal GPU. Live progress/loss chart, request a mid-run checkpoint to test early, one job at a time (a queue shows "waiting for N ahead of this one"), and Abort now genuinely stops the run (and its billing) instead of just marking it failed in the UI while it kept running underneath.
+- **Resume a training run from where it left off** — if a run stalls or gets aborted, pick up from the last saved checkpoint instead of starting over from zero; total training exposure adds up correctly across resumes, and the panel clearly marks a resumed run so it's never confused with a fresh one.
+- **A training run that can't silently freeze for hours** — if the actual training process goes completely quiet with no error, the run is now killed automatically after a short timeout instead of sitting frozen (and billing) for the full multi-hour ceiling before anyone notices.
+- **Faster, more reliable model uploads/downloads** — checkpoint caching and finished-LoRA retrieval now talk directly to Modal's own storage instead of a custom upload/download implementation, dramatically faster and no longer able to hang forever on a dropped connection.
+- **"Images" is now "Creations"** — same page, same features, renamed ahead of video generation support landing alongside image generation.
+- **One filter icon instead of a row of tabs** — every model/LoRA picker (and the Creations catalog's own architecture filter) now uses a single filter-icon dropdown with a real "All" option, instead of a permanently-visible row of category tabs.
+- **Pan actually works on mobile now** — dragging to pan a zoomed-in image only worked with a mouse before; touch devices can now drag to pan the same way.
+- **Tags are now pills** — type a tag, press comma or Enter to turn it into a removable chip, instead of one plain comma-separated text box.
+- **"Generate with AI" character creation, hardened** — a couple of real bugs fixed: the example-dialogue field could come back oddly formatted instead of the expected back-and-forth lines, and a malformed request could fail with a cryptic technical error instead of a plain "description is required."
+- **A Dev permission tier, above admin** — a small number of trusted accounts can now be granted (or revoked) a "Dev" role from the Users tab, replacing what used to be a single hardcoded account. Only a Dev sees the raw download command (curl + API key) for an approved model/LoRA request, and only a Dev can grant Dev to someone else — a regular admin can never self-escalate.
+- **Model request lifecycle, fixed** — approving a model/LoRA download request now reliably shows the copy-paste install command every time (a detection bug could silently hide it), the command itself now correctly handles both a raw model file and a zip bundle (previously a real checkpoint that happened to be zip-compressed could be silently discarded, and a multi-file zip bundle could be loaded as one broken file). A genuinely-installed request is now marked **Implemented**, a distinct status from Rejected, so your install history doesn't lie to you.
+- **Click to zoom, drag to pan, on every full-size image view** — the image detail modal, admin review modals, and the model-preview zoom view all support click-to-zoom (2.5x), drag-to-pan while zoomed, ctrl+scroll to zoom incrementally, and a slider (2x–10x) for fine control. A pan that ends outside the image no longer accidentally closes the modal.
+- **Filter and refresh, per model-preview category** — checkpoints, LoRAs, upscalers, samplers, and schedulers each get their own filter box (matches name, description, and tags) and a one-click refresh, instead of scrolling through everything or waiting on a full page reload.
+- **Delete an upscaler file from the admin panel** — previously only checkpoints and LoRAs could be deleted this way; upscalers silently failed.
+- **Noticeably faster page loads** — every JS/CSS asset is now gzip-compressed (~70% smaller on the wire) and a stale update-detection bug that could leave the "new version available" banner permanently broken has been fixed.
+- **Smaller, higher-fidelity animated avatars/emoji/stickers** — animated GIFs are now losslessly re-encoded to WebP (same pixels, meaningfully smaller files) instead of GIF's lossy 256-color palette.
+- **Security hardening** — an SSRF validation gap (a literal-IP bring-your-own endpoint could skip the private-IP check) and two plaintext-at-rest gaps (admin API keys and the Modal shared secret were unencrypted in the database; comment-report notes too) were found and fixed.
+- **A more auditable codebase** — a large internal refactor (no user-facing behavior change) split every oversized file into focused, single-responsibility modules and added the project's first automated test suite, so the code is easier for a human to review and safer to change going forward.
+
+## Previously, in V1.1
 - **A real community forum** — Reddit-style threads with titles, categories, replies, and likes, separate from character comments, for discussion that isn't tied to any one character or image.
 - **Emoji reactions** — react to comments with the standard set or with admin-added custom emojis, not just reply.
 - **A unified notification inbox** — comments, forum replies, milestones, and (for admins) signups/reports/requests all land in the same bell, instead of scattered per-feature alerts.
 - **Admin health dashboard** — live up/down + response-time trend charts for the database, chat model, image classifier, and image generator, plus a live server log viewer, so a problem shows up before someone has to report it.
-- **Hardening pass** — a full audit of the auth flow, bring-your-own-endpoint SSRF guard, upload validation, and encryption-at-rest coverage ahead of this release; see `VersionReports/FINAL_REPORT_V1.1.md` for the detailed findings and fixes (a mood-tag parsing bug that could silently eat mid-reply text was found and fixed).
-- **A visible app version** — the sidebar now shows the running version number, so you can tell at a glance what you're on without opening a settings panel.
-- **Sidebar scroll fix** — the account/notification/settings row at the bottom of the sidebar no longer gets squeezed by a whole-sidebar scrollbar; only the nav/recent-chats list scrolls now, so the bottom row always stays put.
+- **A visible app version** — the sidebar shows the running version number, so you can tell at a glance what you're on without opening a settings panel.
+
+See `VersionReports/features_v1.1.md` and `VersionReports/FINAL_REPORT_V1.1.md` for the full V1.1 notes and audit.
 
 ## Coming next (planned, not yet shipped)
-- **Train your own LoRA** — fine-tune a style or character add-on from your own reference images, instead of only picking from ones an admin has already added.
 - **Story memory beyond embeddings** — a second memory layer that tracks ongoing plot/state directly (not just semantic recall over past turns), so long-running stories keep continuity that a vector search alone can miss.
 - **A unified theme system** — one place to skin the whole app's look, instead of separate color/font/background controls scattered across settings.
 - **Total user-side customization** — broaden the same bring-your-own-HTML/CSS approach already used for profiles and character pages to more of the app, so more of the UI itself is yours to reshape.

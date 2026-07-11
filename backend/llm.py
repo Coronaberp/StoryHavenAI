@@ -10,7 +10,17 @@ chat_stream and embed accept optional base_url / api_key overrides so that
 per-user LLM endpoints are supported without touching the module-level config.
 """
 import json
+import re
+import logging
 import httpx
+
+log = logging.getLogger("storyhavenai")
+
+
+def strip_json_fence(raw: str) -> str:
+    """Strip a leading/trailing ```json ... ``` (or bare ```) code fence a model
+    sometimes wraps its JSON reply in, despite being asked for raw JSON only."""
+    return re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip(), flags=re.IGNORECASE).strip()
 
 _base = "http://llamacpp-chat:5001/v1"
 _embed_base = "http://llamacpp-embed:5002/v1"
@@ -168,6 +178,7 @@ async def classify_image_explicit(image_data_url: str, model: str,
             j = resp.json()
         reply = ((j.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
     except Exception as e:
+        log.warning("nsfw vision classify failed: %s", e)
         return False, 0, f"<error: {e}>"
     parts = reply.strip().lower().split()
     explicit = bool(parts) and parts[0].startswith("yes")
@@ -281,7 +292,8 @@ async def chat_stream(messages, model, params=None, parse_think=False,
                     break
                 try:
                     j = json.loads(data)
-                except Exception:
+                except Exception as e:
+                    log.warning("chat_stream: skipping malformed SSE chunk error=%s", e)
                     continue
                 choices = j.get("choices") or []
                 if not choices:

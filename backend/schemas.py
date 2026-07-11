@@ -125,6 +125,9 @@ class SettingsIn(BaseModel):
                                           # blank = use the built-in default txt2img template
     model_request_hosts: list[ModelRequestHostIn] | None = None
     embed_link_hosts: list[str] | None = None
+    modal_train_url: str | None = None
+    modal_shared_secret: str | None = None
+    modal_checkpoint_url: str | None = None
 
 
 # Per-user overrides: same sampling/endpoint fields as SettingsIn but no embed_dim
@@ -262,6 +265,8 @@ class ImageGenSaveIn(BaseModel):
     scheduler: str = ""
     steps: int = 20
     is_img2img: bool = False
+    cfg: float = 7.0
+    upscaler: str = ""
 
 
 class ImageShareIn(BaseModel):
@@ -278,6 +283,22 @@ class ImageReportResolveIn(BaseModel):
     admin_note: str | None = None
 
 
+class ContentReportIn(BaseModel):
+    kind: str
+    label: str
+    target_id: str | None = None
+    image: str | None = None
+    note: str | None = None
+
+
+class ContentReportResolveIn(BaseModel):
+    is_explicit: bool
+
+
+class LoraPublishIn(BaseModel):
+    published: bool
+
+
 class ModelRequestIn(BaseModel):
     model_name: str
     source_url: str
@@ -285,6 +306,18 @@ class ModelRequestIn(BaseModel):
     request_type: str = "checkpoint"
     vae_url: str | None = None
     text_encoder_url: str | None = None
+
+
+class LoraTrainingJobIn(BaseModel):
+    name: str
+    trigger_word: str = "sks"
+    base_checkpoint: str = ""   # filename of a checkpoint already in ComfyUI's models volume
+    resolution: int = 512
+    rank: int = 16
+    alpha: int = 16
+    learning_rate: float = 0.0001
+    steps: int = 1000
+    batch_size: int = 1
 
 
 class RenameIn(BaseModel):
@@ -324,6 +357,10 @@ class SuspendUserIn(BaseModel):
     reason: str | None = None
 
 
+class DevRoleIn(BaseModel):
+    is_dev: bool
+
+
 class AdminNoteIn(BaseModel):
     note: str
 
@@ -346,6 +383,9 @@ class ModelMetaIn(BaseModel):
     # the shared imagegen.ANIMA_CLIP_NAME/ANIMA_VAE_NAME pair".
     anima_clip_name: str | None = None
     anima_vae_name: str | None = None
+    # LoRAs only — prompt words that actually trigger this LoRA's trained
+    # concept, purely informational for whoever picks it.
+    keywords: list[str] | None = None
 
 
 class CommentIn(BaseModel):

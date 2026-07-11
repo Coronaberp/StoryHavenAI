@@ -6,9 +6,11 @@ import time
 from fastapi import HTTPException, Request, Response, Depends
 
 from backend import db
+from backend.repositories import notifications as notification_repo
 from backend.state import COOKIE_NAME, COOKIE_MAX_AGE, auth_router, log
 from backend.schemas import LoginIn, PasswordChangeIn, PasswordResetRequestIn
 from backend.ratelimit import SlidingWindow
+from backend.repositories import users as user_repo
 
 _USERNAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
@@ -29,7 +31,7 @@ async def get_current_user(request: Request) -> dict:
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    user = await db.get_session_user(token)
+    user = await user_repo.get_session_user(token)
     if not user:
         raise HTTPException(status_code=401, detail="Session expired or invalid")
     return user
@@ -42,12 +44,21 @@ async def get_current_user_optional(request: Request) -> dict | None:
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         return None
-    return await db.get_session_user(token)
+    return await user_repo.get_session_user(token)
 
 
 async def get_admin(current_user: dict = Depends(get_current_user)) -> dict:
     if not current_user.get("is_admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+
+async def get_dev(current_user: dict = Depends(get_admin)) -> dict:
+    """The Dev tier: one step above admin, for the platform's own operator.
+    Sees raw model-request download material (curl commands, API keys) that
+    even other admins don't, and can grant/revoke Dev status on other admins."""
+    if current_user.get("role") != "dev":
+        raise HTTPException(status_code=403, detail="Dev access required")
     return current_user
 
 
@@ -136,12 +147,12 @@ async def register(body: LoginIn, request: Request):
         raise HTTPException(400, "Username must be at least 2 characters")
     if len(body.password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters")
-    existing = await db.get_user_by_username(username)
+    existing = await user_repo.get_user_by_username(username)
     if existing:
         _login_record_failure(_client_ip(request), username)
         raise HTTPException(400, "Username already taken")
-    await db.create_user(username, body.password, status="pending")
-    await db.notify_admins(
+    await user_repo.create_user(username, body.password, status="pending")
+    await notification_repo.notify_admins(
         "admin_signup", f"New signup: {username}",
         f"{username} registered and is awaiting approval.", "/admin")
     log.info("registration: username=%s status=pending", username)
@@ -175,10 +186,10 @@ async def request_password_reset(body: PasswordResetRequestIn, request: Request)
     ip = _client_ip(request)
     _reset_rate_check(ip)
     _reset_record(ip)
-    user_row = await db.get_user_by_username(body.username)
+    user_row = await user_repo.get_user_by_username(body.username)
     if user_row:
         await db.create_password_reset_request(user_row["id"], user_row["username"])
-        await db.notify_admins(
+        await notification_repo.notify_admins(
             "admin_reset", f"Password reset: {user_row['username']}",
             f"{user_row['username']} requested a password reset.", "/admin")
         log.info("password reset requested: username=%s", user_row["username"])
@@ -190,7 +201,7 @@ async def login(body: LoginIn, request: Request, response: Response):
     ip = _client_ip(request)
     username = normalize_username(body.username)
     _login_rate_check(ip, username)
-    user_row = await db.get_user_by_username(username)
+    user_row = await user_repo.get_user_by_username(username)
     if not user_row or not db.verify_password(body.password, user_row["password_hash"]):
         _login_record_failure(ip, username)
         log.warning("login failed: username=%s reason=invalid_credentials", username)
@@ -208,7 +219,7 @@ async def login(body: LoginIn, request: Request, response: Response):
         log.warning("login failed: username=%s reason=account_%s", username, status)
         raise HTTPException(status_code=403, detail="Account access denied")
     _login_clear(ip, username)
-    token = await db.create_auth_session(user_row["id"])
+    token = await user_repo.create_auth_session(user_row["id"])
     # request.url.scheme correctly reports "https" behind the Cloudflare tunnel
     # (uvicorn is started with --proxy-headers --forwarded-allow-ips='*', so it
     # trusts X-Forwarded-Proto from cloudflared) and "http" for direct local
@@ -225,8 +236,8 @@ async def login(body: LoginIn, request: Request, response: Response):
 async def logout(request: Request, response: Response):
     token = request.cookies.get(COOKIE_NAME)
     if token:
-        user = await db.get_session_user(token)
-        await db.delete_auth_session(token)
+        user = await user_repo.get_session_user(token)
+        await user_repo.delete_auth_session(token)
         if user:
             log.info("logout: username=%s user_id=%s", user["username"], user["id"])
     response.delete_cookie(COOKIE_NAME)
@@ -241,12 +252,12 @@ async def me(current_user: dict = Depends(get_current_user)):
 @auth_router.put("/password")
 async def change_password(body: PasswordChangeIn, request: Request,
                           current_user: dict = Depends(get_current_user)):
-    user_row = await db.get_user_by_username(current_user["username"])
+    user_row = await user_repo.get_user_by_username(current_user["username"])
     if not db.verify_password(body.old_password, user_row["password_hash"]):
         log.warning("password change failed: username=%s reason=wrong_current", current_user["username"])
         raise HTTPException(400, "Current password is incorrect")
-    await db.update_user_password(current_user["id"], body.new_password)
-    await db.delete_other_user_sessions(
+    await user_repo.update_user_password(current_user["id"], body.new_password)
+    await user_repo.delete_other_user_sessions(
         current_user["id"], keep_token=request.cookies.get(COOKIE_NAME))
     log.info("password changed: username=%s user_id=%s", current_user["username"], current_user["id"])
     return {"ok": True}

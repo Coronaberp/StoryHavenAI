@@ -10,7 +10,10 @@ logic live in the backend/ package (the only module outside it is this file):
   backend/ssrf.py          bring-your-own endpoint validation
   backend/prompt.py        build_system, sampling params, mood parsing, dice
   backend/media.py         image validation/optimization, media file helpers
-  backend/chat_service.py  retrieval, memory, side-call extractors, SSE machinery, _run
+  backend/chat_service.py  config/endpoint resolution, session ownership, SSE machinery, _run
+  backend/retrieval.py     lore/memory retrieval, per-turn memory extraction, remember()
+  backend/classify.py      NSFW image classification (sync + fire-and-forget background)
+  backend/ai_helpers.py    character/persona/image-prompt side-call generators
   backend/routers/*        the /api/* route handlers, grouped by domain
 
 Run:  uvicorn server:app --port 8000
@@ -28,19 +31,23 @@ from PIL import Image
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.exceptions import HTTPException
 
 from backend import db
 from backend import vectors
 from backend import llm
 from backend.state import (CFG, MEDIA_DIR, STATIC_DIR, APP_VERSION,
-                   apply_llm_config, log, api, auth_router)
+                   apply_llm_config, log, api, auth_router, _log_buffer)
 from backend.auth import _prune_login_attempts
+from backend.repositories import users as user_repo
+from backend.repositories import settings as global_settings_repo
+from backend.repositories import lora_training as lora_training_repo
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await db.init()
-    saved = await db.all_settings()
+    saved = await global_settings_repo.all_settings()
     for k, v in saved.items():
         if k not in CFG or v is None:
             continue
@@ -51,10 +58,14 @@ async def lifespan(app: FastAPI):
     await vectors.ensure_indexes(CFG["embed_dim"])
     apply_llm_config()
 
-    if not await db.any_users():
+    n_stuck = await lora_training_repo.fail_stuck_jobs()
+    if n_stuck:
+        log.warning("startup: marked %d orphaned LoRA training job(s) as failed (queued/training when the process last stopped)", n_stuck)
+
+    if not await user_repo.any_users():
         import secrets as _sec
         pwd = _sec.token_urlsafe(14)
-        await db.create_user("admin", pwd, is_admin=True)
+        await user_repo.create_user("admin", pwd, is_admin=True)
         print("\n" + "=" * 60)
         print("FIRST RUN — Admin account created automatically")
         print(f"  Username : admin")
@@ -66,21 +77,40 @@ async def lifespan(app: FastAPI):
         while True:
             await asyncio.sleep(6 * 3600)
             try:
-                await db.cleanup_expired_sessions()
+                await user_repo.cleanup_expired_sessions()
                 _prune_login_attempts()
             except Exception:
                 log.exception("session cleanup failed")
 
+    async def _log_buffer_prune_loop():
+        # _log_buffer.emit() already prunes entries older than 24h from the
+        # in-memory buffer on every new log line, but the persisted JSONL
+        # file on disk only gets rewritten down to that buffer at startup
+        # (compact()) — without this, a quiet server could still grow the
+        # file unboundedly between restarts. Re-running compact() here keeps
+        # the on-disk file matching the 24h-pruned in-memory view even if
+        # the process runs for weeks without a restart.
+        while True:
+            await asyncio.sleep(3600)
+            try:
+                _log_buffer._prune()
+                await asyncio.get_running_loop().run_in_executor(None, _log_buffer.compact)
+            except Exception:
+                log.exception("log buffer prune failed")
+
     cleanup_task = asyncio.create_task(_session_cleanup_loop())
     health_task = asyncio.create_task(backend.routers.health.health_ping_loop())
+    log_prune_task = asyncio.create_task(_log_buffer_prune_loop())
     yield
     cleanup_task.cancel()
     health_task.cancel()
+    log_prune_task.cancel()
     await db.close()
     await vectors.close()
 
 
 app = FastAPI(title="StoryHaven AI", lifespan=lifespan)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
 def _strip_ciphertext(value):
@@ -148,6 +178,9 @@ import backend.routers.characters  # noqa: F401
 import backend.routers.personas    # noqa: F401
 import backend.routers.lore        # noqa: F401
 import backend.routers.sessions    # noqa: F401
+import backend.routers.chat        # noqa: F401
+import backend.routers.imagegen    # noqa: F401
+import backend.routers.model_previews  # noqa: F401
 import backend.routers.profile     # noqa: F401
 import backend.routers.settings    # noqa: F401
 import backend.routers.misc        # noqa: F401
@@ -157,6 +190,7 @@ import backend.routers.notifications  # noqa: F401
 import backend.routers.health       # noqa: F401
 import backend.routers.forum        # noqa: F401
 import backend.routers.emojis       # noqa: F401
+import backend.routers.lora_training  # noqa: F401
 
 app.include_router(auth_router)
 app.include_router(api)
@@ -352,7 +386,7 @@ async def user_share_card(username: str, request: Request):
     """SPA shell for the /u/{username} profile page, with link-unfurling <meta>
     tags injected for bots that never execute the SPA's JS. Real browsers boot
     the SPA, whose router renders the profile view."""
-    u = await db.get_user_by_username(username)
+    u = await user_repo.get_user_by_username(username)
     brand_name = "StoryHaven AI"
     brand_tagline = "Forge worlds. Remember everything."
     if u and u.get("status") == "active":
@@ -387,7 +421,7 @@ async def image_share_card(iid: str, request: Request):
         else:
             img = _abs_media_url(request, rec.get("image", ""))
     if img:
-        creator = await db.get_user_by_id(rec.get("user_id"))
+        creator = await user_repo.get_user_by_id(rec.get("user_id"))
         name = (creator or {}).get("display_name") or (creator or {}).get("username") or "a StoryHaven creator"
         title = f"View this image on {brand_name}"
         desc = f"By {name}"
@@ -408,17 +442,20 @@ async def frontend_version():
     *next* request, but a hash/history SPA doesn't naturally make one, so this
     gives it a reason to. Public (no auth) since it must be checkable before
     login too. Also carries the human-readable app version shown in the UI."""
-    names = ("index.html",) + tuple(
-        os.path.join("js", n) for n in (
-            "core.js", "auth.js", "nav.js", "library.js", "admin.js", "comments.js",
-            "dossier.js", "chat.js", "editor.js", "personas.js", "lorebook.js",
-            "modal-settings.js", "boot.js")) + tuple(
-        os.path.join("css", n) for n in (
-            "base.css", "profile.css", "overlay.css", "studio.css", "pages.css",
-            "studio2.css", "admin.css"))
+    # Discovered from disk, not hardcoded: a hardcoded list here already went
+    # stale once (still named two files deleted in a later split), which made
+    # every mtime lookup below raise OSError and silently fall back to a
+    # constant "0" stamp — the update-reload banner never fired for anyone,
+    # for as long as that list didn't match the real static/ tree. Globbing
+    # both directories means a future file split/rename can never repeat that.
+    names = ["index.html"]
+    for sub, exts in (("js", (".js",)), ("css", (".css",))):
+        d = os.path.join(STATIC_DIR, sub)
+        names += sorted(os.path.join(sub, n) for n in os.listdir(d) if n.endswith(exts))
     try:
         stamp = "|".join(str(os.path.getmtime(os.path.join(STATIC_DIR, n))) for n in names)
-    except OSError:
+    except OSError as e:
+        log.warning("frontend_version: mtime lookup failed, falling back to constant stamp: %s", e)
         stamp = "0"
     return {"v": hashlib.sha256(stamp.encode()).hexdigest()[:16], "app_version": APP_VERSION}
 

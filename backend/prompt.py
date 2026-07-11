@@ -1,7 +1,8 @@
-"""Prompt engineering, sampling params, mood parsing, and dice mechanics —
-pure functions with no project dependencies."""
+"""System prompt assembly for character/RPG-mode chat — pure functions with
+no project dependencies."""
 import re
-import random
+
+from backend.mood import character_moods
 
 THINK_RE = re.compile(r"<think>.*?</think>\s*", re.S)
 
@@ -21,75 +22,6 @@ def macro(text, char_name, user_name):
     text = re.sub(r"\{\{char\}\}|<BOT>", char_name, text, flags=re.I)
     text = re.sub(r"\{\{user\}\}|<USER>", user_name, text, flags=re.I)
     return text
-
-
-def build_sampling_params(cfg: dict) -> dict:
-    g = lambda k, d: cfg.get(k, d)
-    p = {"temperature": g("temperature", 0.85), "top_p": g("top_p", 0.9), "max_tokens": g("max_tokens", 1024)}
-    add = lambda key, val, neutral: p.__setitem__(key, val) if val not in (None, neutral) else None
-    add("top_k", g("top_k", 0), 0)
-    add("min_p", g("min_p", 0.0), 0.0)
-    add("top_a", g("top_a", 0.0), 0.0)
-    add("typical_p", g("typical_p", 1.0), 1.0)
-    add("tfs", g("tfs", 1.0), 1.0)
-    add("repetition_penalty", g("repetition_penalty", 1.0), 1.0)
-    add("repetition_penalty_range", g("repetition_penalty_range", 0), 0)
-    add("frequency_penalty", g("frequency_penalty", 0.0), 0.0)
-    add("presence_penalty", g("presence_penalty", 0.0), 0.0)
-    add("smoothing_factor", g("smoothing_factor", 0.0), 0.0)
-    if g("mirostat_mode", 0):
-        p["mirostat_mode"] = g("mirostat_mode", 0)
-        p["mirostat_tau"] = g("mirostat_tau", 5.0)
-        p["mirostat_eta"] = g("mirostat_eta", 0.1)
-    if g("dynatemp_low", 0.0) or g("dynatemp_high", 0.0):
-        p["dynatemp_low"] = g("dynatemp_low", 0.0)
-        p["dynatemp_high"] = g("dynatemp_high", 0.0)
-        p["dynatemp_range"] = [g("dynatemp_low", 0.0), g("dynatemp_high", 0.0)]
-    if g("dry_multiplier", 0.0):
-        p["dry_multiplier"] = g("dry_multiplier", 0.0)
-        p["dry_base"] = g("dry_base", 1.75)
-        p["dry_allowed_length"] = g("dry_allowed_length", 2)
-    if g("xtc_probability", 0.0):
-        p["xtc_threshold"] = g("xtc_threshold", 0.1)
-        p["xtc_probability"] = g("xtc_probability", 0.0)
-    # -1 conventionally means "randomize" in llama.cpp/koboldcpp, but not every
-    # OpenAI-compatible backend agrees — some (e.g. DeepSeek's hosted API)
-    # validate seed as an unsigned int and reject -1 outright with a 400.
-    # Generating an actual random non-negative seed here works everywhere:
-    # backends that support seeding get a fresh value every call (so
-    # regenerate doesn't silently return the same cached output), and strict
-    # validators never see a value they'd reject.
-    seed = g("seed", -1)
-    if seed is not None:
-        p["seed"] = random.randint(0, 2**31 - 1) if seed == -1 else seed
-    if g("stop", []):
-        p["stop"] = g("stop", [])
-    if isinstance(g("extra_params", {}), dict) and g("extra_params", {}):
-        p.update(g("extra_params", {}))
-    return p
-
-
-MOOD_RE = re.compile(r"\[mood:\s*([a-z0-9 _\-]+)\]\s*$", re.I)
-
-
-def character_moods(char):
-    a = char.get("assets") or {}
-    moods = set()
-    for sect in ("stage", "music", "sprites"):
-        moods.update((a.get(sect) or {}).get("moods", {}).keys())
-    return sorted(moods)
-
-
-def parse_mood(text, moods):
-    text = text or ""
-    m = MOOD_RE.search(text)
-    if not m:
-        return text.strip(), None
-    clean = text[:m.start()].strip()
-    cand = m.group(1).strip().lower()
-    low = {mo.lower(): mo for mo in moods}
-    mood = low.get(cand, cand)
-    return clean, mood
 
 
 def recent_text(msgs, n=4):
@@ -495,49 +427,3 @@ def build_system(char, persona, user_name, mode="character", language="English",
                      "as [mood: X], where X must be exactly one of: " + ", ".join(moods) + ". "
                      "Choose the tag that best matches the current emotional tone. Write nothing after the tag.")
     return "\n\n".join(parts)
-
-
-DICE_TERM = re.compile(r'([+-]?)\s*(\d*)\s*[dD]\s*(\d+)|([+-]?\s*\d+)')
-
-
-def roll_dice(expr, max_dice=100, max_sides=1000):
-    raw = (expr or "1d20").strip()
-    total, bits, found = 0, [], False
-    for m in DICE_TERM.finditer(raw):
-        neg = m.group(1) == "-"
-        if m.group(3):
-            found = True
-            n = int(m.group(2)) if m.group(2) else 1
-            sides = int(m.group(3))
-            n = max(1, min(n, max_dice))
-            sides = max(2, min(sides, max_sides))
-            rolls = [random.randint(1, sides) for _ in range(n)]
-            total += -sum(rolls) if neg else sum(rolls)
-            op = "-" if neg else ("+" if bits else "")
-            bits.append(f"{op} {n}d{sides} [{', '.join(map(str, rolls))}]".strip())
-        elif m.group(4) is not None and m.group(4).strip():
-            c = int(m.group(4).replace(" ", ""))
-            total += c
-            op = "-" if c < 0 else ("+" if bits else "")
-            bits.append(f"{op} {abs(c)}".strip())
-    if not found:
-        raise ValueError("no dice found — try e.g. 2d6+3 or d20")
-    return {"expr": raw, "total": total, "detail": " ".join(bits)}
-
-
-def format_roll(r, label=""):
-    lbl = (label.strip() + ": ") if label.strip() else ""
-    return f"🎲 {lbl}{r['detail']} = **{r['total']}**"
-
-
-ROLL_INLINE = re.compile(r'/r(?:oll)?\s+(\d*d\d+(?:\s*[+-]\s*\d*d?\d+)*)', re.I)
-
-
-def resolve_inline_rolls(text):
-    def repl(m):
-        try:
-            return format_roll(roll_dice(m.group(1)))
-        except ValueError:
-            return m.group(0)
-    return ROLL_INLINE.sub(repl, text or "")
-

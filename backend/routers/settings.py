@@ -2,11 +2,15 @@
 from fastapi import HTTPException, Depends
 
 from backend import db
+from backend.repositories import notifications as notification_repo
 from backend import vectors
 from backend import llm
 from backend.state import api, CFG, PUBLIC_CFG_KEYS, USER_CFG_KEYS, apply_llm_config, log
 from backend.auth import get_current_user, get_admin
 from backend.ssrf import _validate_chat_endpoint, _resolve_host_ip_issue
+from backend.repositories import flagged_endpoints as flagged_endpoint_repo
+from backend.repositories import users as user_repo
+from backend.repositories import settings as global_settings_repo
 from backend.schemas import UserSettingsIn, SettingsIn, NsfwAllowedIn
 
 def _scrub_api_key(overrides: dict) -> dict:
@@ -21,7 +25,7 @@ def _scrub_api_key(overrides: dict) -> dict:
 
 @api.get("/me/settings")
 async def get_my_settings(current_user: dict = Depends(get_current_user)):
-    overrides = _scrub_api_key(await db.get_user_settings(current_user["id"]))
+    overrides = _scrub_api_key(await user_repo.get_user_settings(current_user["id"]))
     defaults = {k: CFG[k] for k in USER_CFG_KEYS if k in CFG}
     return {"overrides": overrides, "defaults": defaults, "has_override": bool(overrides)}
 
@@ -40,11 +44,11 @@ async def put_my_settings(body: UserSettingsIn,
     # guard when there's an actual URL being set.
     if data.get("base_url"):
         url = data["base_url"].strip()
-        key = data.get("api_key") or (await db.get_user_settings(current_user["id"])).get("api_key")
+        key = data.get("api_key") or (await user_repo.get_user_settings(current_user["id"])).get("api_key")
         ok, reason, detail = await _validate_chat_endpoint(url, key, current_user.get("is_admin", False))
         if not ok:
-            await db.flag_endpoint(current_user["id"], url, key or "", reason, detail)
-            await db.notify_admins(
+            await flagged_endpoint_repo.create(current_user["id"], url, key or "", reason, detail)
+            await notification_repo.notify_admins(
                 "admin_flagged_endpoint",
                 f"Flagged endpoint: {current_user['username']}",
                 f"{current_user['username']}'s endpoint {url} failed verification ({reason}).",
@@ -53,21 +57,23 @@ async def put_my_settings(body: UserSettingsIn,
             raise HTTPException(400, f"That endpoint couldn't be verified ({reason}) and has been "
                                       "flagged for admin review. It has not been saved.")
     if data:
-        await db.set_user_settings(current_user["id"], data)
-    overrides = _scrub_api_key(await db.get_user_settings(current_user["id"]))
+        await user_repo.set_user_settings(current_user["id"], data)
+        log.info("settings: per-user endpoint override changed by=%s", current_user["username"])
+    overrides = _scrub_api_key(await user_repo.get_user_settings(current_user["id"]))
     return {"overrides": overrides, "has_override": bool(overrides)}
 
 
 @api.delete("/me/settings")
 async def delete_my_settings(current_user: dict = Depends(get_current_user)):
-    await db.clear_user_settings(current_user["id"])
+    await user_repo.clear_user_settings(current_user["id"])
+    log.info("settings: per-user endpoint override cleared by=%s", current_user["username"])
     return {"cleared": True}
 
 
 @api.put("/me/nsfw")
 async def put_my_nsfw(body: NsfwAllowedIn,
                       current_user: dict = Depends(get_current_user)):
-    user = await db.set_user_nsfw_allowed(current_user["id"], body.allowed)
+    user = await user_repo.set_user_nsfw_allowed(current_user["id"], body.allowed)
     log.info("nsfw preference set: username=%s allowed=%s", current_user["username"], bool(user["nsfw_allowed"]))
     return {"nsfw_allowed": bool(user["nsfw_allowed"])}
 
@@ -93,6 +99,7 @@ async def get_settings(_: dict = Depends(get_current_user)):
     out["model_request_hosts"] = _scrub_model_request_hosts(out.get("model_request_hosts", []))
     out["has_api_key"] = bool(CFG.get("api_key"))
     out["has_embed_api_key"] = bool(CFG.get("embed_api_key"))
+    out["has_modal_shared_secret"] = bool(CFG.get("modal_shared_secret"))
     return out
 
 
@@ -101,7 +108,8 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
     data = body.model_dump(exclude_none=True)
     changed_dim = "embed_dim" in data and data["embed_dim"] != CFG["embed_dim"]
     persist = {}
-    _str_keys = {"chat_model", "embed_model", "base_url", "api_key", "embed_api_key", "embed_base_url"}
+    _str_keys = {"chat_model", "embed_model", "base_url", "api_key", "embed_api_key", "embed_base_url",
+                "modal_train_url", "modal_shared_secret", "modal_checkpoint_url"}
     if "model_request_hosts" in data:
         existing_by_host = {e.get("host"): e.get("api_key", "")
                             for e in CFG.get("model_request_hosts", [])}
@@ -118,7 +126,7 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
             v = llm._mk_root_embed(v)
         CFG[k] = v
         persist[k] = v
-    await db.set_settings(persist)
+    await global_settings_repo.set_settings(persist)
     apply_llm_config()
     log.info("admin: global settings changed by=%s keys=%s", current_user["username"],
              ",".join(sorted(persist.keys())) or "(none)")
@@ -132,6 +140,7 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
     out["model_request_hosts"] = _scrub_model_request_hosts(out.get("model_request_hosts", []))
     out["has_api_key"] = bool(CFG.get("api_key"))
     out["has_embed_api_key"] = bool(CFG.get("embed_api_key"))
+    out["has_modal_shared_secret"] = bool(CFG.get("modal_shared_secret"))
     out["reindexed"] = changed_dim
     return out
 

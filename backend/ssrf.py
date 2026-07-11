@@ -7,6 +7,7 @@ import urllib.parse
 import httpx
 
 from backend import llm
+from backend.state import log
 
 async def resolve_pinned_host(url: str, is_admin: bool = False) -> tuple[str, str | None]:
     """Resolve the URL's hostname once, validate it via _resolve_host_ip_issue,
@@ -30,24 +31,26 @@ async def resolve_pinned_host(url: str, is_admin: bool = False) -> tuple[str, st
     try:
         parsed = urllib.parse.urlparse(url)
         host = parsed.hostname
-    except Exception:
+    except Exception as e:
+        log.warning("ssrf: could not parse hostname for pinning, using URL as-is error=%s", e)
         return url, None
     if not host:
         return url, None
+    issue = await _resolve_host_ip_issue(url, is_admin)
+    if issue:
+        raise ValueError(issue)
     try:
         ipaddress.ip_address(host)
         return url, None
     except ValueError:
         pass
-    issue = await _resolve_host_ip_issue(url, is_admin)
-    if issue:
-        raise ValueError(issue)
     try:
         loop = asyncio.get_event_loop()
         infos = await loop.run_in_executor(None, socket.getaddrinfo, host, None)
         ip = infos[0][4][0]
         ipaddress.ip_address(ip)
-    except Exception:
+    except Exception as e:
+        log.warning("ssrf: could not resolve/pin host=%s, using URL unpinned error=%s", host, e)
         return url, None
     netloc = f"[{ip}]" if ":" in ip else ip
     if parsed.port:

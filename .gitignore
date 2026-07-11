@@ -3,11 +3,11 @@ __pycache__/
 *.pyc
 
 # Real user data — never commit the live database or its backups
-personae.db
-personae.db-shm
-personae.db-wal
-personae.db.backup*
-personae.logs.jsonl
+storyhavenai.db
+storyhavenai.db-shm
+storyhavenai.db-wal
+storyhavenai.db.backup*
+storyhavenai.logs.jsonl
 
 # Retired pre-Postgres SQLite database + backups (dead weight, kept locally only)
 legacy/

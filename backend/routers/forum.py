@@ -3,6 +3,7 @@ the existing comments system (target_type="thread")."""
 from fastapi import HTTPException, Depends
 
 from backend import db
+from backend.repositories import forum as forum_thread_repo
 from backend.state import api, log
 from backend.auth import get_current_user, get_current_user_optional
 from backend.schemas import ForumThreadIn
@@ -17,7 +18,7 @@ async def list_forum_threads(sort: str = "new", category: str = "",
                              current_user: dict | None = Depends(get_current_user_optional)):
     viewer_id = current_user["id"] if current_user else None
     hidden = await db.hidden_user_ids(viewer_id) if viewer_id else set()
-    return await db.list_forum_threads(hidden, sort=sort, category=category, viewer_id=viewer_id)
+    return await forum_thread_repo.list_all(hidden, sort=sort, category=category, viewer_id=viewer_id)
 
 
 @api.post("/forum/threads")
@@ -27,15 +28,15 @@ async def create_forum_thread(body: ForumThreadIn, current_user: dict = Depends(
     content = (body.content or "").strip()[:10000]
     if not title or not content:
         raise HTTPException(400, "title and content are required")
-    tid = await db.create_forum_thread(current_user["id"], title, content, body.category)
+    tid = await forum_thread_repo.create(current_user["id"], title, content, body.category)
     log.info("forum: thread created id=%s by=%s title=%r", tid, current_user["username"], title)
-    return await db.get_forum_thread(tid, current_user["id"])
+    return await forum_thread_repo.get(tid, current_user["id"])
 
 
 @api.get("/forum/threads/{tid}")
 async def get_forum_thread_route(tid: str, current_user: dict | None = Depends(get_current_user_optional)):
     viewer_id = current_user["id"] if current_user else None
-    th = await db.get_forum_thread(tid, viewer_id)
+    th = await forum_thread_repo.get(tid, viewer_id)
     if not th:
         raise HTTPException(404, "thread not found")
     if viewer_id and th["author_id"] != viewer_id and await db.is_block_between(th["author_id"], viewer_id):
@@ -45,25 +46,27 @@ async def get_forum_thread_route(tid: str, current_user: dict | None = Depends(g
 
 @api.delete("/forum/threads/{tid}")
 async def delete_forum_thread_route(tid: str, current_user: dict = Depends(get_current_user)):
-    th = await db.get_forum_thread(tid)
+    th = await forum_thread_repo.get(tid)
     if not th:
         raise HTTPException(404, "thread not found")
     if th["author_id"] != current_user["id"] and not current_user["is_admin"]:
         raise HTTPException(403, "Not authorized")
-    await db.delete_forum_thread(tid)
+    await forum_thread_repo.delete(tid)
     log.info("forum: thread deleted id=%s by=%s", tid, current_user["username"])
     return {"deleted": True}
 
 
 @api.post("/forum/threads/{tid}/like")
 async def like_forum_thread_route(tid: str, current_user: dict = Depends(get_current_user)):
-    if not await db.get_forum_thread(tid):
+    if not await forum_thread_repo.get(tid):
         raise HTTPException(404, "thread not found")
-    await db.like_forum_thread(tid, current_user["id"])
-    return await db.get_forum_thread(tid, current_user["id"])
+    await forum_thread_repo.like(tid, current_user["id"])
+    log.info("forum: thread liked id=%s by=%s", tid, current_user["username"])
+    return await forum_thread_repo.get(tid, current_user["id"])
 
 
 @api.post("/forum/threads/{tid}/unlike")
 async def unlike_forum_thread_route(tid: str, current_user: dict = Depends(get_current_user)):
-    await db.unlike_forum_thread(tid, current_user["id"])
-    return await db.get_forum_thread(tid, current_user["id"])
+    await forum_thread_repo.unlike(tid, current_user["id"])
+    log.info("forum: thread unliked id=%s by=%s", tid, current_user["username"])
+    return await forum_thread_repo.get(tid, current_user["id"])

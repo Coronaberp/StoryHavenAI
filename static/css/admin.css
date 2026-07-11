@@ -4,6 +4,8 @@
      and active nav, --warn (rose) as the semantic "needs attention" signal only.
      Layout carries the boldness: a fixed stat band up top, then a labelled nav
      rail beside a single working panel. */
+  @keyframes adash-spin{to{transform:rotate(360deg);}}
+  .spinning svg{animation:adash-spin .7s linear infinite;}
   .adash .adash-hero{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;margin-bottom:22px;}
   .adash-title{margin:2px 0 4px;}
   .adash-hero-actions{display:flex;gap:8px;flex-wrap:wrap;}
@@ -73,13 +75,39 @@
   .adash-preview-thumb.ava.mono{display:grid;place-items:center;font-size:40px;border:none;}
   .adash-preview-name{font-size:12px;font-weight:600;color:var(--ink);padding:9px 11px 2px;word-break:break-word;}
   .adash-preview-meta{font-size:10.5px;color:var(--muted);padding:0 11px 9px;flex:1;}
-  .adash-preview-actions{display:flex;gap:6px;padding:0 10px 11px;}
+  .adash-preview-keywords{display:flex;flex-wrap:wrap;gap:4px;padding:0 11px 9px;}
+  .adash-preview-keywords .tag{font-size:10px;padding:1px 7px;}
+  .adash-preview-actions{display:flex;justify-content:flex-end;gap:5px;padding:0 10px 11px;}
   /* icon-only replace/clear/edit controls — same viewBox/stroke SVGs as the
      rest of the app's icon buttons, sized into a small square touch target */
   .adash-preview-actions .tool{display:flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;border:1px solid var(--line-2);border-radius:7px;color:var(--sec);background:var(--surface-2);}
   .adash-preview-actions .tool:hover{border-color:var(--accent);background:var(--accent-soft);}
   .adash-preview-actions .tool.danger:hover{border-color:var(--warn);color:var(--warn);background:var(--warn-bg);}
+  /* Per-category refresh icon button, sitting in the section header next to
+     "+ Add" — matches that button's actual height (44px, from .btn's own
+     padding) so the two sit flush at the same size, not the smaller 28px
+     icon-button treatment used inside preview cards further down. */
+  .adash-panel-head .tool{display:flex;align-items:center;justify-content:center;width:44px;height:44px;flex:none;border:1px solid var(--line-2);border-radius:9px;color:var(--sec);background:var(--surface-2);}
+  .adash-panel-head .tool:hover{border-color:var(--accent);background:var(--accent-soft);}
+  .adash-panel-head .tool svg{width:20px;height:20px;}
   .adash-preview-actions .tool svg{width:14px;height:14px;}
+  /* Overlay controls on a preview image: sparkle (generate/replace) and a
+     bin (clear just the image) sat top-right of the image itself — same
+     square-icon look as .adash-preview-actions .tool but positioned absolute.
+     Used at small size nowhere currently (kept for reuse) and at large size
+     inside the zoom modal (.adash-preview-overlay-lg), where there's a lot
+     more room and the buttons should be easy to hit precisely. */
+  .adash-preview-overlay{position:absolute;top:6px;right:6px;display:flex;gap:5px;z-index:1;}
+  .adash-preview-overlay .tool{display:flex;align-items:center;justify-content:center;width:26px;height:26px;flex:none;
+    border:1px solid var(--line-2);border-radius:7px;color:var(--sec);
+    background:color-mix(in srgb, var(--paper) 70%, transparent);backdrop-filter:blur(2px);}
+  .adash-preview-overlay .tool:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);}
+  .adash-preview-overlay .tool.danger:hover{border-color:var(--warn);color:var(--warn);background:var(--warn-bg);}
+  .adash-preview-overlay .tool svg{width:14px;height:14px;}
+  .adash-preview-overlay-lg{top:12px;right:12px;gap:8px;}
+  .adash-preview-overlay-lg .tool{width:44px;height:44px;border-radius:10px;}
+  .adash-preview-overlay-lg .tool svg{width:22px;height:22px;}
+  .adash-preview-publish{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 11px 11px;}
 
   .adash-config{max-width:760px;}
   .adash-select{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;color:var(--ink);}

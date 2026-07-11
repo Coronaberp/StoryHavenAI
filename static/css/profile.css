@@ -14,16 +14,17 @@
   .creator-card .ava{position:relative;z-index:1;width:48px;height:48px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:var(--surface-2);border:2px solid var(--surface);}
   .creator-card .cc-ava-fallback{background:#000;color:#fff;font-weight:700;}
   .creator-card .cc-body{position:relative;z-index:1;min-width:0;flex:1;}
-  .creator-card .cc-name{font-weight:600;font-size:14.5px;color:var(--ink);text-shadow:0 1px 4px rgba(0,0,0,.55);}
+  /* Fixed light text, not var(--ink) — the card's own darkened banner
+     overlay (::after above) is applied regardless of the site's light/dark
+     theme, so the text sitting on it needs to stay light-on-dark always too.
+     var(--ink) used to flip to a dark color in light mode expecting a pale
+     banner, which went unreadable the moment a creator set a dark banner. */
+  .creator-card .cc-name{font-weight:600;font-size:14.5px;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.6);}
   .cc-you-tag{margin-left:7px;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
     color:var(--accent);background:var(--surface-2);border:1px solid var(--line-2);border-radius:10px;padding:1px 7px;vertical-align:middle;text-shadow:none;}
-  .creator-card .cc-user{font-size:12px;color:var(--muted);font-family:var(--mono);text-shadow:0 1px 4px rgba(0,0,0,.55);}
-  .creator-card .cc-bio{font-size:12.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,.55);}
-  .creator-card .cc-count{position:relative;z-index:1;flex:0 0 auto;font-size:12px;color:var(--accent);text-shadow:0 1px 4px rgba(0,0,0,.55);}
-  :root[data-theme="light"] .creator-card .cc-name,
-  :root[data-theme="light"] .creator-card .cc-user,
-  :root[data-theme="light"] .creator-card .cc-bio,
-  :root[data-theme="light"] .creator-card .cc-count{text-shadow:0 1px 3px rgba(255,255,255,.75),0 0 10px rgba(255,255,255,.5);}
+  .creator-card .cc-user{font-size:12px;color:rgba(255,255,255,.75);font-family:var(--mono);text-shadow:0 1px 4px rgba(0,0,0,.6);}
+  .creator-card .cc-bio{font-size:12.5px;color:rgba(255,255,255,.75);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,.6);}
+  .creator-card .cc-count{position:relative;z-index:1;flex:0 0 auto;font-size:12px;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.6);}
   .catalog-creators{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
 
   .view-switch{display:flex;flex:none;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;}
@@ -51,12 +52,15 @@
   .card-entry .meta .tag.card-chats{flex:none;background:none;border:none;padding:0;margin-right:2px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.85);font-size:11px;}
   :root[data-theme="light"] .card-entry .meta .tag:not(.card-chats){background:rgba(255,255,255,.55);border-color:rgba(0,0,0,.18);color:#000;}
   /* Card text always overlays a photo, not page chrome, so it needs to stay
-     bright gold regardless of theme — the light theme's --accent-deep is a
-     dark brown (correct for text-on-white) which read as muddy here. */
+     bright regardless of theme — the light theme's --accent-deep is a dark
+     brown/tone (correct for text-on-white) which read as muddy here. Blended
+     toward white rather than hardcoded to gold, so a custom accent (e.g.
+     Azure Depths) still shows through as a bright version of itself instead
+     of being silently overridden back to gold. */
   :root[data-theme="light"] .card-entry h3,
-  :root[data-theme="light"] .card-entry .by-link{color:#FFD666;}
+  :root[data-theme="light"] .card-entry .by-link{color:color-mix(in srgb, var(--accent) 70%, white 30%);}
   :root[data-theme="light"] .card-entry .log,
-  :root[data-theme="light"] .card-entry .by{color:#F2CE87;}
+  :root[data-theme="light"] .card-entry .by{color:color-mix(in srgb, var(--accent) 55%, white 45%);}
   .card-entry .by{font-family:var(--mono);font-size:10px;color:var(--accent);opacity:.75;text-shadow:0 1px 2px rgba(0,0,0,.6);}
   .card-entry .by-link{color:var(--accent-deep);}
   :root[data-theme="light"] .card-entry{background-image:linear-gradient(var(--surface-2),var(--surface-2)),linear-gradient(150deg,var(--accent) 0%,#fff 100%);}
@@ -80,6 +84,11 @@
   .nsfw-blur{filter:blur(20px) brightness(0.6);cursor:pointer;transition:filter .15s;}
   .nsfw-blur:hover{filter:blur(18px) brightness(0.7);}
   .doss-hero.nsfw-blur{filter:blur(20px) brightness(0.6);}
+  /* Blur alone doesn't stop clicks reaching an embedded iframe's own content
+     (a click there never bubbles out to the delegated .nsfw-blur handler) —
+     kill pointer-events on it too so the outer wrapper is what actually
+     receives the click and opens the reveal gate. */
+  .doss-presentation.nsfw-blur iframe, .pf-custom.nsfw-blur iframe{pointer-events:none;}
 
   /* Dossier hero banner + floating info card */
   .doss-hero{position:relative;height:190px;border-radius:16px;overflow:hidden;background:var(--surface-2) center/cover no-repeat;border:1px solid var(--line);}

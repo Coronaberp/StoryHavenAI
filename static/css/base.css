@@ -36,7 +36,21 @@
   html{color-scheme:dark;} :root[data-theme="light"]{color-scheme:light;}
   *{box-sizing:border-box;}
   html,body{height:100%;margin:0;}
-  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:var(--base-font-size);line-height:1.6;-webkit-font-smoothing:antialiased;}
+  /* --base-font-size alone only reaches body's own text — the ~350 other
+     font-size rules across these stylesheets are hardcoded in px and never
+     inherit a root size change. A zoom-based whole-page scale was tried here
+     to work around that, but `zoom` forces expensive layout/paint behavior
+     across the entire page in some browsers even at 1x (no-op) scale — a
+     measurable site-wide slowdown that isn't worth it for one field. Reverted;
+     "Font size px" is back to only reaching body's own directly-inherited
+     text until the ~350 rules get converted to rem (see PR discussion). */
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:var(--base-font-size);line-height:1.6;-webkit-font-smoothing:antialiased;
+    /* Custom themes can land on low-contrast text/background combos (a
+       user-picked text color against a user-picked app background, with no
+       guardrail between them) — a faint shadow keeps every string legible
+       without visibly looking "shadowed" on the high-contrast built-in
+       presets, since it's subtle enough to disappear against those. */
+    text-shadow:0 1px 2px rgba(0,0,0,.35);}
   a{color:inherit;text-decoration:none;}
   button{font-family:inherit;cursor:pointer;}
   ::selection{background:var(--accent-soft);}
@@ -49,17 +63,17 @@
   /* refined scrollbars */
   ::-webkit-scrollbar{width:11px;height:11px;}
   ::-webkit-scrollbar-track{background:transparent;}
-  ::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:8px;border:3px solid var(--paper);}
+  ::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--accent) 35%, var(--line-2) 65%);border-radius:8px;border:3px solid var(--paper);}
   ::-webkit-scrollbar-thumb:hover{background:var(--accent);}
-  *{scrollbar-color:var(--line-2) transparent;scrollbar-width:thin;}
+  *{scrollbar-color:color-mix(in srgb, var(--accent) 35%, var(--line-2) 65%) transparent;scrollbar-width:thin;}
   /* .modal's own scroll container reported showing a plain/unstyled
      scrollbar despite the universal rule above — restated with an explicit
      selector so its specificity can't lose to anything, whatever the cause
      of the mismatch was. */
-  .modal{scrollbar-color:var(--line-2) transparent;scrollbar-width:thin;}
+  .modal{scrollbar-color:color-mix(in srgb, var(--accent) 35%, var(--line-2) 65%) transparent;scrollbar-width:thin;}
   .modal::-webkit-scrollbar{width:11px;height:11px;}
   .modal::-webkit-scrollbar-track{background:transparent;}
-  .modal::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:8px;border:3px solid var(--paper);}
+  .modal::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--accent) 35%, var(--line-2) 65%);border-radius:8px;border:3px solid var(--paper);}
   .modal::-webkit-scrollbar-thumb:hover{background:var(--accent);}
 
   /* ---------- MOBILE FIRST (base styles = phones) ---------- */
@@ -165,7 +179,7 @@
         display:flex;flex-direction:column;padding:20px 16px;overflow:hidden;}
   .rail.open{transform:translateX(0);}
   .rail .brand{flex:none;}
-  .rail-scroll{flex:1;min-height:0;overflow-y:auto;}
+  .rail-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;}
   .rail .foot{flex:none;}
 
   .brand{position:relative;display:flex;align-items:center;gap:8px;margin:2px 4px 26px;}
@@ -189,7 +203,7 @@
   /* The recent-chats list gets its own bounded, independently scrolling area
      instead of growing the whole sidebar — otherwise a long chat history pushes
      the footer (settings/account) off-screen and makes the entire rail scroll. */
-  .recent{max-height:38vh;overflow-y:auto;transition:max-height .2s ease,opacity .15s ease;}
+  .recent{max-height:38vh;overflow-y:auto;overflow-x:hidden;transition:max-height .2s ease,opacity .15s ease;}
   .rail.recent-collapsed .recent{max-height:0;overflow:hidden;opacity:0;}
   .recent a{display:block;padding:7px 10px;border-radius:7px;transition:.15s;}
   .recent a:hover{background:var(--accent-tint);}
@@ -244,6 +258,9 @@
   .searchf-tabs{display:flex;gap:4px;padding:2px;background:var(--surface);border:1px solid var(--line);border-radius:8px;margin-bottom:6px;}
   .searchf-tabs button{flex:1;border:none;background:none;padding:6px 8px;border-radius:6px;font-family:inherit;font-size:12.5px;color:var(--muted);cursor:pointer;transition:.15s;}
   .searchf-tabs button.on{background:var(--accent);color:var(--gold-ink);}
+  .browse-pills{display:flex;gap:8px;margin:-10px 0 20px;}
+  .browse-pills button{border:1px solid var(--line);background:var(--surface);padding:6px 16px;border-radius:999px;font-family:inherit;font-size:13px;color:var(--muted);cursor:pointer;transition:.15s;}
+  .browse-pills button.on{background:var(--accent);color:var(--gold-ink);border-color:var(--accent);}
   .searchf-title{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:2px 6px 6px;}
   .searchf-row{display:flex;align-items:flex-start;gap:10px;width:100%;text-align:left;border:none;background:none;padding:8px 8px;border-radius:8px;cursor:pointer;color:var(--ink);font-family:inherit;transition:.12s;}
   .searchf-row:hover{background:var(--accent-tint);}

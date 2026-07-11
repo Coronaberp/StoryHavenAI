@@ -7,12 +7,17 @@ from fastapi import HTTPException, Depends, UploadFile, File
 from fastapi.responses import PlainTextResponse
 
 from backend import db
+from backend.repositories import standalone_images as standalone_image_repo
+from backend.repositories import comments as comment_repo
+from backend.repositories import emojis as custom_emoji_repo
+from backend.repositories import forum as forum_thread_repo
+from backend.repositories import notifications as notification_repo
 from backend.state import api, log, IMG_EXTS, MEDIA_DIR
 from backend.auth import get_current_user, get_current_user_optional
 from backend.schemas import CommentIn, CommentEditIn, CommentReactIn
 from backend.ratelimit import SlidingWindow
 from backend.media import _save_uploaded_image, _write_file, _check_upload_size
-from backend.chat_service import classify_image_background
+from backend.classify import classify_image_background
 
 ALLOWED_TARGETS = ("character", "user", "image", "thread")
 _MENTION_RE = re.compile(r"(?<!\w)@([A-Za-z0-9_-]{2,32})")
@@ -150,10 +155,10 @@ async def _resolve_target_owner(target_type: str, target_id: str) -> str | None:
         c = await db.get_character(target_id)
         return c.get("owner_id") if c else None
     if target_type == "image":
-        img = await db.get_standalone_image(target_id)
+        img = await standalone_image_repo.get(target_id)
         return img.get("user_id") if img else None
     if target_type == "thread":
-        th = await db.get_forum_thread(target_id)
+        th = await forum_thread_repo.get(target_id)
         return th.get("author_id") if th else None
     u = await db.get_user_by_username(target_id)
     if not u or u.get("status") != "active":
@@ -167,7 +172,7 @@ async def get_comments(target_type: str, target_id: str,
     if target_type not in ALLOWED_TARGETS:
         raise HTTPException(400, "invalid target_type")
     viewer_id = current_user["id"] if current_user else None
-    return await db.list_comments(target_type, target_id, viewer_id)
+    return await comment_repo.list_for_target(target_type, target_id, viewer_id)
 
 
 _COMMENT_IMAGE_RE = re.compile(r"^/media/cmt_[0-9a-f]{12}\.(png|jpe?g|gif|webp)$")
@@ -187,7 +192,7 @@ async def post_comment(body: CommentIn, current_user: dict = Depends(get_current
     if body.target_type not in ALLOWED_TARGETS:
         raise HTTPException(400, "invalid target_type")
     _COMMENT_LIMIT.check_and_record(current_user["id"])
-    content = (body.content or "").strip()[:2000]
+    content = (body.content or "").strip()
     # image is never a client-supplied arbitrary path/URL/filename — it must
     # be exactly what POST /comments/upload-image just handed back for the
     # claimed attachment_kind, or a real sticker row, or it's rejected
@@ -197,7 +202,7 @@ async def post_comment(body: CommentIn, current_user: dict = Depends(get_current
     kind = body.attachment_kind if body.attachment_kind in _ATTACHMENT_RE_BY_KIND else ""
     if image:
         if kind == "image" and _COMMENT_STICKER_RE.match(image):
-            if not await db.get_sticker_by_image(image):
+            if not await custom_emoji_repo.get_sticker_by_image(image):
                 raise HTTPException(400, "invalid attachment reference")
         elif not kind or not _ATTACHMENT_RE_BY_KIND[kind].match(image):
             raise HTTPException(400, "invalid attachment reference")
@@ -212,28 +217,28 @@ async def post_comment(body: CommentIn, current_user: dict = Depends(get_current
         raise HTTPException(403, "You cannot comment here.")
     parent_id = body.parent_id or None
     if parent_id:
-        parent = await db.get_comment(parent_id)
+        parent = await comment_repo.get(parent_id)
         if (not parent or parent["target_type"] != body.target_type
                 or parent["target_id"] != body.target_id):
             raise HTTPException(400, "invalid parent")
-    cid = await db.create_comment(body.target_type, body.target_id,
+    cid = await comment_repo.create(body.target_type, body.target_id,
                                   current_user["id"], parent_id, content, image, kind)
     if image and kind == "image":
-        sticker = await db.get_sticker_by_image(image)
+        sticker = await custom_emoji_repo.get_sticker_by_image(image)
         if sticker:
             # Already classified once at upload time — inherit that verdict
             # instead of re-running the whole classification pass again.
             if sticker.get("is_explicit"):
-                await db.set_comment_explicit(cid)
+                await comment_repo.set_explicit(cid)
         else:
             path = os.path.join(MEDIA_DIR, os.path.basename(image))
             if os.path.exists(path):
                 with open(path, "rb") as fh:
                     data = fh.read()
-                mime = "image/gif" if image.endswith(".gif") else "image/png"
+                mime = "image/gif" if image.endswith(".gif") else "image/webp" if image.endswith(".webp") else "image/png"
                 classify_image_background(data, mime, current_user["id"],
                                           current_user.get("is_admin", False),
-                                          lambda: db.set_comment_explicit(cid),
+                                          lambda: comment_repo.set_explicit(cid),
                                           review_context="a comment attachment")
     await _notify_comment_owner(body.target_type, body.target_id, owner_id,
                                 current_user, content, cid)
@@ -241,7 +246,7 @@ async def post_comment(body: CommentIn, current_user: dict = Depends(get_current
                                   current_user, content, cid)
     log.info("comment created: id=%s by=%s target=%s:%s", cid, current_user["username"],
              body.target_type, body.target_id)
-    return await db.get_comment_view(cid, current_user["id"])
+    return await comment_repo.get_view(cid, current_user["id"])
 
 
 def _comment_title_link(target_type: str, target_id: str, target_extra: dict | None) -> tuple[str, str]:
@@ -260,7 +265,7 @@ async def _comment_target_extra(target_type: str, target_id: str) -> dict | None
     if target_type == "character":
         return await db.get_character(target_id)
     if target_type == "thread":
-        return await db.get_forum_thread(target_id)
+        return await forum_thread_repo.get(target_id)
     return None
 
 
@@ -273,7 +278,7 @@ async def _notify_comment_owner(target_type: str, target_id: str, owner_id: str,
     extra = await _comment_target_extra(target_type, target_id)
     name, link = _comment_title_link(target_type, target_id, extra)
     subject = "your image" if target_type == "image" else ("your profile" if target_type == "user" else name)
-    await db.create_notification(owner_id, "comment", f"New comment on {subject}", excerpt, link,
+    await notification_repo.create(owner_id, "comment", f"New comment on {subject}", excerpt, link,
                                  related_id=comment_id)
 
 
@@ -297,14 +302,14 @@ async def _notify_mentioned_users(target_type: str, target_id: str, owner_id: st
         if u["id"] == author["id"] or u["id"] in notified:
             continue
         notified.add(u["id"])
-        await db.create_notification(
+        await notification_repo.create(
             u["id"], "mention", f"{author['username']} mentioned you",
             excerpt, link, related_id=comment_id)
 
 
 @api.delete("/comments/{cid}")
 async def delete_comment(cid: str, current_user: dict = Depends(get_current_user)):
-    c = await db.get_comment(cid)
+    c = await comment_repo.get(cid)
     if not c:
         raise HTTPException(404, "comment not found")
     allowed = c["author_id"] == current_user["id"] or current_user["is_admin"]
@@ -313,40 +318,42 @@ async def delete_comment(cid: str, current_user: dict = Depends(get_current_user
         allowed = owner_id == current_user["id"]
     if not allowed:
         raise HTTPException(403, "Not authorized")
-    await db.delete_comment(cid)
+    await comment_repo.delete(cid)
     log.info("comment deleted: id=%s by=%s author=%s", cid, current_user["username"], c["author_id"])
     return {"deleted": True}
 
 
 @api.put("/comments/{cid}")
 async def edit_comment(cid: str, body: CommentEditIn, current_user: dict = Depends(get_current_user)):
-    c = await db.get_comment(cid)
+    c = await comment_repo.get(cid)
     if not c:
         raise HTTPException(404, "comment not found")
     if c["author_id"] != current_user["id"]:
         raise HTTPException(403, "Not authorized")
-    content = (body.content or "").strip()[:2000]
+    content = (body.content or "").strip()
     if not content:
         raise HTTPException(400, "content is required")
-    await db.update_comment(cid, content)
+    await comment_repo.update(cid, content)
     log.info("comment edited: id=%s by=%s", cid, current_user["username"])
-    return await db.get_comment_view(cid, current_user["id"])
+    return await comment_repo.get_view(cid, current_user["id"])
 
 
 @api.post("/comments/{cid}/like")
 async def like_comment(cid: str, current_user: dict = Depends(get_current_user)):
     _REACTION_LIMIT.check_and_record(current_user["id"])
-    if not await db.get_comment(cid):
+    if not await comment_repo.get(cid):
         raise HTTPException(404, "comment not found")
-    await db.like_comment(cid, current_user["id"])
-    return {"liked": True, "like_count": await db.comment_like_count(cid)}
+    await comment_repo.like(cid, current_user["id"])
+    log.info("comment liked: id=%s by=%s", cid, current_user["username"])
+    return {"liked": True, "like_count": await comment_repo.like_count(cid)}
 
 
 @api.delete("/comments/{cid}/like")
 async def unlike_comment(cid: str, current_user: dict = Depends(get_current_user)):
     _REACTION_LIMIT.check_and_record(current_user["id"])
-    await db.unlike_comment(cid, current_user["id"])
-    return {"liked": False, "like_count": await db.comment_like_count(cid)}
+    await comment_repo.unlike(cid, current_user["id"])
+    log.info("comment unliked: id=%s by=%s", cid, current_user["username"])
+    return {"liked": False, "like_count": await comment_repo.like_count(cid)}
 
 
 # Curated allowlist rather than accepting arbitrary text — a "reaction" is
@@ -365,16 +372,19 @@ async def react_to_comment(cid: str, body: CommentReactIn, current_user: dict = 
     _REACTION_LIMIT.check_and_record(current_user["id"])
     if body.emoji not in REACTION_EMOJI:
         raise HTTPException(400, f"emoji must be one of {sorted(REACTION_EMOJI)}")
-    if not await db.get_comment(cid):
+    if not await comment_repo.get(cid):
         raise HTTPException(404, "comment not found")
     if body.super:
         _SUPER_REACTION_LIMIT.check_and_record(current_user["id"])
-    await db.react_to_comment(cid, current_user["id"], body.emoji, body.super)
-    return await db.get_comment_view(cid, current_user["id"])
+    await comment_repo.react(cid, current_user["id"], body.emoji, body.super)
+    log.info("comment reacted: id=%s by=%s emoji=%s super=%s", cid, current_user["username"],
+             body.emoji, body.super)
+    return await comment_repo.get_view(cid, current_user["id"])
 
 
 @api.delete("/comments/{cid}/react")
 async def unreact_to_comment(cid: str, body: CommentReactIn, current_user: dict = Depends(get_current_user)):
     _REACTION_LIMIT.check_and_record(current_user["id"])
-    await db.unreact_to_comment(cid, current_user["id"], body.emoji)
-    return await db.get_comment_view(cid, current_user["id"])
+    await comment_repo.unreact(cid, current_user["id"], body.emoji)
+    log.info("comment unreacted: id=%s by=%s emoji=%s", cid, current_user["username"], body.emoji)
+    return await comment_repo.get_view(cid, current_user["id"])
