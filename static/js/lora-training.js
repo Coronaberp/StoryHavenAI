@@ -253,18 +253,15 @@ class TrainingJobWatcher{
     document.addEventListener("visibilitychange", this.onVisible);
     poll();
   }
-  // L4 is the GPU modal_app/lora_train.py's train() function requests (see
-  // that file's own comment on why) — this is a rough estimate from elapsed
-  // wall-clock time since the job was created, not Modal's actual metered
-  // billing, since there's no live-cost API this app calls; it's clearly
-  // labeled "est." for that reason.
   _updateCostBanner(banner, job){
     const L4_USD_PER_HOUR=0.80;
-    if(!["queued","provisioning","training","saving"].includes(job.status)){ banner.style.display="none"; return; }
-    const elapsedHours=Math.max(0, (Date.now()/1000 - job.created))/3600;
+    if(!["queued","provisioning","training","saving"].includes(job.status) || !job.billing_started){
+      banner.style.display="none"; return;
+    }
+    const elapsedHours=Math.max(0, (Date.now()/1000 - job.billing_started))/3600;
     const cost=elapsedHours*L4_USD_PER_HOUR;
     banner.style.display="flex";
-    banner.textContent=`💰 Est. cost so far: $${cost.toFixed(3)} (L4 @ $${L4_USD_PER_HOUR.toFixed(2)}/hr, running ${Math.round(elapsedHours*60)}m)`;
+    banner.textContent=`💰 Cost so far: $${cost.toFixed(3)} (L4 @ $${L4_USD_PER_HOUR.toFixed(2)}/hr, running ${Math.round(elapsedHours*60)}m)`;
   }
 }
 
@@ -318,16 +315,33 @@ async function renderTrainingTab(body, presetTestEntry){
             <b>Steps</b>: how many training iterations to run — more steps = more learning but risks "overfitting" (baking in your exact photos instead of the general look) if pushed too far.
           </div>
         </div></div>
+      <div class="ig-sec" data-key="advanced">${igSectionHead("advanced", "Advanced (optional)")}
+        <div class="ig-sec-body">
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
+            <div class="field" style="margin:0;"><label>Noise offset</label><input type="text" id="lt_noise_offset" value="${esc(lt.noise_offset??"0")}"></div>
+            <div class="field" style="margin:0;"><label>Network dropout</label><input type="text" id="lt_network_dropout" value="${esc(lt.network_dropout??"0")}"></div>
+          </div>
+          <div class="hint" style="margin-top:10px;line-height:1.5;">
+            <b>Noise offset</b> (0-1, default 0/off): helps the model produce truly dark/bright images instead of always drifting to mid-gray — try ~0.05-0.1 if your outputs look washed out.<br>
+            <b>Network dropout</b> (0-1, default 0/off): randomly drops some of the LoRA's own weights during training to reduce overfitting on a small dataset — try ~0.1-0.2 if the result looks baked-in/inflexible.
+          </div>
+        </div></div>
       <div class="ig-sec" data-key="images">${igSectionHead("images", "Training images")}
         <div class="ig-sec-body">
           <input type="file" id="lt_images" accept="image/png,image/jpeg,image/webp" multiple hidden>
+          <input type="file" id="lt_captions_import" accept=".txt" multiple hidden>
           <div style="display:flex;align-items:center;gap:8px;">
             <div class="img-pick-empty ig-train-drop" id="lt_images_drop" title="Choose images">${UPLOAD_ICON_SVG}</div>
             <div class="img-pick-empty ig-train-drop" id="lt_images_clear" title="Remove all" aria-label="Remove all">${TRASH_ICON_SVG}</div>
+            <button type="button" class="btn" id="lt_captions_import_btn">Import captions (.txt)</button>
           </div>
           <span class="hint" id="lt_images_count"></span>
-          <div id="lt_images_grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;margin-top:10px;"></div>
-          <div class="hint" style="margin-top:10px;">Pick 10-30 clear images of the same subject/style, ideally cropped similarly. Click any thumbnail to zoom in and check for defects before starting.</div>
+          <div id="lt_images_grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:10px;"></div>
+          <div class="hint" style="margin-top:10px;">Pick 10+ clear images, ideally cropped similarly. Click any thumbnail to zoom in and check for defects before starting.
+            Tag each image in the box below it with whatever's <b>not</b> the thing you want the trigger word to mean — this is what keeps that one thing consistent instead of the LoRA blending everything together:
+            <br>• <b>Training a character:</b> tag what varies between images (pose, background, a different art style like chibi) so the trigger word locks onto the character, not those variations.
+            <br>• <b>Training a style across different characters:</b> tag who/what's actually in each image (hair color, outfit, pose) so the trigger word locks onto the shared style, not any one character.
+            <br>Leave blank to just use the trigger word for that image.</div>
         </div></div>
       <div class="actions" style="align-items:center;">
         <button class="btn primary" id="lt_start">Start training</button>
@@ -483,10 +497,13 @@ async function renderTrainingTab(body, presetTestEntry){
     if(!ckptSel.value||!steps||!batch||steps<=0||batch<=0){ pill.classList.remove("show"); return; }
     const architecture=isAnimaModel(ckptSel.value)?"anima":"sdxl";
     const est=_estimateTrainingRun(jobs, architecture, steps, batch);
-    pill.textContent=`~${_formatDuration(est.seconds)} · ~$${est.cost.toFixed(2)} est.${est.fromHistory?"":" (rough)"}`;
-    pill.title=est.fromHistory
+    const imageCount=($("#lt_images")?.files||[]).length;
+    const seenTxt=imageCount ? ` · sees each image ~${Math.round((steps*batch)/imageCount)}×` : "";
+    pill.textContent=`~${_formatDuration(est.seconds)} · ~$${est.cost.toFixed(2)} est.${est.fromHistory?"":" (rough)"}${seenTxt}`;
+    pill.title=(est.fromHistory
       ? "Estimated from your past training runs' actual speed on this architecture, plus 5 min for provisioning/finalizing overhead."
-      : "No past runs of this architecture yet, so this is a rough guess, plus 5 min for provisioning/finalizing overhead.";
+      : "No past runs of this architecture yet, so this is a rough guess, plus 5 min for provisioning/finalizing overhead.")
+      +(imageCount ? ` "Sees each image ~N×" ≈ how many times each training image gets shown to the model over the whole run (steps × batch size ÷ image count) — roughly the epoch count.` : "");
     pill.classList.add("show");
   };
 
@@ -495,41 +512,77 @@ async function renderTrainingTab(body, presetTestEntry){
     onChange:name=>{ persistLt({checkpoint:name}); updateTimeEstimate(); }});
   wireIgSections(body);
   [["lt_name","name"],["lt_trigger","trigger_word"],["lt_res","resolution"],["lt_batch","batch_size"],
-   ["lt_rank","rank"],["lt_alpha","alpha"],["lt_lr","learning_rate"],["lt_steps","steps"]]
+   ["lt_rank","rank"],["lt_alpha","alpha"],["lt_lr","learning_rate"],["lt_steps","steps"],
+   ["lt_noise_offset","noise_offset"],["lt_network_dropout","network_dropout"]]
     .forEach(([id,key])=>{ $("#"+id).oninput=e=>{ persistLt({[key]:e.target.value}); updateTimeEstimate(); }; });
   updateTimeEstimate();
 
   const imagesInput=$("#lt_images"), imagesGrid=$("#lt_images_grid"), imagesCount=$("#lt_images_count");
   $("#lt_images_drop").onclick=()=>imagesInput.click();
-  $("#lt_images_clear").onclick=()=>{ setInputFiles([]); renderImagesGrid(); };
+  $("#lt_images_clear").onclick=()=>{ setInputFiles([]); imageCaptions=[]; renderImagesGrid(); };
+  const captionsImportInput=$("#lt_captions_import");
+  $("#lt_captions_import_btn").onclick=()=>captionsImportInput.click();
+  captionsImportInput.onchange=async()=>{
+    const txtFiles=[...captionsImportInput.files];
+    if(!txtFiles.length) return;
+    const stem=n=>n.replace(/\.[^.]+$/,"");
+    const byStem=new Map(txtFiles.map(f=>[stem(f.name),f]));
+    const files=[...imagesInput.files];
+    let matched=0;
+    for(let i=0;i<files.length;i++){
+      const match=byStem.get(stem(files[i].name));
+      if(!match) continue;
+      imageCaptions[i]=(await match.text()).trim();
+      matched++;
+    }
+    captionsImportInput.value="";
+    renderImagesGrid();
+    toast(matched ? `Imported ${matched} caption(s) matched by filename.`
+                  : "No .txt filenames matched the current image filenames.");
+  };
   const setInputFiles=files=>{
     const dt=new DataTransfer();
     files.forEach(f=>dt.items.add(f));
     imagesInput.files=dt.files;
   };
+  let imageCaptions=[];
   const renderImagesGrid=()=>{
     const files=[...imagesInput.files];
+    while(imageCaptions.length<files.length) imageCaptions.push("");
+    imageCaptions.length=files.length;
     imagesCount.textContent=files.length?`${files.length} image${files.length===1?"":"s"} selected`:"";
     const urls=files.map(f=>URL.createObjectURL(f));
     imagesGrid.innerHTML=files.map((f,i)=>`
-      <div class="lt-thumb" style="position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:zoom-in;">
-        <img data-zoom="${i}" src="${urls[i]}" style="width:100%;height:100%;object-fit:cover;display:block;" alt="">
-        <button type="button" data-rm="${i}" title="Remove" aria-label="Remove"
-          style="position:absolute;top:3px;right:3px;width:18px;height:18px;border:none;border-radius:50%;
-          background:rgba(0,0,0,.65);color:#fff;font-size:12px;line-height:1;display:flex;align-items:center;
-          justify-content:center;cursor:pointer;padding:0;">✕</button>
+      <div class="lt-thumb" style="display:flex;flex-direction:column;gap:4px;">
+        <div style="position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;cursor:zoom-in;">
+          <img data-zoom="${i}" src="${urls[i]}" style="width:100%;height:100%;object-fit:cover;display:block;" alt="">
+          <button type="button" data-rm="${i}" title="Remove" aria-label="Remove"
+            style="position:absolute;top:3px;right:3px;width:18px;height:18px;border:none;border-radius:50%;
+            background:rgba(0,0,0,.65);color:#fff;font-size:12px;line-height:1;display:flex;align-items:center;
+            justify-content:center;cursor:pointer;padding:0;">✕</button>
+        </div>
+        <input type="text" data-caption="${i}" value="${esc(imageCaptions[i]||"")}"
+          placeholder="tags for this image (what's NOT the trigger concept)"
+          style="width:100%;background:var(--surface);border:1px solid var(--line);border-radius:6px;
+          padding:4px 6px;font-size:11px;color:var(--ink);outline:none;">
       </div>`).join("");
     imagesGrid.querySelectorAll("[data-zoom]").forEach(img=>img.onclick=()=>{
       openModal(`<img src="${esc(urls[parseInt(img.dataset.zoom,10)])}" alt="" style="width:100%;border-radius:10px;display:block;">`, null, {stack:true});
       _wireZoomPan($(".modal img"));
     });
+    imagesGrid.querySelectorAll("[data-caption]").forEach(inp=>inp.oninput=e=>{
+      imageCaptions[parseInt(inp.dataset.caption,10)]=e.target.value;
+    });
     imagesGrid.querySelectorAll("[data-rm]").forEach(btn=>btn.onclick=e=>{
       e.stopPropagation();
+      const idx=parseInt(btn.dataset.rm,10);
       const files=[...imagesInput.files];
-      files.splice(parseInt(btn.dataset.rm,10),1);
+      files.splice(idx,1);
+      imageCaptions.splice(idx,1);
       setInputFiles(files);
       renderImagesGrid();
     });
+    updateTimeEstimate();
   };
   imagesInput.onchange=renderImagesGrid;
 
@@ -634,6 +687,9 @@ async function renderTrainingTab(body, presetTestEntry){
     fd.append("learning_rate", $("#lt_lr").value.trim());
     fd.append("steps", $("#lt_steps").value.trim());
     fd.append("batch_size", $("#lt_batch").value.trim());
+    fd.append("noise_offset", $("#lt_noise_offset").value.trim()||"0");
+    fd.append("network_dropout", $("#lt_network_dropout").value.trim()||"0");
+    fd.append("captions", JSON.stringify(files.map((_,i)=>imageCaptions[i]||"")));
     for(const f of files) fd.append("images", f, f.name);
 
     // The backend now runs training as a task fully decoupled from this

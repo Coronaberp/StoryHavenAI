@@ -313,7 +313,8 @@ async def generate_from_description(request: Request,
     import preview. The user reviews the filled form and must click Save."""
     try:
         raw = await request.json()
-    except Exception:
+    except Exception as e:
+        log.warning("generate_from_description: could not parse request body: %s", e)
         raw = None
     desc = str(raw.get("description") or "").strip() if isinstance(raw, dict) else ""
     if not desc:

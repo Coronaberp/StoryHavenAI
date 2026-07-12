@@ -318,6 +318,8 @@ class LoraTrainingJobIn(BaseModel):
     learning_rate: float = 0.0001
     steps: int = 1000
     batch_size: int = 1
+    noise_offset: float = 0.0
+    network_dropout: float = 0.0
 
 
 class RenameIn(BaseModel):

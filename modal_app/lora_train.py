@@ -148,21 +148,22 @@ async def _publish_output(path: str, name: str) -> str:
     return name
 
 
-def _write_dataset(workdir: str, images_zip: bytes, trigger_word: str, resolution: int, batch_size: int) -> str:
-    import zipfile
-    images_dir = os.path.join(workdir, "images")
-    os.makedirs(images_dir, exist_ok=True)
-    with zipfile.ZipFile(__import__("io").BytesIO(images_zip)) as zf:
-        zf.extractall(images_dir)
-    # backend/routers/lora_training.py already wrote one img_NNNN.txt caption
-    # per image containing the trigger word — sd-scripts just needs a dataset
-    # config pointing at that directory.
+def _write_dataset(workdir: str, images_dir: str, trigger_word: str, resolution: int, batch_size: int) -> str:
+    # images_dir already holds one img_NNNN.{ext} + img_NNNN.txt caption pair
+    # per image — uploaded straight to this Volume path by
+    # backend/modal_client.upload_dataset_images, not extracted from a zip
+    # here — sd-scripts just needs a dataset config pointing at it.
     toml_path = os.path.join(workdir, "dataset.toml")
     with open(toml_path, "w") as f:
         f.write(f"""[general]
-shuffle_caption = false
+shuffle_caption = true
 caption_extension = ".txt"
 keep_tokens = 1
+enable_bucket = true
+bucket_reso_steps = 64
+bucket_no_upscale = false
+min_bucket_reso = 256
+max_bucket_reso = {resolution * 2}
 
 [[datasets]]
 resolution = {resolution}
@@ -312,7 +313,7 @@ async def _stream_subprocess(cmd: list[str], job_id: str, total_steps: int, out_
             await proc.wait()
 
 
-async def _run_training(config: dict, images_zip: bytes):
+async def _run_training(config: dict):
     architecture = config.get("architecture", "sdxl")
     job_id = config.get("job_id") or ""
     resolution = int(config.get("resolution", 512))
@@ -322,16 +323,24 @@ async def _run_training(config: dict, images_zip: bytes):
     steps = int(config.get("steps", 1000))
     batch_size = int(config.get("batch_size", 1))
     trigger_word = (config.get("trigger_word") or "sks").strip()
+    noise_offset = float(config.get("noise_offset") or 0.0)
+    network_dropout = float(config.get("network_dropout") or 0.0)
     if job_id:
         await checkpoint_requests.pop.aio(job_id, None)
 
     yield _sse({"type": "progress", "status": "loading_base_model", "progress": 0.0})
 
-    await model_volume.reload.aio()  # see checkpoints uploaded by other containers/since our own cold start
+    await model_volume.reload.aio()  # see checkpoints/dataset uploaded by other containers/since our own cold start
     cached_ckpt_path = os.path.join(MODEL_CACHE_DIR, config["base_checkpoint_name"])
     if not os.path.isfile(cached_ckpt_path):
         yield _sse({"type": "error", "message": f"checkpoint not found in Modal's model cache: "
                                                 f"{config['base_checkpoint_name']} (upload it first)"})
+        return
+
+    images_dir = os.path.join(MODEL_CACHE_DIR, "_datasets", job_id)
+    if not job_id or not os.path.isdir(images_dir) or not os.listdir(images_dir):
+        yield _sse({"type": "error", "message": f"training dataset not found in Modal's Volume for job "
+                                                f"{job_id!r} (upload it first)"})
         return
 
     workdir = tempfile.mkdtemp(prefix="lora_train_")
@@ -339,7 +348,7 @@ async def _run_training(config: dict, images_zip: bytes):
     os.makedirs(out_dir, exist_ok=True)
     out_name = "lora"
     try:
-        dataset_toml = _write_dataset(workdir, images_zip, trigger_word, resolution, batch_size)
+        dataset_toml = _write_dataset(workdir, images_dir, trigger_word, resolution, batch_size)
         checkpoint_every = max(50, steps // 4)
 
         if architecture == "anima":
@@ -374,9 +383,13 @@ async def _run_training(config: dict, images_zip: bytes):
                   "--timestep_sampling=sigmoid", f"--max_train_steps={steps}",
                   f"--save_every_n_steps={checkpoint_every}", "--mixed_precision=bf16",
                   "--gradient_checkpointing", "--cache_latents", "--cache_text_encoder_outputs",
-                  "--max_data_loader_n_workers=0"]
+                  "--max_data_loader_n_workers=0", "--min_snr_gamma=5.0"]
             if config.get("resume_from_lora_name"):
                 cmd.append(f"--network_weights={os.path.join(MODEL_CACHE_DIR, config['resume_from_lora_name'])}")
+            if noise_offset > 0:
+                cmd.append(f"--noise_offset={noise_offset}")
+            if network_dropout > 0:
+                cmd.append(f"--network_dropout={network_dropout}")
         else:
             # No prefix-stripping needed for SDXL/Illustrious — reference the
             # cached file on the Volume directly (read-only), no reason to
@@ -389,9 +402,13 @@ async def _run_training(config: dict, images_zip: bytes):
                   f"--learning_rate={lr}", "--optimizer_type=AdamW", "--lr_scheduler=constant",
                   f"--max_train_steps={steps}", f"--save_every_n_steps={checkpoint_every}",
                   "--mixed_precision=bf16", "--gradient_checkpointing", "--cache_latents", "--no_half_vae",
-                  "--max_data_loader_n_workers=0"]
+                  "--max_data_loader_n_workers=0", "--min_snr_gamma=5.0"]
             if config.get("resume_from_lora_name"):
                 cmd.append(f"--network_weights={os.path.join(MODEL_CACHE_DIR, config['resume_from_lora_name'])}")
+            if noise_offset > 0:
+                cmd.append(f"--noise_offset={noise_offset}")
+            if network_dropout > 0:
+                cmd.append(f"--network_dropout={network_dropout}")
 
         yield _sse({"type": "progress", "status": "training", "progress": 0.0, "loss_history": []})
         async for event in _stream_subprocess(cmd, job_id, steps, out_dir, out_name, batch_size, lr):
@@ -436,8 +453,7 @@ async def train(req: Request):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     form = await req.form()
     config = json.loads(form["config"])
-    images_zip = await form["images"].read()
-    return StreamingResponse(_run_training(config, images_zip), media_type="text/event-stream")
+    return StreamingResponse(_run_training(config), media_type="text/event-stream")
 
 
 lightweight_image = modal.Image.debian_slim(python_version="3.11").pip_install("fastapi[standard]")

@@ -50,8 +50,8 @@ async def resolve_pinned_host(url: str, is_admin: bool = False) -> tuple[str, st
         ip = infos[0][4][0]
         ipaddress.ip_address(ip)
     except Exception as e:
-        log.warning("ssrf: could not resolve/pin host=%s, using URL unpinned error=%s", host, e)
-        return url, None
+        log.warning("ssrf: could not resolve host=%s for pinning, rejecting error=%s", host, e)
+        raise ValueError(f"Could not resolve {host} to pin the connection — request rejected") from e
     netloc = f"[{ip}]" if ":" in ip else ip
     if parsed.port:
         netloc += f":{parsed.port}"

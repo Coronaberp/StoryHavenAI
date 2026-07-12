@@ -480,6 +480,7 @@ lora_training_jobs = sa.Table(
     sa.Column("error", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("created", sa.Float, nullable=False),
     sa.Column("resolved", sa.Float),
+    sa.Column("billing_started", sa.Float),
 )
 
 # On-demand mid-run checkpoint snapshots (see POST
@@ -718,6 +719,8 @@ async def init():
             "TEXT NOT NULL DEFAULT '{}'"))
         await conn.execute(text(
             "ALTER TABLE lora_training_jobs ADD COLUMN IF NOT EXISTS resume_from_lora TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE lora_training_jobs ADD COLUMN IF NOT EXISTS billing_started DOUBLE PRECISION"))
         await conn.execute(text(
             "ALTER TABLE comments ADD COLUMN IF NOT EXISTS edited_at DOUBLE PRECISION"))
         await conn.execute(text(

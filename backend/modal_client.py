@@ -57,24 +57,82 @@ def _require_deploy_urls():
 
 
 async def ensure_model_cached(name: str, local_path: str, on_progress=None):
-    vol = _get_volume()
-    size = os.path.getsize(local_path)
-    async for entry in vol.iterdir.aio("/", recursive=False):
-        if entry.path.lstrip("/") == name and entry.size == size:
-            log.info("model cache: name=%s already cached, skipping upload", name)
-            return
+    await ensure_models_cached([(name, local_path)], on_progress=on_progress)
 
-    log.info("model cache: uploading name=%s size_mb=%s", name, size // (1024 * 1024))
+
+async def ensure_models_cached(items: list[tuple[str, str]], on_progress=None):
+    """items: list of (name, local_path). Every file not already cached is
+    uploaded inside one vol.batch_upload() session, so Modal transfers them
+    concurrently over multiple streams instead of one file at a time —
+    matters most for Anima jobs, which need checkpoint+CLIP+VAE (and
+    optionally a resume LoRA) cached before training can start."""
+    vol = _get_volume()
+    cached_sizes = {}
+    async for entry in vol.iterdir.aio("/", recursive=False):
+        cached_sizes[entry.path.lstrip("/")] = entry.size
+
+    to_upload = [(name, path) for name, path in items
+                if cached_sizes.get(name) != os.path.getsize(path)]
+    for name, path in items:
+        if (name, path) not in to_upload:
+            log.info("model cache: name=%s already cached, skipping upload", name)
+    if not to_upload:
+        return
+
+    sizes = {name: os.path.getsize(path) for name, path in to_upload}
+    total_size = sum(sizes.values())
+    log.info("model cache: uploading %d file(s) concurrently size_mb=%s",
+             len(to_upload), total_size // (1024 * 1024))
     if on_progress:
-        await on_progress(name, 0, size, None)
+        for name, path in to_upload:
+            await on_progress(name, 0, sizes[name], None)
     started = asyncio.get_event_loop().time()
     async with vol.batch_upload(force=True) as batch:
-        batch.put_file(local_path, name)
+        for name, path in to_upload:
+            batch.put_file(path, name)
     elapsed = max(0.001, asyncio.get_event_loop().time() - started)
-    log.info("model cache: upload complete name=%s in %.1fs (%.1f MB/s)",
-             name, elapsed, (size / (1024 * 1024)) / elapsed)
+    speed = (total_size / (1024 * 1024)) / elapsed
+    log.info("model cache: batch upload complete files=%d in %.1fs (%.1f MB/s aggregate)",
+             len(to_upload), elapsed, speed)
     if on_progress:
-        await on_progress(name, size, size, (size / (1024 * 1024)) / elapsed)
+        for name, path in to_upload:
+            await on_progress(name, sizes[name], sizes[name], speed)
+
+
+_DATASET_SUBDIR = "_datasets"
+
+
+async def upload_dataset_images(job_id: str, local_dir: str, on_progress=None):
+    """Uploads every file in local_dir (the per-image .png/.jpg/.webp +
+    matching .txt captions written by create_and_stream_lora_training_job)
+    into one vol.batch_upload() session under _datasets/{job_id}/, so all of
+    them transfer concurrently over multiple streams instead of one HTTP
+    request per image — this is what actually saturates Modal's ingress
+    bandwidth for a dataset of many images, versus a single POST body."""
+    vol = _get_volume()
+    filenames = sorted(os.listdir(local_dir))
+    sizes = {name: os.path.getsize(os.path.join(local_dir, name)) for name in filenames}
+    total_size = sum(sizes.values())
+    log.info("dataset upload: job=%s files=%d size_mb=%s", job_id, len(filenames), total_size // (1024 * 1024))
+    if on_progress:
+        await on_progress(f"dataset ({len(filenames)} files)", 0, total_size, None)
+    started = asyncio.get_event_loop().time()
+    async with vol.batch_upload(force=True) as batch:
+        for name in filenames:
+            batch.put_file(os.path.join(local_dir, name), f"{_DATASET_SUBDIR}/{job_id}/{name}")
+    elapsed = max(0.001, asyncio.get_event_loop().time() - started)
+    speed = (total_size / (1024 * 1024)) / elapsed
+    log.info("dataset upload: job=%s complete in %.1fs (%.1f MB/s aggregate)", job_id, elapsed, speed)
+    if on_progress:
+        await on_progress(f"dataset ({len(filenames)} files)", total_size, total_size, speed)
+
+
+async def remove_dataset_images(job_id: str):
+    vol = _get_volume()
+    prefix = f"{_DATASET_SUBDIR}/{job_id}"
+    async for entry in vol.iterdir.aio(prefix, recursive=False):
+        await vol.remove_file.aio(entry.path.lstrip("/"))
+    log.info("dataset upload: job=%s remote files removed", job_id)
 
 
 _PROGRESS_PCT_STEP = 0.05
@@ -114,21 +172,21 @@ async def download_output(name: str, dest_path: str, on_progress=None):
         await on_progress(name, received, received, None)
 
 
-async def stream_training_job(config: dict, images_zip: bytes):
+async def stream_training_job(config: dict):
     """Async generator yielding parsed SSE event dicts as Modal reports them.
     config must already carry base_checkpoint_name (and clip_name/vae_name
-    for Anima) referencing files already uploaded via ensure_model_cached —
-    this call itself only ever sends the (comparatively tiny) training
-    images zip, never a multi-GB checkpoint."""
+    for Anima) referencing files already uploaded via ensure_models_cached,
+    and job_id referencing a dataset already uploaded via
+    upload_dataset_images — this call sends only the (tiny) config JSON,
+    never any file bytes."""
     urls, secret = _require_deploy_urls()
-    files = {"images": ("images.zip", images_zip, "application/zip")}
     headers = {"Authorization": f"Bearer {secret}"}
     # No fixed timeout — a training run can legitimately take hours; the
     # connection just needs to keep flushing SSE lines to stay alive.
     async with httpx.AsyncClient(timeout=httpx.Timeout(None)) as client:
         async with client.stream(
                 "POST", urls["train"], headers=headers,
-                data={"config": json.dumps(config)}, files=files) as resp:
+                data={"config": json.dumps(config)}) as resp:
             if resp.status_code != 200:
                 body = (await resp.aread()).decode("utf-8", "ignore")
                 raise RuntimeError(f"Modal endpoint returned {resp.status_code}: {body[:300]}")

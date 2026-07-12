@@ -22,6 +22,7 @@
     --mono:'Aptos Mono','Cascadia Code',ui-monospace,'SF Mono',Menlo,monospace;
     --display:'Fraunces','Iowan Old Style',Georgia,serif;
     --r:10px;
+    --body-text-shadow:0 1px 2px rgba(0,0,0,.35);
   }
   :root[data-theme="light"]{
     /* light theme — warm ivory paper, deep goldenrod accent, near-black for brand moments */
@@ -32,6 +33,13 @@
     --violet:#D9B25A; --violet-deep:#A8791C; --violet-soft:#8a6a1e14;
     --gold-ink:#241C08;
     --warn:#B23B58; --warn-soft:#b23b5814; --warn-bg:#b23b580a;
+    /* The dark-theme shadow below is tuned to blend into a near-black paper
+       (light ink + black shadow = invisible). Dark ink over light paper is
+       the opposite case — that same black shadow doesn't blend, it shows up
+       as a visible halo/blur around every letter on the page. Light theme
+       already has strong natural ink/paper contrast and barely needs the
+       legibility guard at all, so this stays extremely faint. */
+    --body-text-shadow:0 1px 1px rgba(28,27,23,.07);
   }
   html{color-scheme:dark;} :root[data-theme="light"]{color-scheme:light;}
   *{box-sizing:border-box;}
@@ -47,10 +55,12 @@
   body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:var(--base-font-size);line-height:1.6;-webkit-font-smoothing:antialiased;
     /* Custom themes can land on low-contrast text/background combos (a
        user-picked text color against a user-picked app background, with no
-       guardrail between them) — a faint shadow keeps every string legible
-       without visibly looking "shadowed" on the high-contrast built-in
-       presets, since it's subtle enough to disappear against those. */
-    text-shadow:0 1px 2px rgba(0,0,0,.35);}
+       guardrail between them) — a faint shadow keeps every string legible.
+       --body-text-shadow is theme-aware (see :root vs [data-theme="light"]
+       above): a shadow tuned to disappear against a near-black dark-theme
+       paper is a visible halo against a light-theme one — same mechanism,
+       different tone per theme so it stays invisible in both. */
+    text-shadow:var(--body-text-shadow);}
   a{color:inherit;text-decoration:none;}
   button{font-family:inherit;cursor:pointer;}
   ::selection{background:var(--accent-soft);}
@@ -58,6 +68,14 @@
   /* headline touchpoints get the display serif for a distinct, editorial voice */
   h1.page,.doss-card-body h1,.modal h3,.entry h3,.card-entry h3,.empty .big,.error-page h2,.sc-name,.seg-btn b{
     font-family:var(--display);letter-spacing:-.01em;
+  }
+  /* .card-entry h3/.sc-name manage their own (stronger, deliberate) shadow
+     elsewhere for legibility over an image thumbnail — everything else here
+     just inherited body's faint anti-low-contrast shadow, which is much more
+     visible on large/bold display-serif headings than on body copy. Plain
+     ink-on-paper headings don't need that guard at this size/weight. */
+  h1.page,.doss-card-body h1,.modal h3,.entry h3,.empty .big,.error-page h2,.seg-btn b{
+    text-shadow:none;
   }
 
   /* refined scrollbars */

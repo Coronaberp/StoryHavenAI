@@ -467,6 +467,7 @@ function openModelPickerModal(checkpoints, previews, current, onSelect){
   let category=(storedCategory==="" || MODEL_CATEGORY_TABS.includes(storedCategory)) ? storedCategory
     : (modelCategory(current,previews)||"sdxl");
   let hideLegacy=localStorage.getItem("ig_mp_hide_legacy")==="1";
+  if(hideLegacy && isLegacyModelCategory(category)) category="";
   let picked=current;
   const tabsHTML=`<div class="seg lib-tabs ig-mp-tabs" id="mpTabs">
     <button type="button" class="seg-btn ${tab==="models"?"on":""}" data-t="models"><b>${esc(t("ig_mp_tab_models"))}</b></button>
@@ -714,6 +715,7 @@ function openLoraPickerModal(loraNames, previews, selected, onChange){
   const storedCategory=localStorage.getItem("ig_lp_category");
   let category=(storedCategory==="" || MODEL_CATEGORY_TABS.includes(storedCategory)) ? storedCategory : "sdxl";
   let hideLegacy=localStorage.getItem("ig_mp_hide_legacy")==="1";
+  if(hideLegacy && isLegacyModelCategory(category)) category="";
   // Purely informational (unlike the checkpoint picker's detail panel,
   // there's no separate "Use this" confirm step here — clicking a tile
   // already toggles it on/off directly) — just shows whichever LoRA was
