@@ -11,7 +11,7 @@ from backend import llm
 from fastapi import APIRouter
 
 PROCESS_START_TIME = time.time()
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.2.1"
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
