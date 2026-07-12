@@ -314,12 +314,6 @@ async def create_and_stream_lora_training_job(
         body.resolution, body.rank, body.alpha, body.learning_rate,
         body.steps, body.batch_size, len(images), resume_lora_name)
 
-    # Written to loose files on disk (rather than zipped in memory) so
-    # modal_client.upload_dataset_images can hand every file to one
-    # vol.batch_upload() session — Modal transfers them concurrently over
-    # multiple streams instead of this app sending one big zip over a single
-    # HTTP connection, which matters once a dataset has more than a handful
-    # of images.
     dataset_dir = tempfile.mkdtemp(prefix=f"lora_dataset_{job['id']}_")
     for i, img in enumerate(images):
         data = await img.read()
@@ -516,10 +510,6 @@ async def _execute_training_job(job: dict, config: dict, dataset_dir: str, curre
 
 
 async def _stream_one_attempt(job, modal_events, config, current_user) -> str | None:
-    """Runs one streaming attempt against Modal. Returns None on a clean
-    terminal "done" (the caller already returned/downloaded everything), or
-    an error message string for the caller to decide whether to retry.
-    Raises _JobAborted if the admin aborted mid-stream — never retried."""
     await lora_training_repo.update_job(job["id"], status="training")
     async for event in modal_events:
         if job["id"] in _aborted_jobs:

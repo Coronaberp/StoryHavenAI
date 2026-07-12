@@ -61,11 +61,6 @@ async def ensure_model_cached(name: str, local_path: str, on_progress=None):
 
 
 async def ensure_models_cached(items: list[tuple[str, str]], on_progress=None):
-    """items: list of (name, local_path). Every file not already cached is
-    uploaded inside one vol.batch_upload() session, so Modal transfers them
-    concurrently over multiple streams instead of one file at a time —
-    matters most for Anima jobs, which need checkpoint+CLIP+VAE (and
-    optionally a resume LoRA) cached before training can start."""
     vol = _get_volume()
     cached_sizes = {}
     async for entry in vol.iterdir.aio("/", recursive=False):
@@ -103,12 +98,6 @@ _DATASET_SUBDIR = "_datasets"
 
 
 async def upload_dataset_images(job_id: str, local_dir: str, on_progress=None):
-    """Uploads every file in local_dir (the per-image .png/.jpg/.webp +
-    matching .txt captions written by create_and_stream_lora_training_job)
-    into one vol.batch_upload() session under _datasets/{job_id}/, so all of
-    them transfer concurrently over multiple streams instead of one HTTP
-    request per image — this is what actually saturates Modal's ingress
-    bandwidth for a dataset of many images, versus a single POST body."""
     vol = _get_volume()
     filenames = sorted(os.listdir(local_dir))
     sizes = {name: os.path.getsize(os.path.join(local_dir, name)) for name in filenames}
@@ -173,12 +162,6 @@ async def download_output(name: str, dest_path: str, on_progress=None):
 
 
 async def stream_training_job(config: dict):
-    """Async generator yielding parsed SSE event dicts as Modal reports them.
-    config must already carry base_checkpoint_name (and clip_name/vae_name
-    for Anima) referencing files already uploaded via ensure_models_cached,
-    and job_id referencing a dataset already uploaded via
-    upload_dataset_images — this call sends only the (tiny) config JSON,
-    never any file bytes."""
     urls, secret = _require_deploy_urls()
     headers = {"Authorization": f"Bearer {secret}"}
     # No fixed timeout — a training run can legitimately take hours; the

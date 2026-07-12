@@ -33,12 +33,6 @@
     --violet:#D9B25A; --violet-deep:#A8791C; --violet-soft:#8a6a1e14;
     --gold-ink:#241C08;
     --warn:#B23B58; --warn-soft:#b23b5814; --warn-bg:#b23b580a;
-    /* The dark-theme shadow below is tuned to blend into a near-black paper
-       (light ink + black shadow = invisible). Dark ink over light paper is
-       the opposite case — that same black shadow doesn't blend, it shows up
-       as a visible halo/blur around every letter on the page. Light theme
-       already has strong natural ink/paper contrast and barely needs the
-       legibility guard at all, so this stays extremely faint. */
     --body-text-shadow:0 1px 1px rgba(28,27,23,.07);
   }
   html{color-scheme:dark;} :root[data-theme="light"]{color-scheme:light;}
@@ -53,13 +47,6 @@
      "Font size px" is back to only reaching body's own directly-inherited
      text until the ~350 rules get converted to rem (see PR discussion). */
   body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:var(--base-font-size);line-height:1.6;-webkit-font-smoothing:antialiased;
-    /* Custom themes can land on low-contrast text/background combos (a
-       user-picked text color against a user-picked app background, with no
-       guardrail between them) — a faint shadow keeps every string legible.
-       --body-text-shadow is theme-aware (see :root vs [data-theme="light"]
-       above): a shadow tuned to disappear against a near-black dark-theme
-       paper is a visible halo against a light-theme one — same mechanism,
-       different tone per theme so it stays invisible in both. */
     text-shadow:var(--body-text-shadow);}
   a{color:inherit;text-decoration:none;}
   button{font-family:inherit;cursor:pointer;}

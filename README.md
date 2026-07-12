@@ -408,20 +408,34 @@ finishes. Aborting a queued or running job actually cancels the in-flight
 Modal call (not just a flag the UI stops polling for), so an abort stops
 GPU billing immediately rather than leaving an orphaned run.
 
-Base checkpoints are uploaded to a Modal Volume once and reused by every later
-job instead of re-uploading multi-GB files per run — checkpoint caching and
-finished-LoRA retrieval talk to the Volume directly via Modal's own Python
-SDK, not a hand-rolled HTTP upload/download. `MODAL_TOKEN_ID`/`MODAL_TOKEN_SECRET`
-(env vars) authenticate to Modal itself; the deployed training app is
-first-use auto-deployed and protected by a generated shared secret, both
-handled for you.
+Base checkpoints, CLIP/VAE, and the training image set are all uploaded to a
+Modal Volume and reused/streamed directly rather than re-uploading multi-GB
+files per run or bundling images into the training request — every file goes
+through Modal's own Python SDK in one batched, concurrent transfer per job
+(multiple files/images at once, not one HTTP request per file), not a
+hand-rolled sequential upload. `MODAL_TOKEN_ID`/`MODAL_TOKEN_SECRET` (env
+vars) authenticate to Modal itself; the deployed training app is first-use
+auto-deployed and protected by a generated shared secret, both handled for
+you. The live cost estimate shown during a run reflects real elapsed billed
+GPU time (from when Modal actually starts working on the job), not queue
+wait, which Modal never bills for.
 
 A job can resume from an existing LoRA instead of always starting fresh —
 pick a previous job's checkpoint and continue training on top of it for a
 further N steps, useful after an abort or a stall. If the training process
 itself goes completely silent for too long (no output, no error), it's
 killed automatically well before the multi-hour ceiling, instead of quietly
-burning GPU time doing nothing.
+burning GPU time doing nothing. A transient failure (a dropped connection, a
+stall, an unexpected error) auto-retries from the last saved checkpoint
+instead of failing the whole job outright — it only gives up for good after
+a few retries, a genuinely unrecoverable error (like a missing checkpoint),
+or an explicit abort.
+
+Training quality: images of different aspect ratios are bucketed rather than
+force-resized to one shape, captions can carry per-image tags beyond the
+trigger word (typed per-image, or bulk-imported from existing `.txt` files
+matched by filename), and optional noise-offset/network-dropout knobs are
+available for datasets that need them.
 
 ## Thinking (model reasoning)
 
