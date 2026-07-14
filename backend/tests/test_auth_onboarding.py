@@ -2,9 +2,11 @@ import types
 
 import pytest
 import pyotp
+from fastapi import HTTPException
 
-from backend.auth import totp_provision, _TOTP_PROVISIONS
+from backend.auth import totp_provision, _TOTP_PROVISIONS, register
 from backend.schemas import RegisterIn, TotpProvisionIn
+from backend.repositories import users as user_repo
 
 
 def _fake_request(ip="127.0.0.1"):
@@ -43,8 +45,6 @@ async def test_totp_provision_returns_secret_and_uri():
 
 @pytest.mark.asyncio
 async def test_totp_provision_is_rate_limited_per_ip():
-    from fastapi import HTTPException
-
     _TOTP_PROVISIONS._hits.clear()
     ip = "10.0.0.5"
     for _ in range(5):
@@ -52,3 +52,40 @@ async def test_totp_provision_is_rate_limited_per_ip():
     with pytest.raises(HTTPException) as excinfo:
         await totp_provision(TotpProvisionIn(username="kael"), _fake_request(ip))
     assert excinfo.value.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_register_without_totp_still_works(db_conn):
+    body = RegisterIn(username="onboard_test_notp", password="s3cret-password")
+    result = await register(body, _fake_request("10.0.1.1"))
+    assert result["ok"] is True
+    assert result["pending"] is True
+    assert result.get("backup_codes") is None
+    user = await user_repo.get_user_by_username("onboard_test_notp")
+    assert user["status"] == "pending"
+    assert not user["totp_enabled"]
+
+
+@pytest.mark.asyncio
+async def test_register_with_valid_totp_binds_and_returns_backup_codes(db_conn):
+    secret = pyotp.random_base32()
+    code = pyotp.TOTP(secret).now()
+    body = RegisterIn(username="onboard_test_totp", password="s3cret-password",
+                      totp_secret=secret, totp_code=code)
+    result = await register(body, _fake_request("10.0.1.2"))
+    assert result["ok"] is True
+    assert len(result["backup_codes"]) == 8
+    user = await user_repo.get_user_by_username("onboard_test_totp")
+    assert user["status"] == "pending"
+    assert user["totp_enabled"]
+
+
+@pytest.mark.asyncio
+async def test_register_with_invalid_totp_code_creates_no_user(db_conn):
+    secret = pyotp.random_base32()
+    body = RegisterIn(username="onboard_test_bad", password="s3cret-password",
+                      totp_secret=secret, totp_code="000000")
+    with pytest.raises(HTTPException) as excinfo:
+        await register(body, _fake_request("10.0.1.3"))
+    assert excinfo.value.status_code == 400
+    assert await user_repo.get_user_by_username("onboard_test_bad") is None

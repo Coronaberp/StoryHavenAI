@@ -235,29 +235,26 @@ async def register(body: RegisterIn, request: Request):
         raise HTTPException(400, "Username must be at least 2 characters")
     if len(body.password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters")
+    if bool(body.totp_secret) != bool(body.totp_code):
+        raise HTTPException(400, "totp_secret and totp_code must be provided together")
+    if body.totp_secret and not pyotp.TOTP(body.totp_secret).verify(body.totp_code, valid_window=1):
+        log.warning("registration rejected: username=%s reason=invalid_totp_code", username)
+        raise HTTPException(400, "Invalid verification code")
     existing = await user_repo.get_user_by_username(username)
     if existing:
         _login_record_failure(ip, username)
         raise HTTPException(400, "Username already taken")
-    _TOTP_ATTEMPTS.check(f"{ip}:{username}")
-    try:
-        totp_ok = pyotp.TOTP(body.totp_secret).verify(body.totp_code, valid_window=1)
-    except Exception:
-        log.warning("registration failed: username=%s reason=malformed_totp_secret", username)
-        raise HTTPException(400, "Authenticator setup expired — restart the onboarding flow")
-    if not totp_ok:
-        _TOTP_ATTEMPTS.record(f"{ip}:{username}")
-        log.warning("registration failed: username=%s reason=invalid_totp", username)
-        raise HTTPException(400, "Invalid verification code — check your authenticator app and try again")
-    backup_codes = _generate_backup_codes()
-    await user_repo.create_user(
-        username, body.password, status="pending",
-        totp_secret=body.totp_secret, totp_backup_codes=backup_codes,
-        totp_enabled=True, totp_login_required=True)
+    user = await user_repo.create_user(username, body.password, status="pending")
+    backup_codes = None
+    if body.totp_secret:
+        backup_codes = _generate_backup_codes()
+        await user_repo.set_totp_secret(user["id"], body.totp_secret, backup_codes)
+        await user_repo.set_totp_enabled(user["id"], True)
+        log.info("registration bound totp: username=%s user_id=%s", username, user["id"])
     await notification_repo.notify_admins(
         "admin_signup", f"New signup: {username}",
         f"{username} registered and is awaiting approval.", "/admin")
-    log.info("registration: username=%s status=pending totp_enabled=True", username)
+    log.info("registration: username=%s status=pending totp_enabled=%s", username, bool(body.totp_secret))
     return {"ok": True, "pending": True, "backup_codes": backup_codes}
 
 
