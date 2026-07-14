@@ -334,6 +334,38 @@ class EmojiUpdateIn(BaseModel):
 class LoginIn(BaseModel):
     username: str = Field(min_length=1, max_length=32)
     password: str = Field(min_length=1, max_length=128)
+    totp_code: str | None = Field(default=None, min_length=6, max_length=10)
+
+
+class RegisterIn(BaseModel):
+    username: str = Field(min_length=1, max_length=32)
+    password: str = Field(min_length=8, max_length=128)
+    totp_secret: str | None = Field(default=None)
+    totp_code: str | None = Field(default=None, min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+class TotpProvisionIn(BaseModel):
+    username: str = Field(min_length=1, max_length=32)
+
+
+class TotpEnableIn(BaseModel):
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+class TotpDisableIn(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
+    code: str = Field(min_length=6, max_length=10)
+
+
+class TotpPasswordResetIn(BaseModel):
+    username: str = Field(min_length=1, max_length=32)
+    code: str = Field(min_length=6, max_length=10)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class TotpLoginEnforcementIn(BaseModel):
+    required: bool
+    code: str = Field(min_length=6, max_length=10)
 
 
 class UserCreateIn(BaseModel):
