@@ -172,9 +172,6 @@ _REGISTRATIONS = SlidingWindow(
 _TOTP_ATTEMPTS = SlidingWindow(
     8, 300, "Too many verification code attempts — try again in a few minutes")
 
-# Per-IP guard on secret generation ahead of registration — nothing is persisted
-# by /totp/provision itself, but it's still cheap to hammer, so it gets its own
-# throttle rather than riding on _REGISTRATIONS (which only counts actual signups).
 _TOTP_PROVISIONS = SlidingWindow(
     5, 3600, "Too many verification setups from your network — try again later")
 
@@ -215,20 +212,15 @@ def _prune_login_attempts():
     _TOTP_PROVISIONS.prune()
 
 
-def _totp_label(raw: str) -> str:
-    cleaned = re.sub(r"[^A-Za-z0-9_-]", "", (raw or "").strip())
-    return cleaned[:32] or "account"
-
-
 @auth_router.post("/totp/provision")
 async def totp_provision(body: TotpProvisionIn, request: Request):
     ip = _client_ip(request)
     _TOTP_PROVISIONS.check(ip)
     _TOTP_PROVISIONS.record(ip)
+    username = normalize_username(body.username)
     secret = pyotp.random_base32()
-    uri = pyotp.TOTP(secret).provisioning_uri(
-        name=normalize_username(body.username), issuer_name=TOTP_ISSUER)
-    log.info("totp provisioned for pending registration: username=%s", normalize_username(body.username))
+    uri = pyotp.TOTP(secret).provisioning_uri(name=username, issuer_name=TOTP_ISSUER)
+    log.info("totp provisioned for pending registration: username=%s", username)
     return {"secret": secret, "otpauth_uri": uri}
 
 
