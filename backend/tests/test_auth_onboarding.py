@@ -2,8 +2,6 @@ import pytest
 
 from backend.schemas import RegisterIn, TotpProvisionIn
 
-pytestmark = pytest.mark.asyncio
-
 
 def test_register_in_allows_optional_totp_fields():
     body = RegisterIn(username="kael", password="s3cret-pw")
