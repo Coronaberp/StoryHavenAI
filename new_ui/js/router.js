@@ -1,12 +1,12 @@
 "use strict";
 
 const routes = {
-  explore: (main) => new CompendiumView().mount(main),
-  chats: (main) => renderPlaceholder(main, "Parlance", "Overview", "Parlance",
+  compendium: (main) => new CompendiumView().mount(main),
+  parlance: (main) => renderPlaceholder(main, "Parlance", "Overview", "Parlance",
     "Every conversation you're having, gathered in one place."),
-  studio: (main) => renderPlaceholder(main, "Sanctum", "Overview", "Sanctum",
+  sanctum: (main) => renderPlaceholder(main, "Sanctum", "Overview", "Sanctum",
     "Your workshop with everything you've made, or are making."),
-  account: (main) => renderPlaceholder(main, "My Dossier", "Overview", "My Dossier",
+  dossier: (main) => renderPlaceholder(main, "My Dossier", "Overview", "My Dossier",
     "Your profile, your record, your entry in the archive."),
   create: (main) => renderPlaceholder(main, "Sanctum", "New Character", "New Character",
     "Bind a new character into being."),
@@ -33,24 +33,24 @@ const routes = {
 const UNAUTHENTICATED_ROUTE_NAMES = ["login", "register", "onboard", "wait"];
 const CHROMELESS_ROUTES = new Set(UNAUTHENTICATED_ROUTE_NAMES);
 const PUBLIC_ROUTES = new Set(UNAUTHENTICATED_ROUTE_NAMES);
-const NAV_ROUTES = ["explore", "chats", "studio", "account"];
+const NAV_ROUTES = ["compendium", "parlance", "sanctum", "dossier"];
 const TAB_FOR_ROUTE = {
-  pantheon: "explore",
-  artisans: "explore",
-  "artisan-profile": "explore",
-  pinacotheca: "explore",
-  symposium: "explore",
-  forge: "studio",
-  grimoire: "studio",
-  masks: "studio",
-  casts: "studio",
+  pantheon: "compendium",
+  artisans: "compendium",
+  "artisan-profile": "compendium",
+  pinacotheca: "compendium",
+  symposium: "compendium",
+  forge: "sanctum",
+  grimoire: "sanctum",
+  masks: "sanctum",
+  casts: "sanctum",
 };
 
 const NAV_LABEL_ROUTES = {
-  "Compendium": "explore",
-  "Sanctum": "studio",
-  "Parlance": "chats",
-  "My Dossier": "account",
+  "Compendium": "compendium",
+  "Sanctum": "sanctum",
+  "Parlance": "parlance",
+  "My Dossier": "dossier",
 };
 
 function pageHeaderHtml(nav, subnav, title, subtitle) {
@@ -79,10 +79,10 @@ function renderPlaceholder(main, nav, subnav, title, subtitle) {
 function currentRoute() {
   const seg = location.pathname.split("/").filter(Boolean)[0];
   if (seg === "u") return "artisan-profile";
-  return seg && routes[seg] ? seg : "explore";
+  return seg && routes[seg] ? seg : "compendium";
 }
 
-const MENU_ONLY_ROUTES = new Set(["explore", "studio"]);
+const MENU_ONLY_ROUTES = new Set(["compendium", "sanctum"]);
 
 function setActiveNav(routeName) {
   const activeTab = TAB_FOR_ROUTE[routeName] || routeName;
@@ -90,8 +90,8 @@ function setActiveNav(routeName) {
     el.classList.toggle("text-primary", el.dataset.route === activeTab);
     el.classList.toggle("text-sec", el.dataset.route !== activeTab);
   });
-  document.querySelector('[data-route="account"] [data-avatar-ring]')
-    ?.classList.toggle("opacity-100", activeTab === "account");
+  document.querySelector('[data-route="dossier"] [data-avatar-ring]')
+    ?.classList.toggle("opacity-100", activeTab === "dossier");
   const ribbon = document.getElementById("navRibbon");
   const nav = document.getElementById("bottomNav");
   if (!ribbon || !nav) return;

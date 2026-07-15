@@ -16,7 +16,7 @@
 <body class="min-h-screen bg-paper text-ink font-sans">
   <div class="flex min-h-screen flex-col md:flex-row">
     <aside id="sidebar" class="flex-col w-60 border-r border-line p-4" style="display:none">
-      <a href="/" class="flex items-center gap-2 text-primary">
+      <a href="/compendium" onclick="event.preventDefault();navigate('/compendium')" class="flex items-center gap-2 text-primary">
         <svg viewBox="0 0 500 500" class="h-9 w-9 shrink-0"><g>
           <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"/>
           <circle cx="250" cy="250" r="210" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="6 12" opacity="0.4"/>
@@ -50,15 +50,15 @@
         </span>
       </a>
       <nav id="nav" class="mt-6 flex flex-1 flex-col gap-1 text-sm">
-        <button type="button" data-route="explore" onclick="openCompendiumMenu()" class="text-left rounded-md px-3 py-2 hover:bg-surface-2">Compendium</button>
-        <a href="/chats" data-route="chats" class="rounded-md px-3 py-2 hover:bg-surface-2">Parlance</a>
-        <button type="button" data-route="studio" onclick="openSanctumMenu()" class="text-left rounded-md px-3 py-2 hover:bg-surface-2">Sanctum</button>
-        <a href="/account" data-route="account" class="rounded-md px-3 py-2 hover:bg-surface-2">My Dossier</a>
+        <button type="button" data-route="compendium" onclick="openCompendiumMenu()" class="text-left rounded-md px-3 py-2 hover:bg-surface-2">Compendium</button>
+        <a href="/parlance" data-route="parlance" class="rounded-md px-3 py-2 hover:bg-surface-2">Parlance</a>
+        <button type="button" data-route="sanctum" onclick="openSanctumMenu()" class="text-left rounded-md px-3 py-2 hover:bg-surface-2">Sanctum</button>
+        <a href="/dossier" data-route="dossier" class="rounded-md px-3 py-2 hover:bg-surface-2">My Dossier</a>
       </nav>
     </aside>
 
     <header id="mobileHeader" class="flex items-center justify-between border-b border-line px-4 py-3 md:hidden" style="display:none">
-      <span class="flex items-center gap-1.5 text-primary">
+      <a href="/compendium" onclick="event.preventDefault();navigate('/compendium')" class="flex items-center gap-1.5 text-primary">
         <svg viewBox="0 0 500 500" class="h-7 w-7 shrink-0"><g>
           <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"/>
           <circle cx="250" cy="250" r="210" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="6 12" opacity="0.4"/>
@@ -90,7 +90,7 @@
           <span class="font-display text-sm font-semibold tracking-wide">StoryHaven AI</span>
           <span class="text-[9px] italic text-muted">Forge worlds. Remember everything.</span>
         </span>
-      </span>
+      </a>
       <button id="mGear" class="text-sec" aria-label="Settings">⚙</button>
     </header>
 
@@ -99,11 +99,11 @@
     <nav id="bottomNav" class="fixed inset-x-0 bottom-0 z-10 border-t-2 border-line-2 bg-paper" style="display:none">
       <div id="navRibbon" class="absolute -top-2.5 h-[18px] transition-[left,width] duration-300 ease-out motion-reduce:transition-none" style="clip-path:polygon(22% 0%,78% 0%,78% 74%,50% 100%,22% 74%);background:linear-gradient(180deg, var(--color-primary-light), var(--color-primary-dark));filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))"></div>
       <div class="relative flex items-center">
-        <button type="button" data-route="explore" onclick="openCompendiumMenu()" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
+        <button type="button" data-route="compendium" onclick="openCompendiumMenu()" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 4v6l3-2 3 2V4"/></svg>
           <span class="font-mono text-[9px] tracking-[.12em] uppercase">Compendium</span>
         </button>
-        <a href="/chats" data-route="chats" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
+        <a href="/parlance" data-route="parlance" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h9a3 3 0 0 1 3 3v11"/><path d="M6 4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12"/><path d="M9 9h6M9 12.5h6"/></svg>
           <span class="font-mono text-[9px] tracking-[.12em] uppercase">Parlance</span>
         </a>
@@ -112,11 +112,11 @@
           style="background:linear-gradient(150deg, var(--color-accent), var(--color-accent-deep));box-shadow:0 8px 18px -6px color-mix(in srgb, var(--color-accent) 55%, transparent)">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
         </button>
-        <button type="button" data-route="studio" onclick="openSanctumMenu()" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
+        <button type="button" data-route="sanctum" onclick="openSanctumMenu()" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V11a6 6 0 0 1 12 0v9"/><path d="M6 20h12"/><path d="M12 15v2.5"/></svg>
           <span class="font-mono text-[9px] tracking-[.12em] uppercase">Sanctum</span>
         </button>
-        <a href="/account" data-route="account" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
+        <a href="/dossier" data-route="dossier" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
           <span data-avatar-ring class="relative block w-[22px] h-[22px] rounded-full p-[2px] opacity-70" style="background:var(--nav-avatar-ring, linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark)))">
             <span class="block w-full h-full rounded-full overflow-hidden bg-surface-2 grid place-items-center">
               <img class="hidden w-full h-full object-cover" alt="">
