@@ -1483,6 +1483,31 @@
     --color-line-2: color-mix(in srgb, #e07ba0 30%, var(--color-paper-base) 70%);
   }
 }
+[data-theme="light"][data-accent="azure"] {
+  --color-primary-light: color-mix(in srgb, #4fb6ff 65%, black 15%);
+  --color-primary: color-mix(in srgb, #4fb6ff 55%, black 30%);
+  --color-primary-dark: color-mix(in srgb, #4fb6ff 45%, black 45%);
+}
+[data-theme="light"][data-accent="crimson"] {
+  --color-primary-light: color-mix(in srgb, #e2493d 65%, black 15%);
+  --color-primary: color-mix(in srgb, #e2493d 55%, black 30%);
+  --color-primary-dark: color-mix(in srgb, #e2493d 45%, black 45%);
+}
+[data-theme="light"][data-accent="verdant"] {
+  --color-primary-light: color-mix(in srgb, #3ecf8e 65%, black 15%);
+  --color-primary: color-mix(in srgb, #3ecf8e 55%, black 30%);
+  --color-primary-dark: color-mix(in srgb, #3ecf8e 45%, black 45%);
+}
+[data-theme="light"][data-accent="amethyst"] {
+  --color-primary-light: color-mix(in srgb, #a675e0 65%, black 15%);
+  --color-primary: color-mix(in srgb, #a675e0 55%, black 30%);
+  --color-primary-dark: color-mix(in srgb, #a675e0 45%, black 45%);
+}
+[data-theme="light"][data-accent="rose"] {
+  --color-primary-light: color-mix(in srgb, #e07ba0 65%, black 15%);
+  --color-primary: color-mix(in srgb, #e07ba0 55%, black 30%);
+  --color-primary-dark: color-mix(in srgb, #e07ba0 45%, black 45%);
+}
 .login-scene {
   background: radial-gradient(120% 66% at 50% 4%, color-mix(in srgb, #E3BD6C 14%, #0C0C0E) 0%, var(--color-paper) 46%, var(--color-paper) 78%);
   @supports (color: color-mix(in lab, red, red)) {
