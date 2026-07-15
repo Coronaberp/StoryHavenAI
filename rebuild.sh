@@ -40,8 +40,13 @@ fi
 
 cleanup() {
   echo "Stopping..."
+  restore_stty
   kill "$UVICORN_PID" "$TAILWIND_PID" 2>/dev/null
   wait "$UVICORN_PID" "$TAILWIND_PID" 2>/dev/null
+  exit 0
+}
+restore_stty() {
+  [ -n "$stty_orig" ] && stty "$stty_orig" 2>/dev/null
 }
 trap cleanup INT TERM
 
@@ -76,16 +81,13 @@ CTRL_R="$(printf '\022')"
 if [ -t 0 ]; then
   echo "new_ui dev server (real backend, same DB as :3000): http://localhost:$DEV_PORT  (Ctrl+C to stop, Ctrl+R to rebuild instantly)"
   stty_orig="$(stty -g)"
-  stty -icanon -echo min 0 time 1
-  restore_stty() {
-    stty "$stty_orig" 2>/dev/null
-  }
-  trap 'restore_stty; cleanup' INT TERM
+  stty -icanon -echo min 0 time 2
   while kill -0 "$UVICORN_PID" 2>/dev/null && kill -0 "$TAILWIND_PID" 2>/dev/null; do
-    key="$(dd bs=1 count=1 2>/dev/null)"
-    if [ "$key" = "$CTRL_R" ]; then
-      echo "Ctrl+R: rebuilding now..."
-      "$BIN" -i "$INPUT" -o "$OUTPUT" --minify && echo "Rebuilt $OUTPUT"
+    if IFS= read -rsn1 -t 0.2 key; then
+      if [ "$key" = "$CTRL_R" ]; then
+        echo "Ctrl+R: rebuilding now..."
+        "$BIN" -i "$INPUT" -o "$OUTPUT" --minify && echo "Rebuilt $OUTPUT"
+      fi
     fi
   done
   restore_stty
