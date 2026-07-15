@@ -23,7 +23,7 @@ function characterCardHtml(c, profile) {
   const art = c.avatar
     ? `background-image:url('${c.avatar}')`
     : `background:linear-gradient(150deg, hsl(${hue} 55% 38%), hsl(${(hue + 40) % 360} 45% 16%))`;
-  const creatorName = c.owner_username || c.creator || "you";
+  const creatorName = profile?.display_name || c.owner_username || c.creator || "you";
   const ringGradient = profile?.accent_color
     ? `linear-gradient(135deg, ${profile.accent_color}, ${profile.banner_color || profile.accent_color})`
     : "linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark))";

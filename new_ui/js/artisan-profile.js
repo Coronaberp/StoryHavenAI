@@ -75,17 +75,39 @@ class ArtisanProfileView {
     copyShareUrl(`${location.origin}/u/${encodeURIComponent(this.username)}`);
   }
 
-  renderCustom(p) {
+  async toggleBlock() {
+    const p = this.profile;
+    try {
+      if (p.blocked_by_viewer) {
+        await api(`/api/users/${encodeURIComponent(p.username)}/unblock`, { method: "POST" });
+        toast("Unblocked.");
+      } else {
+        await api(`/api/users/${encodeURIComponent(p.username)}/block`, { method: "POST", body: JSON.stringify({ reason: "" }) });
+        toast("Blocked.");
+      }
+      await this.load();
+    } catch (err) {
+      errorToast(err.message || "Couldn't update block status.");
+    }
+  }
+
+  renderCustom(p, own) {
     this.main.innerHTML = `<div id="pfCustom" style="margin:-16px"></div>`;
-    mountSandboxedHTML(this.main.querySelector("#pfCustom"), substituteProfileTemplate(p.profile_html, p), {
-      onReady: (doc) => wireProfileShareButton(doc),
+    mountSandboxedHTML(this.main.querySelector("#pfCustom"), substituteProfileTemplate(p.profile_html, p, own), {
+      onReady: (doc) => {
+        wireProfileShareButton(doc);
+        wireProfileCommentsButton(doc, p.id);
+        wireProfileBlockButton(doc, this);
+        wireProfileEditButton(doc);
+      },
     });
   }
 
   render() {
     const p = this.profile;
+    const own = ME?.username === this.username;
     if (p?.profile_html && p.profile_html.trim()) {
-      this.renderCustom(p);
+      this.renderCustom(p, own);
       return;
     }
     const c1 = p?.banner_color || "#E3BD6C";
@@ -111,15 +133,11 @@ class ArtisanProfileView {
         : "";
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:16px">
-        <a href="/artisans" data-route="__back" onclick="event.preventDefault();navigate('/artisans')"
-          style="font-family:var(--font-mono);font-size:11px;color:var(--color-sec);display:inline-flex;align-items:center;gap:4px;width:fit-content">
-          &larr; Artisans
-        </a>
-        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">Consulting the archive…</p>` : ""}
-        ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${this.error}</p>` : ""}
+        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px;padding:0 16px">Consulting the archive…</p>` : ""}
+        ${this.error ? `<p style="color:var(--color-warn);font-size:13px;padding:0 16px">${this.error}</p>` : ""}
         ${p ? `
-          <div class="artisan-card" style="margin-bottom:4px">
-            <div class="artisan-banner" style="${banner}"></div>
+          <div class="artisan-card" style="margin:-16px -16px 4px;border-radius:0;border-left:none;border-right:none;border-top:none">
+            <div class="artisan-banner" style="${banner};border-radius:0"></div>
             <span class="artisan-ring" style="background:${ring}">
               <span class="artisan-ring-inner">${avatarInner}</span>
             </span>
@@ -140,6 +158,23 @@ class ArtisanProfileView {
                 ${joined ? `<span>Joined ${joined}</span>` : ""}
               </div>
               ${socialLinksHtml(p.social_links)}
+              <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+                <button type="button" onclick="event.stopPropagation();openCommentsModal('user','${p.id}')" class="filter-chip" style="display:inline-flex;align-items:center;gap:5px">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v11H9l-4 4V4z"/></svg>
+                  Comments
+                </button>
+                ${own ? `
+                  <button type="button" onclick="event.stopPropagation();navigate('/dossier')" class="filter-chip" style="display:inline-flex;align-items:center;gap:5px">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 0 1 4 4L7 21l-4 1 1-4z"/></svg>
+                    Edit Profile
+                  </button>
+                ` : `
+                  <button type="button" onclick="event.stopPropagation();this.closest('.artisan-card').__view.toggleBlock()" class="filter-chip" style="display:inline-flex;align-items:center;gap:5px">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.5 5.5l13 13"/></svg>
+                    ${p.blocked_by_viewer ? "Unblock" : "Block"}
+                  </button>
+                `}
+              </div>
             </div>
           </div>
           <div>
