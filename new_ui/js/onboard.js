@@ -47,7 +47,7 @@ const OnboardView = {
     const body = `
       <h2 class="font-display font-semibold text-[19px] text-ink mb-3 text-center">The archive verifies your hand</h2>
       ${spineStitchHtml(2, 2)}
-      ${this.error ? `<div class="mb-4 rounded-lg border border-warn text-warn text-[13px] px-3 py-2.5" style="background:color-mix(in srgb, var(--color-warn) 10%, transparent)">${this.error}</div>` : ""}
+      ${authError(this.error)}
       <div class="flex items-center gap-3 mb-3">
         <div class="w-[84px] h-[84px] flex-none rounded-lg bg-white p-1.5 overflow-hidden [&>svg]:w-full [&>svg]:h-full">${this.otpauthUri ? this.qrSvg() : ""}</div>
         <div class="flex-1 min-w-0">
