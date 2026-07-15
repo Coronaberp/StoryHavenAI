@@ -128,7 +128,7 @@ class AuthView {
 
   render() {
     const body = this.view === "signin" ? this.renderSignin() : this.renderForgot();
-    this.main.innerHTML = heroScene(body);
+    heroScene(this.main, body);
     this.wire();
   }
 

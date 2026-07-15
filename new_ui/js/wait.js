@@ -50,7 +50,7 @@ function waitEl(main) {
       Back to sign in
     </button>
   `;
-  main.innerHTML = heroScene(body);
+  heroScene(main, body);
   main.querySelector("[data-wait-exit]").addEventListener("click", () => {
     OnboardFlow.backupCodes = null;
     OnboardFlow.username = null;

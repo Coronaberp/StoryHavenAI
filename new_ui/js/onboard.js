@@ -31,7 +31,7 @@ const OnboardView = {
     }
   },
   renderLoading() {
-    this.main.innerHTML = compactScene(`
+    compactScene(this.main, `
       <h2 class="font-display font-semibold text-[19px] text-ink mb-3 text-center">The archive verifies your hand</h2>
       ${spineStitchHtml(2, 2)}
       <div class="text-center text-muted text-sm py-10">Sealing the volume…</div>
@@ -62,7 +62,7 @@ const OnboardView = {
         ${this.loading ? "Sealing…" : "Seal this volume"}
       </button>
     `;
-    this.main.innerHTML = compactScene(body);
+    compactScene(this.main, body);
     this.wire();
   },
   wire() {

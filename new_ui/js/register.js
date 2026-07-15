@@ -25,7 +25,7 @@ const RegisterView = {
         <button type="button" data-register-signin class="text-primary text-[13px] font-medium">Already have an account? Sign in</button>
       </div>
     `;
-    this.main.innerHTML = heroScene(body);
+    heroScene(this.main, body);
     this.wire();
   },
   wire() {
