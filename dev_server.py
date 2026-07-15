@@ -17,7 +17,6 @@ STATIC_DIR = ROOT / "new_ui"
 UPSTREAM_API = os.environ.get("UPSTREAM_API", "http://localhost:3000")
 
 app = FastAPI()
-_client = httpx.AsyncClient(base_url=UPSTREAM_API, timeout=30.0)
 
 
 @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
@@ -25,10 +24,11 @@ async def proxy_api(request: Request, path: str):
     upstream_url = f"/api/{path}"
     body = await request.body()
     headers = {k: v for k, v in request.headers.items() if k.lower() not in ("host", "content-length")}
-    upstream_response = await _client.request(
-        request.method, upstream_url, content=body, headers=headers,
-        params=request.query_params, cookies=request.cookies)
-    excluded = {"content-encoding", "transfer-encoding", "connection"}
+    async with httpx.AsyncClient(base_url=UPSTREAM_API, timeout=30.0) as client:
+        upstream_response = await client.request(
+            request.method, upstream_url, content=body, headers=headers,
+            params=request.query_params)
+    excluded = {"content-encoding", "transfer-encoding", "connection", "content-length"}
     response_headers = {k: v for k, v in upstream_response.headers.items() if k.lower() not in excluded}
     return Response(
         content=upstream_response.content, status_code=upstream_response.status_code,
@@ -45,11 +45,19 @@ class _SpaStaticFiles(StaticFiles):
             response = await super().get_response(path, scope)
         except HTTPException as e:
             if e.status_code == 404 and _is_spa_route(path):
-                return FileResponse(STATIC_DIR / "index.html")
+                return _no_store_index()
             raise
         if response.status_code == 404 and _is_spa_route(path):
-            return FileResponse(STATIC_DIR / "index.html")
+            return _no_store_index()
+        if path in ("", "index.html"):
+            return _no_store_index()
+        if path.endswith((".js", ".css")):
+            response.headers["Cache-Control"] = "no-cache"
         return response
+
+
+def _no_store_index():
+    return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-store, must-revalidate"})
 
 
 app.mount("/", _SpaStaticFiles(directory=str(STATIC_DIR), html=True), name="static")
