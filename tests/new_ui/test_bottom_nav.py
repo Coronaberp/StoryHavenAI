@@ -105,7 +105,7 @@ def test_ribbon_geometry_matches_active_tab_for_every_nav_route(static_server, b
     page.wait_for_timeout(400)
     for route_name in ["explore", "chats", "studio", "account"]:
         page.evaluate(f"navigate('/{route_name}')")
-        page.wait_for_timeout(200)
+        page.wait_for_timeout(400)
         geo = page.evaluate(f"""() => {{
             const nav = document.getElementById('bottomNav');
             const ribbon = document.getElementById('navRibbon');

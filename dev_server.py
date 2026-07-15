@@ -19,9 +19,7 @@ UPSTREAM_API = os.environ.get("UPSTREAM_API", "http://localhost:3000")
 app = FastAPI()
 
 
-@app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
-async def proxy_api(request: Request, path: str):
-    upstream_url = f"/api/{path}"
+async def _proxy(request: Request, upstream_url: str) -> Response:
     body = await request.body()
     headers = {k: v for k, v in request.headers.items() if k.lower() not in ("host", "content-length")}
     async with httpx.AsyncClient(base_url=UPSTREAM_API, timeout=30.0) as client:
@@ -33,6 +31,16 @@ async def proxy_api(request: Request, path: str):
     return Response(
         content=upstream_response.content, status_code=upstream_response.status_code,
         headers=response_headers)
+
+
+@app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+async def proxy_api(request: Request, path: str):
+    return await _proxy(request, f"/api/{path}")
+
+
+@app.api_route("/media/{path:path}", methods=["GET"])
+async def proxy_media(request: Request, path: str):
+    return await _proxy(request, f"/media/{path}")
 
 
 def _is_spa_route(path: str) -> bool:
