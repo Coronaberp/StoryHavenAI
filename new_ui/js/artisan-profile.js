@@ -76,8 +76,19 @@ class ArtisanProfileView {
     navigator.clipboard?.writeText(url).then(() => toast("Link copied.")).catch(() => {});
   }
 
+  renderCustom(p) {
+    this.main.innerHTML = `<div id="pfCustom" style="margin:-16px"></div>`;
+    mountSandboxedHTML(this.main.querySelector("#pfCustom"), substituteProfileTemplate(p.profile_html, p), {
+      onReady: (doc) => wireProfileShareButton(doc),
+    });
+  }
+
   render() {
     const p = this.profile;
+    if (p?.profile_html && p.profile_html.trim()) {
+      this.renderCustom(p);
+      return;
+    }
     const c1 = p?.banner_color || "#E3BD6C";
     const c2 = p?.accent_color || p?.banner_color || "#A97F2C";
     const banner = p?.banner_img
