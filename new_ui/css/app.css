@@ -1933,7 +1933,9 @@
 .char-card-tags {
   display: flex;
   gap: 4px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  min-width: 0;
 }
 .char-card-tag {
   font-family: var(--font-mono);
@@ -1945,6 +1947,11 @@
   background: rgba(10, 10, 12, .55);
   border: 1px solid rgba(255, 255, 255, .18);
   color: #fff;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .char-card-title {
   font-family: var(--font-display);
