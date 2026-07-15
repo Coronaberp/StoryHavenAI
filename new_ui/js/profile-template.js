@@ -42,12 +42,38 @@ const PROFILE_GL_DEFAULT_CSS = `
 .gl-share{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;text-decoration:none;font-size:13px;cursor:pointer;border:1px solid rgba(255,255,255,.15);}
 `;
 
+function copyTextFallback(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.cssText = "position:fixed;top:-1000px;left:-1000px;opacity:0";
+  document.body.appendChild(ta);
+  ta.select();
+  ta.setSelectionRange(0, text.length);
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch {}
+  document.body.removeChild(ta);
+  return ok;
+}
+
+function copyShareUrl(url) {
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(url)
+      .then(() => toast("Link copied."))
+      .catch(() => {
+        if (copyTextFallback(url)) toast("Link copied.");
+        else errorToast("Couldn't copy the link.");
+      });
+    return;
+  }
+  if (copyTextFallback(url)) toast("Link copied.");
+  else errorToast("Couldn't copy the link.");
+}
+
 function wireProfileShareButton(doc) {
   doc.querySelectorAll(".gl-share").forEach((el) => {
     el.addEventListener("click", (e) => {
       e.preventDefault();
-      const url = el.dataset.shareUrl || location.href;
-      navigator.clipboard?.writeText(url).then(() => toast("Link copied.")).catch(() => {});
+      copyShareUrl(el.dataset.shareUrl || location.href);
     });
   });
 }
