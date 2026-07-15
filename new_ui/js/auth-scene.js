@@ -20,7 +20,7 @@ function ensureHeroChrome() {
   if (!el) return null;
   if (!el.dataset.rendered) {
     el.innerHTML = `
-      <div class="relative overflow-hidden flex flex-col" style="background:radial-gradient(120% 66% at 50% 4%, #1a1509 0%, #0b0a0c 46%, #08080a 78%)">
+      <div class="relative overflow-hidden flex flex-col" style="background:radial-gradient(120% 66% at 50% 4%, color-mix(in srgb, var(--color-accent) 22%, var(--color-paper)) 0%, var(--color-paper) 46%, var(--color-paper) 78%)">
         <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">${loginEmbers()}</div>
         <div class="relative z-[1] flex-none">${loginEmblem()}</div>
       </div>
@@ -38,7 +38,7 @@ function hideHeroChrome() {
 function heroScene(main, innerHtml) {
   const chrome = ensureHeroChrome();
   main.innerHTML = `
-    <div class="absolute inset-0 overflow-y-auto flex flex-col" style="background:#08080a">
+    <div class="absolute inset-0 overflow-y-auto flex flex-col" style="background:var(--color-paper)">
       <div data-hero-chrome-slot class="flex-none"></div>
       <div class="relative flex-1 px-6 pb-6">
         <div class="login-in w-full max-w-[320px] mx-auto py-4">${innerHtml}</div>
@@ -66,7 +66,7 @@ function compactLogoRow() {
 function compactScene(main, innerHtml) {
   hideHeroChrome();
   main.innerHTML = `
-    <div class="absolute inset-0 overflow-y-auto flex flex-col" style="background:radial-gradient(120% 66% at 50% 4%, #1a1509 0%, #0b0a0c 46%, #08080a 78%)">
+    <div class="absolute inset-0 overflow-y-auto flex flex-col" style="background:radial-gradient(120% 66% at 50% 4%, color-mix(in srgb, var(--color-accent) 22%, var(--color-paper)) 0%, var(--color-paper) 46%, var(--color-paper) 78%)">
       <div class="relative z-[1] flex-none pt-8 px-6">${compactLogoRow()}</div>
       <div class="relative z-[2] flex-1 px-6 py-4">
         <div class="login-in w-full max-w-[320px] mx-auto py-2">${innerHtml}</div>

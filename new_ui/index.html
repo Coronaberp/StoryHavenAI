@@ -56,11 +56,6 @@
         <a href="/images" data-route="images" class="rounded-md px-3 py-2 hover:bg-surface-2">Creations</a>
         <a href="/forum" data-route="forum" class="rounded-md px-3 py-2 hover:bg-surface-2">Forum</a>
       </nav>
-      <button type="button" onclick="cycleTheme()"
-        class="mt-auto rounded-md border border-line px-3 py-2 text-left text-xs text-sec hover:bg-surface-2">
-        <span class="block text-[10px] uppercase tracking-wide text-muted">Theme (temp)</span>
-        <span data-theme-label>Dark · Default</span>
-      </button>
     </aside>
 
     <header id="mobileHeader" class="flex items-center justify-between border-b border-line px-4 py-3 md:hidden">
@@ -112,7 +107,15 @@
   </div>
 
   <div id="heroChrome" class="hidden"></div>
-  <button id="tempLogout" onclick="api('/api/auth/logout', {method:'POST'}).catch(()=>{}).then(()=>{ME = null; navigate('/login');})" style="position:fixed;top:8px;right:8px;z-index:9999;">Log out</button>
+  <div class="fixed top-2 right-2 z-[9999] flex items-center gap-1.5">
+    <button type="button" id="tempThemeCycle" onclick="cycleTheme()" title="Cycle theme (temp)"
+      data-theme-icon
+      class="w-9 h-9 rounded-lg border border-line bg-surface text-primary grid place-items-center hover:bg-surface-2"></button>
+    <button type="button" id="tempLogout" onclick="api('/api/auth/logout', {method:'POST'}).catch(()=>{}).then(()=>{ME = null; navigate('/login');})" title="Log out"
+      class="w-9 h-9 rounded-lg border border-line bg-surface text-sec grid place-items-center hover:bg-surface-2">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    </button>
+  </div>
 
   <script src="/js/state-store.js" defer></script>
   <script src="/js/theme.js" defer></script>
