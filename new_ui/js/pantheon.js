@@ -17,6 +17,45 @@ const GENDER_ICONS = {
   other: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="5"/><path d="M12 14v7"/></svg>',
 };
 
+function characterCardHtml(c, profile) {
+  const hue = [...c.id].reduce((h, ch) => h + ch.charCodeAt(0), 0) % 360;
+  const dom = `hsl(${hue} 45% 20%)`;
+  const art = c.avatar
+    ? `background-image:url('${c.avatar}')`
+    : `background:linear-gradient(150deg, hsl(${hue} 55% 38%), hsl(${(hue + 40) % 360} 45% 16%))`;
+  const creatorName = c.owner_username || c.creator || "you";
+  const ringGradient = profile?.accent_color
+    ? `linear-gradient(135deg, ${profile.accent_color}, ${profile.banner_color || profile.accent_color})`
+    : "linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark))";
+  const avatarInner = profile?.avatar
+    ? `<img src="${profile.avatar}" alt="">`
+    : `<span>${creatorName[0].toUpperCase()}</span>`;
+  const chats = c.chats > 999 ? (c.chats / 1000).toFixed(1) + "k" : (c.chats || 0);
+  return `
+    <div class="char-card" style="--dom:${dom}" onclick="navigate('/casts')">
+      <div class="char-card-frame">
+        <div class="char-card-art" style="${art}"></div>
+        <div class="char-card-fade"></div>
+        <div class="char-card-body">
+          <div class="char-card-tags">${(c.tags || []).slice(0, 2).map((t) => `<span class="char-card-tag" data-add-tag="${t}" onclick="event.stopPropagation()">#${t}</span>`).join("")}</div>
+          <h3 class="char-card-title">${c.name}</h3>
+          <p class="char-card-log">${c.description || ""}</p>
+          <div class="char-card-creator">
+            <span class="char-card-creator-ring" style="background:${ringGradient}">
+              <span class="char-card-creator-ring-inner">${avatarInner}</span>
+            </span>
+            <span class="char-card-creator-name">${creatorName}</span>
+          </div>
+        </div>
+      </div>
+      <div class="char-card-ribbon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 15c0-4-3-6-8-6s-8 2-8 6"/><circle cx="8" cy="7" r="3"/><circle cx="16" cy="7" r="3"/></svg>
+        <span>${chats}</span>
+      </div>
+    </div>
+  `;
+}
+
 class PantheonView {
   constructor() {
     this.chars = [];
@@ -146,43 +185,7 @@ class PantheonView {
   }
 
   cardHtml(c) {
-    const hue = [...c.id].reduce((h, ch) => h + ch.charCodeAt(0), 0) % 360;
-    const dom = `hsl(${hue} 45% 20%)`;
-    const art = c.avatar
-      ? `background-image:url('${c.avatar}')`
-      : `background:linear-gradient(150deg, hsl(${hue} 55% 38%), hsl(${(hue + 40) % 360} 45% 16%))`;
-    const creatorName = c.owner_username || c.creator || "you";
-    const profile = this.creatorProfiles[c.owner_username];
-    const ringGradient = profile?.accent_color
-      ? `linear-gradient(135deg, ${profile.accent_color}, ${profile.banner_color || profile.accent_color})`
-      : "linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark))";
-    const avatarInner = profile?.avatar
-      ? `<img src="${profile.avatar}" alt="">`
-      : `<span>${creatorName[0].toUpperCase()}</span>`;
-    const chats = c.chats > 999 ? (c.chats / 1000).toFixed(1) + "k" : (c.chats || 0);
-    return `
-      <div class="char-card" style="--dom:${dom}" onclick="navigate('/casts')">
-        <div class="char-card-frame">
-          <div class="char-card-art" style="${art}"></div>
-          <div class="char-card-fade"></div>
-          <div class="char-card-body">
-            <div class="char-card-tags">${(c.tags || []).slice(0, 2).map((t) => `<span class="char-card-tag" data-add-tag="${t}" onclick="event.stopPropagation()">#${t}</span>`).join("")}</div>
-            <h3 class="char-card-title">${c.name}</h3>
-            <p class="char-card-log">${c.description || ""}</p>
-            <div class="char-card-creator">
-              <span class="char-card-creator-ring" style="background:${ringGradient}">
-                <span class="char-card-creator-ring-inner">${avatarInner}</span>
-              </span>
-              <span class="char-card-creator-name">${creatorName}</span>
-            </div>
-          </div>
-        </div>
-        <div class="char-card-ribbon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 15c0-4-3-6-8-6s-8 2-8 6"/><circle cx="8" cy="7" r="3"/><circle cx="16" cy="7" r="3"/></svg>
-          <span>${chats}</span>
-        </div>
-      </div>
-    `;
+    return characterCardHtml(c, this.creatorProfiles[c.owner_username]);
   }
 
   activeFilterPills() {
@@ -273,7 +276,7 @@ class PantheonView {
     const pills = this.activeFilterPills();
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:12px">
-        ${pageHeaderHtml("Compendium", "Characters", "Pantheon", "Every character in the archive — yours and everyone else's.")}
+        ${pageHeaderHtml("Compendium", "Characters", "Pantheon", "Every character in the pantheon, yours and everyone else's.")}
         <div style="display:flex;align-items:center;gap:5px">
           <div id="pantheonSearchBox" style="position:relative;flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface)">
             ${pills.map((p) => this.pillHtml(p)).join("")}

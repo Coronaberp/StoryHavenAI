@@ -1,8 +1,7 @@
 "use strict";
 
 const routes = {
-  explore: (main) => renderPlaceholder(main, "Compendium", "Overview", "Compendium",
-    "Every character, image, and conversation the community has laid open."),
+  explore: (main) => new CompendiumView().mount(main),
   chats: (main) => renderPlaceholder(main, "Parlance", "Overview", "Parlance",
     "Every conversation you're having, gathered in one place."),
   studio: (main) => renderPlaceholder(main, "Sanctum", "Overview", "Sanctum",
@@ -13,6 +12,7 @@ const routes = {
     "Bind a new character into being."),
   pantheon: (main) => new PantheonView().mount(main),
   artisans: (main) => new ArtisansView().mount(main),
+  "artisan-profile": (main) => new ArtisanProfileView().mount(main),
   pinacotheca: (main) => renderPlaceholder(main, "Compendium", "Media", "Pinacotheca",
     "Every image and video the community has shared."),
   symposium: (main) => renderPlaceholder(main, "Compendium", "Forums", "Symposium",
@@ -37,6 +37,7 @@ const NAV_ROUTES = ["explore", "chats", "studio", "account"];
 const TAB_FOR_ROUTE = {
   pantheon: "explore",
   artisans: "explore",
+  "artisan-profile": "explore",
   pinacotheca: "explore",
   symposium: "explore",
   forge: "studio",
@@ -66,6 +67,7 @@ function renderPlaceholder(main, nav, subnav, title, subtitle) {
 
 function currentRoute() {
   const seg = location.pathname.split("/").filter(Boolean)[0];
+  if (seg === "u") return "artisan-profile";
   return seg && routes[seg] ? seg : "explore";
 }
 

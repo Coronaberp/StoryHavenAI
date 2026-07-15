@@ -44,7 +44,7 @@ class ArtisansView {
       : `<span>${(a.display_name || a.username)[0].toUpperCase()}</span>`;
     const charLabel = a.public_characters === 1 ? "character" : "characters";
     return `
-      <div class="artisan-card">
+      <div class="artisan-card" style="cursor:pointer" onclick="navigate('/u/${encodeURIComponent(a.username)}')">
         <div class="artisan-banner" style="${banner}"></div>
         <span class="artisan-ring" style="background:${ring}">
           <span class="artisan-ring-inner">${avatarInner}</span>
