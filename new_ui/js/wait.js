@@ -1,13 +1,27 @@
 "use strict";
 
-function waxSealHtml(compact) {
-  const size = compact ? "w-11 h-11" : "w-16 h-16";
-  const margin = compact ? "mb-2.5" : "mb-5";
-  const textSize = compact ? "text-sm" : "text-lg";
+const WAIT_LAYOUT = {
+  full: {
+    sealSize: "w-16 h-16",
+    sealMargin: "mb-5",
+    sealTextSize: "text-lg",
+    headingSize: "text-[20px]",
+    paragraphMargin: "mb-6",
+  },
+  compact: {
+    sealSize: "w-11 h-11",
+    sealMargin: "mb-2.5",
+    sealTextSize: "text-sm",
+    headingSize: "text-[17px]",
+    paragraphMargin: "mb-3",
+  },
+};
+
+function waxSealHtml(layout) {
   return `
-    <div class="relative ${size} ${margin} mx-auto">
+    <div class="relative ${layout.sealSize} ${layout.sealMargin} mx-auto">
       <div class="wax-seal-idle absolute inset-0 rounded-full" style="background:radial-gradient(circle at 35% 30%, var(--color-primary-light), var(--color-primary-dark))"></div>
-      <div class="absolute inset-0 grid place-items-center font-display font-semibold ${textSize} text-paper">S</div>
+      <div class="absolute inset-0 grid place-items-center font-display font-semibold ${layout.sealTextSize} text-paper">S</div>
     </div>
   `;
 }
@@ -26,11 +40,12 @@ function backupCodesHtml(codes) {
 
 function waitEl(main) {
   const codes = OnboardFlow.backupCodes;
+  const layout = codes ? WAIT_LAYOUT.compact : WAIT_LAYOUT.full;
   const body = `
-    ${waxSealHtml(!!codes)}
+    ${waxSealHtml(layout)}
     ${codes ? backupCodesHtml(codes) : ""}
-    <h2 class="font-display font-semibold ${codes ? "text-[17px]" : "text-[20px]"} text-ink text-center mb-1.5">Your volume awaits the archivist's seal</h2>
-    <p class="text-[12.5px] leading-snug text-sec text-center ${codes ? "mb-3" : "mb-6"}">A server admin reviews new accounts before they can be opened. This page doesn't need to stay open — come back and sign in once you're approved.</p>
+    <h2 class="font-display font-semibold ${layout.headingSize} text-ink text-center mb-1.5">Your volume awaits the archivist's seal</h2>
+    <p class="text-[12.5px] leading-snug text-sec text-center ${layout.paragraphMargin}">A server admin reviews new accounts before they can be opened. This page doesn't need to stay open — come back and sign in once you're approved.</p>
     <button type="button" data-wait-exit class="w-full py-3.5 rounded-xl font-semibold text-[15.5px] text-paper bg-gradient-to-br from-primary to-primary-dark">
       Back to sign in
     </button>
