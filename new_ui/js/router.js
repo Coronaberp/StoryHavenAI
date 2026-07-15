@@ -82,7 +82,7 @@ function currentRoute() {
   return seg && routes[seg] ? seg : "compendium";
 }
 
-const MENU_ONLY_ROUTES = new Set(["compendium", "sanctum"]);
+const MENU_ONLY_ROUTES = new Set(["sanctum"]);
 
 function setActiveNav(routeName) {
   const activeTab = TAB_FOR_ROUTE[routeName] || routeName;

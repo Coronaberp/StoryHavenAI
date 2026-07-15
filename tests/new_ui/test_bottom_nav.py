@@ -152,14 +152,12 @@ def test_compendium_and_sanctum_tabs_open_menus_instead_of_navigating(static_ser
     page.close()
 
 
-def test_ribbon_hidden_on_menu_only_routes_shown_on_their_subroutes(static_server, browser):
+def test_ribbon_shown_on_compendium_landing_page(static_server, browser):
     page = _new_page(browser)
     _mock_authenticated(page)
     page.goto(static_server + "/")
     page.wait_for_timeout(400)
-    assert page.evaluate("document.getElementById('navRibbon').classList.contains('hidden')") is True
-    page.evaluate("navigate('/pinacotheca')")
-    page.wait_for_timeout(200)
+    assert page.evaluate("currentRoute()") == "compendium"
     assert page.evaluate("document.getElementById('navRibbon').classList.contains('hidden')") is False
     left = page.evaluate("document.getElementById('navRibbon').style.left")
     compendium_left = page.evaluate("""() => {
@@ -168,6 +166,27 @@ def test_ribbon_hidden_on_menu_only_routes_shown_on_their_subroutes(static_serve
         return (target.getBoundingClientRect().left - nav.getBoundingClientRect().left) + 'px';
     }""")
     assert left == compendium_left
+    page.close()
+
+
+def test_ribbon_hidden_on_sanctum_menu_only_route_shown_on_its_subroutes(static_server, browser):
+    page = _new_page(browser)
+    _mock_authenticated(page)
+    page.goto(static_server + "/")
+    page.wait_for_timeout(400)
+    page.evaluate("navigate('/sanctum')")
+    page.wait_for_timeout(200)
+    assert page.evaluate("document.getElementById('navRibbon').classList.contains('hidden')") is True
+    page.evaluate("navigate('/grimoire')")
+    page.wait_for_timeout(200)
+    assert page.evaluate("document.getElementById('navRibbon').classList.contains('hidden')") is False
+    left = page.evaluate("document.getElementById('navRibbon').style.left")
+    sanctum_left = page.evaluate("""() => {
+        const nav = document.getElementById('bottomNav');
+        const target = nav.querySelector('[data-route="sanctum"]');
+        return (target.getBoundingClientRect().left - nav.getBoundingClientRect().left) + 'px';
+    }""")
+    assert left == sanctum_left
     page.close()
 
 
