@@ -39,11 +39,14 @@ Each view follows the existing `ArtisanProfileView`/`PantheonView` pattern: a cl
 `theme.js` is extended from a pure preset-index cycler into a small persisted state object:
 
 ```js
-{ base: "dark"|"light", accentId: "aurum"|...|"custom",
-  overrides: { dark: {accent, text, appBg}, light: {accent, text, appBg} } }
+{ activeBase: "dark"|"light",
+  dark:  { accentId: "aurum"|...|"custom", overrides: {accent, text, appBg} },
+  light: { accentId: "aurum"|...|"custom", overrides: {accent, text, appBg} } }
 ```
 
-`applyTheme()` sets `data-theme`/`data-accent` as today, then layers any non-empty `overrides[base]` values as inline custom properties on `<html>` (`--color-accent`, `--color-ink`, `--color-paper`), mirroring `themes.css`'s existing token names so no other file needs to know overrides exist. Selecting `accentId: "custom"` is what the picker's "Custom" option sets when the user opens a color picker rather than picking a named swatch. Persisted via `store` under a new `themeState` key (replaces the current single `themeIndex` key — a one-time migration reads the legacy `themeIndex` if `themeState` is absent, then writes `themeState` going forward).
+Dark and light each carry their **own independent accent preset** — e.g. dark can be set to Aurum while light is set to Rose Quartz, matching legacy's per-base preset selection (`_apEditBase` in `legacy_ui/js/user-settings.js`). Switching `activeBase` (the Dark/Light mode switch) does not change the other base's accent; each base remembers its own choice.
+
+`applyTheme()` sets `data-theme=activeBase` and `data-accent=<activeBase>.accentId`, then layers any non-empty `<activeBase>.overrides` values as inline custom properties on `<html>` (`--color-accent`, `--color-ink`, `--color-paper`), mirroring `themes.css`'s existing token names so no other file needs to know overrides exist. Selecting `accentId: "custom"` is what the picker's "Custom" option sets when the user opens a color picker rather than picking a named swatch. Persisted via `store` under a new `themeState` key (replaces the current single `themeIndex` key — a one-time migration reads the legacy `themeIndex` if `themeState` is absent, maps it to an equivalent `{activeBase, dark:{accentId}, light:{accentId}}` shape, then writes `themeState` going forward).
 
 A new `ToggleSwitch` render helper (small function, not a class — stateless markup + onclick wiring, consistent with `dropdown.js`'s pattern) is added to `new_ui/js/settings.js` and reused by all four sub-screens: pill track (`--color-line-2` off / `--color-accent` on), matching the mockup's `toggleSwitch()` proportions.
 
@@ -55,7 +58,8 @@ Grouped list, `sEyebrow`-style mono section labels ("Preferences", "Safety & con
 
 ### `settings/appearance`
 
-- Theme mode switch (Dark/Light) + accent preset grid (6 named swatches + "Custom").
+- Theme mode switch (Dark/Light) — switches which base is live (`activeBase`) **and** which base's accent/override fields are shown below, same dual-purpose behavior as legacy's mode tabs. Each base keeps its own accent preset independently — picking Rose Quartz while editing Light doesn't touch whatever Dark has selected (Aurum, say), and switching back to Dark shows Aurum again.
+- Accent preset grid (6 named swatches + "Custom") scoped to whichever base is currently active in the switch above.
 - When "Custom" (or a preset with active overrides) is selected: three color fields (Accent, Text, App background) with hex input + swatch-triggered color picker, applying live via the `overrides` mechanism above. A "Reset to preset" action clears overrides for the active base only (mirrors legacy's per-base reset — never touches the other base's saved state).
 - Message-type editor: five rows (Narration, Dialogue, Thoughts, Voice, Bold) each with a font-family text input (autocomplete against installed fonts, reusing legacy's font-autocomplete list if ported, otherwise plain text input for v1), a color swatch, and italic/bold/underline/strikethrough toggle buttons — same shape as legacy's `styleRow`/`styleToggles`.
 - **Type specimen card** (signature element): live-updating proof card rendering one sample line per message type in its current font/color/style, with a thin left rule and a small mono tag per line (`Narration`, `Dialogue`, …) styled like an annotated manuscript margin note. Updates on every field change, matching legacy's `liveAppearance()` live-preview behavior but with new visual treatment.
