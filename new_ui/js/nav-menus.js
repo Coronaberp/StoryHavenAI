@@ -29,7 +29,7 @@ function _navMenuRow(route, title, subtitle) {
 
 function openCompendiumMenu() {
   openModal(`
-    <h3>Compendium</h3>
+    <h3 style="cursor:pointer" onclick="closeTopModal();navigate('/explore')">Compendium</h3>
     <p style="margin:-6px 0 12px;font-style:italic">Everything worth discovering, catalogued.</p>
     <div style="display:flex;flex-direction:column;gap:3px">
       ${_navMenuRow("pantheon", "Pantheon", "Characters")}
