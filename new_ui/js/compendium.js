@@ -15,6 +15,7 @@ class CompendiumView {
     this.creators = null;
     this.images = null;
     this.threads = null;
+    this.charCreatorProfiles = {};
   }
 
   async mount(main) {
@@ -30,6 +31,21 @@ class CompendiumView {
     this.creators = _shuffleSample(creators, 6);
     this.images = _shuffleSample(images, 6);
     this.threads = threads.slice(0, 3);
+    this.render();
+    this.loadCharCreatorProfiles();
+  }
+
+  async loadCharCreatorProfiles() {
+    const usernames = [...new Set([
+      ...this.chars.map((c) => c.owner_username),
+      ...this.images.map((i) => i.owner_username),
+    ].filter(Boolean))];
+    if (!usernames.length) return;
+    const fetched = await Promise.all(usernames.map(async (u) => {
+      try { return [u, await api(`/api/users/${encodeURIComponent(u)}`)]; }
+      catch { return [u, null]; }
+    }));
+    fetched.forEach(([u, profile]) => { if (profile) this.charCreatorProfiles[u] = profile; });
     this.render();
   }
 
@@ -53,7 +69,7 @@ class CompendiumView {
     if (!this.chars.length) return `<p style="color:var(--color-sec);font-size:13px">Nothing here yet.</p>`;
     return `
       <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:2px">
-        ${this.chars.map((c) => `<div style="flex:none;width:130px">${characterCardHtml(c, null)}</div>`).join("")}
+        ${this.chars.map((c) => `<div style="flex:none;width:130px">${characterCardHtml(c, this.charCreatorProfiles[c.owner_username])}</div>`).join("")}
       </div>
     `;
   }
@@ -89,10 +105,29 @@ class CompendiumView {
       <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:2px">
         ${this.images.map((img) => {
           const blur = img.is_explicit && !ME?.nsfw_allowed;
+          const creatorName = img.owner_display_name || img.owner_username || "you";
+          const profile = this.charCreatorProfiles[img.owner_username];
+          const avatarSrc = profile?.avatar || img.owner_avatar;
+          const avatarInner = avatarSrc
+            ? `<img src="${avatarSrc}" alt="">`
+            : `<span>${creatorName[0].toUpperCase()}</span>`;
+          const ringGradient = profile?.accent_color
+            ? `linear-gradient(135deg, ${profile.accent_color}, ${profile.banner_color || profile.accent_color})`
+            : "linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark))";
+          const hue = [...(img.id || creatorName)].reduce((h, ch) => h + ch.charCodeAt(0), 0) % 360;
+          const dom = `hsl(${hue} 45% 20%)`;
           return `
-            <div style="flex:none;width:110px;height:110px;border-radius:12px;overflow:hidden;border:1px solid var(--color-line-2);position:relative">
-              <img src="${img.image}" alt="" style="width:100%;height:100%;object-fit:cover;${blur ? "filter:blur(14px) saturate(60%)" : ""}">
+            <div style="flex:none;width:130px;height:130px;border-radius:12px;overflow:hidden;border:1px solid var(--color-line-2);position:relative;cursor:pointer;--dom:${dom}"
+              onclick="navigate('/pinacotheca')">
+              <img src="${img.image}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;${blur ? "filter:blur(14px) saturate(60%)" : ""}">
               ${blur ? `<span style="position:absolute;inset:0;display:grid;place-items:center;font-family:var(--font-mono);font-size:9px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)">18+</span>` : ""}
+              <div class="char-card-fade"></div>
+              <div class="char-card-creator" style="position:absolute;left:8px;right:8px;bottom:7px" ${img.owner_username ? `onclick="event.stopPropagation();navigate('/u/${encodeURIComponent(img.owner_username)}')" style="cursor:pointer"` : ""}>
+                <span class="char-card-creator-ring" style="background:${ringGradient}">
+                  <span class="char-card-creator-ring-inner">${avatarInner}</span>
+                </span>
+                <span class="char-card-creator-name">${creatorName}</span>
+              </div>
             </div>
           `;
         }).join("")}
