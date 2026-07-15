@@ -295,7 +295,7 @@ class PantheonView {
         ${this.drawerOpen ? this.filterDrawerHtml() : ""}
         ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">Consulting the archive…</p>` : ""}
         ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${this.error}</p>` : ""}
-        ${!this.loading && !this.error && !visible.length ? `<p style="color:var(--color-sec);font-size:13px">No one here matches — try loosening a filter.</p>` : ""}
+        ${!this.loading && !this.error && !visible.length ? `<p style="color:var(--color-sec);font-size:13px">No one here matches, try loosening a filter.</p>` : ""}
         <div class="card-grid" id="pantheonGrid">${visible.map((c) => this.cardHtml(c)).join("")}</div>
       </div>
     `;
