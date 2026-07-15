@@ -1,18 +1,29 @@
 "use strict";
 
 const routes = {
-  explore: (main) => renderPlaceholder(main, "Compendium", "Browse"),
-  chats: (main) => renderPlaceholder(main, "Parlance", "Conversations"),
-  studio: (main) => renderPlaceholder(main, "Sanctum", "Workshop"),
-  account: (main) => renderPlaceholder(main, "My Dossier", "You"),
-  create: (main) => renderPlaceholder(main, "New Character", "Sanctum"),
+  explore: (main) => renderPlaceholder(main, "Compendium", "Overview", "Compendium",
+    "Every character, image, and conversation the community has laid open."),
+  chats: (main) => renderPlaceholder(main, "Parlance", "Overview", "Parlance",
+    "Every conversation you're having, gathered in one place."),
+  studio: (main) => renderPlaceholder(main, "Sanctum", "Overview", "Sanctum",
+    "Your workshop — everything you've made, or are making."),
+  account: (main) => renderPlaceholder(main, "My Dossier", "Overview", "My Dossier",
+    "Your profile, your record, your entry in the archive."),
+  create: (main) => renderPlaceholder(main, "Sanctum", "New Character", "New Character",
+    "Bind a new character into being."),
   pantheon: (main) => new PantheonView().mount(main),
-  pinacotheca: (main) => renderPlaceholder(main, "Pinacotheca", "Compendium · Media"),
-  symposium: (main) => renderPlaceholder(main, "Symposium", "Compendium · Forums"),
-  forge: (main) => renderPlaceholder(main, "My Forge", "Sanctum · Generate media"),
-  grimoire: (main) => renderPlaceholder(main, "My Grimoire", "Sanctum · Lore"),
-  masks: (main) => renderPlaceholder(main, "My Masks", "Sanctum · Personas"),
-  casts: (main) => renderPlaceholder(main, "My Casts", "Sanctum · Characters"),
+  pinacotheca: (main) => renderPlaceholder(main, "Compendium", "Media", "Pinacotheca",
+    "Every image and video the community has shared."),
+  symposium: (main) => renderPlaceholder(main, "Compendium", "Forums", "Symposium",
+    "Where the community gathers to talk."),
+  forge: (main) => renderPlaceholder(main, "Sanctum", "Generate media", "My Forge",
+    "Conjure new images and video from nothing but a prompt."),
+  grimoire: (main) => renderPlaceholder(main, "Sanctum", "Lore", "My Grimoire",
+    "The lore entries that shape your worlds."),
+  masks: (main) => renderPlaceholder(main, "Sanctum", "Personas", "My Masks",
+    "The faces you wear when you step into a story."),
+  casts: (main) => renderPlaceholder(main, "Sanctum", "Characters", "My Casts",
+    "Characters you've created or imported — private to you."),
   login: (main) => AUTH.mount(main),
   register: (main) => RegisterView.mount(main),
   onboard: (main) => OnboardView.mount(main),
@@ -32,12 +43,19 @@ const TAB_FOR_ROUTE = {
   casts: "studio",
 };
 
-function renderPlaceholder(main, label, eyebrow) {
-  main.innerHTML = `
+function pageHeaderHtml(nav, subnav, title, subtitle) {
+  return `
     <div class="mb-3">
-      ${eyebrow ? `<div class="font-mono text-[10px] tracking-[.14em] uppercase mb-1" style="color:var(--color-accent)">${eyebrow}</div>` : ""}
-      <h1 class="font-display text-2xl font-bold text-ink">${label}</h1>
+      <div class="font-mono text-[10px] tracking-[.14em] uppercase mb-1" style="color:var(--color-accent)">${nav} · ${subnav}</div>
+      <h1 class="font-display text-2xl font-bold text-ink">${title}</h1>
+      ${subtitle ? `<h2 class="text-sm font-normal mt-1" style="color:var(--color-sec)">${subtitle}</h2>` : ""}
     </div>
+  `;
+}
+
+function renderPlaceholder(main, nav, subnav, title, subtitle) {
+  main.innerHTML = `
+    ${pageHeaderHtml(nav, subnav, title, subtitle)}
     <div class="rounded-lg border border-line bg-surface p-6">
       <p class="text-sm text-sec">This view hasn't been rebuilt yet.</p>
     </div>
