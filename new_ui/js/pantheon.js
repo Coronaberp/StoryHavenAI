@@ -6,12 +6,23 @@ const GENDER_TAGS = {
   other: ["nonbinary", "non-binary", "androgynous", "other"],
 };
 
+const MODE_ICONS = {
+  character: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c1-4.5 3.5-6.5 7-6.5s6 2 7 6.5"/></svg>',
+  rpg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19l9-9"/><path d="M17 5l2 2-9 9-3 1 1-3z"/></svg>',
+};
+
+const GENDER_ICONS = {
+  male: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="14" r="5"/><path d="M13 10l6-6M13 4h6v6"/></svg>',
+  female: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="5"/><path d="M12 14v6M9 18h6"/></svg>',
+  other: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="5"/><path d="M12 14v7"/></svg>',
+};
+
 class PantheonView {
   constructor() {
     this.chars = [];
     this.loading = true;
     this.error = "";
-    this.filters = { q: "", creators: [], tags: [], gender: "any", mode: "all", nsfw: false };
+    this.filters = { q: "", creators: [], tags: [], gender: "any", mode: "all", rating: ME?.nsfw_allowed ? "all" : "sfw" };
     this.drawerOpen = false;
     this.editingCreator = null;
     this.creatorProfiles = {};
@@ -54,9 +65,11 @@ class PantheonView {
   }
 
   visibleChars() {
+    const rating = ME?.nsfw_allowed ? this.filters.rating : "sfw";
     return this.chars.filter((c) => {
       if (this.filters.mode !== "all" && c.mode !== this.filters.mode) return false;
-      if (!this.filters.nsfw && c.is_explicit) return false;
+      if (rating === "sfw" && c.is_explicit) return false;
+      if (rating === "nsfw" && !c.is_explicit) return false;
       if (this.filters.creators.length) {
         const owner = (c.owner_username || "").toLowerCase();
         if (!this.filters.creators.some((cr) => cr.toLowerCase() === owner)) return false;
@@ -70,10 +83,14 @@ class PantheonView {
     });
   }
 
+  defaultRating() {
+    return ME?.nsfw_allowed ? "all" : "sfw";
+  }
+
   activeFilterCount() {
     const f = this.filters;
     return f.creators.length + f.tags.length + (f.gender !== "any" ? 1 : 0) +
-      (f.mode !== "all" ? 1 : 0) + (f.nsfw ? 1 : 0);
+      (f.mode !== "all" ? 1 : 0);
   }
 
   allTags() {
@@ -171,9 +188,8 @@ class PantheonView {
   activeFilterPills() {
     const f = this.filters;
     const pills = [];
-    if (f.gender !== "any") pills.push({ key: "gender", type: "gender", label: f.gender });
-    if (f.mode !== "all") pills.push({ key: "mode", type: "mode", label: f.mode });
-    if (f.nsfw) pills.push({ key: "nsfw", type: "nsfw", label: "NSFW" });
+    if (f.gender !== "any") pills.push({ key: "gender", type: "gender", label: f.gender, icon: GENDER_ICONS[f.gender] });
+    if (f.mode !== "all") pills.push({ key: "mode", type: "mode", label: f.mode, icon: MODE_ICONS[f.mode] });
     f.creators.forEach((name) => pills.push({ key: "creator", type: "creator", value: name, label: `@${name}`, editable: true }));
     f.tags.forEach((tag) => pills.push({ key: "tag", type: "tag", value: tag, label: `#${tag}` }));
     return pills;
@@ -183,7 +199,7 @@ class PantheonView {
     const f = this.filters;
     if (key === "gender") f.gender = "any";
     else if (key === "mode") f.mode = "all";
-    else if (key === "nsfw") f.nsfw = false;
+    else if (key === "nsfw") f.rating = "sfw";
     else if (key === "creator") f.creators = f.creators.filter((c) => c !== value);
     else if (key === "tag") f.tags = f.tags.filter((t) => t !== value);
     this.load();
@@ -193,37 +209,35 @@ class PantheonView {
     const f = this.filters;
     const single = (group, id, current, label) =>
       `<button type="button" class="filter-chip${current === id ? " on" : ""}" data-${group}="${id}">${label}</button>`;
-    const tagChip = (tag) => `<button type="button" class="filter-chip${f.tags.includes(tag) ? " on" : ""}" data-tag="${tag}">${tag}</button>`;
+    const modeChip = (id, label) =>
+      `<button type="button" class="filter-chip${f.mode === id ? " on" : ""}" data-mode="${id}" style="display:inline-flex;align-items:center;gap:5px">${MODE_ICONS[id]}${label}</button>`;
+    const genderChip = (id, label) =>
+      `<button type="button" class="filter-chip${f.gender === id ? " on" : ""}" data-gender="${id}" style="display:inline-flex;align-items:center;gap:5px">${GENDER_ICONS[id]}${label}</button>`;
     const heading = (label) => `<div style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-muted)">${label}</div>`;
+    const ratingSection = ME?.nsfw_allowed ? `
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${heading("Rating")}
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            <button type="button" class="filter-chip${f.rating === "all" ? " on" : ""}" data-rating="all">All</button>
+            <button type="button" class="filter-chip${f.rating === "sfw" ? " on" : ""}" data-rating="sfw">SFW</button>
+            <button type="button" class="filter-chip${f.rating === "nsfw" ? " on" : ""}" data-rating="nsfw">NSFW</button>
+          </div>
+        </div>` : "";
     return `
       <div id="pantheonDrawer" style="display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:14px;border:1px dashed color-mix(in srgb, var(--color-accent) 45%, transparent);background:var(--color-surface)">
         <div style="display:flex;flex-direction:column;gap:6px">
           ${heading("Gender")}
           <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${single("gender", "any", f.gender, "Any")}${single("gender", "male", f.gender, "Male")}${single("gender", "female", f.gender, "Female")}${single("gender", "other", f.gender, "Other")}
+            ${single("gender", "any", f.gender, "Any")}${genderChip("male", "Male")}${genderChip("female", "Female")}${genderChip("other", "Other")}
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
           ${heading("Mode")}
           <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${single("mode", "all", f.mode, "All")}${single("mode", "character", f.mode, "Character")}${single("mode", "rpg", f.mode, "RPG")}
+            ${single("mode", "all", f.mode, "All")}${modeChip("character", "Character")}${modeChip("rpg", "RPG")}
           </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          ${heading("Rating")}
-          <div style="display:flex;flex-wrap:wrap;gap:6px">
-            <button type="button" class="filter-chip${!f.nsfw ? " on" : ""}" data-nsfw="0">SFW</button>
-            <button type="button" class="filter-chip${f.nsfw ? " on" : ""}" data-nsfw="1" ${ME?.nsfw_allowed ? "" : "disabled style=\"opacity:.4;cursor:not-allowed\""}>NSFW</button>
-          </div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          ${heading("Creator")}
-          <p style="margin:0;font-size:11.5px;color:var(--color-muted)">Type <b style="color:var(--color-ink)">@username</b> in the search box above and press Enter to add one — you can add more than one.</p>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          ${heading("Tags")}
-          <div id="fTags" style="display:flex;flex-wrap:wrap;gap:6px">${this.allTags().map(tagChip).join("") || `<span style="color:var(--color-muted);font-size:12px">No tags yet.</span>`}</div>
-        </div>
+        ${ratingSection}
       </div>
     `;
   }
@@ -232,12 +246,7 @@ class PantheonView {
     const f = this.filters;
     root.querySelectorAll("[data-gender]").forEach((btn) => btn.onclick = () => { f.gender = btn.dataset.gender; this.load(); });
     root.querySelectorAll("[data-mode]").forEach((btn) => btn.onclick = () => { f.mode = btn.dataset.mode; this.load(); });
-    root.querySelectorAll("[data-nsfw]").forEach((btn) => btn.onclick = () => { if (btn.disabled) return; f.nsfw = btn.dataset.nsfw === "1"; this.load(); });
-    root.querySelectorAll("[data-tag]").forEach((btn) => btn.onclick = () => {
-      const tag = btn.dataset.tag;
-      f.tags = f.tags.includes(tag) ? f.tags.filter((t) => t !== tag) : [...f.tags, tag];
-      this.load();
-    });
+    root.querySelectorAll("[data-rating]").forEach((btn) => btn.onclick = () => { if (btn.disabled) return; f.rating = btn.dataset.rating; this.load(); });
   }
 
   addTag(tag) {
@@ -249,9 +258,10 @@ class PantheonView {
     if (p.editable && this.editingCreator === p.value) {
       return `<span class="inline-pill pill-${p.type}">@<input type="text" id="creatorEditInput" value="${p.value}" data-old="${p.value}"></span>`;
     }
+    const solid = p.icon ? ` type-chip${p.type === "mode" ? " type-chip-mode" : ""}` : "";
     return `
-      <span class="inline-pill pill-${p.type}" data-clear="${p.key}" data-clear-value="${p.value || ""}" ${p.editable ? `data-editable-value="${p.value}"` : ""}>
-        ${p.label}<span class="x" data-clear-x="1">&times;</span>
+      <span class="inline-pill pill-${p.type}${solid}" data-clear="${p.key}" data-clear-value="${p.value || ""}" ${p.editable ? `data-editable-value="${p.value}"` : ""}>
+        ${p.icon || ""}${p.label}<span class="x" data-clear-x="1">&times;</span>
       </span>
     `;
   }
