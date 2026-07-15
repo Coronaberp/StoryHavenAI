@@ -12,6 +12,7 @@ const routes = {
   wait: (main) => waitEl(main),
 };
 const CHROMELESS_ROUTES = new Set(["login", "register", "onboard", "wait"]);
+const PUBLIC_ROUTES = new Set(["login", "register", "onboard", "wait"]);
 
 function renderPlaceholder(main, label) {
   main.innerHTML = `
@@ -48,6 +49,7 @@ function restoreChrome(main) {
   document.getElementById("sidebar")?.style.removeProperty("display");
   document.getElementById("mobileHeader")?.style.removeProperty("display");
   document.getElementById("bottomNav")?.style.removeProperty("display");
+  hideHeroChrome();
   main.style.removeProperty("position");
   main.style.removeProperty("overflow");
   main.style.removeProperty("padding");
@@ -57,6 +59,10 @@ function restoreChrome(main) {
 function route() {
   const main = document.getElementById("main");
   const routeName = currentRoute();
+  if (!ME && !PUBLIC_ROUTES.has(routeName)) {
+    history.replaceState(null, "", "/login");
+    return route();
+  }
   if (CHROMELESS_ROUTES.has(routeName)) hideChrome(main);
   else restoreChrome(main);
   routes[routeName](main);

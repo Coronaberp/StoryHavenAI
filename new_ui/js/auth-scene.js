@@ -15,12 +15,33 @@ function spineStitchHtml(currentStep, totalSteps) {
   return `<div class="flex gap-2 mb-5">${segments.join("")}</div>`;
 }
 
+const HERO_EMBLEM_HEIGHT = 342;
+
+function ensureHeroChrome() {
+  const el = document.getElementById("heroChrome");
+  if (!el) return;
+  if (!el.dataset.rendered) {
+    el.innerHTML = `
+      <div class="fixed inset-0 overflow-hidden flex flex-col" style="background:radial-gradient(120% 66% at 50% 4%, #1a1509 0%, #0b0a0c 46%, #08080a 78%)">
+        <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">${loginEmbers()}</div>
+        <div class="relative z-[1] flex-none">${loginEmblem()}</div>
+      </div>
+    `;
+    el.dataset.rendered = "true";
+  }
+  el.classList.remove("hidden");
+}
+
+function hideHeroChrome() {
+  document.getElementById("heroChrome")?.classList.add("hidden");
+}
+
 function heroScene(innerHtml) {
+  ensureHeroChrome();
   return `
-    <div class="fixed inset-0 overflow-hidden flex flex-col" style="background:radial-gradient(120% 66% at 50% 4%, #1a1509 0%, #0b0a0c 46%, #08080a 78%)">
-      <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">${loginEmbers()}</div>
-      <div class="relative z-[1] flex-none">${loginEmblem()}</div>
-      <div class="relative z-[2] flex-1 min-h-0 flex items-center px-6 pb-6">
+    <div class="fixed inset-0 z-40 overflow-hidden flex flex-col pointer-events-none">
+      <div class="flex-none" style="height:${HERO_EMBLEM_HEIGHT}px"></div>
+      <div class="relative flex-1 min-h-0 flex items-center px-6 pb-6 pointer-events-auto">
         <div class="login-in w-full max-w-[320px] mx-auto">${innerHtml}</div>
       </div>
     </div>
@@ -42,6 +63,7 @@ function compactLogoRow() {
 }
 
 function compactScene(innerHtml) {
+  hideHeroChrome();
   return `
     <div class="fixed inset-0 overflow-hidden flex flex-col" style="background:radial-gradient(120% 66% at 50% 4%, #1a1509 0%, #0b0a0c 46%, #08080a 78%)">
       <div class="relative z-[1] flex-none pt-8 px-6">${compactLogoRow()}</div>

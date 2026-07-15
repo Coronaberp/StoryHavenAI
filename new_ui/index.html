@@ -111,6 +111,9 @@
     </nav>
   </div>
 
+  <div id="heroChrome" class="fixed inset-0 z-30 hidden"></div>
+  <button id="tempLogout" onclick="api('/api/auth/logout', {method:'POST'}).catch(()=>{}).then(()=>{ME = null; navigate('/login');})" style="position:fixed;top:8px;right:8px;z-index:9999;">Log out</button>
+
   <script src="/js/state-store.js" defer></script>
   <script src="/js/theme.js" defer></script>
   <script src="/js/app-session.js" defer></script>
