@@ -31,7 +31,7 @@ function backupCodesHtml(codes) {
   return `
     <div class="mb-3">
       <div class="rounded-lg border border-warn text-warn text-[11.5px] leading-snug px-2.5 py-2 mb-2" style="background:color-mix(in srgb, var(--color-warn) 10%, transparent)">
-        Save these recovery codes now — they will not be shown again. Each one lets you back into your account if you lose your authenticator.
+        Save these recovery codes now, they will not be shown again. Each one lets you back into your account if you lose your authenticator.
       </div>
       <div class="grid grid-cols-2 gap-1.5 rounded-xl border border-line-2 p-2.5" style="background:color-mix(in srgb, var(--color-paper) 55%, transparent)">${items}</div>
     </div>
@@ -45,7 +45,7 @@ function waitEl(main) {
     ${waxSealHtml(layout)}
     ${codes ? backupCodesHtml(codes) : ""}
     <h2 class="font-display font-semibold ${layout.headingSize} text-ink text-center mb-1.5">Your volume awaits the archivist's seal</h2>
-    <p class="text-[12.5px] leading-snug text-sec text-center ${layout.paragraphMargin}">A server admin reviews new accounts before they can be opened. This page doesn't need to stay open — come back and sign in once you're approved.</p>
+    <p class="text-[12.5px] leading-snug text-sec text-center ${layout.paragraphMargin}">A server admin reviews new accounts before they can be opened. This page doesn't need to stay open, come back and sign in once you're approved.</p>
     <button type="button" data-wait-exit class="w-full py-3.5 rounded-xl font-semibold text-[15.5px] text-paper bg-gradient-to-br from-primary to-primary-dark">
       Back to sign in
     </button>

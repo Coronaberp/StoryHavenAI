@@ -43,7 +43,7 @@ function openCompendiumMenu() {
 function openSanctumMenu() {
   openModal(`
     <h3>Sanctum</h3>
-    <p style="margin:-6px 0 12px;font-style:italic">Your workshop — everything you've made or are making.</p>
+    <p style="margin:-6px 0 12px;font-style:italic">Your workshop, everything you've made or are making.</p>
     <div style="display:flex;flex-direction:column;gap:3px">
       ${_navMenuRow("forge", "My Forge", "Generate media")}
       ${_navMenuRow("grimoire", "My Grimoire", "Lore")}
