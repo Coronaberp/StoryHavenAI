@@ -1,10 +1,13 @@
 "use strict";
 
 const routes = {
-  library: (main) => renderPlaceholder(main, "Library"),
+  explore: (main) => renderPlaceholder(main, "Explore"),
+  chats: (main) => renderPlaceholder(main, "Chats"),
+  studio: (main) => renderPlaceholder(main, "Studio"),
+  account: (main) => renderPlaceholder(main, "Account"),
+  create: (main) => renderPlaceholder(main, "New Character"),
   community: (main) => renderPlaceholder(main, "Community"),
   personas: (main) => renderPlaceholder(main, "Personas"),
-  images: (main) => renderPlaceholder(main, "Creations"),
   forum: (main) => renderPlaceholder(main, "Forum"),
   login: (main) => AUTH.mount(main),
   register: (main) => RegisterView.mount(main),
@@ -14,6 +17,7 @@ const routes = {
 const UNAUTHENTICATED_ROUTE_NAMES = ["login", "register", "onboard", "wait"];
 const CHROMELESS_ROUTES = new Set(UNAUTHENTICATED_ROUTE_NAMES);
 const PUBLIC_ROUTES = new Set(UNAUTHENTICATED_ROUTE_NAMES);
+const NAV_ROUTES = ["explore", "chats", "studio", "account"];
 
 function renderPlaceholder(main, label) {
   main.innerHTML = `
@@ -26,7 +30,7 @@ function renderPlaceholder(main, label) {
 
 function currentRoute() {
   const seg = location.pathname.split("/").filter(Boolean)[0];
-  return seg && routes[seg] ? seg : "library";
+  return seg && routes[seg] ? seg : "explore";
 }
 
 function setActiveNav(routeName) {
@@ -34,6 +38,20 @@ function setActiveNav(routeName) {
     el.classList.toggle("text-primary", el.dataset.route === routeName);
     el.classList.toggle("text-sec", el.dataset.route !== routeName);
   });
+  document.querySelector('[data-route="account"] [data-avatar-ring]')
+    ?.classList.toggle("opacity-100", routeName === "account");
+  const ribbon = document.getElementById("navRibbon");
+  const nav = document.getElementById("bottomNav");
+  if (!ribbon || !nav) return;
+  const idx = NAV_ROUTES.indexOf(routeName);
+  ribbon.classList.toggle("hidden", idx === -1);
+  if (idx === -1) return;
+  const target = nav.querySelector(`[data-route="${routeName}"]`);
+  if (!target) return;
+  const navRect = nav.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  ribbon.style.left = `${targetRect.left - navRect.left}px`;
+  ribbon.style.width = `${targetRect.width}px`;
 }
 
 function hideChrome(main) {
@@ -71,6 +89,7 @@ function route() {
   else restoreChrome(main);
   routes[routeName](main);
   setActiveNav(routeName);
+  applyAvatarRing();
 }
 
 function navigate(path) {
