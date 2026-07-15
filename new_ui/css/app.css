@@ -2077,6 +2077,22 @@
   border-color: var(--color-warn);
   color: var(--color-warn);
 }
+.type-chip, .inline-pill.type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--color-accent);
+  color: #fff;
+  border-color: transparent;
+}
+.type-chip svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+.type-chip.type-chip-mode, .inline-pill.type-chip.type-chip-mode {
+  color: var(--color-paper-base, var(--color-paper));
+}
 .inline-pill input {
   border: none;
   background: none;
@@ -2096,6 +2112,11 @@
   color: var(--color-sec);
   cursor: pointer;
   white-space: nowrap;
+}
+.filter-chip svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
 }
 .filter-chip.on {
   border-color: var(--color-accent);
