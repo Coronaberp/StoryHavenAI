@@ -57,5 +57,3 @@ if (typeof window !== "undefined") {
   window.compactScene = compactScene;
   window.spineStitchHtml = spineStitchHtml;
 }
-
-export { heroScene, compactScene, spineStitchHtml };
