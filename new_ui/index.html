@@ -57,7 +57,7 @@
       </nav>
     </aside>
 
-    <header id="mobileHeader" class="flex items-center justify-between border-b border-line px-4 py-3 md:hidden" style="display:none">
+    <header id="mobileHeader" class="fixed inset-x-0 top-0 z-10 flex items-center justify-between border-b border-line px-4 py-3 bg-paper md:hidden" style="display:none">
       <a href="/compendium" onclick="event.preventDefault();navigate('/compendium')" class="flex items-center gap-1.5 text-primary">
         <svg viewBox="0 0 500 500" class="h-7 w-7 shrink-0"><g>
           <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"/>
@@ -94,7 +94,7 @@
       <button id="mGear" class="text-sec" aria-label="Settings">⚙</button>
     </header>
 
-    <main id="main" class="flex-1 overflow-y-auto p-4 pb-20 md:pb-4"></main>
+    <main id="main" class="flex-1 overflow-y-auto p-4 pt-[68px] pb-20 md:pt-4 md:pb-4"></main>
 
     <nav id="bottomNav" class="fixed inset-x-0 bottom-0 z-10 border-t-2 border-line-2 bg-paper" style="display:none">
       <div id="navRibbon" class="absolute -top-2.5 h-[18px] transition-[left,width] duration-300 ease-out motion-reduce:transition-none" style="clip-path:polygon(22% 0%,78% 0%,78% 74%,50% 100%,22% 74%);background:linear-gradient(180deg, var(--color-primary-light), var(--color-primary-dark));filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))"></div>
