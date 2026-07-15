@@ -40,7 +40,7 @@ function characterCardHtml(c, profile) {
           <div class="char-card-tags">${(c.tags || []).slice(0, 2).map((t) => `<span class="char-card-tag" data-add-tag="${t}" onclick="event.stopPropagation()">#${t}</span>`).join("")}</div>
           <h3 class="char-card-title">${c.name}</h3>
           <p class="char-card-log">${c.description || ""}</p>
-          <div class="char-card-creator">
+          <div class="char-card-creator" ${c.owner_username ? `onclick="event.stopPropagation();navigate('/u/${encodeURIComponent(c.owner_username)}')" style="cursor:pointer"` : ""}>
             <span class="char-card-creator-ring" style="background:${ringGradient}">
               <span class="char-card-creator-ring-inner">${avatarInner}</span>
             </span>
