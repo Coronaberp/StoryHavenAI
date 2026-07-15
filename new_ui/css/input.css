@@ -1,0 +1,57 @@
+@import "tailwindcss";
+@import "./themes.css";
+@import "./login.css";
+
+@theme {
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-display: 'Fraunces', 'Iowan Old Style', Georgia, serif;
+
+  --color-paper: #0C0C0E;
+  --color-surface: #141416;
+  --color-surface-2: #1A1A1D;
+  --color-ink: #F3EFE4;
+  --color-sec: #C9C0AC;
+  --color-muted: #8E876F;
+  --color-line: #2A2A2E;
+  --color-line-2: #3A3A40;
+  --color-warn: #F0788F;
+
+  --color-primary-light: #F2CE87;
+  --color-primary: #E3BD6C;
+  --color-primary-dark: #B8892B;
+  --color-secondary-light: #C66B60;
+  --color-secondary: #A1514A;
+  --color-secondary-dark: #7A3C35;
+  --color-tertiary-light: #8B7A6E;
+  --color-tertiary: #6C5B4F;
+  --color-tertiary-dark: #4A3D33;
+}
+
+@layer base {
+  html, body {
+    height: 100%;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  *::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .wax-seal-idle {
+      animation: wax-seal-pulse 3.2s ease-in-out infinite;
+    }
+  }
+  @keyframes wax-seal-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.9; }
+    50% { transform: scale(1.06); opacity: 1; }
+  }
+}
