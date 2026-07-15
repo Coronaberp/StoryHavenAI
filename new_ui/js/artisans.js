@@ -50,7 +50,10 @@ class ArtisansView {
           <span class="artisan-ring-inner">${avatarInner}</span>
         </span>
         <div class="artisan-body">
-          <div class="artisan-name">${a.display_name || a.username}</div>
+          <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+            <div class="artisan-name">${a.display_name || a.username}</div>
+            ${ME?.username === a.username ? `<span style="font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));border:1px solid var(--color-accent);color:var(--color-accent)">You</span>` : ""}
+          </div>
           <div class="artisan-handle">@${a.username}</div>
           ${a.bio ? `<p class="artisan-bio">${a.bio}</p>` : ""}
           <div class="artisan-stats"><b>${a.public_characters}</b> ${charLabel}</div>
