@@ -35,6 +35,7 @@
     background: var(--color-paper);
     color: var(--color-ink);
     font-family: var(--font-sans);
+    text-shadow: 0 1px 1px color-mix(in srgb, var(--color-paper) 55%, transparent);
   }
   * {
     scrollbar-width: none;

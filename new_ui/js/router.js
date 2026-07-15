@@ -47,7 +47,6 @@ function hideChrome(main) {
 }
 
 function restoreChrome(main) {
-  document.getElementById("sidebar")?.style.removeProperty("display");
   document.getElementById("mobileHeader")?.style.removeProperty("display");
   document.getElementById("bottomNav")?.style.removeProperty("display");
   hideHeroChrome();

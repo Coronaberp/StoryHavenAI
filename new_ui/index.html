@@ -15,7 +15,7 @@
 </head>
 <body class="min-h-screen bg-paper text-ink font-sans">
   <div class="flex min-h-screen flex-col md:flex-row">
-    <aside id="sidebar" class="hidden md:flex md:w-60 md:flex-col md:border-r md:border-line md:p-4">
+    <aside id="sidebar" class="flex-col w-60 border-r border-line p-4" style="display:none">
       <a href="/" class="flex items-center gap-2 text-primary">
         <svg viewBox="0 0 500 500" class="h-9 w-9 shrink-0"><g>
           <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"/>
@@ -58,7 +58,7 @@
       </nav>
     </aside>
 
-    <header id="mobileHeader" class="flex items-center justify-between border-b border-line px-4 py-3 md:hidden">
+    <header id="mobileHeader" class="flex items-center justify-between border-b border-line px-4 py-3 md:hidden" style="display:none">
       <span class="flex items-center gap-1.5 text-primary">
         <svg viewBox="0 0 500 500" class="h-7 w-7 shrink-0"><g>
           <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"/>
@@ -97,7 +97,7 @@
 
     <main id="main" class="flex-1 overflow-y-auto p-4 pb-20 md:pb-4"></main>
 
-    <nav id="bottomNav" class="fixed inset-x-0 bottom-0 z-10 flex border-t border-line bg-paper md:hidden">
+    <nav id="bottomNav" class="hidden fixed inset-x-0 bottom-0 z-10 border-t border-line bg-paper">
       <a href="/" data-route="library" class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-sec">Library</a>
       <a href="/community" data-route="community" class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-sec">Community</a>
       <a href="/personas" data-route="personas" class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-sec">Personas</a>

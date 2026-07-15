@@ -1,0 +1,67 @@
+.login-scene {
+  background: radial-gradient(120% 66% at 50% 4%, color-mix(in srgb, var(--color-primary) 14%, var(--color-paper)) 0%, var(--color-paper) 46%, var(--color-paper) 78%);
+}
+
+@keyframes sh-ember {
+  0% { transform: translate(0, 0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 0.4; }
+  100% { transform: translate(var(--dx), -140px); opacity: 0; }
+}
+.login-ember {
+  position: absolute;
+  bottom: 20%;
+  border-radius: 999px;
+  background: var(--color-primary);
+  animation: sh-ember 5s ease-in infinite;
+}
+
+@keyframes sh-orbit {
+  from { transform: translate(-50%, -50%) rotate(0deg) translateX(var(--rad)) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg) translateX(var(--rad)) rotate(-360deg); }
+}
+.login-orbit {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  margin-top: -2.5px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  box-shadow: 0 0 8px 1px color-mix(in srgb, var(--color-primary) 80%, transparent);
+  animation: sh-orbit linear infinite;
+}
+
+@keyframes sh-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+.login-pulse { animation: sh-pulse 4.5s ease-in-out infinite; }
+
+@keyframes sh-spin { to { transform: rotate(360deg); } }
+@keyframes sh-spin-rev { to { transform: rotate(-360deg); } }
+.login-spin { animation: sh-spin 26s linear infinite; }
+.login-spin-rev { animation: sh-spin-rev 34s linear infinite; }
+
+@keyframes sh-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.login-float { animation: sh-float 7s ease-in-out infinite; }
+
+@keyframes sh-fade { from { opacity: 0; } to { opacity: 1; } }
+.login-fade { animation: sh-fade 0.2s both; }
+
+@keyframes sh-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.login-in { animation: sh-in 0.25s both; }
+
+@keyframes sh-caret {
+  0%, 49% { border-color: var(--color-primary); }
+  50%, 100% { border-color: var(--color-line-2); }
+}
+.login-totp-caret { animation: sh-caret 1.1s infinite; }

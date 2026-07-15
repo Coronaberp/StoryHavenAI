@@ -1,0 +1,148 @@
+:root {
+  --color-ink-base: #F3EFE4;
+  --color-sec-base: #C9C0AC;
+  --color-muted-base: #8E876F;
+  --color-paper-base: #0C0C0E;
+  --color-accent-base: #E3BD6C;
+  --color-accent-deep-base: #F2CE87;
+
+  --color-paper: var(--color-paper-base);
+  --color-surface: #141416;
+  --color-surface-2: #1A1A1D;
+  --color-ink: var(--color-ink-base);
+  --color-sec: var(--color-sec-base);
+  --color-muted: var(--color-muted-base);
+  --color-line: #2A2A2E;
+  --color-line-2: #3A3A40;
+  --color-warn: #F0788F;
+
+  --color-accent: var(--color-accent-base);
+  --color-accent-deep: var(--color-accent-deep-base);
+
+  --color-primary-light: #F2CE87;
+  --color-primary: #E3BD6C;
+  --color-primary-dark: #B8892B;
+  --color-secondary-light: #C66B60;
+  --color-secondary: #A1514A;
+  --color-secondary-dark: #7A3C35;
+  --color-tertiary-light: #8B7A6E;
+  --color-tertiary: #6C5B4F;
+  --color-tertiary-dark: #4A3D33;
+}
+
+[data-theme="light"] {
+  --color-ink-base: #1C1B17;
+  --color-sec-base: #5C574A;
+  --color-muted-base: #948D79;
+  --color-paper-base: #FAF7F0;
+  --color-accent-base: #A8791C;
+  --color-accent-deep-base: #7C5A14;
+
+  --color-paper: var(--color-paper-base);
+  --color-surface: #FBF8F2;
+  --color-surface-2: #F5F1E6;
+  --color-ink: var(--color-ink-base);
+  --color-sec: var(--color-sec-base);
+  --color-muted: var(--color-muted-base);
+  --color-line: #EAE3D2;
+  --color-line-2: #D9D0B8;
+  --color-warn: #B23B58;
+
+  --color-accent: var(--color-accent-base);
+  --color-accent-deep: var(--color-accent-deep-base);
+}
+
+[data-accent="azure"] {
+  --color-primary-light: #79c0ff;
+  --color-primary: #4fb6ff;
+  --color-primary-dark: #1f6feb;
+  --color-secondary-light: #3dd5c3;
+  --color-secondary: #1f9e78;
+  --color-secondary-dark: #0a6e5f;
+  --color-tertiary-light: #7dbef0;
+  --color-tertiary: #52a0d0;
+  --color-tertiary-dark: #1e7e9f;
+  --color-accent: color-mix(in srgb, #4fb6ff 85%, var(--color-accent-base) 15%);
+  --color-accent-deep: var(--color-accent);
+  --color-paper: color-mix(in srgb, #4fb6ff 40%, var(--color-paper-base) 60%);
+  --color-surface: color-mix(in srgb, #4fb6ff 25%, var(--color-paper-base) 75%);
+  --color-surface-2: color-mix(in srgb, #4fb6ff 35%, var(--color-paper-base) 65%);
+  --color-line: color-mix(in srgb, #4fb6ff 20%, var(--color-paper-base) 80%);
+  --color-line-2: color-mix(in srgb, #4fb6ff 30%, var(--color-paper-base) 70%);
+}
+
+[data-accent="crimson"] {
+  --color-primary-light: #f85149;
+  --color-primary: #e2493d;
+  --color-primary-dark: #a02622;
+  --color-secondary-light: #3fb950;
+  --color-secondary: #1a7f37;
+  --color-secondary-dark: #044e1f;
+  --color-tertiary-light: #e85aad;
+  --color-tertiary: #bf3989;
+  --color-tertiary-dark: #861160;
+  --color-accent: color-mix(in srgb, #e2493d 85%, var(--color-accent-base) 15%);
+  --color-accent-deep: var(--color-accent);
+  --color-paper: color-mix(in srgb, #e2493d 40%, var(--color-paper-base) 60%);
+  --color-surface: color-mix(in srgb, #e2493d 25%, var(--color-paper-base) 75%);
+  --color-surface-2: color-mix(in srgb, #e2493d 35%, var(--color-paper-base) 65%);
+  --color-line: color-mix(in srgb, #e2493d 20%, var(--color-paper-base) 80%);
+  --color-line-2: color-mix(in srgb, #e2493d 30%, var(--color-paper-base) 70%);
+}
+
+[data-accent="verdant"] {
+  --color-primary-light: #56d364;
+  --color-primary: #3ecf8e;
+  --color-primary-dark: #238636;
+  --color-secondary-light: #e8b55a;
+  --color-secondary: #d4a574;
+  --color-secondary-dark: #b8860b;
+  --color-tertiary-light: #6dde5f;
+  --color-tertiary: #4a9e5d;
+  --color-tertiary-dark: #2d7449;
+  --color-accent: color-mix(in srgb, #3ecf8e 85%, var(--color-accent-base) 15%);
+  --color-accent-deep: var(--color-accent);
+  --color-paper: color-mix(in srgb, #3ecf8e 40%, var(--color-paper-base) 60%);
+  --color-surface: color-mix(in srgb, #3ecf8e 25%, var(--color-paper-base) 75%);
+  --color-surface-2: color-mix(in srgb, #3ecf8e 35%, var(--color-paper-base) 65%);
+  --color-line: color-mix(in srgb, #3ecf8e 20%, var(--color-paper-base) 80%);
+  --color-line-2: color-mix(in srgb, #3ecf8e 30%, var(--color-paper-base) 70%);
+}
+
+[data-accent="amethyst"] {
+  --color-primary-light: #c4b5fd;
+  --color-primary: #a675e0;
+  --color-primary-dark: #7c3aed;
+  --color-secondary-light: #fbbf24;
+  --color-secondary: #f59e0b;
+  --color-secondary-dark: #d97706;
+  --color-tertiary-light: #d8b4fe;
+  --color-tertiary: #8b5cf6;
+  --color-tertiary-dark: #6d28d9;
+  --color-accent: color-mix(in srgb, #a675e0 85%, var(--color-accent-base) 15%);
+  --color-accent-deep: var(--color-accent);
+  --color-paper: color-mix(in srgb, #a675e0 40%, var(--color-paper-base) 60%);
+  --color-surface: color-mix(in srgb, #a675e0 25%, var(--color-paper-base) 75%);
+  --color-surface-2: color-mix(in srgb, #a675e0 35%, var(--color-paper-base) 65%);
+  --color-line: color-mix(in srgb, #a675e0 20%, var(--color-paper-base) 80%);
+  --color-line-2: color-mix(in srgb, #a675e0 30%, var(--color-paper-base) 70%);
+}
+
+[data-accent="rose"] {
+  --color-primary-light: #f472b6;
+  --color-primary: #e07ba0;
+  --color-primary-dark: #c2185b;
+  --color-secondary-light: #a78bfa;
+  --color-secondary: #7c7cfc;
+  --color-secondary-dark: #4c1d95;
+  --color-tertiary-light: #fb7185;
+  --color-tertiary: #db4c8f;
+  --color-tertiary-dark: #831843;
+  --color-accent: color-mix(in srgb, #e07ba0 85%, var(--color-accent-base) 15%);
+  --color-accent-deep: var(--color-accent);
+  --color-paper: color-mix(in srgb, #e07ba0 40%, var(--color-paper-base) 60%);
+  --color-surface: color-mix(in srgb, #e07ba0 25%, var(--color-paper-base) 75%);
+  --color-surface-2: color-mix(in srgb, #e07ba0 35%, var(--color-paper-base) 65%);
+  --color-line: color-mix(in srgb, #e07ba0 20%, var(--color-paper-base) 80%);
+  --color-line-2: color-mix(in srgb, #e07ba0 30%, var(--color-paper-base) 70%);
+}

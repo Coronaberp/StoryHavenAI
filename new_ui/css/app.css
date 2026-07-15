@@ -489,6 +489,9 @@
   .w-16 {
     width: calc(var(--spacing) * 16);
   }
+  .w-60 {
+    width: calc(var(--spacing) * 60);
+  }
   .w-72 {
     width: calc(var(--spacing) * 72);
   }
@@ -1136,45 +1139,14 @@
       opacity: 60%;
     }
   }
-  .md\:flex {
-    @media (width >= 48rem) {
-      display: flex;
-    }
-  }
   .md\:hidden {
     @media (width >= 48rem) {
       display: none;
     }
   }
-  .md\:w-60 {
-    @media (width >= 48rem) {
-      width: calc(var(--spacing) * 60);
-    }
-  }
-  .md\:flex-col {
-    @media (width >= 48rem) {
-      flex-direction: column;
-    }
-  }
   .md\:flex-row {
     @media (width >= 48rem) {
       flex-direction: row;
-    }
-  }
-  .md\:border-r {
-    @media (width >= 48rem) {
-      border-right-style: var(--tw-border-style);
-      border-right-width: 1px;
-    }
-  }
-  .md\:border-line {
-    @media (width >= 48rem) {
-      border-color: var(--color-line);
-    }
-  }
-  .md\:p-4 {
-    @media (width >= 48rem) {
-      padding: calc(var(--spacing) * 4);
     }
   }
   .md\:pb-4 {
@@ -1276,34 +1248,6 @@
     --color-line-2: color-mix(in srgb, #4fb6ff 30%, var(--color-paper-base) 70%);
   }
 }
-[data-theme="dark"][data-accent="azure"] {
-  --color-ink: #cfe3f2;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-ink: color-mix(in srgb, #cfe3f2 85%, var(--color-ink-base) 15%);
-  }
-  --color-sec: #cfe3f2;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-sec: color-mix(in srgb, #cfe3f2 55%, var(--color-sec-base) 45%);
-  }
-  --color-muted: #cfe3f2;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-muted: color-mix(in srgb, #cfe3f2 35%, var(--color-muted-base) 65%);
-  }
-}
-[data-theme="light"][data-accent="azure"] {
-  --color-ink: #0d3a5c;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-ink: color-mix(in srgb, #0d3a5c 85%, var(--color-ink-base) 15%);
-  }
-  --color-sec: #0d3a5c;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-sec: color-mix(in srgb, #0d3a5c 55%, var(--color-sec-base) 45%);
-  }
-  --color-muted: #0d3a5c;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-muted: color-mix(in srgb, #0d3a5c 35%, var(--color-muted-base) 65%);
-  }
-}
 [data-accent="crimson"] {
   --color-primary-light: #f85149;
   --color-primary: #e2493d;
@@ -1338,34 +1282,6 @@
   --color-line-2: #e2493d;
   @supports (color: color-mix(in lab, red, red)) {
     --color-line-2: color-mix(in srgb, #e2493d 30%, var(--color-paper-base) 70%);
-  }
-}
-[data-theme="dark"][data-accent="crimson"] {
-  --color-ink: #f0dcd9;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-ink: color-mix(in srgb, #f0dcd9 85%, var(--color-ink-base) 15%);
-  }
-  --color-sec: #f0dcd9;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-sec: color-mix(in srgb, #f0dcd9 55%, var(--color-sec-base) 45%);
-  }
-  --color-muted: #f0dcd9;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-muted: color-mix(in srgb, #f0dcd9 35%, var(--color-muted-base) 65%);
-  }
-}
-[data-theme="light"][data-accent="crimson"] {
-  --color-ink: #5c1410;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-ink: color-mix(in srgb, #5c1410 85%, var(--color-ink-base) 15%);
-  }
-  --color-sec: #5c1410;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-sec: color-mix(in srgb, #5c1410 55%, var(--color-sec-base) 45%);
-  }
-  --color-muted: #5c1410;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-muted: color-mix(in srgb, #5c1410 35%, var(--color-muted-base) 65%);
   }
 }
 [data-accent="verdant"] {
@@ -1404,34 +1320,6 @@
     --color-line-2: color-mix(in srgb, #3ecf8e 30%, var(--color-paper-base) 70%);
   }
 }
-[data-theme="dark"][data-accent="verdant"] {
-  --color-ink: #d9f0e2;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-ink: color-mix(in srgb, #d9f0e2 85%, var(--color-ink-base) 15%);
-  }
-  --color-sec: #d9f0e2;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-sec: color-mix(in srgb, #d9f0e2 55%, var(--color-sec-base) 45%);
-  }
-  --color-muted: #d9f0e2;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-muted: color-mix(in srgb, #d9f0e2 35%, var(--color-muted-base) 65%);
-  }
-}
-[data-theme="light"][data-accent="verdant"] {
-  --color-ink: #0d3a20;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-ink: color-mix(in srgb, #0d3a20 85%, var(--color-ink-base) 15%);
-  }
-  --color-sec: #0d3a20;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-sec: color-mix(in srgb, #0d3a20 55%, var(--color-sec-base) 45%);
-  }
-  --color-muted: #0d3a20;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-muted: color-mix(in srgb, #0d3a20 35%, var(--color-muted-base) 65%);
-  }
-}
 [data-accent="amethyst"] {
   --color-primary-light: #c4b5fd;
   --color-primary: #a675e0;
@@ -1468,34 +1356,6 @@
     --color-line-2: color-mix(in srgb, #a675e0 30%, var(--color-paper-base) 70%);
   }
 }
-[data-theme="dark"][data-accent="amethyst"] {
-  --color-ink: #e6d9f2;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-ink: color-mix(in srgb, #e6d9f2 85%, var(--color-ink-base) 15%);
-  }
-  --color-sec: #e6d9f2;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-sec: color-mix(in srgb, #e6d9f2 55%, var(--color-sec-base) 45%);
-  }
-  --color-muted: #e6d9f2;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-muted: color-mix(in srgb, #e6d9f2 35%, var(--color-muted-base) 65%);
-  }
-}
-[data-theme="light"][data-accent="amethyst"] {
-  --color-ink: #3a1a5c;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-ink: color-mix(in srgb, #3a1a5c 85%, var(--color-ink-base) 15%);
-  }
-  --color-sec: #3a1a5c;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-sec: color-mix(in srgb, #3a1a5c 55%, var(--color-sec-base) 45%);
-  }
-  --color-muted: #3a1a5c;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-muted: color-mix(in srgb, #3a1a5c 35%, var(--color-muted-base) 65%);
-  }
-}
 [data-accent="rose"] {
   --color-primary-light: #f472b6;
   --color-primary: #e07ba0;
@@ -1530,34 +1390,6 @@
   --color-line-2: #e07ba0;
   @supports (color: color-mix(in lab, red, red)) {
     --color-line-2: color-mix(in srgb, #e07ba0 30%, var(--color-paper-base) 70%);
-  }
-}
-[data-theme="dark"][data-accent="rose"] {
-  --color-ink: #f2dce6;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-ink: color-mix(in srgb, #f2dce6 85%, var(--color-ink-base) 15%);
-  }
-  --color-sec: #f2dce6;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-sec: color-mix(in srgb, #f2dce6 55%, var(--color-sec-base) 45%);
-  }
-  --color-muted: #f2dce6;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-muted: color-mix(in srgb, #f2dce6 35%, var(--color-muted-base) 65%);
-  }
-}
-[data-theme="light"][data-accent="rose"] {
-  --color-ink: #5c1030;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-ink: color-mix(in srgb, #5c1030 85%, var(--color-ink-base) 15%);
-  }
-  --color-sec: #5c1030;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-sec: color-mix(in srgb, #5c1030 55%, var(--color-sec-base) 45%);
-  }
-  --color-muted: #5c1030;
-  @supports (color: color-mix(in lab, red, red)) {
-    --color-muted: color-mix(in srgb, #5c1030 35%, var(--color-muted-base) 65%);
   }
 }
 .login-scene {
@@ -1696,6 +1528,10 @@
     background: var(--color-paper);
     color: var(--color-ink);
     font-family: var(--font-sans);
+    text-shadow: 0 1px 1px color-mix(in srgb, #0C0C0E 55%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      text-shadow: 0 1px 1px color-mix(in srgb, var(--color-paper) 55%, transparent);
+    }
   }
   * {
     scrollbar-width: none;
