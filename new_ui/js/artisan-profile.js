@@ -30,8 +30,8 @@ function socialLinksHtml(links) {
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
       ${entries.map((sp) => `
         <a href="${socialLinkHref(sp.key, links[sp.key].trim())}" target="_blank" rel="noopener noreferrer"
-          style="width:30px;height:30px;border-radius:999px;display:grid;place-items:center;background:var(--color-surface-2);border:1px solid var(--color-line-2);color:var(--color-ink)">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">${sp.icon}</svg>
+          style="width:36px;height:36px;border-radius:999px;display:grid;place-items:center;background:var(--color-surface-2);border:1px solid var(--color-line-2);color:var(--color-ink)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">${sp.icon}</svg>
         </a>
       `).join("")}
     </div>
@@ -114,8 +114,8 @@ class ArtisanProfileView {
               <span class="artisan-ring-inner">${avatarInner}</span>
             </span>
             <button type="button" onclick="event.stopPropagation();this.closest('.artisan-card').__view.shareProfile()"
-              style="position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:999px;display:grid;place-items:center;background:rgba(10,10,12,.55);border:1px solid rgba(255,255,255,.25);color:#fff">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
+              style="position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:999px;display:grid;place-items:center;background:rgba(10,10,12,.55);border:1px solid rgba(255,255,255,.25);color:#fff">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
             </button>
             <div class="artisan-body">
               <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
