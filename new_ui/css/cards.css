@@ -30,7 +30,7 @@
     transparent 70%);
 }
 .char-card-body { position: absolute; left: 0; right: 0; bottom: 0; padding: 9px 10px 10px; display: flex; flex-direction: column; gap: 5px; }
-.char-card-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.char-card-tags { display: flex; gap: 4px; flex-wrap: nowrap; overflow: hidden; min-width: 0; }
 .char-card-tag {
   font-family: var(--font-mono);
   font-size: 7.5px;
@@ -41,6 +41,11 @@
   background: rgba(10, 10, 12, .55);
   border: 1px solid rgba(255, 255, 255, .18);
   color: #fff;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .char-card-title {
   font-family: var(--font-display);
