@@ -11,8 +11,9 @@ const routes = {
   onboard: (main) => OnboardView.mount(main),
   wait: (main) => waitEl(main),
 };
-const CHROMELESS_ROUTES = new Set(["login", "register", "onboard", "wait"]);
-const PUBLIC_ROUTES = new Set(["login", "register", "onboard", "wait"]);
+const UNAUTHENTICATED_ROUTE_NAMES = ["login", "register", "onboard", "wait"];
+const CHROMELESS_ROUTES = new Set(UNAUTHENTICATED_ROUTE_NAMES);
+const PUBLIC_ROUTES = new Set(UNAUTHENTICATED_ROUTE_NAMES);
 
 function renderPlaceholder(main, label) {
   main.innerHTML = `
