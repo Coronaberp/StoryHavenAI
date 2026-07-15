@@ -1946,7 +1946,7 @@
   font-weight: 600;
   font-size: 13.5px;
   margin: 0;
-  color: var(--color-accent-deep);
+  color: #fff;
   text-shadow: 0 1px 4px rgba(0, 0, 0, .85);
   white-space: nowrap;
   overflow: hidden;
@@ -1956,8 +1956,7 @@
   font-size: 10px;
   line-height: 1.35;
   margin: 0;
-  color: var(--color-accent);
-  opacity: .9;
+  color: rgba(255, 255, 255, .82);
   text-shadow: 0 1px 3px rgba(0, 0, 0, .85);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -2000,8 +1999,7 @@
   font-family: var(--font-mono);
   font-size: 8.5px;
   letter-spacing: .03em;
-  color: var(--color-accent);
-  opacity: .8;
+  color: rgba(255, 255, 255, .85);
   text-shadow: 0 1px 2px rgba(0, 0, 0, .7);
 }
 .char-card-ribbon {
