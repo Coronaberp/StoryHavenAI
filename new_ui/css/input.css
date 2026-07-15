@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./themes.css";
 @import "./login.css";
+@import "./overlay.css";
 
 @theme {
   --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -30,6 +31,9 @@
 @layer base {
   html, body {
     height: 100%;
+  }
+  body.modal-open {
+    overflow: hidden;
   }
   body {
     background: var(--color-paper);
