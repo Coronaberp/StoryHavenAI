@@ -190,6 +190,37 @@ def test_ribbon_hidden_on_sanctum_menu_only_route_shown_on_its_subroutes(static_
     page.close()
 
 
+def test_ribbon_hidden_on_dossier_menu_only_route(static_server, browser):
+    page = _new_page(browser)
+    _mock_authenticated(page)
+    page.goto(static_server + "/")
+    page.wait_for_timeout(400)
+    page.evaluate("navigate('/dossier')")
+    page.wait_for_timeout(200)
+    assert page.evaluate("document.getElementById('navRibbon').classList.contains('hidden')") is True
+    page.close()
+
+
+def test_own_profile_selects_dossier_tab_not_compendium(static_server, browser):
+    page = _new_page(browser)
+    _mock_authenticated(page)
+    page.goto(static_server + "/")
+    page.wait_for_timeout(400)
+    page.evaluate("navigate('/u/test')")
+    page.wait_for_timeout(300)
+    dossier_active = page.evaluate(
+        "document.querySelector('#bottomNav [data-route=\"dossier\"]').classList.contains('text-primary')"
+    )
+    assert dossier_active is True
+    page.evaluate("navigate('/u/someoneelse')")
+    page.wait_for_timeout(300)
+    compendium_active = page.evaluate(
+        "document.querySelector('#bottomNav [data-route=\"compendium\"]').classList.contains('text-primary')"
+    )
+    assert compendium_active is True
+    page.close()
+
+
 def test_create_route_renders_placeholder_and_is_not_in_nav_routes(static_server, browser):
     page = _new_page(browser)
     _mock_authenticated(page)
@@ -221,7 +252,7 @@ def test_ribbon_geometry_matches_active_tab_for_every_nav_route(static_server, b
     page.wait_for_timeout(400)
     for route_name, tab_route in [
         ("pantheon", "compendium"), ("parlance", "parlance"),
-        ("forge", "sanctum"), ("dossier", "dossier"),
+        ("forge", "sanctum"), ("u/test", "dossier"),
     ]:
         page.evaluate(f"navigate('/{route_name}')")
         page.wait_for_timeout(400)

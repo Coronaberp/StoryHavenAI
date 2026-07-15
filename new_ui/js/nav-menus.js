@@ -9,13 +9,17 @@ const _NAV_MENU_ICONS = {
   grimoire: '<path d="M6 5.5c2-1 4-1.3 6 0v13c-2-1.3-4-1-6 0z"/><path d="M18 5.5c-2-1-4-1.3-6 0v13c2-1.3 4-1 6 0z"/>',
   masks: '<circle cx="9.5" cy="10" r="4.2"/><path d="M12.8 8.2A4.2 4.2 0 1 1 12.8 15.8"/>',
   casts: '<circle cx="9" cy="8.5" r="2.6"/><path d="M4.5 18c.6-3 2.2-4.6 4.5-4.6s3.9 1.6 4.5 4.6"/><circle cx="16" cy="9.5" r="2.1"/><path d="M14.3 13.2c1.8.2 3 1.5 3.4 3.5"/>',
+  profile: '<circle cx="12" cy="8" r="3.2"/><path d="M5 20c1-4.5 3.5-6.5 7-6.5s6 2 7 6.5"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 13a7.4 7.4 0 0 0 0-2l2-1.5-2-3.5-2.4 1a7.6 7.6 0 0 0-1.7-1L15 3h-4l-.3 2.5a7.6 7.6 0 0 0-1.7 1l-2.4-1-2 3.5L6.6 11a7.4 7.4 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7.6 7.6 0 0 0 1.7 1L11 21h4l.3-2.5a7.6 7.6 0 0 0 1.7-1l2.4 1 2-3.5z"/>',
+  signout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
 };
 
-function _navMenuRow(route, title, subtitle) {
+function _navMenuRow(route, title, subtitle, onclickOverride) {
   const icon = _NAV_MENU_ICONS[route] || "";
+  const onclick = onclickOverride || `navigate('/${route}')`;
   return `
     <button type="button" class="dropdown-item" style="display:flex;align-items:center;gap:12px;padding:11px 8px"
-      onclick="closeTopModal(); navigate('/${route}')">
+      onclick="closeTopModal(); ${onclick}">
       <span style="flex:none;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:var(--color-paper-base);background:linear-gradient(150deg, var(--color-accent), var(--color-accent-deep))">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${icon}</svg>
       </span>
@@ -53,7 +57,21 @@ function openSanctumMenu() {
   `);
 }
 
+function openDossierMenu() {
+  openModal(`
+    <h3>My Dossier</h3>
+    <p style="margin:-6px 0 12px;font-style:italic">Your profile, your record, your entry in the archive.</p>
+    <div style="display:flex;flex-direction:column;gap:3px">
+      ${_navMenuRow("profile", "Dossier", "My page", `navigate('/u/${encodeURIComponent(ME?.username || "")}')`)}
+      ${_navMenuRow("settings", "Settings", "Account & preferences", `navigate('/dossier')`)}
+      ${_navMenuRow("signout", "Sign Out", "End this session",
+        `api('/api/auth/logout', {method:'POST'}).catch(()=>{}).then(()=>{ME = null; navigate('/login');})`)}
+    </div>
+  `);
+}
+
 if (typeof window !== "undefined") {
   window.openCompendiumMenu = openCompendiumMenu;
   window.openSanctumMenu = openSanctumMenu;
+  window.openDossierMenu = openDossierMenu;
 }

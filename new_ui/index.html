@@ -53,7 +53,7 @@
         <button type="button" data-route="compendium" onclick="openCompendiumMenu()" class="text-left rounded-md px-3 py-2 hover:bg-surface-2">Compendium</button>
         <a href="/parlance" data-route="parlance" class="rounded-md px-3 py-2 hover:bg-surface-2">Parlance</a>
         <button type="button" data-route="sanctum" onclick="openSanctumMenu()" class="text-left rounded-md px-3 py-2 hover:bg-surface-2">Sanctum</button>
-        <a href="/dossier" data-route="dossier" class="rounded-md px-3 py-2 hover:bg-surface-2">My Dossier</a>
+        <button type="button" data-route="dossier" onclick="openDossierMenu()" class="text-left rounded-md px-3 py-2 hover:bg-surface-2">My Dossier</button>
       </nav>
     </aside>
 
@@ -116,7 +116,7 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V11a6 6 0 0 1 12 0v9"/><path d="M6 20h12"/><path d="M12 15v2.5"/></svg>
           <span class="font-mono text-[9px] tracking-[.12em] uppercase">Sanctum</span>
         </button>
-        <a href="/dossier" data-route="dossier" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
+        <button type="button" data-route="dossier" onclick="openDossierMenu()" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
           <span data-avatar-ring class="relative block w-[22px] h-[22px] rounded-full p-[2px] opacity-70" style="background:var(--nav-avatar-ring, linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark)))">
             <span class="block w-full h-full rounded-full overflow-hidden bg-surface-2 grid place-items-center">
               <img class="hidden w-full h-full object-cover" alt="">
@@ -124,7 +124,7 @@
             </span>
           </span>
           <span class="font-mono text-[9px] tracking-[.05em] uppercase whitespace-nowrap">My Dossier</span>
-        </a>
+        </button>
       </div>
     </nav>
   </div>
@@ -138,10 +138,6 @@
     <button type="button" id="tempThemeCycle" onclick="cycleTheme()" title="Cycle theme (temp)"
       data-theme-icon
       class="w-9 h-9 rounded-lg border border-line bg-surface text-primary grid place-items-center hover:bg-surface-2"></button>
-    <button type="button" id="tempLogout" onclick="api('/api/auth/logout', {method:'POST'}).catch(()=>{}).then(()=>{ME = null; navigate('/login');})" title="Log out"
-      class="w-9 h-9 rounded-lg border border-line bg-surface text-sec grid place-items-center hover:bg-surface-2">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-    </button>
   </div>
 
   <script src="/js/state-store.js" defer></script>

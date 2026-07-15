@@ -82,10 +82,12 @@ function currentRoute() {
   return seg && routes[seg] ? seg : "compendium";
 }
 
-const MENU_ONLY_ROUTES = new Set(["sanctum"]);
+const MENU_ONLY_ROUTES = new Set(["sanctum", "dossier"]);
 
 function setActiveNav(routeName) {
-  const activeTab = TAB_FOR_ROUTE[routeName] || routeName;
+  const isOwnProfile = routeName === "artisan-profile"
+    && decodeURIComponent(location.pathname.split("/").filter(Boolean)[1] || "") === ME?.username;
+  const activeTab = isOwnProfile ? "dossier" : (TAB_FOR_ROUTE[routeName] || routeName);
   document.querySelectorAll("[data-route]").forEach((el) => {
     el.classList.toggle("text-primary", el.dataset.route === activeTab);
     el.classList.toggle("text-sec", el.dataset.route !== activeTab);
