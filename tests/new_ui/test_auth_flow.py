@@ -84,6 +84,18 @@ def test_authenticated_user_not_redirected_on_protected_route(static_server, bro
     page.close()
 
 
+def test_authenticated_user_redirected_away_from_login(static_server, browser):
+    page = _new_page(browser)
+    page.route("**/api/auth/me", lambda route: route.fulfill(
+        status=200, content_type="application/json", body='{"id":"u1","username":"kael"}'))
+    page.goto(static_server + "/")
+    page.wait_for_timeout(400)
+    page.evaluate("navigate('/login')")
+    page.wait_for_timeout(300)
+    assert not page.url.endswith("/login"), f"expected to be redirected away from /login, got {page.url}"
+    page.close()
+
+
 def test_hero_chrome_persists_same_dom_node_across_navigation(static_server, browser):
     page = _new_page(browser)
     page.route("**/api/auth/me", lambda route: route.fulfill(

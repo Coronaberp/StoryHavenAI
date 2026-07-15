@@ -64,6 +64,10 @@ function route() {
     history.replaceState(null, "", "/login");
     return route();
   }
+  if (ME && routeName === "login") {
+    history.replaceState(null, "", "/");
+    return route();
+  }
   if (CHROMELESS_ROUTES.has(routeName)) hideChrome(main);
   else restoreChrome(main);
   routes[routeName](main);
