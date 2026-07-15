@@ -2,6 +2,7 @@
 @import "./themes.css";
 @import "./login.css";
 @import "./overlay.css";
+@import "./cards.css";
 
 @theme {
   --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
