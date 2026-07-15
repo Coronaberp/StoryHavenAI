@@ -27,7 +27,7 @@ async function api(path, opts = {}) {
 }
 
 function applyAvatarRing() {
-  const ring = document.querySelector('[data-route="account"] [data-avatar-ring]');
+  const ring = document.querySelector('[data-route="dossier"] [data-avatar-ring]');
   if (!ring) return;
   if (ME?.accent_color) {
     ring.style.setProperty(
