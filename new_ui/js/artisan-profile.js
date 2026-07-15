@@ -72,8 +72,7 @@ class ArtisanProfileView {
   }
 
   shareProfile() {
-    const url = `${location.origin}/u/${encodeURIComponent(this.username)}`;
-    navigator.clipboard?.writeText(url).then(() => toast("Link copied.")).catch(() => {});
+    copyShareUrl(`${location.origin}/u/${encodeURIComponent(this.username)}`);
   }
 
   renderCustom(p) {
