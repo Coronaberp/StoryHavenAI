@@ -13,10 +13,9 @@ def _fake_request(ip="127.0.0.1"):
     return types.SimpleNamespace(client=types.SimpleNamespace(host=ip))
 
 
-def test_register_in_allows_optional_totp_fields():
-    body = RegisterIn(username="kael", password="s3cret-pw")
-    assert body.totp_secret is None
-    assert body.totp_code is None
+def test_register_in_requires_totp_fields():
+    with pytest.raises(ValueError):
+        RegisterIn(username="kael", password="s3cret-pw")
 
     body_with_totp = RegisterIn(
         username="kael", password="s3cret-pw",
@@ -55,15 +54,37 @@ async def test_totp_provision_is_rate_limited_per_ip():
 
 
 @pytest.mark.asyncio
-async def test_register_without_totp_still_works(db_conn):
-    body = RegisterIn(username="onboard_test_notp", password="s3cret-password")
-    result = await register(body, _fake_request("10.0.1.1"))
-    assert result["ok"] is True
-    assert result["pending"] is True
-    assert result.get("backup_codes") is None
-    user = await user_repo.get_user_by_username("onboard_test_notp")
-    assert user["status"] == "pending"
-    assert not user["totp_enabled"]
+async def test_register_with_malformed_totp_secret_returns_400(db_conn):
+    body = RegisterIn(username="onboard_test_malformed", password="s3cret-password",
+                      totp_secret="not-valid-base32!!!", totp_code="123456")
+    with pytest.raises(HTTPException) as excinfo:
+        await register(body, _fake_request("10.0.1.4"))
+    assert excinfo.value.status_code == 400
+    assert await user_repo.get_user_by_username("onboard_test_malformed") is None
+
+
+@pytest.mark.asyncio
+async def test_register_totp_attempts_are_rate_limited_per_ip_and_username(db_conn):
+    from backend.auth import _TOTP_ATTEMPTS, _REGISTRATIONS
+
+    _TOTP_ATTEMPTS._hits.clear()
+    _REGISTRATIONS._hits.clear()
+    secret = pyotp.random_base32()
+    ip = "10.0.1.5"
+    for _ in range(8):
+        _REGISTRATIONS._hits.clear()
+        body = RegisterIn(username="onboard_test_throttle", password="s3cret-password",
+                          totp_secret=secret, totp_code="000000")
+        with pytest.raises(HTTPException) as excinfo:
+            await register(body, _fake_request(ip))
+        assert excinfo.value.status_code == 400
+    _REGISTRATIONS._hits.clear()
+    body = RegisterIn(username="onboard_test_throttle", password="s3cret-password",
+                      totp_secret=secret, totp_code="000000")
+    with pytest.raises(HTTPException) as excinfo:
+        await register(body, _fake_request(ip))
+    assert excinfo.value.status_code == 429
+    assert await user_repo.get_user_by_username("onboard_test_throttle") is None
 
 
 @pytest.mark.asyncio

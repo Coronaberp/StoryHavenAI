@@ -340,8 +340,8 @@ class LoginIn(BaseModel):
 class RegisterIn(BaseModel):
     username: str = Field(min_length=1, max_length=32)
     password: str = Field(min_length=8, max_length=128)
-    totp_secret: str | None = Field(default=None)
-    totp_code: str | None = Field(default=None, min_length=6, max_length=6, pattern=r"^\d{6}$")
+    totp_secret: str = Field(min_length=1)
+    totp_code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
 
 
 class TotpProvisionIn(BaseModel):
