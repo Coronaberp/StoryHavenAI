@@ -1,18 +1,18 @@
 "use strict";
 
 const routes = {
-  explore: (main) => renderPlaceholder(main, "Compendium"),
-  chats: (main) => renderPlaceholder(main, "Parlance"),
-  studio: (main) => renderPlaceholder(main, "Sanctum"),
-  account: (main) => renderPlaceholder(main, "My Dossier"),
-  create: (main) => renderPlaceholder(main, "New Character"),
-  pantheon: (main) => renderPlaceholder(main, "Pantheon"),
-  pinacotheca: (main) => renderPlaceholder(main, "Pinacotheca"),
-  symposium: (main) => renderPlaceholder(main, "Symposium"),
-  forge: (main) => renderPlaceholder(main, "My Forge"),
-  grimoire: (main) => renderPlaceholder(main, "My Grimoire"),
-  masks: (main) => renderPlaceholder(main, "My Masks"),
-  casts: (main) => renderPlaceholder(main, "My Casts"),
+  explore: (main) => renderPlaceholder(main, "Compendium", "Browse"),
+  chats: (main) => renderPlaceholder(main, "Parlance", "Conversations"),
+  studio: (main) => renderPlaceholder(main, "Sanctum", "Workshop"),
+  account: (main) => renderPlaceholder(main, "My Dossier", "You"),
+  create: (main) => renderPlaceholder(main, "New Character", "Sanctum"),
+  pantheon: (main) => new PantheonView().mount(main),
+  pinacotheca: (main) => renderPlaceholder(main, "Pinacotheca", "Compendium · Media"),
+  symposium: (main) => renderPlaceholder(main, "Symposium", "Compendium · Forums"),
+  forge: (main) => renderPlaceholder(main, "My Forge", "Sanctum · Generate media"),
+  grimoire: (main) => renderPlaceholder(main, "My Grimoire", "Sanctum · Lore"),
+  masks: (main) => renderPlaceholder(main, "My Masks", "Sanctum · Personas"),
+  casts: (main) => renderPlaceholder(main, "My Casts", "Sanctum · Characters"),
   login: (main) => AUTH.mount(main),
   register: (main) => RegisterView.mount(main),
   onboard: (main) => OnboardView.mount(main),
@@ -32,11 +32,14 @@ const TAB_FOR_ROUTE = {
   casts: "studio",
 };
 
-function renderPlaceholder(main, label) {
+function renderPlaceholder(main, label, eyebrow) {
   main.innerHTML = `
+    <div class="mb-3">
+      ${eyebrow ? `<div class="font-mono text-[10px] tracking-[.14em] uppercase mb-1" style="color:var(--color-accent)">${eyebrow}</div>` : ""}
+      <h1 class="font-display text-2xl font-bold text-ink">${label}</h1>
+    </div>
     <div class="rounded-lg border border-line bg-surface p-6">
-      <h1 class="font-display text-xl font-semibold text-ink">${label}</h1>
-      <p class="mt-2 text-sm text-sec">This view hasn't been rebuilt yet.</p>
+      <p class="text-sm text-sec">This view hasn't been rebuilt yet.</p>
     </div>
   `;
 }
