@@ -204,3 +204,7 @@
 .artisan-bio { font-size: 12.5px; color: var(--color-sec); margin: 8px 0 0; line-height: 1.4; }
 .artisan-stats { margin-top: 10px; font-size: 12.5px; color: var(--color-sec); }
 .artisan-stats b { color: var(--color-ink); font-weight: 600; }
+
+html[data-censor="1"] [data-explicit="1"] {
+  filter: blur(20px) saturate(45%) !important;
+}

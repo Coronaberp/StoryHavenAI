@@ -34,7 +34,7 @@ function characterCardHtml(c, profile) {
   return `
     <div class="char-card" style="--dom:${dom}" onclick="navigate('/casts')">
       <div class="char-card-frame">
-        <div class="char-card-art" style="${art}"></div>
+        <div class="char-card-art" style="${art}" ${c.is_explicit ? 'data-explicit="1"' : ""}></div>
         <div class="char-card-fade"></div>
         <div class="char-card-body">
           <div class="char-card-tags">${(c.tags || []).slice(0, 2).map((t) => `<span class="char-card-tag" data-add-tag="${t}" onclick="event.stopPropagation()">#${t}</span>`).join("")}</div>

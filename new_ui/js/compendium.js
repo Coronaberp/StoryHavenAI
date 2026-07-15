@@ -27,9 +27,12 @@ class CompendiumView {
       api("/api/imagegen/community").catch(() => []),
       api("/api/forum/threads?sort=top").catch(() => []),
     ]);
-    this.chars = _shuffleSample(chars, 6);
+    // Compendium should follow the viewer's saved content-rating preference,
+    // but there's no account setting for that yet — default to SFW-only
+    // until one exists, rather than surfacing mature content unasked-for.
+    this.chars = _shuffleSample(chars.filter((c) => !c.is_explicit), 6);
     this.creators = _shuffleSample(creators, 6);
-    this.images = _shuffleSample(images, 6);
+    this.images = _shuffleSample(images.filter((i) => !i.is_explicit), 6);
     this.threads = threads.slice(0, 3);
     this.render();
     this.loadCharCreatorProfiles();
@@ -119,7 +122,7 @@ class CompendiumView {
           return `
             <div style="flex:none;width:130px;height:130px;border-radius:12px;overflow:hidden;border:1px solid var(--color-line-2);position:relative;cursor:pointer;--dom:${dom}"
               onclick="navigate('/pinacotheca')">
-              <img src="${img.image}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;${blur ? "filter:blur(14px) saturate(60%)" : ""}">
+              <img src="${img.image}" alt="" ${img.is_explicit ? 'data-explicit="1"' : ""} style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;${blur ? "filter:blur(14px) saturate(60%)" : ""}">
               ${blur ? `<span style="position:absolute;inset:0;display:grid;place-items:center;font-family:var(--font-mono);font-size:9px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)">18+</span>` : ""}
               <div class="char-card-fade"></div>
               <div class="char-card-creator" style="position:absolute;left:8px;right:8px;bottom:7px" ${img.owner_username ? `onclick="event.stopPropagation();navigate('/u/${encodeURIComponent(img.owner_username)}')" style="cursor:pointer"` : ""}>

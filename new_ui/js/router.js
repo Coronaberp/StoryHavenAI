@@ -143,6 +143,7 @@ function route() {
   routes[routeName](main);
   setActiveNav(routeName);
   applyAvatarRing();
+  applyCensorToggleVisibility();
 }
 
 function navigate(path) {
