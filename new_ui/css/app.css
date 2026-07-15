@@ -2221,6 +2221,9 @@
   color: var(--color-ink);
   font-weight: 600;
 }
+html[data-censor="1"] [data-explicit="1"] {
+  filter: blur(20px) saturate(45%) !important;
+}
 @layer base {
   html, body {
     height: 100%;

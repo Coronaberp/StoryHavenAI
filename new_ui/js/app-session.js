@@ -49,3 +49,25 @@ function applyAvatarRing() {
     img?.classList.add("hidden");
   }
 }
+
+const EYE_OPEN_ICON = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_CLOSED_ICON = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.2A10.8 10.8 0 0 1 12 5c7 0 10.5 7 10.5 7a17.6 17.6 0 0 1-3.2 4.2M6.6 6.6C3.8 8.4 1.5 12 1.5 12s3.5 7 10.5 7c1.4 0 2.6-.3 3.7-.7"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+
+function applyCensorToggleVisibility() {
+  const btn = document.getElementById("censorToggle");
+  if (!btn) return;
+  btn.classList.toggle("hidden", !ME?.nsfw_allowed);
+  const censored = document.documentElement.dataset.censor === "1";
+  btn.innerHTML = censored ? EYE_CLOSED_ICON : EYE_OPEN_ICON;
+}
+
+function cycleCensor() {
+  const censored = document.documentElement.dataset.censor === "1";
+  document.documentElement.dataset.censor = censored ? "0" : "1";
+  store.set("censorMature", !censored);
+  applyCensorToggleVisibility();
+}
+
+if (typeof window !== "undefined") {
+  document.documentElement.dataset.censor = store.get("censorMature", false) ? "1" : "0";
+}
