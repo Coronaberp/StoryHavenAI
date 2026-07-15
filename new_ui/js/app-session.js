@@ -63,9 +63,13 @@ function applyCensorToggleVisibility() {
 
 function cycleCensor() {
   const censored = document.documentElement.dataset.censor === "1";
-  document.documentElement.dataset.censor = censored ? "0" : "1";
+  const next = censored ? "0" : "1";
+  document.documentElement.dataset.censor = next;
   store.set("censorMature", !censored);
   applyCensorToggleVisibility();
+  document.querySelectorAll(".sandboxed-card-frame").forEach((ifr) => {
+    try { ifr.contentDocument.documentElement.dataset.censor = next; } catch {}
+  });
 }
 
 if (typeof window !== "undefined") {
