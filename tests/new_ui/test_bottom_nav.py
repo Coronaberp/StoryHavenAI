@@ -112,18 +112,62 @@ def test_explore_is_default_route(static_server, browser):
     page.close()
 
 
-def test_all_four_tab_routes_render_their_placeholder(static_server, browser):
+def test_all_tab_routes_render_their_placeholder(static_server, browser):
     page = _new_page(browser)
     _mock_authenticated(page)
     page.goto(static_server + "/")
     page.wait_for_timeout(400)
     for route_name, label in [
-        ("explore", "Explore"), ("chats", "Chats"),
-        ("studio", "Studio"), ("account", "Account"),
+        ("explore", "Compendium"), ("chats", "Parlance"),
+        ("studio", "Sanctum"), ("account", "My Dossier"),
+        ("pantheon", "Pantheon"), ("pinacotheca", "Pinacotheca"), ("symposium", "Symposium"),
+        ("forge", "My Forge"), ("grimoire", "My Grimoire"), ("masks", "My Masks"), ("casts", "My Casts"),
     ]:
         page.evaluate(f"navigate('/{route_name}')")
         page.wait_for_timeout(200)
         assert page.locator("#main h1").inner_text() == label
+    page.close()
+
+
+def test_compendium_and_sanctum_tabs_open_menus_instead_of_navigating(static_server, browser):
+    page = _new_page(browser)
+    _mock_authenticated(page)
+    page.goto(static_server + "/")
+    page.wait_for_timeout(400)
+    page.click('#bottomNav [data-route="explore"]')
+    page.wait_for_timeout(200)
+    assert page.evaluate("currentRoute()") == "explore"
+    assert page.locator(".modal-layer .modal h3").inner_text() == "Compendium"
+    page.click('.dropdown-item:has-text("Pantheon")')
+    page.wait_for_timeout(200)
+    assert page.evaluate("currentRoute()") == "pantheon"
+    assert page.locator("#main h1").inner_text() == "Pantheon"
+
+    page.click('#bottomNav [data-route="studio"]')
+    page.wait_for_timeout(200)
+    assert page.locator(".modal-layer .modal h3").inner_text() == "Sanctum"
+    page.click('.dropdown-item:has-text("My Grimoire")')
+    page.wait_for_timeout(200)
+    assert page.evaluate("currentRoute()") == "grimoire"
+    page.close()
+
+
+def test_ribbon_hidden_on_menu_only_routes_shown_on_their_subroutes(static_server, browser):
+    page = _new_page(browser)
+    _mock_authenticated(page)
+    page.goto(static_server + "/")
+    page.wait_for_timeout(400)
+    assert page.evaluate("document.getElementById('navRibbon').classList.contains('hidden')") is True
+    page.evaluate("navigate('/pinacotheca')")
+    page.wait_for_timeout(200)
+    assert page.evaluate("document.getElementById('navRibbon').classList.contains('hidden')") is False
+    left = page.evaluate("document.getElementById('navRibbon').style.left")
+    explore_left = page.evaluate("""() => {
+        const nav = document.getElementById('bottomNav');
+        const target = nav.querySelector('[data-route="explore"]');
+        return (target.getBoundingClientRect().left - nav.getBoundingClientRect().left) + 'px';
+    }""")
+    assert left == explore_left
     page.close()
 
 
@@ -156,13 +200,16 @@ def test_ribbon_geometry_matches_active_tab_for_every_nav_route(static_server, b
     _mock_authenticated(page)
     page.goto(static_server + "/")
     page.wait_for_timeout(400)
-    for route_name in ["explore", "chats", "studio", "account"]:
+    for route_name, tab_route in [
+        ("pantheon", "explore"), ("chats", "chats"),
+        ("forge", "studio"), ("account", "account"),
+    ]:
         page.evaluate(f"navigate('/{route_name}')")
         page.wait_for_timeout(400)
         geo = page.evaluate(f"""() => {{
             const nav = document.getElementById('bottomNav');
             const ribbon = document.getElementById('navRibbon');
-            const target = nav.querySelector('[data-route="{route_name}"]');
+            const target = nav.querySelector('[data-route="{tab_route}"]');
             const navRect = nav.getBoundingClientRect();
             const targetRect = target.getBoundingClientRect();
             const ribbonRect = ribbon.getBoundingClientRect();

@@ -1012,6 +1012,10 @@
     --tw-font-weight: var(--font-weight-semibold);
     font-weight: var(--font-weight-semibold);
   }
+  .tracking-\[\.05em\] {
+    --tw-tracking: .05em;
+    letter-spacing: .05em;
+  }
   .tracking-\[\.12em\] {
     --tw-tracking: .12em;
     letter-spacing: .12em;
@@ -1046,6 +1050,9 @@
   }
   .break-all {
     word-break: break-all;
+  }
+  .whitespace-nowrap {
+    white-space: nowrap;
   }
   .text-\[\#7bd88f\] {
     color: #7bd88f;
