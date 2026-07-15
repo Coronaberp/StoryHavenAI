@@ -153,18 +153,18 @@ class AuthView {
 
   renderForgot() {
     return `
-      <div class="font-mono text-[10px] tracking-[.22em] uppercase text-primary mb-1.5">Recovery</div>
-      <h2 class="font-display font-semibold text-[22px] text-ink mb-2">Verify it's you</h2>
-      <p class="text-[13px] leading-relaxed text-sec mb-4">Open the authenticator app you set up and type the 6-digit code it shows right now, then set a new password.</p>
+      <div class="font-mono text-[10px] tracking-[.22em] uppercase text-primary mb-1">Recovery</div>
+      <h2 class="font-display font-semibold text-[19px] text-ink mb-1.5">Verify it's you</h2>
+      <p class="text-[12px] leading-snug text-sec mb-3">Open the authenticator app you set up and type the 6-digit code it shows right now, then set a new password.</p>
       ${authError(this.error)}
       ${authField("Username", "username", { ph: "kael" })}
-      <div class="font-mono text-[9px] tracking-[.15em] uppercase text-muted mt-0.5 mb-2.5">6-digit code from your app</div>
+      <div class="font-mono text-[9px] tracking-[.15em] uppercase text-muted mt-0.5 mb-2">6-digit code from your app</div>
       ${totpBoxes(this.totpErr)}
       ${authField("New password", "newPassword", { type: "password", ph: "At least 8 characters" })}
       <button type="button" data-auth-submit="forgot" ${this.loading ? "disabled" : ""} class="w-full py-3.5 rounded-xl font-semibold text-[15.5px] text-paper bg-gradient-to-br from-primary to-primary-dark disabled:opacity-60 mt-1">
         ${this.loading ? "Verifying…" : "Reset password"}
       </button>
-      <div class="text-center mt-4">
+      <div class="text-center mt-3">
         <button type="button" data-auth-link="signin" class="text-primary text-[13px] font-medium">← Back to sign in</button>
       </div>
     `;
