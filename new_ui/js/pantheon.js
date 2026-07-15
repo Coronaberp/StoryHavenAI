@@ -273,10 +273,7 @@ class PantheonView {
     const pills = this.activeFilterPills();
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:12px">
-        <div>
-          <div class="font-mono" style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent);margin-bottom:4px">Compendium · Characters</div>
-          <h1 class="font-display" style="font-size:22px;font-weight:700;color:var(--color-ink);margin:0">Pantheon</h1>
-        </div>
+        ${pageHeaderHtml("Compendium", "Characters", "Pantheon", "Every character in the archive — yours and everyone else's.")}
         <div style="display:flex;align-items:center;gap:5px">
           <div id="pantheonSearchBox" style="position:relative;flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface)">
             ${pills.map((p) => this.pillHtml(p)).join("")}
