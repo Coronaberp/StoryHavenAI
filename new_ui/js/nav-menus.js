@@ -2,6 +2,7 @@
 
 const _NAV_MENU_ICONS = {
   pantheon: '<circle cx="12" cy="8.5" r="3.3"/><path d="M6 19c.8-3.6 3-5.3 6-5.3s5.2 1.7 6 5.3"/>',
+  artisans: '<path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-.5-1.5-.5-2.5A2.5 2.5 0 0 1 16 14h2a3 3 0 0 0 3-3c0-4.4-4-8-9-8z"/><circle cx="8" cy="11" r="1"/><circle cx="8" cy="15" r="1"/><circle cx="12" cy="8" r="1"/><circle cx="16" cy="10" r="1"/>',
   pinacotheca: '<rect x="4" y="5" width="16" height="13" rx="1.5"/><circle cx="9" cy="10" r="1.5"/><path d="M4 15.5l4.5-4.5c.6-.6 1.4-.6 2 0L17 17.5"/>',
   symposium: '<path d="M5 6h14v9H9l-4 3.5V15H5z"/>',
   forge: '<path d="M6 18l7-7"/><path d="M14.5 4.5l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/><path d="M17.5 12.5l.7 1.4 1.4.7-1.4.7-.7 1.4-.7-1.4-1.4-.7 1.4-.7z"/>',
@@ -32,6 +33,7 @@ function openCompendiumMenu() {
     <p style="margin:-6px 0 12px;font-style:italic">Everything worth discovering, catalogued.</p>
     <div style="display:flex;flex-direction:column;gap:3px">
       ${_navMenuRow("pantheon", "Pantheon", "Characters")}
+      ${_navMenuRow("artisans", "Artisans", "Creators")}
       ${_navMenuRow("pinacotheca", "Pinacotheca", "Media")}
       ${_navMenuRow("symposium", "Symposium", "Forums")}
     </div>

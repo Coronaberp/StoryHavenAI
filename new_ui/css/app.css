@@ -2131,6 +2131,81 @@
     background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
   }
 }
+.artisan-card {
+  position: relative;
+  border-radius: 16px;
+  overflow: visible;
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+}
+.artisan-banner {
+  height: 96px;
+  border-radius: 16px 16px 0 0;
+  background-size: cover;
+  background-position: center;
+}
+.artisan-ring {
+  position: absolute;
+  top: 66px;
+  left: 16px;
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  padding: 2.5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .4);
+}
+.artisan-ring-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--color-surface);
+}
+.artisan-ring-inner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.artisan-ring-inner span {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.artisan-body {
+  padding: 38px 16px 16px;
+}
+.artisan-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--color-ink);
+}
+.artisan-handle {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-muted);
+  margin-top: 1px;
+}
+.artisan-bio {
+  font-size: 12.5px;
+  color: var(--color-sec);
+  margin: 8px 0 0;
+  line-height: 1.4;
+}
+.artisan-stats {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--color-sec);
+}
+.artisan-stats b {
+  color: var(--color-ink);
+  font-weight: 600;
+}
 @layer base {
   html, body {
     height: 100%;
