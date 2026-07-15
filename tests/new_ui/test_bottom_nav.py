@@ -50,6 +50,59 @@ def _mock_authenticated(page, accent_color="", banner_color="", avatar=""):
         )))
 
 
+def test_avatar_ring_shows_image_when_avatar_set(static_server, browser):
+    page = _new_page(browser)
+    _mock_authenticated(page, avatar="/media/u1.webp")
+    page.goto(static_server + "/")
+    page.wait_for_timeout(400)
+    state = page.evaluate("""() => {
+        const img = document.querySelector('[data-avatar-ring] img');
+        const fallback = document.querySelector('[data-avatar-fallback]');
+        return {
+            imgHidden: img.classList.contains('hidden'),
+            imgSrc: img.getAttribute('src'),
+            fallbackHidden: fallback.classList.contains('hidden'),
+        };
+    }""")
+    assert state["imgHidden"] is False
+    assert state["imgSrc"] == "/media/u1.webp"
+    assert state["fallbackHidden"] is True
+    page.close()
+
+
+def test_avatar_ring_shows_fallback_letter_when_no_avatar(static_server, browser):
+    page = _new_page(browser)
+    _mock_authenticated(page, avatar="")
+    page.goto(static_server + "/")
+    page.wait_for_timeout(400)
+    state = page.evaluate("""() => {
+        const img = document.querySelector('[data-avatar-ring] img');
+        const fallback = document.querySelector('[data-avatar-fallback]');
+        return {
+            imgHidden: img.classList.contains('hidden'),
+            fallbackHidden: fallback.classList.contains('hidden'),
+            fallbackText: fallback.textContent,
+        };
+    }""")
+    assert state["imgHidden"] is True
+    assert state["fallbackHidden"] is False
+    assert state["fallbackText"] == "T"
+    page.close()
+
+
+def test_avatar_ring_uses_profile_accent_color_when_set(static_server, browser):
+    page = _new_page(browser)
+    _mock_authenticated(page, accent_color="#ff0000", banner_color="#00ff00")
+    page.goto(static_server + "/")
+    page.wait_for_timeout(400)
+    ring_var = page.evaluate(
+        "document.querySelector('[data-avatar-ring]').style.getPropertyValue('--nav-avatar-ring')"
+    )
+    assert "255, 0, 0" in ring_var or "#ff0000" in ring_var.lower()
+    assert "0, 255, 0" in ring_var or "#00ff00" in ring_var.lower()
+    page.close()
+
+
 def test_explore_is_default_route(static_server, browser):
     page = _new_page(browser)
     _mock_authenticated(page)
