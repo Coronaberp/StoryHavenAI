@@ -101,7 +101,7 @@ function totpBoxes(err) {
 
 function authError(message) {
   if (!message) return "";
-  return `<div class="mb-4 rounded-lg border border-warn text-warn text-[13px] px-3 py-2.5" style="background:color-mix(in srgb, var(--color-warn) 10%, transparent)">${message}</div>`;
+  return `<div class="mb-3 rounded-lg border border-warn text-warn text-[12.5px] leading-snug px-3 py-2" style="background:color-mix(in srgb, var(--color-warn) 10%, transparent)">${message}</div>`;
 }
 
 class AuthView {
@@ -158,13 +158,13 @@ class AuthView {
       <p class="text-[12px] leading-snug text-sec mb-3">Open the authenticator app you set up and type the 6-digit code it shows right now, then set a new password.</p>
       ${authError(this.error)}
       ${authField("Username", "username", { ph: "kael" })}
-      <div class="font-mono text-[9px] tracking-[.15em] uppercase text-muted mt-0.5 mb-2">6-digit code from your app</div>
+      <div class="font-mono text-[9px] tracking-[.15em] uppercase text-muted mt-0.5 mb-1.5">6-digit code from your app</div>
       ${totpBoxes(this.totpErr)}
       ${authField("New password", "newPassword", { type: "password", ph: "At least 8 characters" })}
       <button type="button" data-auth-submit="forgot" ${this.loading ? "disabled" : ""} class="w-full py-3.5 rounded-xl font-semibold text-[15.5px] text-paper bg-gradient-to-br from-primary to-primary-dark disabled:opacity-60 mt-1">
         ${this.loading ? "Verifying…" : "Reset password"}
       </button>
-      <div class="text-center mt-3">
+      <div class="text-center mt-2">
         <button type="button" data-auth-link="signin" class="text-primary text-[13px] font-medium">← Back to sign in</button>
       </div>
     `;

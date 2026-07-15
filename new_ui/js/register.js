@@ -11,17 +11,17 @@ const RegisterView = {
   },
   render() {
     const body = `
-      <h2 class="font-display font-semibold text-[21px] text-ink mb-1">Bind a new volume</h2>
-      <p class="text-[13px] leading-relaxed text-sec mb-4 font-display italic">Every account here is a volume bound into the archive.</p>
+      <h2 class="font-display font-semibold text-[19px] text-ink mb-1">Bind a new volume</h2>
+      <p class="text-[12px] leading-snug text-sec mb-3 font-display italic">Every account here is a volume bound into the archive.</p>
       ${spineStitchHtml(1, 2)}
-      ${this.error ? `<div class="mb-4 rounded-lg border border-warn text-warn text-[13px] px-3 py-2.5" style="background:color-mix(in srgb, var(--color-warn) 10%, transparent)">${this.error}</div>` : ""}
+      ${this.error ? `<div class="mb-3 rounded-lg border border-warn text-warn text-[12.5px] leading-snug px-3 py-2" style="background:color-mix(in srgb, var(--color-warn) 10%, transparent)">${this.error}</div>` : ""}
       ${authField("Username", "username", { ph: "kael" })}
       ${authField("Password", "password", { type: "password", ph: "At least 8 characters" })}
       ${authField("Confirm password", "password2", { type: "password", ph: "Type it again" })}
       <button type="button" data-register-submit class="w-full py-3.5 rounded-xl font-semibold text-[15.5px] text-paper bg-gradient-to-br from-primary to-primary-dark mt-1">
         Bind this volume →
       </button>
-      <div class="text-center mt-4">
+      <div class="text-center mt-3">
         <button type="button" data-register-signin class="text-primary text-[13px] font-medium">Already have an account? Sign in</button>
       </div>
     `;

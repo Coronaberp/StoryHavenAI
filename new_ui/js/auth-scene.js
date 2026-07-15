@@ -12,7 +12,7 @@ function spineStitchHtml(currentStep, totalSteps) {
       </div>
     `);
   }
-  return `<div class="flex gap-2 mb-5">${segments.join("")}</div>`;
+  return `<div class="flex gap-2 mb-4">${segments.join("")}</div>`;
 }
 
 const HERO_EMBLEM_HEIGHT = 342;
