@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0C0C0E">
+<title>StoryHaven AI</title>
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" integrity="sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi" crossorigin="anonymous" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.11/purify.min.js" integrity="sha384-Ic7KEGROu37YaruU6NyiYeib7UhjFyDZQ5fzBAji965L75T/4LGk5nzwMEjNGexs" crossorigin="anonymous" defer></script>
+</head>
+<body class="min-h-screen bg-paper text-ink font-sans">
+  <div class="flex min-h-screen flex-col md:flex-row">
+    <aside id="sidebar" class="hidden md:flex md:w-60 md:flex-col md:border-r md:border-line md:p-4">
+      <a href="/" class="flex items-center gap-2 text-primary">
+        <svg viewBox="0 0 500 500" class="h-9 w-9 shrink-0"><g>
+          <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"/>
+          <circle cx="250" cy="250" r="210" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="6 12" opacity="0.4"/>
+          <path d="M 250 40 L 420 138 L 420 362 L 250 460 L 80 362 L 80 138 Z" fill="none" stroke="currentColor" stroke-width="10" stroke-linejoin="round"/>
+          <path d="M 250 75 L 385 153 L 385 347 L 250 425 L 115 347 L 115 153 Z" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+          <circle cx="250" cy="40" r="6" fill="currentColor"/>
+          <circle cx="420" cy="138" r="6" fill="currentColor"/>
+          <circle cx="420" cy="362" r="6" fill="currentColor"/>
+          <circle cx="250" cy="460" r="6" fill="currentColor"/>
+          <circle cx="80" cy="362" r="6" fill="currentColor"/>
+          <circle cx="80" cy="138" r="6" fill="currentColor"/>
+          <circle cx="195" cy="150" r="10" fill="currentColor" opacity="0.9"/>
+          <line x1="145" y1="150" x2="225" y2="150" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+          <line x1="195" y1="120" x2="195" y2="180" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+          <circle cx="305" cy="150" r="35" fill="none" stroke="currentColor" stroke-width="10"/>
+          <circle cx="305" cy="150" r="30" fill="currentColor" opacity="0.15"/>
+          <path d="M 285 130 A 20 20 0 0 1 325 135" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+          <circle cx="346" cy="150" r="5" fill="none" stroke="currentColor" stroke-width="3"/>
+          <line x1="350" y1="150" x2="350" y2="340" stroke="currentColor" stroke-width="3" stroke-dasharray="6 6" opacity="0.7"/>
+          <path d="M 130 230 C 170 190, 220 200, 250 215 C 280 200, 330 190, 370 230 C 330 260, 280 240, 250 230 C 220 240, 170 260, 130 230 Z" fill="currentColor"/>
+          <circle cx="350" cy="340" r="6" fill="currentColor"/>
+          <circle cx="350" cy="340" r="12" fill="none" stroke="currentColor" stroke-width="2" opacity="0.5"/>
+          <path d="M 120 370 C 160 400, 220 390, 250 340 C 280 390, 340 400, 380 370 V 300 C 340 330, 280 320, 250 270 C 220 320, 160 330, 120 300 Z" fill="none" stroke="currentColor" stroke-width="12" stroke-linejoin="round"/>
+          <path d="M 150 350 C 180 370, 220 365, 250 325 C 280 365, 320 370, 350 350 V 295 C 320 315, 280 310, 250 270 C 220 310, 180 315, 150 295 Z" fill="none" stroke="currentColor" stroke-width="6" opacity="0.6"/>
+          <path d="M 180 330 C 200 345, 230 340, 250 310 C 270 340, 300 345, 320 330 V 290 C 300 305, 270 300, 250 270 C 230 300, 200 305, 180 290 Z" fill="none" stroke="currentColor" stroke-width="3" opacity="0.3"/>
+          <line x1="250" y1="270" x2="250" y2="445" stroke="currentColor" stroke-width="12" stroke-linecap="round"/>
+        </g></svg>
+        <span class="flex flex-col leading-tight">
+          <span class="font-display text-base font-semibold tracking-wide">StoryHaven AI</span>
+          <span class="text-[10px] italic text-muted">Forge worlds. Remember everything.</span>
+        </span>
+      </a>
+      <nav id="nav" class="mt-6 flex flex-1 flex-col gap-1 text-sm">
+        <a href="/" data-route="library" class="rounded-md px-3 py-2 hover:bg-surface-2">Library</a>
+        <a href="/community" data-route="community" class="rounded-md px-3 py-2 hover:bg-surface-2">Community</a>
+        <a href="/personas" data-route="personas" class="rounded-md px-3 py-2 hover:bg-surface-2">Personas</a>
+        <a href="/images" data-route="images" class="rounded-md px-3 py-2 hover:bg-surface-2">Creations</a>
+        <a href="/forum" data-route="forum" class="rounded-md px-3 py-2 hover:bg-surface-2">Forum</a>
+      </nav>
+      <button type="button" onclick="cycleTheme()"
+        class="mt-auto rounded-md border border-line px-3 py-2 text-left text-xs text-sec hover:bg-surface-2">
+        <span class="block text-[10px] uppercase tracking-wide text-muted">Theme (temp)</span>
+        <span data-theme-label>Dark · Default</span>
+      </button>
+    </aside>
+
+    <header id="mobileHeader" class="flex items-center justify-between border-b border-line px-4 py-3 md:hidden">
+      <span class="flex items-center gap-1.5 text-primary">
+        <svg viewBox="0 0 500 500" class="h-7 w-7 shrink-0"><g>
+          <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"/>
+          <circle cx="250" cy="250" r="210" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="6 12" opacity="0.4"/>
+          <path d="M 250 40 L 420 138 L 420 362 L 250 460 L 80 362 L 80 138 Z" fill="none" stroke="currentColor" stroke-width="10" stroke-linejoin="round"/>
+          <path d="M 250 75 L 385 153 L 385 347 L 250 425 L 115 347 L 115 153 Z" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+          <circle cx="250" cy="40" r="6" fill="currentColor"/>
+          <circle cx="420" cy="138" r="6" fill="currentColor"/>
+          <circle cx="420" cy="362" r="6" fill="currentColor"/>
+          <circle cx="250" cy="460" r="6" fill="currentColor"/>
+          <circle cx="80" cy="362" r="6" fill="currentColor"/>
+          <circle cx="80" cy="138" r="6" fill="currentColor"/>
+          <circle cx="195" cy="150" r="10" fill="currentColor" opacity="0.9"/>
+          <line x1="145" y1="150" x2="225" y2="150" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+          <line x1="195" y1="120" x2="195" y2="180" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+          <circle cx="305" cy="150" r="35" fill="none" stroke="currentColor" stroke-width="10"/>
+          <circle cx="305" cy="150" r="30" fill="currentColor" opacity="0.15"/>
+          <path d="M 285 130 A 20 20 0 0 1 325 135" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+          <circle cx="346" cy="150" r="5" fill="none" stroke="currentColor" stroke-width="3"/>
+          <line x1="350" y1="150" x2="350" y2="340" stroke="currentColor" stroke-width="3" stroke-dasharray="6 6" opacity="0.7"/>
+          <path d="M 130 230 C 170 190, 220 200, 250 215 C 280 200, 330 190, 370 230 C 330 260, 280 240, 250 230 C 220 240, 170 260, 130 230 Z" fill="currentColor"/>
+          <circle cx="350" cy="340" r="6" fill="currentColor"/>
+          <circle cx="350" cy="340" r="12" fill="none" stroke="currentColor" stroke-width="2" opacity="0.5"/>
+          <path d="M 120 370 C 160 400, 220 390, 250 340 C 280 390, 340 400, 380 370 V 300 C 340 330, 280 320, 250 270 C 220 320, 160 330, 120 300 Z" fill="none" stroke="currentColor" stroke-width="12" stroke-linejoin="round"/>
+          <path d="M 150 350 C 180 370, 220 365, 250 325 C 280 365, 320 370, 350 350 V 295 C 320 315, 280 310, 250 270 C 220 310, 180 315, 150 295 Z" fill="none" stroke="currentColor" stroke-width="6" opacity="0.6"/>
+          <path d="M 180 330 C 200 345, 230 340, 250 310 C 270 340, 300 345, 320 330 V 290 C 300 305, 270 300, 250 270 C 230 300, 200 305, 180 290 Z" fill="none" stroke="currentColor" stroke-width="3" opacity="0.3"/>
+          <line x1="250" y1="270" x2="250" y2="445" stroke="currentColor" stroke-width="12" stroke-linecap="round"/>
+        </g></svg>
+        <span class="flex flex-col leading-tight">
+          <span class="font-display text-sm font-semibold tracking-wide">StoryHaven AI</span>
+          <span class="text-[9px] italic text-muted">Forge worlds. Remember everything.</span>
+        </span>
+      </span>
+      <button id="mGear" class="text-sec" aria-label="Settings">⚙</button>
+    </header>
+
+    <main id="main" class="flex-1 overflow-y-auto p-4 pb-20 md:pb-4"></main>
+
+    <nav id="bottomNav" class="fixed inset-x-0 bottom-0 z-10 flex border-t border-line bg-paper md:hidden">
+      <a href="/" data-route="library" class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-sec">Library</a>
+      <a href="/community" data-route="community" class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-sec">Community</a>
+      <a href="/personas" data-route="personas" class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-sec">Personas</a>
+      <a href="/images" data-route="images" class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-sec">Creations</a>
+      <a href="/forum" data-route="forum" class="flex flex-1 flex-col items-center gap-0.5 py-2 text-[11px] text-sec">Forum</a>
+    </nav>
+  </div>
+
+  <script src="/js/state-store.js" defer></script>
+  <script src="/js/theme.js" defer></script>
+  <script src="/js/app-session.js" defer></script>
+  <script src="/js/login.js" defer></script>
+  <script src="/js/auth-scene.js" defer></script>
+  <script src="/js/qrcode-generator.js" defer></script>
+  <script src="/js/register.js" defer></script>
+  <script src="/js/onboard.js" defer></script>
+  <script src="/js/wait.js" defer></script>
+  <script src="/js/router.js" defer></script>
+  <script src="/js/boot.js" defer></script>
+</body>
+</html>
