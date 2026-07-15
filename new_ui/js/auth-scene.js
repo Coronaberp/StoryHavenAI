@@ -41,8 +41,8 @@ function heroScene(innerHtml) {
   return `
     <div class="fixed inset-0 z-40 overflow-hidden flex flex-col pointer-events-none">
       <div class="flex-none" style="height:${HERO_EMBLEM_HEIGHT}px"></div>
-      <div class="relative flex-1 min-h-0 flex items-center px-6 pb-6 pointer-events-auto">
-        <div class="login-in w-full max-w-[320px] mx-auto">${innerHtml}</div>
+      <div class="relative flex-1 min-h-0 flex items-center px-6 pb-6 pointer-events-auto overflow-y-auto">
+        <div class="login-in w-full max-w-[320px] mx-auto py-4">${innerHtml}</div>
       </div>
     </div>
   `;
@@ -67,8 +67,8 @@ function compactScene(innerHtml) {
   return `
     <div class="fixed inset-0 overflow-hidden flex flex-col" style="background:radial-gradient(120% 66% at 50% 4%, #1a1509 0%, #0b0a0c 46%, #08080a 78%)">
       <div class="relative z-[1] flex-none pt-8 px-6">${compactLogoRow()}</div>
-      <div class="relative z-[2] flex-1 min-h-0 flex items-center px-6 py-4">
-        <div class="login-in w-full max-w-[320px] mx-auto">${innerHtml}</div>
+      <div class="relative z-[2] flex-1 min-h-0 flex items-center px-6 py-4 overflow-y-auto">
+        <div class="login-in w-full max-w-[320px] mx-auto py-2">${innerHtml}</div>
       </div>
     </div>
   `;
