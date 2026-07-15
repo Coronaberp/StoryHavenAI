@@ -38,14 +38,18 @@ function hideChrome(main) {
   document.getElementById("sidebar")?.style.setProperty("display", "none");
   document.getElementById("mobileHeader")?.style.setProperty("display", "none");
   document.getElementById("bottomNav")?.style.setProperty("display", "none");
-  main.classList.add("!p-0", "relative", "overflow-hidden", "-m-4", "md:-m-0");
+  main.classList.add("relative", "overflow-hidden");
+  main.style.setProperty("padding", "0");
+  main.style.setProperty("margin", "0");
 }
 
 function restoreChrome(main) {
   document.getElementById("sidebar")?.style.removeProperty("display");
   document.getElementById("mobileHeader")?.style.removeProperty("display");
   document.getElementById("bottomNav")?.style.removeProperty("display");
-  main.classList.remove("!p-0", "relative", "overflow-hidden", "-m-4", "md:-m-0");
+  main.classList.remove("relative", "overflow-hidden");
+  main.style.removeProperty("padding");
+  main.style.removeProperty("margin");
 }
 
 function route() {
