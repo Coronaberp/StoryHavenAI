@@ -136,6 +136,24 @@ class PantheonView {
     return [...new Set(this.chars.flatMap((c) => c.tags || []))].sort();
   }
 
+  topTags(n) {
+    const counts = new Map();
+    this.chars.forEach((c) => (c.tags || []).forEach((t) => counts.set(t, (counts.get(t) || 0) + 1)));
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, n).map(([t]) => t);
+  }
+
+  popularTagsHtml() {
+    const f = this.filters;
+    const top = this.topTags(6);
+    if (!top.length) return "";
+    return `
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">
+        <button type="button" class="filter-chip${!f.tags.length ? " on" : ""}" data-for-you="1">For you</button>
+        ${top.map((t) => `<button type="button" class="filter-chip${f.tags.includes(t) ? " on" : ""}" data-quick-tag="${t}">${t}</button>`).join("")}
+      </div>
+    `;
+  }
+
   allCreators() {
     const names = [...new Set(this.chars.map((c) => c.owner_username).filter(Boolean))].sort();
     return names.map((name) => ({ name, profile: this.creatorProfiles[name] }));
@@ -292,6 +310,7 @@ class PantheonView {
             ${count ? `<span style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:999px;background:var(--color-warn);color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center">${count}</span>` : ""}
           </button>
         </div>
+        ${this.popularTagsHtml()}
         ${this.drawerOpen ? this.filterDrawerHtml() : ""}
         ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">Consulting the archive…</p>` : ""}
         ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${this.error}</p>` : ""}
@@ -303,6 +322,15 @@ class PantheonView {
       this.drawerOpen = !this.drawerOpen;
       this.render();
     };
+    this.main.querySelectorAll("[data-for-you]").forEach((btn) => btn.onclick = () => {
+      f.tags = [];
+      this.load();
+    });
+    this.main.querySelectorAll("[data-quick-tag]").forEach((btn) => btn.onclick = () => {
+      const tag = btn.dataset.quickTag;
+      f.tags = f.tags.includes(tag) ? f.tags.filter((t) => t !== tag) : [...f.tags, tag];
+      this.load();
+    });
     this.main.querySelectorAll("[data-clear-x]").forEach((x) => {
       x.onclick = (e) => {
         e.stopPropagation();
