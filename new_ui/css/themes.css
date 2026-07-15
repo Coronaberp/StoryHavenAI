@@ -50,6 +50,10 @@
 
   --color-accent: var(--color-accent-base);
   --color-accent-deep: var(--color-accent-deep-base);
+
+  --color-primary-light: color-mix(in srgb, var(--color-accent-base) 80%, white 20%);
+  --color-primary: var(--color-accent-base);
+  --color-primary-dark: var(--color-accent-deep-base);
 }
 
 [data-accent="azure"] {

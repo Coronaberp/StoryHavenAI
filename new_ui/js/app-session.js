@@ -41,6 +41,7 @@ function applyAvatarRing() {
   const fallback = ring.querySelector("[data-avatar-fallback]");
   if (ME?.avatar) {
     if (img) img.src = ME.avatar;
+    img?.classList.remove("hidden");
     fallback?.classList.add("hidden");
   } else {
     fallback && (fallback.textContent = (ME?.username || "?")[0].toUpperCase());

@@ -1296,6 +1296,12 @@
   --color-warn: #B23B58;
   --color-accent: var(--color-accent-base);
   --color-accent-deep: var(--color-accent-deep-base);
+  --color-primary-light: var(--color-accent-base);
+  @supports (color: color-mix(in lab, red, red)) {
+    --color-primary-light: color-mix(in srgb, var(--color-accent-base) 80%, white 20%);
+  }
+  --color-primary: var(--color-accent-base);
+  --color-primary-dark: var(--color-accent-deep-base);
 }
 [data-accent="azure"] {
   --color-primary-light: #79c0ff;
