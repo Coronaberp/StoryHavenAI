@@ -39,7 +39,9 @@ const PROFILE_GL_DEFAULT_CSS = `
 .gl-character-summary{font-size:11px;color:#999;padding:2px 10px 8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .gl-character-meta{font-size:10px;color:var(--profile-gradient-start,#E3BD6C);padding:0 10px 10px;}
 .gl-empty{color:#888;font-size:13px;padding:12px 0;}
-.gl-share{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;text-decoration:none;font-size:13px;cursor:pointer;border:1px solid rgba(255,255,255,.15);}
+.gl-share,.gl-comments,.gl-block,.gl-edit{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;background:rgba(255,255,255,.08);color:#fff;text-decoration:none;font-size:13px;cursor:pointer;border:1px solid rgba(255,255,255,.15);font-family:inherit;margin:4px 6px 4px 0;}
+.gl-edit{background:var(--profile-gradient-start,#E3BD6C);border-color:transparent;color:#000;font-weight:600;}
+.gl-block{background:rgba(224,60,60,.15);border-color:rgba(224,60,60,.35);}
 `;
 
 function copyTextFallback(text) {
@@ -78,13 +80,40 @@ function wireProfileShareButton(doc) {
   });
 }
 
-function substituteProfileTemplate(html, p) {
+function wireProfileCommentsButton(doc, targetId) {
+  doc.querySelectorAll(".gl-comments").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      openCommentsModal("user", targetId);
+    });
+  });
+}
+
+function wireProfileBlockButton(doc, view) {
+  doc.querySelectorAll(".gl-block").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      view.toggleBlock();
+    });
+  });
+}
+
+function wireProfileEditButton(doc) {
+  doc.querySelectorAll(".gl-edit").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      navigate("/dossier");
+    });
+  });
+}
+
+function substituteProfileTemplate(html, p, own) {
   const shareUrl = `${location.origin}/u/${encodeURIComponent(p.username || "")}`;
   const map = {
     "{{share}}": `<a class="gl-share" href="${_esc(shareUrl)}" data-share-url="${_esc(shareUrl)}">&#8663; Share</a>`,
-    "{{edit}}": "",
-    "{{comments}}": "",
-    "{{block}}": "",
+    "{{edit}}": own ? `<a class="gl-edit" href="/dossier" onclick="return false">&#9998; Edit Profile</a>` : "",
+    "{{comments}}": `<button class="gl-comments" type="button">&#128172; Comments</button>`,
+    "{{block}}": (!own) ? `<button class="gl-block" type="button">${p.blocked_by_viewer ? "Unblock" : "&#128683; Block"}</button>` : "",
     "{{report}}": "",
     "{{display_name}}": _esc(p.display_name || p.username || ""),
     "{{bio}}": _esc(p.bio || ""),
@@ -101,6 +130,7 @@ function substituteProfileTemplate(html, p) {
   const out = html.replace(/\{\{[a-z_]+\}\}/g, (m) => map[m] !== undefined ? map[m] : m);
   const g1 = _esc(p.banner_color || "#E3BD6C");
   const g2 = _esc(p.accent_color || p.banner_color || "#A97F2C");
-  const varStyle = `<style>:root{--profile-gradient-start:${g1};--profile-gradient-end:${g2};}\n${PROFILE_GL_DEFAULT_CSS}</style>`;
+  const bannerUrl = p.banner_img ? `url('${_esc(p.banner_img)}')` : "none";
+  const varStyle = `<style>:root{--profile-gradient-start:${g1};--profile-gradient-end:${g2};--profile-banner-url:${bannerUrl};}\n${PROFILE_GL_DEFAULT_CSS}</style>`;
   return varStyle + out;
 }
