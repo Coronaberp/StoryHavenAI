@@ -33,7 +33,7 @@ if [ ! -x "$DEVUI_VENV/bin/uvicorn" ] || ! "$DEVUI_VENV/bin/python3" -c "import 
 fi
 
 if [ "$1" = "--once" ]; then
-  "$BIN" -i "$INPUT" -o "$OUTPUT" --minify
+  "$BIN" -i "$INPUT" -o "$OUTPUT"
   echo "Built $OUTPUT"
   exit 0
 fi
