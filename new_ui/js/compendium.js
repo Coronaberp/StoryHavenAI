@@ -38,8 +38,8 @@ class CompendiumView {
       <div style="display:flex;flex-direction:column;gap:8px">
         <div style="display:flex;align-items:baseline;justify-content:space-between">
           <div>
-            <div class="font-mono" style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-muted)">Featured</div>
             <div class="font-display" style="font-size:16px;font-weight:600;color:var(--color-ink)">${title}</div>
+            <div class="font-mono" style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-muted)">Featured</div>
           </div>
           <a href="/${seeAllRoute}" data-route="__seeall" onclick="event.preventDefault();navigate('/${seeAllRoute}')"
             style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-accent);white-space:nowrap">See all &rarr;</a>

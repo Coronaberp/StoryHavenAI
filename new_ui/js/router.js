@@ -46,10 +46,21 @@ const TAB_FOR_ROUTE = {
   casts: "studio",
 };
 
+const NAV_LABEL_ROUTES = {
+  "Compendium": "explore",
+  "Sanctum": "studio",
+  "Parlance": "chats",
+  "My Dossier": "account",
+};
+
 function pageHeaderHtml(nav, subnav, title, subtitle) {
+  const navRoute = NAV_LABEL_ROUTES[nav];
+  const navHtml = navRoute
+    ? `<span style="cursor:pointer" onclick="navigate('/${navRoute}')">${nav}</span>`
+    : nav;
   return `
     <div class="mb-3">
-      <div class="font-mono text-[10px] tracking-[.14em] uppercase mb-1" style="color:var(--color-accent)">${nav} · ${subnav}</div>
+      <div class="font-mono text-[10px] tracking-[.14em] uppercase mb-1" style="color:var(--color-accent)">${navHtml} · ${subnav}</div>
       <h1 class="font-display text-2xl font-bold text-ink">${title}</h1>
       ${subtitle ? `<h2 class="text-sm font-normal mt-1" style="color:var(--color-sec)">${subtitle}</h2>` : ""}
     </div>
