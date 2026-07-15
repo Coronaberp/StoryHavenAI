@@ -1,14 +1,18 @@
 "use strict";
 
 const routes = {
-  explore: (main) => renderPlaceholder(main, "Explore"),
-  chats: (main) => renderPlaceholder(main, "Chats"),
-  studio: (main) => renderPlaceholder(main, "Studio"),
-  account: (main) => renderPlaceholder(main, "Account"),
+  explore: (main) => renderPlaceholder(main, "Compendium"),
+  chats: (main) => renderPlaceholder(main, "Parlance"),
+  studio: (main) => renderPlaceholder(main, "Sanctum"),
+  account: (main) => renderPlaceholder(main, "My Dossier"),
   create: (main) => renderPlaceholder(main, "New Character"),
-  community: (main) => renderPlaceholder(main, "Community"),
-  personas: (main) => renderPlaceholder(main, "Personas"),
-  forum: (main) => renderPlaceholder(main, "Forum"),
+  pantheon: (main) => renderPlaceholder(main, "Pantheon"),
+  pinacotheca: (main) => renderPlaceholder(main, "Pinacotheca"),
+  symposium: (main) => renderPlaceholder(main, "Symposium"),
+  forge: (main) => renderPlaceholder(main, "My Forge"),
+  grimoire: (main) => renderPlaceholder(main, "My Grimoire"),
+  masks: (main) => renderPlaceholder(main, "My Masks"),
+  casts: (main) => renderPlaceholder(main, "My Casts"),
   login: (main) => AUTH.mount(main),
   register: (main) => RegisterView.mount(main),
   onboard: (main) => OnboardView.mount(main),
@@ -18,6 +22,15 @@ const UNAUTHENTICATED_ROUTE_NAMES = ["login", "register", "onboard", "wait"];
 const CHROMELESS_ROUTES = new Set(UNAUTHENTICATED_ROUTE_NAMES);
 const PUBLIC_ROUTES = new Set(UNAUTHENTICATED_ROUTE_NAMES);
 const NAV_ROUTES = ["explore", "chats", "studio", "account"];
+const TAB_FOR_ROUTE = {
+  pantheon: "explore",
+  pinacotheca: "explore",
+  symposium: "explore",
+  forge: "studio",
+  grimoire: "studio",
+  masks: "studio",
+  casts: "studio",
+};
 
 function renderPlaceholder(main, label) {
   main.innerHTML = `
@@ -33,20 +46,24 @@ function currentRoute() {
   return seg && routes[seg] ? seg : "explore";
 }
 
+const MENU_ONLY_ROUTES = new Set(["explore", "studio"]);
+
 function setActiveNav(routeName) {
+  const activeTab = TAB_FOR_ROUTE[routeName] || routeName;
   document.querySelectorAll("[data-route]").forEach((el) => {
-    el.classList.toggle("text-primary", el.dataset.route === routeName);
-    el.classList.toggle("text-sec", el.dataset.route !== routeName);
+    el.classList.toggle("text-primary", el.dataset.route === activeTab);
+    el.classList.toggle("text-sec", el.dataset.route !== activeTab);
   });
   document.querySelector('[data-route="account"] [data-avatar-ring]')
-    ?.classList.toggle("opacity-100", routeName === "account");
+    ?.classList.toggle("opacity-100", activeTab === "account");
   const ribbon = document.getElementById("navRibbon");
   const nav = document.getElementById("bottomNav");
   if (!ribbon || !nav) return;
-  const idx = NAV_ROUTES.indexOf(routeName);
-  ribbon.classList.toggle("hidden", idx === -1);
-  if (idx === -1) return;
-  const target = nav.querySelector(`[data-route="${routeName}"]`);
+  const idx = NAV_ROUTES.indexOf(activeTab);
+  const showRibbon = idx !== -1 && !MENU_ONLY_ROUTES.has(routeName);
+  ribbon.classList.toggle("hidden", !showRibbon);
+  if (!showRibbon) return;
+  const target = nav.querySelector(`[data-route="${activeTab}"]`);
   if (!target) return;
   const navRect = nav.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();

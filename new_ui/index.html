@@ -50,10 +50,10 @@
         </span>
       </a>
       <nav id="nav" class="mt-6 flex flex-1 flex-col gap-1 text-sm">
-        <a href="/explore" data-route="explore" class="rounded-md px-3 py-2 hover:bg-surface-2">Explore</a>
-        <a href="/chats" data-route="chats" class="rounded-md px-3 py-2 hover:bg-surface-2">Chats</a>
-        <a href="/studio" data-route="studio" class="rounded-md px-3 py-2 hover:bg-surface-2">Studio</a>
-        <a href="/account" data-route="account" class="rounded-md px-3 py-2 hover:bg-surface-2">Account</a>
+        <button type="button" data-route="explore" onclick="openCompendiumMenu()" class="text-left rounded-md px-3 py-2 hover:bg-surface-2">Compendium</button>
+        <a href="/chats" data-route="chats" class="rounded-md px-3 py-2 hover:bg-surface-2">Parlance</a>
+        <button type="button" data-route="studio" onclick="openSanctumMenu()" class="text-left rounded-md px-3 py-2 hover:bg-surface-2">Sanctum</button>
+        <a href="/account" data-route="account" class="rounded-md px-3 py-2 hover:bg-surface-2">My Dossier</a>
       </nav>
     </aside>
 
@@ -99,23 +99,23 @@
     <nav id="bottomNav" class="fixed inset-x-0 bottom-0 z-10 border-t-2 border-line-2 bg-paper" style="display:none">
       <div id="navRibbon" class="absolute -top-2.5 h-[18px] transition-[left,width] duration-300 ease-out motion-reduce:transition-none" style="clip-path:polygon(22% 0%,78% 0%,78% 74%,50% 100%,22% 74%);background:linear-gradient(180deg, var(--color-primary-light), var(--color-primary-dark));filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))"></div>
       <div class="relative flex items-center">
-        <a href="/explore" data-route="explore" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M15.2 8.8l-2 4.4-4.4 2 2-4.4z"/></svg>
-          <span class="font-mono text-[9px] tracking-[.12em] uppercase">Explore</span>
-        </a>
+        <button type="button" data-route="explore" onclick="openCompendiumMenu()" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 4v6l3-2 3 2V4"/></svg>
+          <span class="font-mono text-[9px] tracking-[.12em] uppercase">Compendium</span>
+        </button>
         <a href="/chats" data-route="chats" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4c.9 1.1.9 2-.1 3.1-.7.8-.7 1.5 0 2.2"/><rect x="10" y="9.3" width="4" height="9.2" rx="0.6"/><path d="M7 18.5h10"/></svg>
-          <span class="font-mono text-[9px] tracking-[.12em] uppercase">Chats</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h9a3 3 0 0 1 3 3v11"/><path d="M6 4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12"/><path d="M9 9h6M9 12.5h6"/></svg>
+          <span class="font-mono text-[9px] tracking-[.12em] uppercase">Parlance</span>
         </a>
         <button type="button" onclick="navigate('/create')" title="New character"
           class="flex-none -mt-[22px] w-[54px] h-[54px] rounded-2xl grid place-items-center text-paper"
           style="background:linear-gradient(150deg, var(--color-accent), var(--color-accent-deep));box-shadow:0 8px 18px -6px color-mix(in srgb, var(--color-accent) 55%, transparent)">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
         </button>
-        <a href="/studio" data-route="studio" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3l1.3 4.2 4.2 1.3-4.2 1.3L8 14l-1.3-4.2-4.2-1.3 4.2-1.3z"/><path d="M17.5 12l.8 2.4 2.4.8-2.4.8-.8 2.4-.8-2.4-2.4-.8 2.4-.8z"/></svg>
-          <span class="font-mono text-[9px] tracking-[.12em] uppercase">Studio</span>
-        </a>
+        <button type="button" data-route="studio" onclick="openSanctumMenu()" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V11a6 6 0 0 1 12 0v9"/><path d="M6 20h12"/><path d="M12 15v2.5"/></svg>
+          <span class="font-mono text-[9px] tracking-[.12em] uppercase">Sanctum</span>
+        </button>
         <a href="/account" data-route="account" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
           <span data-avatar-ring class="relative block w-[22px] h-[22px] rounded-full p-[2px] opacity-70" style="background:var(--nav-avatar-ring, linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark)))">
             <span class="block w-full h-full rounded-full overflow-hidden bg-surface-2 grid place-items-center">
@@ -123,7 +123,7 @@
               <span data-avatar-fallback class="font-mono text-[10px] text-ink">?</span>
             </span>
           </span>
-          <span class="font-mono text-[9px] tracking-[.12em] uppercase">Account</span>
+          <span class="font-mono text-[9px] tracking-[.05em] uppercase whitespace-nowrap">My Dossier</span>
         </a>
       </div>
     </nav>
@@ -153,6 +153,7 @@
   <script src="/js/toast.js" defer></script>
   <script src="/js/modal.js" defer></script>
   <script src="/js/dropdown.js" defer></script>
+  <script src="/js/nav-menus.js" defer></script>
   <script src="/js/router.js" defer></script>
   <script src="/js/boot.js" defer></script>
 </body>
