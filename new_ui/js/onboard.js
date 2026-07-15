@@ -49,7 +49,7 @@ const OnboardView = {
       ${spineStitchHtml(2, 2)}
       ${this.error ? `<div class="mb-4 rounded-lg border border-warn text-warn text-[13px] px-3 py-2.5" style="background:color-mix(in srgb, var(--color-warn) 10%, transparent)">${this.error}</div>` : ""}
       <div class="flex items-center gap-3 mb-3">
-        <div class="w-[84px] h-[84px] flex-none rounded-lg bg-white p-1.5">${this.otpauthUri ? this.qrSvg() : ""}</div>
+        <div class="w-[84px] h-[84px] flex-none rounded-lg bg-white p-1.5 overflow-hidden [&>svg]:w-full [&>svg]:h-full">${this.otpauthUri ? this.qrSvg() : ""}</div>
         <div class="flex-1 min-w-0">
           <p class="text-[12px] leading-relaxed text-sec mb-1.5">Scan with an authenticator app, or</p>
           <button type="button" data-toggle-secret class="text-primary font-mono text-[11px]">${this.showSecret ? "Hide" : "Reveal"} the key</button>
