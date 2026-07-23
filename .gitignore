@@ -33,3 +33,4 @@ backup_before_encrypt_backfill.sql
 storyhavenai.gputemp*
 storyhavenai.gputemp*
 test.html
+bin/tailwindcss
