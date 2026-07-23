@@ -64,6 +64,7 @@ PROVIDER_REGISTRY = {
         "user_id_field": "id",
         "display_name_field": "name",
         "pkce": False,
+        "token_basic_auth": True,
     },
     "microsoft": {
         "label": "Microsoft",

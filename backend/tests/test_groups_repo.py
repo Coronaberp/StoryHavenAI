@@ -46,3 +46,19 @@ async def test_list_public_for_char(db_conn):
     featuring = await gr.list_public_for_char("hero")
     assert gid in [g["id"] for g in featuring]
     assert all(g["is_public"] == 1 for g in featuring)
+
+
+async def test_name_and_opening_stored_encrypted(db_conn):
+    from backend.db import groups, _q1
+    from sqlalchemy import select
+    gid = await gr.create("owner-1", "Secret Crew", "A private opening line.", "chat", 0, ["a"])
+    raw = await _q1(select(groups).where(groups.c.id == gid))
+    assert raw["name"].startswith("enc:") and raw["name"] != "Secret Crew"
+    assert raw["opening"].startswith("enc:") and raw["opening"] != "A private opening line."
+
+
+async def test_list_public_search_matches_decrypted_name(db_conn):
+    gid = await gr.create("o", "Moonlit Tavern", "o", "chat", 1, ["a"])
+    await gr.create("o", "Unrelated", "o", "chat", 1, ["a"])
+    found = await gr.list_public("moonlit", None)
+    assert [g["id"] for g in found] == [gid]

@@ -1,12 +1,25 @@
-"""Pydantic models for request bodies. Keeps validation out of the route bodies."""
+import re
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+AVATAR_ALLOWED_PREFIXES = ("/media/", "http://", "https://", "data:image/")
+AVATAR_UNSAFE_CHARACTERS = re.compile(r"[\"'<>`\\\s\x00-\x1f]")
+
+
+def validate_avatar_reference(value: str) -> str:
+    if not value:
+        return value
+    if not value.startswith(AVATAR_ALLOWED_PREFIXES):
+        raise ValueError("avatar must be a /media path, an http(s) URL, or a data:image URL")
+    if AVATAR_UNSAFE_CHARACTERS.search(value):
+        raise ValueError("avatar contains characters that are not allowed in a URL")
+    return value
 
 
 class CharacterIn(BaseModel):
     name: str = "Unnamed"
-    description: str = ""   # public blurb — shown on cards; persona/scenario stay internal
+    description: str = ""
     persona: str = ""
     scenario: str = ""
     greeting: str = ""
@@ -16,19 +29,21 @@ class CharacterIn(BaseModel):
     creator: str = "you"
     avatar: str = ""
     alt_greetings: list[str] = []
-    mode: str = "character"   # "character" or "rpg"
+    mode: str = "character"
     assets: dict | None = None
-    is_public: bool = False   # if True, visible in Community to all users
-    presentation_html: str = ""   # optional custom HTML/CSS for the character page; sanitized client-side
-    can_be_persona: bool = False   # if True, other users can play as this character (persona pool)
-    allow_download: bool = False   # if True, other users may export/download this card (chub/ST-style)
-    is_explicit: bool = False      # 18+/explicit content — its images render blurred for anyone
-                                    # (anon or logged-in) who hasn't opted into mature content
-    is_draft: bool = False   # autosaved, unfinished — hidden from Library/Community, shown
-                             # only under the owner's own "Pending" tab until they finish it
-    appearance_tags: str = ""            # optional — pre-written Danbooru tags used verbatim
-                                          # for image generation instead of the AI deliberating
-    appearance_tags_negative: str = ""   # optional — Danbooru tags to avoid, used verbatim
+    is_public: bool = False
+    presentation_html: str = ""
+    can_be_persona: bool = False
+    allow_download: bool = False
+    is_explicit: bool = False
+    is_draft: bool = False
+    appearance_tags: str = ""
+    appearance_tags_negative: str = ""
+
+    @field_validator("avatar")
+    @classmethod
+    def check_avatar(cls, value: str) -> str:
+        return validate_avatar_reference(value)
 
     @model_validator(mode="after")
     def check_prompt_fields_combined_length(self):
@@ -53,10 +68,15 @@ class PersonaIn(BaseModel):
     description: str = ""
     gender: str = ""
     avatar: str = ""
-    avatar_data: str | None = None   # data:image/...;base64,... — decoded server-side to a /media path
+    avatar_data: str | None = None
     is_default: bool = False
     is_draft: bool = False
     session_id: str | None = None
+
+    @field_validator("avatar")
+    @classmethod
+    def check_avatar(cls, value: str) -> str:
+        return validate_avatar_reference(value)
 
 
 class LoreIn(BaseModel):
@@ -67,9 +87,7 @@ class LoreIn(BaseModel):
     always: bool = False
     is_global: bool = Field(False, alias="global")
     image: str = ""
-    image_data: str | None = None   # data:image/...;base64,... — for entries staged
-                                     # from a card import, decoded to a real /media file
-                                     # on save; takes priority over `image` when set
+    image_data: str | None = None
     category: str = ""
     hidden: bool = False
     name: str = ""
@@ -174,12 +192,10 @@ class SettingsIn(BaseModel):
     extra_params: dict | None = None
     system_suffix: str | None = None
     post_history: str | None = None
-    default_language: str | None = None   # instance-wide default display language
-                                          # (used when a user hasn't picked their own)
+    default_language: str | None = None
     comfyui_url: str | None = None
     comfyui_checkpoint: str | None = None
-    comfyui_workflow: str | None = None   # optional custom API-format workflow JSON (text);
-                                          # blank = use the built-in default txt2img template
+    comfyui_workflow: str | None = None
     model_request_hosts: list[ModelRequestHostIn] | None = None
     embed_link_hosts: list[str] | None = None
     modal_train_url: str | None = None
@@ -193,8 +209,6 @@ class SettingsIn(BaseModel):
     wan_vae_name: str | None = None
 
 
-# Per-user overrides: same sampling/endpoint fields as SettingsIn but no embed_dim
-# (embed_dim is global — changing it requires rebuilding the shared vector index)
 class UserSettingsIn(BaseModel):
     base_url: str | None = None
     api_key: str | None = None
@@ -288,7 +302,7 @@ class ResyncUiTranslationsIn(BaseModel):
 
 class LocalizeIn(BaseModel):
     texts: list[str]
-    lang: str | None = None   # blank = requester's effective display language
+    lang: str | None = None
 
 
 class MessageEdit(BaseModel):
@@ -301,13 +315,13 @@ class LoraSpec(BaseModel):
 
 
 class ImageGenIn(BaseModel):
-    checkpoint: str | None = None   # override the configured default checkpoint
-    loras: list[LoraSpec] = []   # applied as a chain, in order, same as ComfyUI's own UI
-    positive: str | None = None   # user-edited override — skips the auto-generation call
+    checkpoint: str | None = None
+    loras: list[LoraSpec] = []
+    positive: str | None = None
     negative: str | None = None
-    reference_image: str | None = None   # data:image/...;base64,... — switches to img2img
-    denoise: float = 0.6   # img2img strength: lower = closer to the reference image
-    architecture: str = "sdxl"   # "anima" switches checkpoint to mean a UNet filename
+    reference_image: str | None = None
+    denoise: float = 0.6
+    architecture: str = "sdxl"
     width: int = 1024
     height: int = 1024
     sampler: str | None = None
@@ -337,12 +351,12 @@ class ImageGenStandaloneIn(BaseModel):
 
 
 class ImageGenUpscaleIn(BaseModel):
-    image: str   # data URL of the currently-previewed (not-yet-saved) generated image
-    upscaler: str | None = None   # defaults to the first available UpscaleModelLoader model
+    image: str
+    upscaler: str | None = None
 
 
 class ImageGenSaveIn(BaseModel):
-    image: str   # data URL (data:image/png;base64,...) of the already-generated image
+    image: str
     positive: str = ""
     negative: str = ""
     checkpoint: str = ""
@@ -357,17 +371,17 @@ class ImageGenSaveIn(BaseModel):
 
 
 class ImageGenInpaintIn(BaseModel):
-    image: str   # data:image/...;base64,... — the source image to inpaint
-    mask: str   # data:image/...;base64,... — the painted-region mask
+    image: str
+    mask: str
     positive: str = ""
     negative: str = ""
     checkpoint: str | None = None
-    denoise: float = 1.0   # 1.0 = fully regenerate masked region from prompt
+    denoise: float = 1.0
     sampler: str | None = None
     scheduler: str | None = None
     steps: int = 20
     cfg: float = 7.0
-    architecture: str = "sdxl"   # "anima" switches checkpoint to mean a UNet filename
+    architecture: str = "sdxl"
 
 
 class ImageGenVideoIn(BaseModel):
@@ -426,7 +440,7 @@ class ModelRequestIn(BaseModel):
 class LoraTrainingJobIn(BaseModel):
     name: str
     trigger_word: str = "sks"
-    base_checkpoint: str = ""   # filename of a checkpoint already in ComfyUI's models volume
+    base_checkpoint: str = ""
     resolution: int = 512
     rank: int = 16
     alpha: int = 16
@@ -571,17 +585,9 @@ class ModelMetaIn(BaseModel):
     description: str | None = None
     model_type: str | None = None
     default_steps: int | None = None
-    # LoRAs only — a LoRA can be classified under more than one compatible
-    # architecture (checkpoints no longer expose category selection at all;
-    # see the /admin/checkpoint-previews/{name}/meta route).
     model_category: list[str] | None = None
-    # Checkpoints only — per-checkpoint Anima text-encoder/VAE override (see
-    # /admin/checkpoint-previews/{name}/meta). Null means "no override, use
-    # the shared imagegen.ANIMA_CLIP_NAME/ANIMA_VAE_NAME pair".
     anima_clip_name: str | None = None
     anima_vae_name: str | None = None
-    # LoRAs only — prompt words that actually trigger this LoRA's trained
-    # concept, purely informational for whoever picks it.
     keywords: list[str] | None = None
 
 
@@ -590,8 +596,8 @@ class CommentIn(BaseModel):
     target_id: str
     content: str
     parent_id: str | None = None
-    image: str = ""   # returned by POST /comments/upload-image, if attached
-    attachment_kind: str = ""   # "image" | "video" | "text" — from the same response
+    image: str = ""
+    attachment_kind: str = ""
 
 
 class CommentEditIn(BaseModel):
@@ -604,8 +610,7 @@ class CommentReactIn(BaseModel):
 
 
 class GiphySendIn(BaseModel):
-    id: str   # a Giphy gif id from a prior /comments/giphy/search or /trending
-             # response — re-resolved server-side, never a client-supplied URL
+    id: str
 
 
 class ForumThreadIn(BaseModel):
@@ -620,7 +625,7 @@ class ForumVoteIn(BaseModel):
 
 class CustomEmojiIn(BaseModel):
     shortcode: str
-    kind: str = "emoji"   # "emoji" | "sticker"
+    kind: str = "emoji"
 
 
 class BlockIn(BaseModel):

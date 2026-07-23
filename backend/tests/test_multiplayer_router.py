@@ -91,11 +91,23 @@ async def test_remove_participant_by_host_succeeds(db_conn):
 
 
 async def test_accept_invite_adds_member(db_conn):
+    from backend.repositories import notifications as notif_repo
     char_id = await _make_rpg_char()
     sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    await notif_repo.create("friend-1", "multiplayer_invite", "Invite", related_id=sid)
     await mp.accept_invite(sid, MultiplayerAcceptIn(persona_id=None), _user("friend-1"))
     participants = await sp.list_for_session(sid)
     assert any(p["user_id"] == "friend-1" for p in participants)
+
+
+async def test_accept_invite_rejected_without_invite(db_conn):
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    with pytest.raises(HTTPException) as exc_info:
+        await mp.accept_invite(sid, MultiplayerAcceptIn(persona_id=None), _user("gatecrasher"))
+    assert exc_info.value.status_code == 403
+    participants = await sp.list_for_session(sid)
+    assert not any(p["user_id"] == "gatecrasher" for p in participants)
 
 
 async def test_invite_by_username_creates_notification(db_conn):
@@ -221,6 +233,16 @@ async def test_post_party_chat_allows_image_only_message(db_conn):
     char_id = await _make_rpg_char()
     sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
     result = await mp.post_party_chat(
-        sid, PartyChatIn(content="", image="/media/gif1.gif", attachment_kind="image"), _user("owner-1"))
-    assert result["image"] == "/media/gif1.gif"
+        sid, PartyChatIn(content="", image="/media/cmt_0123456789ab.gif", attachment_kind="image"), _user("owner-1"))
+    assert result["image"] == "/media/cmt_0123456789ab.gif"
     assert result["attachment_kind"] == "image"
+
+
+async def test_post_party_chat_rejects_external_image_url(db_conn):
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    with pytest.raises(HTTPException) as exc_info:
+        await mp.post_party_chat(
+            sid, PartyChatIn(content="", image="https://evil.example/pixel.gif", attachment_kind="image"),
+            _user("owner-1"))
+    assert exc_info.value.status_code == 400

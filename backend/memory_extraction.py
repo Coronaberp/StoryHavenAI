@@ -49,12 +49,18 @@ class SecretRevealDecision(BaseModel):
 
 
 EXTRACT_EXAMPLE = (
-    '{"facts": [{"text": "Mira was stabbed in the left shoulder during the ambush.", '
+    '{"facts": [{"text": "Bandits ambushed the caravan on the Kelder road.", '
+    '"fact_type": "event", "participants": [], "importance": 4, "valence": -1},\n'
+    '{"text": "Mira was stabbed in the left shoulder during the ambush.", '
     '"fact_type": "state", "participants": ["Mira"], "importance": 5, "valence": -2},\n'
+    '{"text": "Tomas swore to protect Mira after she saved his life.", '
+    '"fact_type": "relationship", "participants": ["Tomas", "Mira"], "importance": 4, "valence": 2},\n'
+    '{"text": "Kael is a proud swordsman who refuses to use magic.", '
+    '"fact_type": "profile", "participants": ["Kael"], "importance": 3, "valence": 0},\n'
     '{"text": "The mine outside Kelder collapsed.", "fact_type": "world", '
     '"participants": [], "importance": 3, "valence": -1}],\n'
     '"char_state": {"doing": "tending to Mira\'s wound", "location": "the collapsed mine entrance", '
-    '"npcs": ["Mira"]}}'
+    '"npcs": ["Mira", "Tomas", "Kael"]}}'
 )
 
 
@@ -82,9 +88,12 @@ def build_extract_prompt(transcript: str, char_name: str, user_name: str, langua
         "again, that the exchange feels repetitive, or any other observation about the pattern of "
         "the dialogue rather than the story world. Only record what is true in the story.\n"
         f"Each fact: one short third-person sentence in {language}; copy proper names exactly as "
-        "written; participants = the people the fact is about; importance 1 (trivial) to 5 "
-        "(pivotal); valence -2 (very negative) to 2 (very positive). facts is [] if nothing lasting "
-        "happened.\n"
+        "written; participants = the people the fact is about; importance 1 (a trivial aside) to 5 "
+        "(pivotal, changes the story) — a first meeting or a minor injury is about 3, a deliberate "
+        "choice or commitment that will shape the story going forward is about 4, a betrayal, "
+        "death, oath, or life-changing revelation is 5; valence -2 (very negative) to 2 (very "
+        "positive). Prefer a few high-signal facts over many trivial ones. facts is [] if nothing "
+        "lasting happened.\n"
         f"char_state: doing = a short phrase (in {language}) describing what {state_owner} is doing "
         f"or experiencing right now, or empty string; location = a short phrase (in {language}) "
         "describing where the current scene is taking place, or empty string; npcs = proper names "
@@ -125,6 +134,12 @@ def build_reconcile_prompt(drafts: list[FactDraft], neighbors: list[list[dict]])
         "preoccupied with a rutted trail and a tavern crowd\" and a NEW fact \"Alice is preoccupied "
         "with a stone bridge and a swollen river\" describe the SAME recurring behavior — this "
         "should be \"supersede\", not \"add\".\n\n"
+        "But do NOT supersede when the two facts are about different people, or are two distinct "
+        "unresolved commitments that both still stand, even about the same person — two separate "
+        "promises, debts, injuries, or duel challenges are each their own \"add\", never merge one "
+        "away, even if they share a surface pattern. Example: existing fact \"Tarion challenged Diane "
+        "to a duel\" and a NEW fact \"Tarion challenged Fenn to a duel\" are two separate open "
+        "challenges — this is \"add\", not \"supersede\".\n\n"
         "NEW facts:\n" + "\n".join(new_lines) + "\n\n"
         "SIMILAR existing facts:\n" + "\n".join(neighbor_lines) + "\n\n"
         'Example output:\n[{"index": 0, "action": "supersede", "target_id": "mf_abc"}]\n\n'
@@ -214,6 +229,8 @@ def parse_reconcile(raw: str, fact_count: int, valid_ids: set[str]) -> list[Reco
     seen = {d.index for d in decisions}
     if seen != set(range(fact_count)):
         raise ValueError(f"expected one decision per fact 0..{fact_count - 1}, got indexes {sorted(seen)}")
+    if len(decisions) != fact_count:
+        raise ValueError(f"expected exactly {fact_count} decisions, got {len(decisions)} with duplicate indexes")
     for d in decisions:
         if d.action != "add" and d.target_id not in valid_ids:
             raise ValueError(f"unknown target_id {d.target_id}")

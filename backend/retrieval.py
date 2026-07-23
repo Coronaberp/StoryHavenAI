@@ -19,11 +19,37 @@ def _split_into_sentences(text: str) -> list[str]:
     return [s for s in sentences if s]
 
 
+def _split_oversized_sentence(sentence: str, limit_tokens: int) -> list[str]:
+    words = sentence.split(" ")
+    if len(words) <= 1:
+        limit_chars = limit_tokens * 4
+        return [sentence[i:i + limit_chars] for i in range(0, len(sentence), limit_chars)] or [sentence]
+    pieces: list[str] = []
+    current: list[str] = []
+    current_tokens = 0
+    for word in words:
+        word_tokens = _estimate_tokens(word)
+        if current and current_tokens + word_tokens > limit_tokens:
+            pieces.append(" ".join(current))
+            current, current_tokens = [], 0
+        current.append(word)
+        current_tokens += word_tokens
+    if current:
+        pieces.append(" ".join(current))
+    return pieces
+
+
 def _pack_sentences(sentences: list[str], limit_tokens: int) -> list[str]:
     packed, current = [], []
     current_tokens = 0
     for sentence in sentences:
         sentence_tokens = _estimate_tokens(sentence)
+        if sentence_tokens > limit_tokens:
+            if current:
+                packed.append(" ".join(current))
+                current, current_tokens = [], 0
+            packed.extend(_split_oversized_sentence(sentence, limit_tokens))
+            continue
         if current and current_tokens + sentence_tokens > limit_tokens:
             packed.append(" ".join(current))
             current, current_tokens = [], 0

@@ -6,6 +6,7 @@ from webauthn import (generate_registration_options, generate_authentication_opt
                       options_to_json, verify_registration_response,
                       verify_authentication_response)
 from webauthn.helpers import bytes_to_base64url, base64url_to_bytes
+from webauthn.helpers.exceptions import InvalidAuthenticationResponse
 from webauthn.helpers.structs import (AuthenticatorSelectionCriteria, ResidentKeyRequirement,
                                       UserVerificationRequirement, PublicKeyCredentialDescriptor)
 
@@ -21,6 +22,11 @@ CHALLENGE_TTL = 300
 _challenges: dict[str, tuple[bytes, str, str | None, float]] = {}
 _LOGIN_CEREMONY_LIMIT = SlidingWindow(
     10, 60, "Too many passkey attempts - please wait a moment and try again")
+
+
+def _limit_login_ceremony(request: Request) -> None:
+    _LOGIN_CEREMONY_LIMIT.prune()
+    _LOGIN_CEREMONY_LIMIT.check_and_record(request.client.host if request.client else "unknown")
 
 
 def _store_challenge(challenge: bytes, purpose: str, user_id: str | None) -> str:
@@ -102,7 +108,7 @@ async def register_verify(body: WebauthnRegisterVerifyIn, request: Request,
 
 @auth_router.post("/webauthn/login/options")
 async def login_options(request: Request):
-    _LOGIN_CEREMONY_LIMIT.check_and_record(request.client.host if request.client else "unknown")
+    _limit_login_ceremony(request)
     options = generate_authentication_options(
         rp_id=_rp_id(request),
         user_verification=UserVerificationRequirement.REQUIRED)
@@ -112,7 +118,7 @@ async def login_options(request: Request):
 
 @auth_router.post("/webauthn/login/verify")
 async def login_verify(body: WebauthnLoginVerifyIn, request: Request, response: Response):
-    _LOGIN_CEREMONY_LIMIT.check_and_record(request.client.host if request.client else "unknown")
+    _limit_login_ceremony(request)
     challenge, _ = _take_challenge(body.challenge_id, "login")
     credential_id = body.credential.get("id") if isinstance(body.credential, dict) else None
     stored = await cred_repo.get_by_credential_id(credential_id or "")
@@ -132,12 +138,14 @@ async def login_verify(body: WebauthnLoginVerifyIn, request: Request, response: 
             credential_current_sign_count=stored["sign_count"],
             require_user_verification=True)
     except Exception as e:
-        log.warning("webauthn: login verify failed user=%s: %s: %s",
-                    user["username"], type(e).__name__, e)
+        clone_suspected = isinstance(e, InvalidAuthenticationResponse) and "sign count" in str(e).lower()
+        if clone_suspected:
+            log.warning("webauthn: sign count regression cred=%s user=%s - possible clone: %s",
+                        stored["id"], user["username"], e)
+        else:
+            log.warning("webauthn: login verify failed user=%s: %s: %s",
+                        user["username"], type(e).__name__, e)
         raise HTTPException(401, "Passkey could not be verified")
-    if verified.new_sign_count and stored["sign_count"] and verified.new_sign_count <= stored["sign_count"]:
-        log.warning("webauthn: sign count regression cred=%s user=%s (%s <= %s) - possible clone",
-                    stored["id"], user["username"], verified.new_sign_count, stored["sign_count"])
     await cred_repo.mark_used(stored["id"], verified.new_sign_count)
     tokens = await _issue_tokens(user["id"])
     _set_auth_cookies(response, tokens["access_token"], tokens["refresh_token"],

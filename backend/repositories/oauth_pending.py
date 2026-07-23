@@ -11,6 +11,7 @@ async def create(state: str, provider: str, mode: str, user_id: str | None,
     await _w(insert(pending).values(
         state=state, provider=provider, mode=mode, user_id=user_id,
         code_verifier=code_verifier, created=time.time()))
+    log.info("oauth_pending: created provider=%s mode=%s user=%s", provider, mode, user_id)
 
 
 async def consume(state: str) -> dict | None:

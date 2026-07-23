@@ -134,7 +134,7 @@ class AdminHealthView {
     if (!grid) return;
     if (this.healthError) {
       grid.innerHTML = `<p class="text-sm" style="color:var(--color-warn)">${_esc(this.healthError)}</p>`;
-      this.charts = {};
+      this.destroyCharts();
       return;
     }
     if (!this.healthData) return;
@@ -148,12 +148,17 @@ class AdminHealthView {
 
     if (!gridHasCards || !namesMatch) {
       grid.innerHTML = `<div class="grid grid-cols-1 gap-3">${services.map((s) => this.serviceCardHtml(s)).join("")}</div>`;
-      this.charts = {};
+      this.destroyCharts();
       services.forEach((s) => this.renderChart(s));
       return;
     }
 
     services.forEach((s) => this.updateServiceCard(s));
+  }
+
+  destroyCharts() {
+    Object.values(this.charts).forEach((chart) => chart.destroy());
+    this.charts = {};
   }
 }
 

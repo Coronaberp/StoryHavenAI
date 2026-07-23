@@ -34,6 +34,7 @@ async def get_by_credential_id(credential_id: str) -> dict | None:
 async def mark_used(cid: str, sign_count: int) -> None:
     await _w(sa_update(creds).where(creds.c.id == cid)
              .values(sign_count=sign_count, last_used=time.time()))
+    log.info("webauthn: credential used id=%s", cid)
 
 
 async def delete(cid: str, user_id: str) -> bool:

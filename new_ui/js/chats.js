@@ -10,6 +10,9 @@ function _parlanceAgo(ts) {
 }
 
 const PARLANCE_GROUP_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`;
+const PARLANCE_PEOPLE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg>`;
+const PARLANCE_EXCHANGE_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+const PARLANCE_SELECT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`;
 
 class ChatsView {
   constructor() {
@@ -20,6 +23,8 @@ class ChatsView {
     this.charFilters = [];
     this.collapsed = new Set();
     this.collapsedInit = false;
+    this.selectMode = false;
+    this.selected = new Set();
   }
 
   groupKey(s) {
@@ -56,6 +61,53 @@ class ChatsView {
     this.render();
   }
 
+  toggleSelectMode() {
+    this.selectMode = !this.selectMode;
+    if (!this.selectMode) this.selected.clear();
+    document.body.classList.toggle("parlance-select-mode", this.selectMode);
+    this.render();
+  }
+
+  toggleSelect(sid) {
+    if (this.selected.has(sid)) this.selected.delete(sid);
+    else this.selected.add(sid);
+    this.render();
+  }
+
+  confirmBulkDelete() {
+    const count = this.selected.size;
+    if (!count) return;
+    const layer = openModal(`
+      <div style="padding:4px 2px 2px">
+        <h3 class="font-display" style="font-size:16px;font-weight:600;color:var(--color-ink);margin:0 0 6px">${t("parlance_bulk_delete_confirm_title", "Delete conversations?")}</h3>
+        <p style="font-size:13px;color:var(--color-sec);margin:0 0 18px">${t("parlance_bulk_delete_confirm_body", "{n} conversations will be deleted. This can't be undone.").replace("{n}", count)}</p>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button type="button" class="pe-gen-btn" id="parlanceCancelBulkDel" style="border-color:var(--color-line-2);color:var(--color-sec)">${t("parlance_keep_it")}</button>
+          <button type="button" class="pe-gen-btn" id="parlanceConfirmBulkDel" style="border-color:var(--color-warn);color:var(--color-warn)">${t("parlance_delete")}</button>
+        </div>
+      </div>
+    `);
+    layer.querySelector("#parlanceCancelBulkDel").onclick = () => closeModal(layer);
+    layer.querySelector("#parlanceConfirmBulkDel").onclick = async () => {
+      closeModal(layer);
+      await this.bulkDelete();
+    };
+  }
+
+  async bulkDelete() {
+    const ids = [...this.selected];
+    const results = await Promise.allSettled(ids.map((sid) => api(`/api/sessions/${encodeURIComponent(sid)}`, { method: "DELETE" })));
+    const failed = results.filter((r) => r.status === "rejected").length;
+    const deleted = new Set(ids.filter((_, i) => results[i].status === "fulfilled"));
+    this.sessions = this.sessions.filter((s) => !deleted.has(s.id));
+    deleted.forEach((sid) => delete this.chars[sid]);
+    this.selected.clear();
+    this.selectMode = false;
+    document.body.classList.remove("parlance-select-mode");
+    this.render();
+    toast(failed ? t("parlance_bulk_delete_partial_error", "Some conversations couldn't be deleted.") : t("parlance_conversation_deleted"));
+  }
+
   groupHeaderHtml(g, expanded) {
     const count = g.sessions.length;
     const hue = [...(g.char_id || g.name)].reduce((h, ch) => h + ch.charCodeAt(0), 0) % 360;
@@ -64,15 +116,16 @@ class ChatsView {
       : `background:linear-gradient(150deg, hsl(${hue} 45% 30%), hsl(${(hue + 40) % 360} 40% 14%))`;
     const initial = g.name[0].toUpperCase();
     const jsKey = g.key.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    const groupTag = g.is_group ? `<span class="parlance-tag-group">${PARLANCE_GROUP_ICON}${t("group_chat_label", "Group")}</span>` : "";
     return `
-      <button type="button" class="parlance-group-header" onclick="_activeParlanceView?.toggleGroup('${_attr(jsKey)}')"
-        style="width:100%;display:flex;align-items:center;gap:10px;padding:12px 4px;background:none;border:none;border-bottom:1px solid var(--color-line);cursor:pointer;text-align:left">
-        <span class="parlance-group-toggle">${expanded ? "−" : "+"}</span>
+      <button type="button" class="parlance-group-header" data-expanded="${expanded ? "true" : "false"}" onclick="_activeParlanceView?.toggleGroup('${_attr(jsKey)}')">
+        <span class="parlance-group-toggle">▾</span>
         <span class="parlance-seal" style="${g.is_group ? "" : art}">${g.is_group ? (g.cast_avatars.length ? groupGridAvatar(g.cast_avatars) : PARLANCE_GROUP_ICON) : (g.avatar ? "" : _esc(initial))}</span>
         <span style="flex:1;min-width:0">
-          <span class="parlance-name" style="display:block">${_esc(g.name)}${g.is_group ? ` <span class="font-mono" style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-muted);border:1px solid var(--color-line-2);border-radius:999px;padding:1px 6px;vertical-align:middle">${t("group_chat_label", "Group")}</span>` : ""}</span>
-          <span class="parlance-time">${count} conversation${count === 1 ? "" : "s"}</span>
+          <span class="parlance-name">${_esc(g.name)}${groupTag}</span>
+          <span class="parlance-time" style="display:block;margin-top:2px">${count} ${count === 1 ? t("parlance_conversation_singular", "conversation") : t("parlance_conversation_plural", "conversations")}</span>
         </span>
+        <span class="parlance-group-rule"></span>
       </button>
     `;
   }
@@ -103,6 +156,9 @@ class ChatsView {
 
   async mount(main) {
     this.main = main;
+    this.selectMode = false;
+    this.selected.clear();
+    document.body.classList.remove("parlance-select-mode");
     window._activeParlanceView = this;
     this.render();
     try {
@@ -138,22 +194,33 @@ class ChatsView {
     const initial = name[0].toUpperCase();
     const preview = (s.preview || "").replace(/\s+/g, " ").trim();
     const jsName = name.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    const exchanges = s.message_count ? Math.floor(s.message_count / 2) : 0;
+    const multiplayerTag = s.is_multiplayer
+      ? `<span class="parlance-tag-multiplayer">${PARLANCE_PEOPLE_ICON}${t("chat_multiplayer_badge", "Multiplayer")}${s.participant_count ? ` · ${s.participant_count}` : ""}</span>`
+      : "";
+    const checked = this.selected.has(s.id);
     return `
-      <div class="parlance-row" data-sid="${_attr(s.id)}" onclick="navigate('/chats/${_attr(s.id)}')">
+      <div class="parlance-row" data-sid="${_attr(s.id)}" onclick="_activeParlanceView?.rowClick('${_attr(s.id)}')">
+        <span class="parlance-check" data-checked="${checked ? "true" : "false"}"></span>
         <span class="parlance-seal" style="${art}">${isGroup ? PARLANCE_GROUP_ICON : (char?.avatar ? "" : _esc(initial))}</span>
         <div class="parlance-body">
           <div class="parlance-top">
-            <span class="parlance-name">${sessionTitle ? _esc(sessionTitle) : _esc(name)}${s.is_multiplayer ? ` <span class="font-mono" style="font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent);border:1px solid var(--color-accent);border-radius:999px;padding:1px 6px;vertical-align:middle">${t("chat_multiplayer_badge", "Multiplayer")}${s.participant_count ? ` · ${s.participant_count}` : ""}</span>` : ""}</span>
+            <span class="parlance-name">${sessionTitle ? _esc(sessionTitle) : _esc(name)}${multiplayerTag}</span>
             <span class="parlance-time">${_parlanceAgo(s.updated)}</span>
           </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <p class="parlance-preview" style="flex:1;min-width:0">${_esc(preview || t("parlance_no_lines_exchanged"))}</p>
-            ${s.message_count ? `<span class="parlance-time" style="flex:none;font-variant-numeric:tabular-nums">${t("parlance_exchange_count", "{n} exchanges").replace("{n}", Math.floor(s.message_count / 2))}</span>` : ""}
+          <div class="parlance-preview-row">
+            <p class="parlance-preview">${_esc(preview || t("parlance_no_lines_exchanged"))}</p>
+            ${s.message_count ? `<span class="parlance-exchanges" title="${_attr(t("parlance_exchange_count", "{n} exchanges").replace("{n}", exchanges))}">${PARLANCE_EXCHANGE_ICON}${exchanges}</span>` : ""}
           </div>
         </div>
         <button type="button" class="parlance-delete" aria-label="${_attr(t("parlance_delete_conversation_aria"))}" onclick="event.stopPropagation();_activeParlanceView?.confirmDelete('${_attr(s.id)}', '${_attr(jsName)}')">&times;</button>
       </div>
     `;
+  }
+
+  rowClick(sid) {
+    if (this.selectMode) { this.toggleSelect(sid); return; }
+    navigate(`/chats/${sid}`);
   }
 
   confirmDelete(sid, name) {
@@ -220,6 +287,20 @@ class ChatsView {
     }).join("")}</div>`;
   }
 
+  toolbarHtml() {
+    if (!this.selectMode) return "";
+    const count = this.selected.size;
+    return `
+      <div class="parlance-toolbar">
+        <span><b>${count}</b> ${count === 1 ? t("parlance_selected_singular", "selected") : t("parlance_selected_plural", "selected")}</span>
+        <div class="parlance-toolbar-actions">
+          <button type="button" class="parlance-toolbar-btn parlance-toolbar-btn-danger" id="parlanceBulkDelete" ${count ? "" : "disabled"}>${t("parlance_delete")}</button>
+          <button type="button" class="parlance-toolbar-btn parlance-toolbar-btn-link" id="parlanceBulkCancel">${t("parlance_select_mode_cancel", "Cancel")}</button>
+        </div>
+      </div>
+    `;
+  }
+
   render() {
     this.main.innerHTML = `
       ${pageHeaderHtml("Chats", "Overview", t("ph_chats_title"), t("ph_chats_sub"))}
@@ -230,14 +311,22 @@ class ChatsView {
           `).join("")}
           <input type="text" id="parlanceSearch" value="${_attr(this.q)}" placeholder="${this.charFilters.length ? "" : _attr(t("parlance_search_placeholder"))}"
             style="flex:1;min-width:70px;border:none;background:none;outline:none;color:var(--color-ink);font-size:13.5px;padding:4px 0">
+          <button type="button" class="parlance-select-toggle" id="parlanceSelectToggle" aria-label="${_attr(t("parlance_select_conversations", "Select conversations"))}" data-tooltip="${_attr(t("parlance_select_conversations", "Select conversations"))}">${PARLANCE_SELECT_ICON}</button>
           <div id="parlanceSuggest" class="dropdown-menu" style="left:0;right:0;top:calc(100% + 4px)"></div>
         </div>
       ` : ""}
+      ${this.toolbarHtml()}
       ${this.bodyHtml()}
     `;
     this.main.querySelectorAll("[data-remove-char]").forEach((x) => {
       x.onclick = (e) => { e.stopPropagation(); this.removeCharFilter(x.dataset.removeChar); };
     });
+    const selectToggle = this.main.querySelector("#parlanceSelectToggle");
+    if (selectToggle) selectToggle.onclick = () => this.toggleSelectMode();
+    const bulkDeleteBtn = this.main.querySelector("#parlanceBulkDelete");
+    if (bulkDeleteBtn) bulkDeleteBtn.onclick = () => this.confirmBulkDelete();
+    const bulkCancelBtn = this.main.querySelector("#parlanceBulkCancel");
+    if (bulkCancelBtn) bulkCancelBtn.onclick = () => this.toggleSelectMode();
     const search = this.main.querySelector("#parlanceSearch");
     if (search) {
       let searchTimer;

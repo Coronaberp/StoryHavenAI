@@ -41,6 +41,8 @@ async def test_create_link_mode_stores_user_id(db_conn):
 
 
 async def test_purge_expired(db_conn):
+    from sqlalchemy import delete as sa_delete
+    await db._w(sa_delete(db.oauth_pending))
     await db._w(db.insert(db.oauth_pending).values(
         state="stale-state", provider="google", mode="login",
         user_id=None, code_verifier=None, created=time.time() - 600))

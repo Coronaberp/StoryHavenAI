@@ -1,4 +1,3 @@
-"""Lorebook CRUD routes."""
 import os
 import uuid
 
@@ -16,6 +15,8 @@ from backend.media import _save_uploaded_image, _check_upload_size
 from backend.repositories import lore
 from backend.repositories import personas
 from backend.repositories import lore_links
+from backend.repositories import lore_secrets
+from backend.repositories import lore_chunks as lore_chunks_repo
 from backend.schemas import LoreIn, LorePersonaToggleIn, LoreLinksIn, LoreChunkPreviewIn
 from backend.feature_flags import require_feature_enabled
 
@@ -201,6 +202,8 @@ async def delete_lore(lid: str, current_user: dict = Depends(get_current_user)):
     await _require_can_edit(entry, current_user)
     await lore.delete(lid)
     await vectors.delete_lore_vector(lid)
+    await lore_chunks_repo.delete_chunks(lid)
+    await lore_secrets.delete_secrets(lid)
     log.info("lore: deleted id=%s by=%s", lid, current_user["username"])
     return {"deleted": True}
 
@@ -221,6 +224,7 @@ async def set_lore_links(lid: str, body: LoreLinksIn, current_user: dict = Depen
         same_lorebook = target.get("char_id") == entry.get("char_id") or target.get("char_id") is None or entry.get("char_id") is None
         if not same_lorebook:
             raise HTTPException(400, "link target must be in the same lorebook or global")
+        await _require_can_edit(target, current_user)
         links.append({"target_id": item.target_id, "label": item.label})
     await lore_links.set_outgoing_links(lid, links)
     log.info("lore: links set id=%s count=%s by=%s", lid, len(links), current_user["username"])

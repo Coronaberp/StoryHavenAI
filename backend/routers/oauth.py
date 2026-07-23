@@ -14,6 +14,7 @@ from backend.repositories import oauth_providers as provider_repo
 from backend.repositories import oauth_identities as identity_repo
 from backend.repositories import oauth_pending as pending_repo
 from backend.repositories import users as user_repo
+from backend.repositories import webauthn_credentials as webauthn_credential_repo
 from backend.schemas import OauthProvidersPutIn
 
 
@@ -49,6 +50,7 @@ async def admin_put_oauth_providers(body: OauthProvidersPutIn,
 
 
 OAUTH_STATE_TTL_SECONDS = 300
+SUPPORTED_PROTOCOLS = {"oauth2"}
 
 
 @auth_router.get("/oauth/providers")
@@ -56,7 +58,8 @@ async def list_public_oauth_providers():
     rows = await provider_repo.list_enabled()
     return {"providers": [
         {"provider": r["provider"], "label": PROVIDER_REGISTRY[r["provider"]]["label"]}
-        for r in rows if r["provider"] in PROVIDER_REGISTRY]}
+        for r in rows if r["provider"] in PROVIDER_REGISTRY
+        and PROVIDER_REGISTRY[r["provider"]]["protocol"] in SUPPORTED_PROTOCOLS]}
 
 
 def _origin(request: Request) -> str:
@@ -73,6 +76,10 @@ async def _start_oauth_flow(request: Request, provider: str, mode: str,
     entry = PROVIDER_REGISTRY.get(provider)
     if not entry:
         raise HTTPException(404, "Unknown provider")
+    if entry["protocol"] not in SUPPORTED_PROTOCOLS:
+        log.warning("oauth: start refused, protocol not implemented provider=%s protocol=%s",
+                    provider, entry["protocol"])
+        raise HTTPException(404, "Provider not supported")
     configured = await provider_repo.get(provider)
     if not configured or not configured["enabled"] or not configured["client_id"] or not configured["client_secret"]:
         raise HTTPException(404, "Provider not configured")
@@ -106,16 +113,20 @@ async def _exchange_code_for_token(request: Request, provider: str, entry: dict,
                                    code_verifier: str | None) -> str:
     configured = await provider_repo.get(provider)
     data = {
-        "client_id": configured["client_id"],
-        "client_secret": configured["client_secret"],
         "code": code,
         "redirect_uri": _callback_url(request, provider),
         "grant_type": "authorization_code",
     }
+    basic_auth = None
+    if entry.get("token_basic_auth"):
+        basic_auth = (configured["client_id"], configured["client_secret"])
+    else:
+        data["client_id"] = configured["client_id"]
+        data["client_secret"] = configured["client_secret"]
     if code_verifier:
         data["code_verifier"] = code_verifier
     async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.post(entry["token_url"], data=data,
+        resp = await client.post(entry["token_url"], data=data, auth=basic_auth,
                                  headers={"Accept": "application/json"})
         resp.raise_for_status()
         payload = resp.json()
@@ -187,6 +198,10 @@ async def oauth_callback(request: Request, provider: str, code: str, state: str)
             log.warning("oauth: login blocked, account not active provider=%s user=%s",
                         provider, identity["user_id"])
             return RedirectResponse(url=_LOGIN_ERROR_REDIRECT, status_code=302)
+        if user.get("passkey_required"):
+            log.warning("oauth: login blocked, account requires passkey provider=%s user=%s",
+                        provider, identity["user_id"])
+            return RedirectResponse(url=_LOGIN_ERROR_REDIRECT, status_code=302)
     else:
         username = await _free_guest_username()
         random_password = secrets.token_urlsafe(32)
@@ -227,7 +242,8 @@ async def unlink_oauth_identity(iid: str, current_user: dict = Depends(get_curre
     if len(identities) <= 1:
         user = await user_repo.get_user_by_id(current_user["id"])
         has_real_password = bool(user) and user.get("tier") != "guest"
-        if not has_real_password:
+        has_passkey = await webauthn_credential_repo.count_for_user(current_user["id"]) > 0
+        if not has_real_password and not has_passkey:
             log.warning("oauth: unlink blocked, would lock out account user=%s", current_user["id"])
             raise HTTPException(409, "This is your only way to sign in, so set a password before disconnecting it")
     if not await identity_repo.delete(iid, current_user["id"]):

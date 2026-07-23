@@ -1,7 +1,3 @@
-/* Kill every browser-default focus ring on form controls site-wide — this app
-   always signals focus itself via border-color/box-shadow (see grimoire-field-*,
-   pe-gen-btn:focus-visible, etc.), so the native blue ring only ever doubles up
-   on top of our own focus style instead of replacing it. */
 input,
 textarea,
 select {
@@ -248,7 +244,7 @@ select:focus-visible {
   align-items: center;
   gap: 5px;
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-paper-base);
   border-color: transparent;
 }
 .type-chip svg { width: 12px; height: 12px; flex: none; }
@@ -344,29 +340,72 @@ select:focus-visible {
 .parlance-list {
   position: relative;
 }
+.parlance-group-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 4px 10px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--color-line);
+  cursor: pointer;
+  text-align: left;
+}
+.parlance-group-header:hover .parlance-name { color: var(--color-accent-deep); }
+.parlance-group-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--color-line-2), transparent);
+  margin-inline-start: 10px;
+}
 .parlance-group-toggle {
   flex: none;
-  width: 16px;
-  text-align: center;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-line-2);
+  border-radius: 999px;
   font-family: var(--font-mono);
-  font-size: 17px;
+  font-size: 11px;
   line-height: 1;
-  color: var(--color-accent);
+  color: var(--color-muted);
+  transition: transform .15s;
 }
+.parlance-group-header[data-expanded="true"] .parlance-group-toggle { transform: rotate(180deg); }
 .parlance-group-children {
   position: relative;
   border-inline-start: 1px solid var(--color-line);
-  margin-inline-start: 12px;
+  margin-inline-start: 20px;
+  padding-inline-start: 6px;
 }
 .parlance-row {
   position: relative;
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  padding: 14px 30px 14px 34px;
-  border-bottom: 1px solid var(--color-line);
+  padding: 12px 30px 12px 16px;
   cursor: pointer;
+  border-radius: 8px;
 }
+.parlance-row:hover { background: var(--color-surface); }
+.parlance-check {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 13px;
+  border: 1px solid var(--color-line-2);
+  border-radius: 5px;
+  display: none;
+  background: var(--color-surface);
+}
+.parlance-check[data-checked="true"] {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+body.parlance-select-mode .parlance-check { display: block; }
+body.parlance-select-mode .parlance-row .parlance-seal { display: none; }
 .parlance-delete {
   position: absolute;
   top: 12px;
@@ -382,20 +421,12 @@ select:focus-visible {
   cursor: pointer;
   display: grid;
   place-items: center;
+  opacity: 0;
+  transition: opacity .12s;
 }
+.parlance-row:hover .parlance-delete { opacity: 1; }
 .parlance-delete:hover { background: var(--color-surface-2); color: var(--color-ink); }
-.parlance-row:last-child { border-bottom: none; }
-.parlance-row::before {
-  content: "";
-  position: absolute;
-  inset-inline-start: -4.5px;
-  top: 21px;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--color-accent);
-  border: 2px solid var(--color-paper);
-}
+body.parlance-select-mode .parlance-delete { display: none; }
 .parlance-seal {
   flex: none;
   width: 44px;
@@ -406,8 +437,10 @@ select:focus-visible {
   display: grid;
   place-items: center;
   overflow: hidden;
-  border: 1px solid var(--color-line);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, .3);
+  box-shadow:
+    0 0 0 2px var(--color-paper),
+    0 0 0 3px color-mix(in srgb, var(--color-accent) 55%, transparent),
+    inset 0 1px 2px rgba(0, 0, 0, .3);
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 600;
@@ -425,6 +458,9 @@ select:focus-visible {
   font-weight: 600;
   font-size: 14.5px;
   color: var(--color-ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .parlance-time {
   flex: none;
@@ -434,18 +470,106 @@ select:focus-visible {
   text-transform: uppercase;
   color: var(--color-muted);
 }
+.parlance-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
+}
 .parlance-preview {
-  margin: 3px 0 0;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   font-size: 13px;
   font-style: italic;
   color: var(--color-sec);
   line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
+  border-inline-start: 2px solid var(--color-line-2);
+  padding-inline-start: 8px;
 }
+.parlance-exchanges {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+.parlance-exchanges svg { width: 11px; height: 11px; flex: none; }
+.parlance-tag-group,
+.parlance-tag-multiplayer {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  padding: 2px 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.parlance-tag-group {
+  color: var(--color-cmd-purple);
+  border: 1px solid color-mix(in srgb, var(--color-cmd-purple) 55%, transparent);
+  background: color-mix(in srgb, var(--color-cmd-purple) 14%, transparent);
+}
+.parlance-tag-multiplayer {
+  color: var(--color-accent-deep);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+.parlance-tag-group svg,
+.parlance-tag-multiplayer svg { width: 10px; height: 10px; }
+.parlance-select-toggle {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--color-muted);
+  background: none;
+  cursor: pointer;
+}
+.parlance-select-toggle svg { width: 15px; height: 15px; }
+.parlance-select-toggle:hover { color: var(--color-sec); background: var(--color-surface-2); }
+body.parlance-select-mode .parlance-select-toggle {
+  color: var(--color-accent-deep);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-line-2) 55%);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+.parlance-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-warn) 12%, var(--color-surface) 88%);
+  border: 1px solid color-mix(in srgb, var(--color-warn) 40%, var(--color-line-2) 60%);
+  font-size: 12.5px;
+  color: var(--color-sec);
+}
+.parlance-toolbar b { color: var(--color-ink); }
+.parlance-toolbar-actions { display: flex; gap: 8px; }
+.parlance-toolbar-btn {
+  font-family: inherit;
+  font-size: 12px;
+  border: 1px solid var(--color-line-2);
+  background: var(--color-surface-2);
+  color: var(--color-sec);
+  padding: 5px 11px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.parlance-toolbar-btn-danger { border-color: var(--color-warn); color: var(--color-warn); }
+.parlance-toolbar-btn-link { border: none; background: none; color: var(--color-muted); text-decoration: underline; padding: 5px 4px; }
 .parlance-empty {
   text-align: center;
   padding: 48px 16px;
@@ -827,14 +951,14 @@ html[data-censor="1"] [data-explicit="1"] {
   white-space: nowrap;
 }
 .ig-tag-pos {
-  color: #4caf6d;
-  border: 1px solid color-mix(in srgb, #4caf6d 40%, transparent);
-  background: color-mix(in srgb, #4caf6d 16%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 40%, transparent);
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
 }
 .ig-tag-neg {
-  color: #e05a5a;
-  border: 1px solid color-mix(in srgb, #e05a5a 40%, transparent);
-  background: color-mix(in srgb, #e05a5a 16%, transparent);
+  color: var(--color-warn);
+  border: 1px solid color-mix(in srgb, var(--color-warn) 40%, transparent);
+  background: color-mix(in srgb, var(--color-warn) 16%, transparent);
 }
 .ig-placard {
   display: grid;
@@ -1742,7 +1866,7 @@ html.chrome-hidden .rail-tools {
   box-shadow: 0 8px 24px -10px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .08);
 }
 #chatStage ~ #chatThread .chat-turn.you .chat-bubble {
-  border: 1px solid rgba(227, 189, 108, .4);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
   background: linear-gradient(150deg, color-mix(in srgb, var(--color-accent) 55%, transparent), color-mix(in srgb, var(--color-accent-deep) 30%, transparent));
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
@@ -1765,7 +1889,7 @@ html.chrome-hidden .rail-tools {
   border-radius: 16px 16px 16px 4px;
 }
 .chat-stage-glass .chat-turn.you .chat-bubble {
-  border: 1px solid rgba(227, 189, 108, .4);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
   background: linear-gradient(150deg, color-mix(in srgb, var(--color-accent) 55%, transparent), color-mix(in srgb, var(--color-accent-deep) 30%, transparent));
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
@@ -1890,9 +2014,7 @@ html.chrome-hidden .rail-tools {
 
 .cmd-break { display: flex; align-items: center; gap: 12px; margin: 12px auto 14px; max-width: 92%; }
 .cmd-break-lbl { flex: none; font-family: var(--font-display); font-style: italic; font-size: 13px; color: var(--color-accent-deep, var(--color-accent)); white-space: nowrap; }
-/* Scene: delicate dotted lines */
 .cmd-break-scene .cmd-break-ln { flex: 1; height: 0; border-top: 2px dotted color-mix(in srgb, var(--color-accent) 60%, transparent); }
-/* Time: a bold solid rule */
 .cmd-break-time .cmd-break-ln { flex: 1; min-height: 3px; height: 3px; border-radius: 2px; background: var(--color-accent); opacity: .7; }
 .cmd-break-time .cmd-break-lbl { font-size: 11.5px; color: var(--color-sec); font-style: normal; font-family: var(--font-mono); letter-spacing: .06em; text-transform: uppercase; font-weight: 600; }
 
@@ -2351,7 +2473,6 @@ html[data-nsfw="1"][data-censor="0"] .comment-explicit-img { filter: none; }
   object-fit: contain;
 }
 
-/* === Unified comment rows (row style A) === */
 .comment-list { display: flex; flex-direction: column; }
 .comment-row {
   display: flex;
@@ -2409,10 +2530,6 @@ html[data-nsfw="1"][data-censor="0"] .comment-explicit-img { filter: none; }
 .comment-icon-btn:hover { background: var(--color-surface-2); color: var(--color-sec); }
 .comment-icon-btn svg { width: 14px; height: 14px; display: block; }
 
-/* Super reaction: bigger pill, gradient sweep between the reacted emoji's
-   own dominant/least-dominant color (computed client-side, see comments.js
-   extractEmojiColors). The emoji sits in a glassmorphic coin so it stays
-   legible no matter what color the gradient behind the count is doing. */
 .comment-reaction-super {
   display: inline-flex; align-items: center; gap: 7px;
   font-family: var(--font-mono); font-weight: 700; font-size: 14.5px;
@@ -2450,7 +2567,6 @@ html[data-nsfw="1"][data-censor="0"] .comment-explicit-img { filter: none; }
   .comment-reaction-super, .comment-reaction-super::after { animation: none !important; }
 }
 
-/* Composer pill */
 .comment-composer { display: flex; gap: 10px; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-line); }
 .comment-composer-pill {
   flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0;
@@ -2479,7 +2595,6 @@ html[data-nsfw="1"][data-censor="0"] .comment-explicit-img { filter: none; }
 .comment-composer-send svg { width: 16px; height: 16px; }
 .comment-composer-send:disabled { opacity: .5; cursor: default; }
 
-/* GIF/Sticker/Emoji tri-tab picker - deliberately neutral, not glass */
 .comment-media-panel {
   margin-top: 8px; width: 100%; max-width: 100%;
   border: 1px solid var(--color-line); border-radius: 14px; background: var(--color-surface); overflow: hidden;
@@ -2711,7 +2826,6 @@ html[data-nsfw="1"][data-censor="0"] .comment-explicit-img { filter: none; }
   cursor: not-allowed;
 }
 
-/* group chat: dialogue -> bubble, action -> centered narrator prose, inline command cards */
 .grp-narr { align-self: center; max-width: 90%; text-align: center; font-family: var(--font-display); font-style: italic; color: var(--color-sec); font-size: 13px; line-height: 1.55; padding: 4px 20px; margin: 2px auto; }
 .grp-narr .sym-body, .grp-narr p { display: inline; margin: 0; }
 .grp-narr-who { font-style: normal; font-weight: 600; }
