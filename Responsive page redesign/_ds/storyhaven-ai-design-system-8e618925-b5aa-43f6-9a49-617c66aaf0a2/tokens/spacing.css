@@ -1,0 +1,40 @@
+/* StoryHaven AI — spacing, radii, shadows
+   The product is built on a loose ~4px rhythm with deliberately non-snapped
+   values (e.g. 11px, 9px, 14px paddings). Radii cluster around a 10px base
+   (--r) with cards a touch rounder (12–16px). Shadows are soft, warm-tinted,
+   and low-spread — never harsh. */
+:root {
+  /* radii */
+  --r: 10px;          /* base — buttons, inputs, rows */
+  --r-sm: 7px;        /* chips, small pills */
+  --r-card: 14px;     /* cards */
+  --r-lg: 16px;       /* modals, hero, large cards */
+  --r-pill: 999px;    /* fully-round pills / tags */
+
+  /* spacing scale (used ad hoc across the app) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 26px;
+  --sp-7: 40px;
+
+  /* layout */
+  --wrap-max: 1600px;   /* main content cap */
+  --rail-w: 250px;      /* sidebar width */
+  --thread-max: 720px;  /* chat column cap */
+
+  /* shadows — soft, warm, low-spread */
+  --shadow-card: 0 1px 2px rgba(0,0,0,.2);
+  --shadow-pop: 0 14px 32px -12px rgba(0,0,0,.5);
+  --shadow-modal: 0 24px 60px -20px var(--violet-soft);
+  --shadow-hover: 0 8px 24px -14px var(--violet);
+  --focus-ring: 0 0 0 3px var(--accent-soft);
+
+  /* motion */
+  --ease: cubic-bezier(.2,.7,.3,1); /* @kind other */
+  --dur-fast: .12s; /* @kind other */
+  --dur: .15s; /* @kind other */
+  --dur-slow: .22s; /* @kind other */
+}

@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StoryHaven AI: Brand Color Template System</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    }
+
+    body {
+      background: #0C0C0E;
+      color: #F3EFE4;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    body[data-theme="light"] {
+      background: #FAF7F0;
+      color: #1C1B17;
+    }
+
+    .theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #141416;
+      border: 1px solid #2A2A2E;
+      color: #F3EFE4;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      z-index: 100;
+    }
+
+    body[data-theme="light"] .theme-toggle {
+      background: #FBF8F2;
+      border-color: #EAE3D2;
+      color: #1C1B17;
+    }
+
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 20px 0;
+    }
+
+    h1 {
+      font-size: 2.2em;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #C9C0AC;
+      margin-bottom: 32px;
+      font-size: 15px;
+    }
+
+    body[data-theme="light"] .subtitle {
+      color: #5C574A;
+    }
+
+    .theme-section {
+      margin-bottom: 56px;
+    }
+
+    .theme-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 2px solid #2A2A2E;
+    }
+
+    body[data-theme="light"] .theme-header {
+      border-bottom-color: #EAE3D2;
+    }
+
+    .theme-swatch {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+
+    body[data-theme="light"] .theme-swatch {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .theme-name {
+      font-size: 1.5em;
+      font-weight: 700;
+      flex: 1;
+    }
+
+    .theme-desc {
+      font-size: 13px;
+      opacity: 0.6;
+    }
+
+    .color-families {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    .family-card {
+      background: #141416;
+      border: 1px solid #2A2A2E;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    body[data-theme="light"] .family-card {
+      background: #FBF8F2;
+      border-color: #EAE3D2;
+    }
+
+    .family-header {
+      padding: 16px;
+      border-bottom: 1px solid #2A2A2E;
+    }
+
+    body[data-theme="light"] .family-header {
+      border-bottom-color: #EAE3D2;
+    }
+
+    .family-title {
+      font-weight: 700;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .family-desc {
+      font-size: 12px;
+      opacity: 0.6;
+    }
+
+    .color-variants {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .color-swatch-row {
+      display: flex;
+      height: 60px;
+      align-items: stretch;
+      border-bottom: 1px solid #2A2A2E;
+    }
+
+    body[data-theme="light"] .color-swatch-row {
+      border-bottom-color: #EAE3D2;
+    }
+
+    .color-swatch-row:last-child {
+      border-bottom: none;
+    }
+
+    .color-box {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: white;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .color-box:hover {
+      flex: 1.2;
+    }
+
+    .color-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      opacity: 0.7;
+    }
+
+    .color-value {
+      font-family: 'Courier New', monospace;
+      font-size: 9px;
+      opacity: 0.9;
+    }
+
+    .tooltip {
+      position: absolute;
+      background: #1A1A1D;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      pointer-events: none;
+      z-index: 1000;
+      white-space: nowrap;
+      display: none;
+    }
+
+    body[data-theme="light"] .tooltip {
+      background: #F5F1E6;
+      color: #1C1B17;
+    }
+
+    /* Presets Colors */
+    .aurum-p { background: #E3BD6C; }
+    .aurum-pd { background: #B8892B; }
+    .aurum-pl { background: #F2CE87; }
+    .aurum-s { background: #A1514A; }
+    .aurum-sd { background: #7A3C35; }
+    .aurum-sl { background: #C66B60; }
+    .aurum-t { background: #6C5B4F; }
+    .aurum-td { background: #4A3D33; }
+    .aurum-tl { background: #8B7A6E; }
+
+    .azure-p { background: #4fb6ff; }
+    .azure-pd { background: #1f6feb; }
+    .azure-pl { background: #79c0ff; }
+    .azure-s { background: #1f9e78; }
+    .azure-sd { background: #0a6e5f; }
+    .azure-sl { background: #3dd5c3; }
+    .azure-t { background: #52a0d0; }
+    .azure-td { background: #1e7e9f; }
+    .azure-tl { background: #7dbef0; }
+
+    .crimson-p { background: #e2493d; }
+    .crimson-pd { background: #a02622; }
+    .crimson-pl { background: #f85149; }
+    .crimson-s { background: #1a7f37; }
+    .crimson-sd { background: #044e1f; }
+    .crimson-sl { background: #3fb950; }
+    .crimson-t { background: #bf3989; }
+    .crimson-td { background: #861160; }
+    .crimson-tl { background: #e85aad; }
+
+    .verdant-p { background: #3ecf8e; }
+    .verdant-pd { background: #238636; }
+    .verdant-pl { background: #56d364; }
+    .verdant-s { background: #d4a574; }
+    .verdant-sd { background: #b8860b; }
+    .verdant-sl { background: #e8b55a; }
+    .verdant-t { background: #4a9e5d; }
+    .verdant-td { background: #2d7449; }
+    .verdant-tl { background: #6dde5f; }
+
+    .amethyst-p { background: #a675e0; }
+    .amethyst-pd { background: #7c3aed; }
+    .amethyst-pl { background: #c4b5fd; }
+    .amethyst-s { background: #f59e0b; }
+    .amethyst-sd { background: #d97706; }
+    .amethyst-sl { background: #fbbf24; }
+    .amethyst-t { background: #8b5cf6; }
+    .amethyst-td { background: #6d28d9; }
+    .amethyst-tl { background: #d8b4fe; }
+
+    .rose-p { background: #e07ba0; }
+    .rose-pd { background: #c2185b; }
+    .rose-pl { background: #f472b6; }
+    .rose-s { background: #7c7cfc; }
+    .rose-sd { background: #4c1d95; }
+    .rose-sl { background: #a78bfa; }
+    .rose-t { background: #db4c8f; }
+    .rose-td { background: #831843; }
+    .rose-tl { background: #fb7185; }
+
+    .components-section {
+      background: #141416;
+      border: 1px solid #2A2A2E;
+      border-radius: 12px;
+      padding: 24px;
+      margin-top: 32px;
+    }
+
+    body[data-theme="light"] .components-section {
+      background: #FBF8F2;
+      border-color: #EAE3D2;
+    }
+
+    .components-title {
+      font-weight: 700;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+    }
+
+    .button-demo {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .btn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: white;
+    }
+
+    .btn:hover {
+      opacity: 0.85;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .btn.primary { background: #E3BD6C; color: #0C0C0E; }
+    .btn.secondary { background: #A1514A; }
+    .btn.tertiary { background: #6C5B4F; }
+
+    .footer {
+      margin-top: 60px;
+      padding-top: 20px;
+      border-top: 1px solid #2A2A2E;
+      color: #8E876F;
+      font-size: 12px;
+      text-align: center;
+    }
+
+    body[data-theme="light"] .footer {
+      border-top-color: #EAE3D2;
+      color: #948D79;
+    }
+  </style>
+</head>
+<body>
+  <button class="theme-toggle" onclick="toggleTheme()">Switch to <span id="theme-name">Light</span> Mode</button>
+
+  <div class="container">
+    <h1>🎨 StoryHaven Brand Color Template System</h1>
+    <p class="subtitle">6 Presets × 3 Brand Color Families × 3 States = Professional Design System</p>
+
+    <!-- AURUM -->
+    <div class="theme-section">
+      <div class="theme-header">
+        <div class="theme-swatch aurum-p"></div>
+        <div>
+          <div class="theme-name">Aurum (Default)</div>
+          <div class="theme-desc">Warm gold, nostalgic, literary storytelling</div>
+        </div>
+      </div>
+      <div class="color-families">
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Primary Brand</div>
+            <div class="family-desc">Main CTAs, primary buttons, focus states</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box aurum-pl" title="Light/Hover">
+                <div>
+                  <div class="color-label">Light</div>
+                  <div class="color-value">#F2CE87</div>
+                </div>
+              </div>
+              <div class="color-box aurum-p" title="Base">
+                <div>
+                  <div class="color-label">Base</div>
+                  <div class="color-value">#E3BD6C</div>
+                </div>
+              </div>
+              <div class="color-box aurum-pd" title="Dark/Pressed">
+                <div>
+                  <div class="color-label">Dark</div>
+                  <div class="color-value">#B8892B</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Secondary Brand</div>
+            <div class="family-desc">Secondary buttons, accents</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box aurum-sl" title="Light/Hover">
+                <div>
+                  <div class="color-label">Light</div>
+                  <div class="color-value">#C66B60</div>
+                </div>
+              </div>
+              <div class="color-box aurum-s" title="Base">
+                <div>
+                  <div class="color-label">Base</div>
+                  <div class="color-value">#A1514A</div>
+                </div>
+              </div>
+              <div class="color-box aurum-sd" title="Dark/Pressed">
+                <div>
+                  <div class="color-label">Dark</div>
+                  <div class="color-value">#7A3C35</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Tertiary Brand</div>
+            <div class="family-desc">Depth, layering, visual interest</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box aurum-tl" title="Light/Hover">
+                <div>
+                  <div class="color-label">Light</div>
+                  <div class="color-value">#8B7A6E</div>
+                </div>
+              </div>
+              <div class="color-box aurum-t" title="Base">
+                <div>
+                  <div class="color-label">Base</div>
+                  <div class="color-value">#6C5B4F</div>
+                </div>
+              </div>
+              <div class="color-box aurum-td" title="Dark/Pressed">
+                <div>
+                  <div class="color-label">Dark</div>
+                  <div class="color-value">#4A3D33</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AZURE -->
+    <div class="theme-section">
+      <div class="theme-header">
+        <div class="theme-swatch azure-p"></div>
+        <div>
+          <div class="theme-name">Azure Depths</div>
+          <div class="theme-desc">Cool blue, technical, precise, calm</div>
+        </div>
+      </div>
+      <div class="color-families">
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Primary Brand</div>
+            <div class="family-desc">Main CTAs, primary buttons</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box azure-pl"><div><div class="color-label">Light</div><div class="color-value">#79c0ff</div></div></div>
+              <div class="color-box azure-p"><div><div class="color-label">Base</div><div class="color-value">#4fb6ff</div></div></div>
+              <div class="color-box azure-pd"><div><div class="color-label">Dark</div><div class="color-value">#1f6feb</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Secondary Brand</div>
+            <div class="family-desc">Secondary buttons, accents</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box azure-sl"><div><div class="color-label">Light</div><div class="color-value">#3dd5c3</div></div></div>
+              <div class="color-box azure-s"><div><div class="color-label">Base</div><div class="color-value">#1f9e78</div></div></div>
+              <div class="color-box azure-sd"><div><div class="color-label">Dark</div><div class="color-value">#0a6e5f</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Tertiary Brand</div>
+            <div class="family-desc">Depth, layering</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box azure-tl"><div><div class="color-label">Light</div><div class="color-value">#7dbef0</div></div></div>
+              <div class="color-box azure-t"><div><div class="color-label">Base</div><div class="color-value">#52a0d0</div></div></div>
+              <div class="color-box azure-td"><div><div class="color-label">Dark</div><div class="color-value">#1e7e9f</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CRIMSON -->
+    <div class="theme-section">
+      <div class="theme-header">
+        <div class="theme-swatch crimson-p"></div>
+        <div>
+          <div class="theme-name">Crimson</div>
+          <div class="theme-desc">Deep red, passionate, dramatic, intense</div>
+        </div>
+      </div>
+      <div class="color-families">
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Primary Brand</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box crimson-pl"><div><div class="color-label">Light</div><div class="color-value">#f85149</div></div></div>
+              <div class="color-box crimson-p"><div><div class="color-label">Base</div><div class="color-value">#e2493d</div></div></div>
+              <div class="color-box crimson-pd"><div><div class="color-label">Dark</div><div class="color-value">#a02622</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Secondary Brand</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box crimson-sl"><div><div class="color-label">Light</div><div class="color-value">#3fb950</div></div></div>
+              <div class="color-box crimson-s"><div><div class="color-label">Base</div><div class="color-value">#1a7f37</div></div></div>
+              <div class="color-box crimson-sd"><div><div class="color-label">Dark</div><div class="color-value">#044e1f</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Tertiary Brand</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box crimson-tl"><div><div class="color-label">Light</div><div class="color-value">#e85aad</div></div></div>
+              <div class="color-box crimson-t"><div><div class="color-label">Base</div><div class="color-value">#bf3989</div></div></div>
+              <div class="color-box crimson-td"><div><div class="color-label">Dark</div><div class="color-value">#861160</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VERDANT -->
+    <div class="theme-section">
+      <div class="theme-header">
+        <div class="theme-swatch verdant-p"></div>
+        <div>
+          <div class="theme-name">Verdant</div>
+          <div class="theme-desc">Fresh green, natural, grounded, organic</div>
+        </div>
+      </div>
+      <div class="color-families">
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Primary Brand</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box verdant-pl"><div><div class="color-label">Light</div><div class="color-value">#56d364</div></div></div>
+              <div class="color-box verdant-p"><div><div class="color-label">Base</div><div class="color-value">#3ecf8e</div></div></div>
+              <div class="color-box verdant-pd"><div><div class="color-label">Dark</div><div class="color-value">#238636</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Secondary Brand</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box verdant-sl"><div><div class="color-label">Light</div><div class="color-value">#e8b55a</div></div></div>
+              <div class="color-box verdant-s"><div><div class="color-label">Base</div><div class="color-value">#d4a574</div></div></div>
+              <div class="color-box verdant-sd"><div><div class="color-label">Dark</div><div class="color-value">#b8860b</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Tertiary Brand</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box verdant-tl"><div><div class="color-label">Light</div><div class="color-value">#6dde5f</div></div></div>
+              <div class="color-box verdant-t"><div><div class="color-label">Base</div><div class="color-value">#4a9e5d</div></div></div>
+              <div class="color-box verdant-td"><div><div class="color-label">Dark</div><div class="color-value">#2d7449</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AMETHYST -->
+    <div class="theme-section">
+      <div class="theme-header">
+        <div class="theme-swatch amethyst-p"></div>
+        <div>
+          <div class="theme-name">Amethyst</div>
+          <div class="theme-desc">Purple, mystical, introspective, otherworldly</div>
+        </div>
+      </div>
+      <div class="color-families">
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Primary Brand</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box amethyst-pl"><div><div class="color-label">Light</div><div class="color-value">#c4b5fd</div></div></div>
+              <div class="color-box amethyst-p"><div><div class="color-label">Base</div><div class="color-value">#a675e0</div></div></div>
+              <div class="color-box amethyst-pd"><div><div class="color-label">Dark</div><div class="color-value">#7c3aed</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Secondary Brand</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box amethyst-sl"><div><div class="color-label">Light</div><div class="color-value">#fbbf24</div></div></div>
+              <div class="color-box amethyst-s"><div><div class="color-label">Base</div><div class="color-value">#f59e0b</div></div></div>
+              <div class="color-box amethyst-sd"><div><div class="color-label">Dark</div><div class="color-value">#d97706</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Tertiary Brand</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box amethyst-tl"><div><div class="color-label">Light</div><div class="color-value">#d8b4fe</div></div></div>
+              <div class="color-box amethyst-t"><div><div class="color-label">Base</div><div class="color-value">#8b5cf6</div></div></div>
+              <div class="color-box amethyst-td"><div><div class="color-label">Dark</div><div class="color-value">#6d28d9</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROSE -->
+    <div class="theme-section">
+      <div class="theme-header">
+        <div class="theme-swatch rose-p"></div>
+        <div>
+          <div class="theme-name">Rose Quartz</div>
+          <div class="theme-desc">Pink/mauve, romantic, soft, dreamy</div>
+        </div>
+      </div>
+      <div class="color-families">
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Primary Brand</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box rose-pl"><div><div class="color-label">Light</div><div class="color-value">#f472b6</div></div></div>
+              <div class="color-box rose-p"><div><div class="color-label">Base</div><div class="color-value">#e07ba0</div></div></div>
+              <div class="color-box rose-pd"><div><div class="color-label">Dark</div><div class="color-value">#c2185b</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Secondary Brand</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box rose-sl"><div><div class="color-label">Light</div><div class="color-value">#a78bfa</div></div></div>
+              <div class="color-box rose-s"><div><div class="color-label">Base</div><div class="color-value">#7c7cfc</div></div></div>
+              <div class="color-box rose-sd"><div><div class="color-label">Dark</div><div class="color-value">#4c1d95</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="family-card">
+          <div class="family-header">
+            <div class="family-title">Tertiary Brand</div>
+          </div>
+          <div class="color-variants">
+            <div class="color-swatch-row">
+              <div class="color-box rose-tl"><div><div class="color-label">Light</div><div class="color-value">#fb7185</div></div></div>
+              <div class="color-box rose-t"><div><div class="color-label">Base</div><div class="color-value">#db4c8f</div></div></div>
+              <div class="color-box rose-td"><div><div class="color-label">Dark</div><div class="color-value">#831843</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Component Usage -->
+    <div class="components-section">
+      <div class="components-title">Component Usage Example (Aurum Preset)</div>
+      <div class="button-demo">
+        <button class="btn primary">Primary CTA</button>
+        <button class="btn secondary">Secondary Action</button>
+        <button class="btn tertiary">Tertiary Accent</button>
+      </div>
+      <div style="font-size: 13px; line-height: 1.6; opacity: 0.8;">
+        <strong>Primary Brand:</strong> Main buttons, active navigation, focus states, key interactions<br>
+        <strong>Secondary Brand:</strong> Supporting buttons, secondary accents, secondary actions<br>
+        <strong>Tertiary Brand:</strong> Depth elements, layering, decorative accents, visual hierarchy
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>💡 3 brand color families × 3 color states (light/base/dark) × 6 presets × 2 themes = 108 professional color combinations</p>
+      <p style="margin-top: 8px; opacity: 0.7;">Each family has light (hover), base (normal), and dark (pressed) states for interactive feedback</p>
+    </div>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme');
+      const newTheme = current === 'light' ? '' : 'light';
+      html.setAttribute('data-theme', newTheme);
+      document.getElementById('theme-name').textContent = newTheme === 'light' ? 'Dark' : 'Light';
+      localStorage.setItem('sh-brand-theme', newTheme);
+    }
+
+    const saved = localStorage.getItem('sh-brand-theme');
+    if (saved) {
+      document.documentElement.setAttribute('data-theme', saved);
+      document.getElementById('theme-name').textContent = saved === 'light' ? 'Dark' : 'Light';
+    }
+  </script>
+</body>
+</html>

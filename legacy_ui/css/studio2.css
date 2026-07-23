@@ -1,0 +1,461 @@
+  #imagesMyCreationsBtn svg,#imagesPastJobsBtn svg{width:15px;height:15px;flex:none;}
+  .ig-sec-body{padding:0 0 8px;}
+  .ig-sec.collapsed .ig-sec-body{display:none;}
+  .ig-panel textarea.ig-autosize{min-height:32px;padding:8px 10px;}
+  .ig-panel .actions{margin-top:2px;}
+  .ig-preview-pane{display:flex;flex-direction:column;}
+  .ig-preview-pane .ig-unsaved-warning{margin-bottom:10px;}
+  .ig-preview-empty .ig-preview-box{display:flex;align-items:center;justify-content:center;min-height:160px;}
+  .ig-preview-empty .ig-preview-box img{display:none;}
+  .ig-preview-empty .ig-preview-box::before{content:"—";color:var(--muted);font-size:22px;}
+  @media (max-width:1240px){ .ig-layout{grid-template-columns:1fr 1fr;} .ig-feed{grid-column:1/3;max-height:none;position:static;} }
+  /* Below this width the three columns stack into one, full-width column.
+     The compact sizing above (small labels/padding/tiles) was tuned for a
+     narrow sidebar-width column sitting next to two others — stacked at
+     full phone width that same sizing reads as squished, so give every
+     control back its normal (non-sidebar) size here: bigger tap targets,
+     legible label/text sizes, a properly-sized preview image. */
+  @media (max-width:820px){
+    .ig-layout{grid-template-columns:1fr;gap:16px;}
+    .ig-panel,.ig-preview-pane,.ig-feed{position:static;max-height:none;padding:16px;}
+    .ig-feed{grid-column:auto;}
+    .ig-panel-title{font-size:17px;margin-bottom:12px;}
+    .ig-panel .field{margin-bottom:14px;}
+    .ig-panel .field label{font-size:12.5px;margin-bottom:6px;}
+    .ig-panel textarea.ig-autosize{min-height:44px;padding:11px 13px;font-size:15px;}
+    .ig-model-summary{padding:10px;gap:10px;margin-bottom:10px;}
+    .ig-tile-thumb{width:32px;height:32px;font-size:14px;}
+    .ig-tile-thumb.lg{width:42px;height:42px;font-size:17px;}
+    .ig-tile-thumb.sm{width:26px;height:26px;font-size:12px;border-radius:6px;}
+    .ig-model-summary-txt b{font-size:15px;}
+    .ig-model-summary-txt span{font-size:13px;}
+    .ig-grid{gap:8px;}
+    .ig-grid-tile{padding:9px 6px;gap:5px;}
+    .ig-grid-tile .ig-tile-name{font-size:12px;}
+    .ig-show-more{font-size:13px;padding:8px;}
+    .ig-ratio-btn{min-width:46px;padding:8px 7px;font-size:11px;}
+    .ig-res-btn{padding:8px 15px;font-size:13.5px;}
+    .ig-res-dims{font-size:12.5px;}
+    .ig-lora-strength{padding:6px 2px 0;}
+    .ig-preview-pane .ig-panel-title{margin-bottom:10px;}
+    .ig-preview-box{max-width:100%;}
+    .ig-preview-empty .ig-preview-box{min-height:220px;}
+  }
+  .ig-masonry{column-count:4;column-gap:14px;}
+  @media (max-width:1200px){ .ig-masonry{column-count:3;} }
+  @media (max-width:820px){ .ig-masonry{column-count:2;} }
+  @media (max-width:460px){ .ig-masonry{column-count:1;} }
+  /* My Creations panel: a real CSS grid (not column-count) — with few saved
+     images, multi-column layout only fills the first column and leaves the
+     rest of the row blank, which is exactly the dead space this replaces.
+     Fixed 3-per-row, small compact thumbnails. */
+  .ig-creations-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  @media (max-width:460px){ .ig-creations-grid{grid-template-columns:repeat(2,1fr);} }
+  /* Chat Gallery lives in the full-width page body (not the narrow sidebar
+     My Creations sits in), so a fixed 3-column count would render huge
+     tiles there. auto-fill/minmax keeps each thumbnail the same small,
+     dense size as My Creations regardless of how wide the container is. */
+  .ig-chatgallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;}
+  .ig-creations-grid .ig-mcard,.ig-chatgallery-grid .ig-mcard{margin-bottom:0;border-radius:8px;}
+  .ig-creations-grid .ig-mthumb,.ig-chatgallery-grid .ig-mthumb{aspect-ratio:1/1;}
+  .ig-creations-grid .ig-mthumb img,.ig-chatgallery-grid .ig-mthumb img{width:100%;height:100%;object-fit:cover;}
+  .ig-chatgallery-grid .gallery-scene{font-size:10px;padding:5px 6px 0;-webkit-line-clamp:2;}
+  /* Always visible — not hover-revealed, so share/delete work on touch
+     devices (which have no hover state) exactly like this app's other
+     card tools (character library cards, chat gallery, etc). */
+  .ig-creations-grid .ig-mcard-tools,.ig-chatgallery-grid .ig-mcard-tools{padding:4px 5px;gap:4px;}
+  .ig-creations-grid .ig-mcard-tools .tool,.ig-chatgallery-grid .ig-mcard-tools .tool{font-size:10px;padding:2px 5px;}
+  .ig-creations-grid .ig-shared-badge{top:4px;right:4px;left:auto;padding:2px 4px;font-size:8px;}
+  .ig-mcard{break-inside:avoid;margin-bottom:14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;transition:.15s;}
+  .ig-mcard:hover{border-color:var(--accent);}
+  .ig-mthumb{display:block;position:relative;cursor:pointer;overflow:hidden;background:var(--surface-3,var(--surface));}
+  .ig-mthumb img{display:block;width:100%;height:auto;}
+  .ig-shared-badge{position:absolute;top:8px;right:8px;left:auto;display:inline-flex;align-items:center;line-height:1;background:var(--accent);color:var(--gold-ink);font-size:10px;letter-spacing:.05em;text-transform:uppercase;padding:3px 7px;border-radius:6px;font-family:var(--mono);}
+  .rating-badge{position:absolute;top:8px;left:8px;z-index:2;display:inline-flex;align-items:center;line-height:1;background:color-mix(in srgb, var(--accent) 55%, transparent);border:1px solid color-mix(in srgb, var(--accent) 40%, transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#111;font-size:10px;letter-spacing:.05em;font-weight:700;padding:3px 7px;border-radius:6px;font-family:var(--mono);pointer-events:none;}
+  :root[data-theme="light"] .rating-badge{color:#111;background:color-mix(in srgb, var(--accent) 55%, #e9c979);border-color:color-mix(in srgb, var(--accent) 55%, transparent);}
+  :root[data-theme="dark"] .rating-badge{color:#111;}
+  .ig-creations-grid .rating-badge,.ig-chatgallery-grid .rating-badge{top:4px;left:4px;padding:2px 4px;font-size:8px;}
+  .rating-detail-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0 12px;position:relative;}
+  .rating-detail-row .rating-badge{position:static;top:auto;left:auto;}
+  .rating-detail-text{font-size:12.5px;color:var(--sec);}
+  .rating-detail-disc{color:var(--muted);font-size:11.5px;}
+  .rating-report-btn{margin-left:auto;}
+  .adash-report-thumb{width:52px;height:52px;object-fit:cover;border-radius:6px;flex:none;margin-right:4px;}
+  .air-modal{display:flex;flex-direction:column;align-items:center;}
+  .air-img{width:100%;max-height:60vh;display:flex;justify-content:center;overflow:hidden;border-radius:8px;}
+  .air-img img{max-width:100%;max-height:60vh;object-fit:contain;border-radius:8px;}
+  .air-buttons{display:flex;gap:12px;justify-content:center;width:100%;}
+  .air-buttons .btn{min-width:120px;}
+  .ig-mcard-tools{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;}
+  .ig-mcard-tools .tool{display:inline-flex;align-items:center;justify-content:center;}
+  .ig-mcard-tools .tool svg{width:15px;height:15px;flex:none;}
+  .ig-mcard-owner{display:flex;align-items:center;gap:7px;padding:8px 10px;font-size:12px;color:var(--sec);}
+  .ig-owner-ava{width:22px;height:22px;border-radius:50%;object-fit:cover;flex:none;}
+  .ig-detail-owner{display:flex;align-items:center;gap:8px;margin:4px 0 12px;font-size:13px;color:var(--sec);text-decoration:none;}
+  a.ig-detail-owner{cursor:pointer;width:fit-content;}
+  a.ig-detail-owner:hover{color:var(--accent);}
+  .ig-gen-info{margin-top:12px;padding-top:10px;border-top:1px solid var(--line-2);display:flex;flex-direction:column;gap:4px;}
+  .ig-gen-info-row{font-size:12px;color:var(--sec);}
+  .ig-gen-info-label{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:5px;}
+
+  /* generation panel: model/LoRA thumbnail grids, aspect + resolution controls.
+     Pixiv-style: a 2×3 grid of the first 6 items, with a "Show more" toggle
+     revealing the rest — collapsed by default so the panel stays compact
+     enough to fit without page-level scroll even with many installed
+     checkpoints/LoRAs. */
+  .ig-model-summary{display:flex;align-items:center;gap:10px;padding:10px;background:var(--accent-soft);border:1px solid var(--line-2);border-radius:10px;margin-bottom:8px;}
+  .ig-model-summary .ig-model-thumb{width:44px;height:44px;flex:none;font-size:18px;aspect-ratio:auto;}
+  .ig-model-summary-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .ig-model-summary-txt b{font-size:14.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ig-model-summary-txt span{font-size:12.5px;color:var(--muted);}
+  /* Per-selected-LoRA summary in the picker grid — identical thumb+bold-name+
+     type+desc structure as the checkpoint picker's single summary header
+     (same .ig-model-summary base), just always shown once selected (not only
+     when a description happens to be set) with two additions: the
+     description clamps to one line with an ellipsis since this repeats per
+     selected tile rather than appearing once at the top of the whole grid,
+     and this LoRA's trigger/activation keywords render as pills underneath. */
+  .ig-lora-summaries{display:flex;flex-direction:column;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line-2);}
+  .ig-lora-summary{align-items:flex-start;margin:0;}
+  .ig-lora-summary-desc{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;white-space:normal;}
+  .ig-lora-summary-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .ig-lora-summary-tags .tag{font-size:13px;padding:4px 11px;}
+  .ig-tile-thumb{width:28px;height:28px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;}
+  .ig-tile-thumb.lg{width:36px;height:36px;font-size:15px;}
+  .ig-tile-thumb.sm{width:20px;height:20px;font-size:11px;border-radius:5px;}
+  /* 3×2 grid (6 tiles) matching pix.ai's model-picker proportions exactly —
+     3 columns wide, square tiles dominated by the thumbnail image. */
+  .ig-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+  /* min-width:0 is required on a flex/grid item for its text child's
+     ellipsis/nowrap truncation to respect the column width instead of
+     forcing the whole grid to overflow horizontally to fit the untruncated
+     text — this is what was breaking the 3-column grid on both desktop and
+     mobile (long checkpoint filenames pushed columns wider than 1fr). */
+  .ig-grid-tile{display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;padding:7px 4px;background:var(--surface);border:1px solid var(--line-2);border-radius:8px;transition:.12s;cursor:pointer;width:100%;min-width:0;}
+  .ig-grid-tile:hover{border-color:var(--accent);}
+  .ig-grid-tile.on{border-color:var(--accent);background:var(--accent-soft);}
+  .ig-tile-name{font-size:11px;color:var(--ink);line-height:1.2;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  /* Model tile: the thumbnail is the dominant element (pix.ai proportions) —
+     a full-width square image/letter-avatar filling almost the entire tile,
+     with a single-line name caption below it, not a small icon beside text. */
+  .ig-model-tile{padding:5px;gap:4px;}
+  .ig-model-tile .ig-tile-name{width:100%;font-size:10.5px;-webkit-line-clamp:1;white-space:nowrap;text-overflow:ellipsis;}
+  .ig-model-thumb{position:relative;width:100%;aspect-ratio:1/1;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:26px;background-size:cover;background-position:center;overflow:hidden;}
+  .ig-model-thumb-arch-row{position:absolute;top:4px;left:4px;right:4px;display:flex;flex-wrap:wrap;gap:3px;}
+  .ig-model-thumb-arch{background:color-mix(in srgb, var(--paper) 78%, transparent);
+    color:var(--accent);border:1px solid var(--line-2);border-radius:6px;padding:2px 7px;font-family:var(--sans);
+    font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;line-height:1.4;}
+  /* Too small/compact a context for a text badge to fit legibly. */
+  .ig-model-summary .ig-model-thumb-arch-row,
+  .ig-picker-btn .ig-model-thumb-arch-row{display:none;}
+  .ig-model-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  /* beats the generic .ava.mono letter-avatar font-size (two-class selector)
+     so the fallback letter still scales with this tile's own larger size */
+  .ig-model-thumb.ava.mono{font-size:26px;}
+  .ig-model-summary .ig-model-thumb.ava.mono{font-size:16px;}
+  .ig-model-summary-arch-row{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0;}
+  .ig-lora-tile-wrap{display:flex;flex-direction:column;}
+  .ig-lora-strength{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:4px 2px 0;}
+  .ig-lora-strength .hint{flex:none;}
+  .ig-lora-strength input{width:100%;order:3;flex-basis:100%;}
+  .ig-lora-val-pill{flex:none;background:color-mix(in srgb, var(--accent) 16%, var(--surface));
+    border:1px solid color-mix(in srgb, var(--accent) 45%, var(--line-2));border-radius:8px;padding:2px 9px;
+    font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent);line-height:1.4;}
+  .lt-eta-pill{flex:none;display:none;align-items:center;background:color-mix(in srgb, #2ecc71 14%, var(--surface));
+    border:1px solid color-mix(in srgb, #2ecc71 55%, var(--line-2));border-radius:8px;padding:6px 12px;
+    font-family:var(--mono);font-size:12.5px;font-weight:600;color:#2ecc71;line-height:1.3;white-space:nowrap;}
+  .lt-eta-pill.show{display:inline-flex;}
+  .ig-show-more{margin-top:6px;background:none;border:none;color:var(--accent);font-size:11.5px;cursor:pointer;padding:4px;width:100%;text-align:center;}
+  .ig-picker-btn{display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;background:var(--surface);border:1px solid var(--line-2);border-radius:9px;color:var(--ink);font-size:13px;cursor:pointer;text-align:left;transition:.12s;}
+  .ig-picker-btn:hover{border-color:var(--accent);}
+  .ig-picker-btn .ig-model-thumb{width:34px;height:34px;flex:none;font-size:15px;aspect-ratio:auto;border-radius:7px;}
+  .ig-picker-btn-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .mr-type-tag{display:inline-block;margin-right:7px;padding:1px 7px;border-radius:6px;font-size:10.5px;font-weight:600;vertical-align:middle;background:var(--accent-soft);color:var(--accent);}
+  .mr-type-lora{background:rgba(120,160,255,.16);color:#7ba0ff;}
+  .mr-type-upscaler{background:rgba(160,120,255,.16);color:#a078ff;}
+  /* single-row scroll strips (not wrap) — keeps aspect/resolution controls
+     from growing the panel's height even with the Custom option appended */
+  .ig-ratio-row,.ig-res-row{display:flex;flex-wrap:nowrap;overflow-x:auto;gap:5px;align-items:center;scrollbar-width:thin;}
+  .ig-ratio-btn{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;min-width:54px;padding:10px 8px;background:var(--surface);border:1px solid var(--line-2);border-radius:8px;color:var(--sec);font-size:12.5px;cursor:pointer;transition:.12s;}
+  .ig-ratio-btn:hover{border-color:var(--accent);}
+  .ig-ratio-btn.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-deep);}
+  .ig-ratio-box{display:block;border:1.5px solid currentColor;border-radius:2px;opacity:.7;}
+  .ig-ratio-custom{width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:15px;}
+  .ig-res-btn{flex:none;padding:8px 16px;background:var(--surface);border:1px solid var(--line-2);border-radius:8px;color:var(--sec);cursor:pointer;font-size:14px;transition:.12s;}
+  .ig-res-btn:hover{border-color:var(--accent);}
+  .ig-res-btn.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-deep);}
+  .ig-res-dims{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:auto;}
+  .ig-custom-dims{display:flex;align-items:center;gap:6px;margin-top:6px;color:var(--muted);}
+  .ig-custom-dims input{width:70px;}
+
+  /* Full model-picker modal (search + full grid + detail panel / Request tab) */
+  .ig-mp-tabs{margin:14px 0 16px;}
+  .ig-mp-search-row{display:flex;gap:8px;align-items:stretch;margin-bottom:14px;}
+  .ig-mp-search{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:10px 13px;font-family:inherit;font-size:14px;color:var(--ink);outline:none;margin-bottom:0;}
+  .ig-cat-filter{position:relative;flex:none;}
+  .ig-cat-filter-btn{width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--line-2);border-radius:9px;background:var(--surface);color:var(--sec);cursor:pointer;}
+  .ig-cat-filter-btn:hover{color:var(--accent);border-color:var(--accent);}
+  .ig-cat-filter-btn svg{width:17px;height:17px;}
+  .ig-cat-filter-menu{display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:180px;z-index:40;
+    background:var(--surface-2);border:1px solid var(--line-2);border-radius:10px;padding:6px;
+    box-shadow:0 14px 32px -12px rgba(0,0,0,.5);flex-direction:column;gap:2px;}
+  .ig-cat-filter-menu.show{display:flex;}
+  .ig-cat-filter-opt{text-align:left;background:none;border:none;border-radius:7px;padding:8px 10px;
+    font-family:inherit;font-size:13.5px;color:var(--ink);cursor:pointer;}
+  .ig-cat-filter-opt:hover{background:var(--surface);}
+  .ig-cat-filter-opt.on{color:var(--accent);font-weight:600;}
+  .ig-mp-hide-legacy{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);margin-bottom:14px;cursor:pointer;user-select:none;}
+  .ig-mp-hide-legacy input{margin:0;}
+  .ig-mp-body{display:grid;grid-template-columns:1fr 260px;gap:18px;align-items:start;}
+  .ig-mp-grid{max-height:56vh;overflow-y:auto;grid-template-columns:repeat(4,1fr);padding-right:4px;}
+  .ig-mp-detail{position:sticky;top:0;background:var(--surface);border:1px solid var(--line-2);border-radius:12px;padding:14px;text-align:center;}
+  .ig-mp-detail-thumb{width:100%;max-width:200px;margin:0 auto 10px;}
+  .ig-mp-detail-thumb .ig-model-thumb{font-size:40px;}
+  .ig-mp-detail-name{font-size:13px;color:var(--ink);font-weight:600;word-break:break-word;margin-bottom:4px;}
+  .ig-mp-detail-desc{font-size:12px;color:var(--muted);margin-bottom:12px;}
+  .ig-mp-detail .btn{width:100%;}
+  @media (max-width:700px){
+    .ig-mp-body{grid-template-columns:1fr;}
+    .ig-mp-grid{grid-template-columns:repeat(3,1fr);max-height:44vh;}
+    .ig-mp-detail{position:static;}
+  }
+  .ig-mr-history{display:flex;flex-direction:column;gap:8px;}
+  .ig-mr-row{background:var(--surface);border:1px solid var(--line-2);border-radius:9px;padding:9px 12px;}
+  .ig-mr-row-main{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;}
+  .ig-mr-row-url{font-size:11px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ig-mr-status{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:2px 8px;border-radius:20px;flex:none;}
+  .ig-mr-status-pending{color:var(--muted);background:var(--surface-2);}
+  .ig-mr-status-approved{color:#4caf7d;background:rgba(76,175,125,.12);}
+  .ig-mr-status-rejected{color:#e05d5d;background:rgba(224,93,93,.12);}
+  .ig-mr-status-implemented{color:#4caf7d;background:rgba(76,175,125,.12);}
+
+  /* small gold accent bar next to a section label, used above content grids */
+  .section-heading{font-family:var(--display);font-weight:600;font-size:19px;padding-left:12px;border-left:3px solid var(--accent);}
+
+  /* creator page: denser, smaller character cards than the main library */
+  .pf-cat .card-entry .by{display:none;}
+
+/* ── Comments ─────────────────────────────────────────────── */
+.cmt-section{margin-top:8px;}
+.cmt-heading{font-size:18px;font-weight:600;margin:0 0 14px;}
+.cmt-count{display:inline-block;min-width:20px;padding:1px 8px;margin-left:4px;border-radius:20px;background:var(--accent-tint);color:var(--accent);font-size:13px;font-weight:600;}
+.cmt-composer{display:flex;align-items:flex-start;gap:10px;margin-bottom:18px;}
+.cmt-composer-main{flex:1;min-width:0;}
+.cmt-composer-row{display:flex;align-items:flex-start;gap:10px;}
+.cmt-composer-row>.lang-ac,.cmt-replyform>.lang-ac{flex:1;min-width:0;}
+.cmt-composer-row>.lang-ac .cmt-input,.cmt-replyform>.lang-ac .cmt-input{width:100%;}
+.cmt-attach-btn{flex:none;width:34px;height:34px;padding:0;display:flex;align-items:center;justify-content:center;
+  border-radius:50%;border:1px solid var(--line-2);background:var(--surface);color:var(--muted);cursor:pointer;transition:.15s;font-size:15px;}
+.cmt-attach-btn svg{width:16px;height:16px;flex:none;}
+.cmt-attach-btn:hover{border-color:var(--accent);color:var(--accent);}
+#cmtGifBtn{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.02em;}
+.cmt-input{flex:1;min-width:0;padding:9px 12px;border:1px solid var(--line);border-radius:22px;background:var(--surface);color:var(--ink);font-size:14px;}
+.cmt-new-ta{resize:none;overflow-y:auto;line-height:1.4;max-height:160px;font:inherit;border-radius:16px;}
+.cmt-attach-preview{position:relative;display:inline-block;margin-top:8px;}
+.cmt-attach-preview img,.cmt-attach-preview video{max-width:120px;max-height:120px;border-radius:8px;display:block;border:1px solid var(--line);}
+
+/* Both appended straight to <body>, a sibling of #scrim (z-index:9999) — a
+   popover routinely gets opened from inside an already-open modal (e.g.
+   reacting to a comment shown in the profile's comments modal), so this
+   needs its own z-index above the modal system's, exactly like .confirm-pop
+   needed after .scrim's z-index was bumped (see that comment for the full
+   story of how this exact class of bug was found). */
+.emoji-pop{position:fixed;z-index:10000;width:216px;max-height:220px;overflow-y:auto;background:var(--surface-2);
+  border:1px solid var(--line-2);border-radius:10px;padding:8px;display:grid;grid-template-columns:repeat(auto-fill,32px);gap:5px;
+  justify-content:start;align-content:start;box-shadow:0 18px 44px -14px rgba(0,0,0,.6);}
+/* Fixed 32px square cell, clipped — a handful of built-in unicode emoji
+   don't have a real glyph in every environment's font stack and fall back to
+   a multi-codepoint "tofu" render (literal box-drawing text) that's much
+   taller/wider than a normal emoji glyph, blowing out that one grid row's
+   height. Fixed px size (not aspect-ratio:1, which stretched to match a wide
+   1fr grid column once the popover started matching the composer's own
+   width — making every tile ~115px and the whole grid look broken/spaced
+   out) keeps every tile small and uniform regardless of popover width. */
+.emoji-pop-item{background:none;border:none;border-radius:6px;font-size:20px;cursor:pointer;line-height:1;
+  width:32px;height:32px;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+.emoji-pop-item:hover{background:var(--accent-tint);}
+.emoji-pop-item img{width:22px;height:22px;object-fit:contain;display:block;}
+/* Stickers are a full attachment users pick by recognizing the art, not a
+   small inline glyph like a custom :shortcode: emoji — bigger than the 22px
+   emoji glyphs so they're actually legible, but a fixed 50px preview rather
+   than stretching to fill the grid cell (which looked oversized once the
+   popover started matching the composer's own width). */
+.emoji-pop-grid.stickers{grid-template-columns:repeat(auto-fill,50px);gap:5px;justify-content:start;}
+.emoji-pop-item.emoji-pop-sticker{padding:0;border-radius:8px;width:50px;height:50px;overflow:hidden;}
+.emoji-pop-item.emoji-pop-sticker img{width:50px;height:50px;object-fit:cover;display:block;}
+.gif-pop{position:fixed;z-index:10000;display:flex;gap:8px;background:var(--surface-2);border:1px solid var(--line-2);
+  border-radius:10px;padding:10px;box-shadow:0 18px 44px -14px rgba(0,0,0,.6);}
+.gif-pop input{width:260px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-size:13px;}
+
+/* openImageCropModal (comments.js) had no styling anywhere in the codebase —
+   z-index above .emoji-pop/.confirm-pop (10000) since it's routinely opened
+   on top of either (a file picked from the emoji/sticker upload form, or a
+   just-generated image handed off from the AI picker). */
+.crop-modal-overlay{position:fixed;inset:0;z-index:10002;background:#000000b3;backdrop-filter:blur(3px);
+  display:flex;align-items:center;justify-content:center;padding:20px;}
+.crop-modal{background:var(--surface);border:1px solid var(--line-2);border-radius:14px;padding:18px;
+  box-shadow:0 20px 48px -16px rgba(0,0,0,.6);display:flex;flex-direction:column;align-items:center;gap:12px;}
+.crop-modal-title{font-family:var(--display);font-size:16px;font-weight:600;color:var(--ink);align-self:flex-start;}
+.crop-stage{border-radius:10px;overflow:hidden;background:var(--surface-2);border:1px solid var(--line);}
+.crop-stage canvas{display:block;cursor:grab;touch-action:none;}
+.crop-stage canvas:active{cursor:grabbing;}
+.crop-zoom{width:100%;}
+.crop-bg-toggle{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--sec);cursor:pointer;align-self:flex-start;}
+.crop-modal-actions{display:flex;justify-content:flex-end;gap:8px;width:100%;}
+
+/* width/max-height are set inline by position() (comments.js) to match the
+   composer's own width and the actual space available below it — the old
+   fixed 260px/320px meant a popover near the bottom of a tall page rendered
+   partly below the viewport with no way to scroll to it (position:fixed
+   doesn't move with page scroll, and only the inner grid — not this outer
+   container — had its own overflow). overflow-y:auto here makes the whole
+   popover (tabs + grid + upload form) scroll as one unit if it still doesn't
+   fit, not just the emoji/sticker grid. */
+.emoji-pop-rich{display:flex;flex-direction:column;width:260px;max-height:320px;padding:8px;gap:6px;overflow-y:auto;}
+.emoji-pop-tabs{display:flex;gap:4px;flex:none;}
+.emoji-pop-tab{flex:1;padding:6px;border-radius:7px;border:1px solid transparent;background:none;color:var(--muted);
+  font-size:12px;font-weight:600;cursor:pointer;}
+.emoji-pop-tab.on{background:var(--accent-tint);color:var(--accent);border-color:var(--accent);}
+/* Sized to content, capped at 3 rows (32px tile + 5px gap × 3, minus the
+   trailing gap) with its own scroll past that — flex:1/min-height:120px
+   used to force this to grow and fill whatever leftover space the popover
+   had regardless of how few emoji actually existed, leaving a large dead
+   gap above the upload/generate controls below it. align-content:start still
+   matters for when there ARE enough rows to hit the cap and scroll.
+   min-height:37px (not the default `auto`) is load-bearing, not decorative:
+   a flex item with overflow != visible gets an "automatic minimum size" of
+   0 per the flexbox spec, so with flex:1 removed and nothing else sizing it,
+   the grid collapsed to zero height entirely — an explicit min-height is
+   what overrides that and lets it size to its actual row content again. */
+.emoji-pop-grid{overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,32px);gap:5px;justify-content:start;align-content:start;min-height:37px;max-height:106px;}
+.emoji-pop-empty{grid-column:1/-1;color:var(--muted);font-size:12px;padding:16px 6px;text-align:center;}
+.emoji-pop-upload-btn{flex:none;background:none;border:1px dashed var(--line-2);border-radius:8px;color:var(--muted);
+  font-size:11.5px;padding:6px;cursor:pointer;}
+.emoji-pop-upload-btn:hover{border-color:var(--accent);color:var(--accent);}
+.emoji-pop-upload-form{flex:none;display:flex;flex-direction:column;gap:6px;}
+.emoji-pop-upload-form input[type="text"]{padding:6px 8px;border:1px solid var(--line);border-radius:7px;
+  background:var(--surface);color:var(--ink);font-size:12.5px;}
+.emoji-pop-file-row{display:flex;gap:6px;align-items:stretch;}
+.emoji-pop-file-label{display:block;flex:1;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:7px;
+  background:var(--surface);color:var(--muted);font-size:12px;cursor:pointer;text-align:center;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.emoji-pop-file-label:hover{border-color:var(--accent);color:var(--accent);}
+.emoji-pop-file-row .btn{flex:none;padding:6px 10px;font-size:11.5px;}
+
+.cmt-custom-emoji{width:22px;height:22px;object-fit:contain;vertical-align:-5px;display:inline-block;}
+
+.cmt-reactions{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;}
+.cmt-reaction{display:inline-flex;align-items:center;gap:4px;background:var(--surface-2);border:1px solid var(--line-2);
+  border-radius:14px;padding:2px 8px;font-size:12.5px;cursor:pointer;color:var(--sec);}
+.cmt-reaction span{font-size:11.5px;font-weight:600;}
+.cmt-reaction:hover{border-color:var(--accent);}
+.cmt-reaction.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);}
+.cmt-reaction.super{border-color:#e3bd6c;background:linear-gradient(135deg,rgba(227,189,108,.22),rgba(227,189,108,.06));
+  box-shadow:0 0 0 1px rgba(227,189,108,.35);animation:cmtSuperPulse 1.8s ease-in-out infinite;}
+.cmt-reaction.super span{color:#e3bd6c;}
+@keyframes cmtSuperPulse{0%,100%{box-shadow:0 0 0 1px rgba(227,189,108,.35);}50%{box-shadow:0 0 0 3px rgba(227,189,108,.18);}}
+@media (prefers-reduced-motion: reduce){.cmt-reaction.super{animation:none;}}
+.cmt-reaction-add{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;
+  background:none;border:1px solid var(--line-2);color:var(--muted);font-size:13px;cursor:pointer;line-height:1;}
+.emoji-pop.has-super{grid-template-rows:auto 1fr;}
+.emoji-pop-super{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:6px;padding:6px 8px;margin-bottom:4px;
+  border-radius:8px;border:1px solid var(--line-2);background:var(--surface);color:var(--muted);font-size:12px;cursor:pointer;font-weight:600;}
+.emoji-pop-super.on{border-color:#e3bd6c;background:rgba(227,189,108,.15);color:#e3bd6c;}
+.cmt-reaction-add:hover{border-color:var(--accent);color:var(--accent);}
+.cmt-attach-preview #cmtAttachClear{position:absolute;top:-8px;right:-8px;width:22px;height:22px;padding:0;border-radius:50%;background:var(--surface);border:1px solid var(--line);font-size:11px;line-height:1;}
+.cmt-input:focus{outline:none;border-color:var(--accent);}
+.cmt-signin{color:var(--muted);font-size:14px;padding:8px 0 16px;}
+.cmt-empty{color:var(--muted);font-size:14px;padding:10px 0;}
+.cmt-list{display:flex;flex-direction:column;gap:16px;}
+.cmt{display:flex;gap:10px;}
+.cmt-reply{margin-top:14px;}
+.cmt-ava,.cmt-ava.mono{width:38px;height:38px;border-radius:50%;object-fit:cover;flex:none;}
+.cmt-ava.mono{display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);background:var(--accent-tint);}
+.cmt-reply .cmt-ava,.cmt-reply .cmt-ava.mono{width:30px;height:30px;font-size:13px;}
+.cmt-ava-link{flex:none;}
+.cmt-main{flex:1;min-width:0;}
+.cmt-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;}
+.cmt-name{font-weight:600;color:var(--ink);text-decoration:none;}
+.cmt-name:hover{text-decoration:underline;}
+.cmt-handle,.cmt-time,.cmt-dot,.cmt-edited{color:var(--muted);}
+.cmt-edited{font-size:12px;font-style:italic;}
+.cmt-edit{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:6px;display:inline-flex;align-items:center;}
+.cmt-edit svg{width:14px;height:14px;}
+.cmt-edit:hover{color:var(--ink);background:var(--surface);}
+.cmt-edit+.cmt-del{margin-left:0;}
+.cmt-del{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:6px;}
+.cmt-del:hover{color:var(--danger,#d9534f);background:var(--surface);}
+.cmt-body{margin:4px 0 6px;font-size:14px;line-height:1.5;word-break:break-word;}
+.cmt-body>*{margin:0 0 8px;}
+.cmt-body>*:last-child{margin-bottom:0;}
+.cmt-body pre{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;overflow-x:auto;font-size:12.5px;}
+.cmt-body code{font-family:var(--mono);}
+.cmt-body p code{background:var(--surface-2);border-radius:4px;padding:1px 5px;}
+.cmt-attach,.cmt-embed{margin:4px 0 8px;}
+.cmt-attach img,.cmt-embed img{max-width:280px;max-height:280px;border-radius:10px;display:block;object-fit:contain;border:1px solid var(--line);}
+/* Stickers are meant to read as a borderless Discord-style image (often
+   with a transparent background already baked in) — the card border/
+   background used for regular photo attachments made it look boxed-in. */
+.cmt-attach-sticker img{border:none;border-radius:0;background:none;}
+.cmt-attach video{max-width:320px;max-height:320px;border-radius:10px;display:block;border:1px solid var(--line);background:#000;}
+.cmt-attach-text pre{max-width:100%;max-height:320px;overflow:auto;margin:0;padding:12px 14px;border-radius:10px;
+  background:var(--surface-2);border:1px solid var(--line);font-family:var(--mono);font-size:12.5px;line-height:1.5;}
+.cmt-attach-preview-file{padding:8px 12px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line);font-size:13px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cmt-editbox{display:flex;flex-direction:column;gap:8px;margin:4px 0 6px;}
+.cmt-edit-ta{width:100%;min-height:70px;resize:vertical;font:inherit;}
+.cmt-edit-actions{display:flex;gap:8px;}
+.cmt-replies .cmt-replies{display:block !important;margin-left:0;}
+.cmt-replyform{margin:8px 0;display:flex;gap:8px;}
+.cmt-replyform .cmt-input{flex:1;}
+.cmt-replies{margin-top:10px;padding-left:14px;border-left:2px solid var(--line);}
+.cmt-actions{display:flex;align-items:center;gap:16px;}
+.cmt-actions button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;display:inline-flex;align-items:center;gap:5px;padding:2px 0;}
+.cmt-like.on,.cmt-like.on .cmt-heart{color:#e0245e;}
+.cmt-actions button:hover{color:var(--ink);}
+.cmt-showreplies{color:var(--accent) !important;font-weight:500;}
+.mention{color:var(--accent-deep);font-weight:600;text-decoration:none;}
+.mention:hover{text-decoration:underline;}
+.mention-dd{position:fixed;z-index:10000;background:var(--surface);border:1px solid var(--line-2);border-radius:10px;box-shadow:0 14px 32px -12px rgba(0,0,0,.6);padding:4px;max-height:260px;overflow-y:auto;}
+.mention-dd-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;}
+.mention-dd-item:hover,.mention-dd-item.active{background:var(--accent-tint);}
+.mention-dd-ava{width:24px;height:24px;border-radius:50%;object-fit:cover;flex:none;}
+.mention-dd-ava.mono{display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:var(--accent);background:var(--accent-tint);}
+.mention-dd-name{display:flex;flex-direction:column;min-width:0;line-height:1.3;}
+.mention-dd-user{font-size:13px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mention-dd-disp{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+.cmt-attach-btn:focus-visible,.cmt-reaction:focus-visible,.cmt-reaction-add:focus-visible,
+.cmt-edit:focus-visible,.cmt-actions button:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accent-soft);}
+
+@media (max-width:640px){
+  .cmt-composer{flex-wrap:wrap;}
+  .cmt-composer-row{flex-wrap:wrap;}
+  .emoji-pop,.mention-dd,.gif-pop{max-width:calc(100vw - 24px);left:12px !important;right:12px !important;}
+  .emoji-pop-rich{width:auto;}
+  .gif-pop input{width:100%;}
+  .cmt-actions{gap:10px;flex-wrap:wrap;}
+  .cmt-attach img,.cmt-embed img{max-width:220px;max-height:220px;}
+  .cmt-attach video{max-width:240px;max-height:240px;}
+  .cmt-replies{padding-left:8px;}
+}
+
+/* ── Blocked users list ───────────────────────────────────── */
+.blk-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);}
+.blk-row:last-child{border-bottom:none;}
+.blk-ava,.blk-ava.mono{width:40px;height:40px;border-radius:50%;object-fit:cover;flex:none;}
+.blk-ava.mono{display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);background:var(--accent-tint);}
+.blk-info{flex:1;min-width:0;}
+.blk-name{font-weight:600;font-size:14px;}
+.blk-handle{color:var(--muted);font-weight:400;font-size:13px;}
+.blk-reason{font-size:13px;color:var(--sec);margin-top:2px;word-break:break-word;}
+.blk-reason.muted{color:var(--muted);font-style:italic;}
+.desc-expand-wrap{position:relative;}
+.desc-expand-wrap textarea{width:100%;padding-right:40px;}
+.ai-expand-btn{position:absolute;top:8px;right:8px;width:30px;height:30px;padding:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--line,rgba(128,128,128,.3));border-radius:8px;background:var(--card,rgba(255,255,255,.05));cursor:pointer;transition:transform .12s ease,box-shadow .12s ease;}
+.ai-expand-btn:hover{transform:scale(1.08);box-shadow:0 0 0 3px rgba(155,93,229,.18);}
+.ai-expand-btn:disabled{cursor:default;opacity:.6;}
+.ai-expand-btn.loading svg{animation:aiExpandSpin 1s linear infinite;}
+@keyframes aiExpandSpin{to{transform:rotate(360deg);}}
+.ai-expand-example{margin-top:8px;}
+.ai-expand-example summary{cursor:pointer;font-size:12px;color:var(--muted);}

@@ -4,6 +4,7 @@ from __future__ import annotations
 import time
 
 from sqlalchemy import select, insert, delete as sa_delete, and_, func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from backend import db
 from backend.db import (
@@ -13,7 +14,7 @@ from backend.db import (
 from backend.state import log
 
 
-def _shape_thread(r, like_counts, liked_me, reply_counts) -> dict:
+def _shape_thread(r, scores, my_votes, reply_counts) -> dict:
     return {
         "id": r["id"], "author_id": r["author_id"],
         "title": _decrypt_secret(r.get("title") or ""),
@@ -23,8 +24,8 @@ def _shape_thread(r, like_counts, liked_me, reply_counts) -> dict:
         "author_username": r["username"],
         "author_display_name": _decrypt_secret(r.get("display_name") or ""),
         "author_avatar": r.get("avatar") or "",
-        "like_count": like_counts.get(r["id"], 0),
-        "liked_by_me": r["id"] in liked_me,
+        "score": scores.get(r["id"], 0),
+        "my_vote": my_votes.get(r["id"], 0),
         "reply_count": reply_counts.get(r["id"], 0),
     }
 
@@ -48,19 +49,19 @@ async def delete(tid: str):
     log.info("forum: thread deleted id=%s", tid)
 
 
-async def _like_maps(ids, viewer_id):
-    like_counts, liked_me = {}, set()
+async def _vote_maps(ids, viewer_id):
+    scores, my_votes = {}, {}
     if not ids:
-        return like_counts, liked_me
-    lc = await _q(select(thread_likes.c.thread_id, func.count().label("n"))
+        return scores, my_votes
+    sc = await _q(select(thread_likes.c.thread_id, func.sum(thread_likes.c.value).label("n"))
                   .where(thread_likes.c.thread_id.in_(ids))
                   .group_by(thread_likes.c.thread_id))
-    like_counts = {r["thread_id"]: r["n"] for r in lc}
+    scores = {r["thread_id"]: r["n"] or 0 for r in sc}
     if viewer_id:
-        lm = await _q(select(thread_likes.c.thread_id).where(and_(
+        mv = await _q(select(thread_likes.c.thread_id, thread_likes.c.value).where(and_(
             thread_likes.c.thread_id.in_(ids), thread_likes.c.user_id == viewer_id)))
-        liked_me = {r["thread_id"] for r in lm}
-    return like_counts, liked_me
+        my_votes = {r["thread_id"]: r["value"] for r in mv}
+    return scores, my_votes
 
 
 async def _reply_counts(ids):
@@ -83,11 +84,11 @@ async def list_all(hidden_ids: set, sort: str = "new", category: str = "",
         stmt = stmt.where(and_(*conds))
     rows = [r for r in await _q(stmt) if r["author_id"] not in hidden_ids]
     ids = [r["id"] for r in rows]
-    like_counts, liked_me = await _like_maps(ids, viewer_id)
+    scores, my_votes = await _vote_maps(ids, viewer_id)
     reply_counts = await _reply_counts(ids)
-    shaped = [_shape_thread(r, like_counts, liked_me, reply_counts) for r in rows]
+    shaped = [_shape_thread(r, scores, my_votes, reply_counts) for r in rows]
     if sort == "top":
-        shaped.sort(key=lambda t: (t["pinned"], t["like_count"], t["created"]), reverse=True)
+        shaped.sort(key=lambda t: (t["pinned"], t["score"], t["created"]), reverse=True)
     else:
         shaped.sort(key=lambda t: (t["pinned"], t["created"]), reverse=True)
     return shaped[offset:offset + limit]
@@ -99,21 +100,21 @@ async def get(tid: str, viewer_id: str | None = None) -> dict | None:
                   .select_from(j).where(forum_threads.c.id == tid))
     if not r:
         return None
-    like_counts, liked_me = await _like_maps([tid], viewer_id)
+    scores, my_votes = await _vote_maps([tid], viewer_id)
     reply_counts = await _reply_counts([tid])
-    return _shape_thread(r, like_counts, liked_me, reply_counts)
+    return _shape_thread(r, scores, my_votes, reply_counts)
 
 
-async def like(tid: str, user_id: str):
-    async with db._engine.begin() as conn:
-        exists = (await conn.execute(select(thread_likes).where(and_(
-            thread_likes.c.thread_id == tid, thread_likes.c.user_id == user_id)))).fetchone()
-        if not exists:
-            await conn.execute(insert(thread_likes).values(thread_id=tid, user_id=user_id))
-    log.info("forum: thread id=%s liked by=%s", tid, user_id)
+async def vote(tid: str, user_id: str, value: int):
+    stmt = pg_insert(thread_likes).values(thread_id=tid, user_id=user_id, value=value)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=[thread_likes.c.thread_id, thread_likes.c.user_id],
+        set_={"value": value})
+    await _w(stmt)
+    log.info("forum: thread id=%s voted by=%s value=%s", tid, user_id, value)
 
 
-async def unlike(tid: str, user_id: str):
+async def unvote(tid: str, user_id: str):
     await _w(sa_delete(thread_likes).where(and_(
         thread_likes.c.thread_id == tid, thread_likes.c.user_id == user_id)))
-    log.info("forum: thread id=%s unliked by=%s", tid, user_id)
+    log.info("forum: thread id=%s vote removed by=%s", tid, user_id)

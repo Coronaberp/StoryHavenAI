@@ -1,0 +1,106 @@
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--color-line);
+}
+.settings-row:last-child { border-bottom: none; }
+
+.settings-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin: 20px 4px 4px;
+}
+.settings-eyebrow:first-child { margin-top: 4px; }
+
+.settings-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.settings-back-link:hover { color: var(--color-accent); }
+
+.settings-toggle {
+  width: 40px;
+  height: 23px;
+  flex: none;
+  border-radius: 999px;
+  padding: 2px;
+  border: none;
+  cursor: pointer;
+  background: var(--color-line-2);
+  display: flex;
+  justify-content: flex-start;
+  transition: background .15s;
+}
+.settings-toggle.on { background: var(--color-accent); justify-content: flex-end; }
+.settings-toggle-knob {
+  width: 19px;
+  height: 19px;
+  border-radius: 999px;
+  background: #fff;
+  display: block;
+  transition: none;
+}
+
+.settings-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  flex: none;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+.settings-swatch.on { border-color: var(--color-ink); }
+
+.settings-specimen {
+  border-inline-start: 2px solid var(--color-accent);
+  padding-inline-start: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--color-surface);
+  border-radius: 0 12px 12px 0;
+  padding-top: 14px;
+  padding-bottom: 14px;
+  padding-inline-end: 14px;
+}
+[dir="rtl"] .settings-specimen { border-radius: 12px 0 0 12px; }
+.settings-specimen-line { display: flex; align-items: baseline; gap: 8px; }
+.settings-specimen-tag {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  flex: none;
+  width: 62px;
+}
+
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"] {
+  accent-color: var(--color-accent);
+}
+input[type="range"] {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--color-line-2);
+}
+input[type="checkbox"],
+input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}

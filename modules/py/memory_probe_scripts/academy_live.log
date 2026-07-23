@@ -1,0 +1,342 @@
+2026-07-20 01:42:37 INFO     storyhavenai: chat_sessions: created id=sc4413a37abae char=cf19fbf4f821f user=ube2b2b900c5f
+created session=sc4413a37abae char=cf19fbf4f821f persona=pd2b64496e99b (Tarion Bluerose) owner=zukaarimoto
+posted real character greeting as message 1
+2026-07-20 01:42:38 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[1] USER: *Without breaking stride, Tarion walks past the entire queue and rests his elbow on the reception de
+2026-07-20 01:42:41 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[1] ASSISTANT: [ September 5, 1284 | Monday | Time: 09:43 AM | Sunspire Academy - Main Reception | Weather: 74°F - 
+2026-07-20 01:42:50 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2] USER: *He tilts his head, letting the silence stretch just long enough to become uncomfortable, then taps 
+2026-07-20 01:42:53 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[2] ASSISTANT: *A few more students in the queue fell silent. The receptionist didn't look up, but her knuckles had
+2026-07-20 01:42:59 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:43:02 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:43:05 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[3] USER: *He reaches into his coat, producing a folded parchment sealed with the royal sigil of House Blueros
+2026-07-20 01:43:07 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[3] ASSISTANT: [ September 5, 1284 | Monday | Time: 09:45 AM | Sunspire Academy - Main Reception | Weather: 74°F - 
+2026-07-20 01:43:16 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[4] USER: *He plucks the quill from her hand without asking, signs all three forms in a single fluid motion, a
+2026-07-20 01:43:18 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[4] ASSISTANT: [ September 5, 1284 | Monday | Time: 09:47 AM | Sunspire Academy - Main Reception | Weather: 74°F - 
+2026-07-20 01:43:27 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:43:30 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:43:32 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[5] USER: *He picks up the schedule slip, reads it once, then lets it flutter back onto the desk as he turns t
+2026-07-20 01:43:35 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[5] ASSISTANT: [ September 5, 1284 | Monday | Time: 09:48 AM | Sunspire Academy - Main Courtyard | Weather: 74°F - 
+2026-07-20 01:43:42 INFO     storyhavenai: memory extract start: session=sc4413a37abae turn=5 batch=5 exchanges
+2026-07-20 01:43:42 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:44:06 INFO     storyhavenai: chat_sessions: char state set id=sc4413a37abae
+2026-07-20 01:44:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:44:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:44:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:44:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:44:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:44:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:44:06 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:44:11 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf4f554840250d type=state importance=5 pinned=False
+2026-07-20 01:44:11 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf392a4d958d2b type=state importance=4 pinned=False
+2026-07-20 01:44:11 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf58ab8a449826 type=state importance=2 pinned=False
+2026-07-20 01:44:11 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf539ad61cbf63 type=relationship importance=3 pinned=False
+2026-07-20 01:44:11 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf29473ecf1008 type=world importance=3 pinned=False
+2026-07-20 01:44:11 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf5087f7c1f30a type=profile importance=2 pinned=False
+2026-07-20 01:44:11 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:44:11 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:44:11 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:44:11 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:44:11 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:44:11 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:44:11 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:44:16 INFO     storyhavenai: memory extract done: session=sc4413a37abae turn=5 facts=6 added=6 reinforced=0 superseded=0 lore_updates=0
+turn 5: {'facts': 6, 'added': 6, 'reinforced': 0, 'superseded': 0, 'lore_updates_applied': 0}
+2026-07-20 01:44:17 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[6] USER: *He stops mid-stride, turns his mismatched eyes on her with slow, deliberate amusement, and lets her
+2026-07-20 01:44:19 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[6] ASSISTANT: [ September 5, 1284 | Monday | Time: 09:50 AM | Sunspire Academy - Main Courtyard | Weather: 74°F - 
+2026-07-20 01:44:26 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[7] USER: *He stops walking abruptly, letting her take two extra steps before she halts, then turns with a slo
+2026-07-20 01:44:28 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[7] ASSISTANT: [ September 5, 1284 | Monday | Time: 09:52 AM | Sunspire Academy - Main Courtyard | Weather: 74°F - 
+2026-07-20 01:44:36 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[8] USER: *a soft, almost musical laugh escapes him as he watches her walk away, then he calls out just loud e
+2026-07-20 01:44:38 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[8] ASSISTANT: [ September 5, 1284 | Monday | Time: 09:55 AM | Sunspire Academy - Main Courtyard | Weather: 76°F - 
+2026-07-20 01:44:45 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[9] USER: *He watches her disappear around the bell tower, then lets out a soft, dismissive chuckle, turning o
+2026-07-20 01:44:48 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[9] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:02 AM | Sunspire Academy - Grand Lecture Hall Entrance | Wea
+2026-07-20 01:44:56 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[10] USER: *He plucks the pamphlet from her trembling fingers, examines it for precisely two seconds, then lets
+2026-07-20 01:44:58 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[10] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:04 AM | Sunspire Academy - Grand Lecture Hall Entrance | Wea
+2026-07-20 01:45:06 INFO     storyhavenai: memory extract start: session=sc4413a37abae turn=10 batch=5 exchanges
+2026-07-20 01:45:06 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:45:39 INFO     storyhavenai: chat_sessions: char state set id=sc4413a37abae
+2026-07-20 01:45:39 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:39 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:39 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:39 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:39 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:39 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:39 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:39 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:39 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:45:50 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf75170c7eb6c4 type=profile importance=4 pinned=False
+2026-07-20 01:45:50 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf8183510fc44a type=profile importance=4 pinned=False
+2026-07-20 01:45:50 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf7dba8806ae79 type=profile importance=3 pinned=False
+2026-07-20 01:45:50 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mffa5291ac6030 type=event importance=2 pinned=False
+2026-07-20 01:45:50 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf01a1e70a411d type=state importance=2 pinned=False
+2026-07-20 01:45:50 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mfb5288154ba98 type=world importance=2 pinned=False
+2026-07-20 01:45:50 INFO     storyhavenai: memory fact reinforced: id=mf5087f7c1f30a turn=10
+2026-07-20 01:45:50 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mfd07cd5aa1d4f type=relationship importance=3 pinned=False
+2026-07-20 01:45:50 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:50 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:50 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:50 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:50 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:50 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:50 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:50 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:45:50 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:45:56 INFO     storyhavenai: memory extract done: session=sc4413a37abae turn=10 facts=8 added=7 reinforced=1 superseded=0 lore_updates=0
+turn 10: {'facts': 8, 'added': 7, 'reinforced': 1, 'superseded': 0, 'lore_updates_applied': 0}
+2026-07-20 01:45:56 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[11] USER: *He steps into the hall, letting his gaze sweep across the assembled
+2026-07-20 01:45:58 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[11] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:06 AM | Sunspire Academy - Grand Lecture Hall | Weather: 76°
+2026-07-20 01:46:08 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[12] USER: *a slow, deliberate turn of his head toward the woman with the disciplinary pin, holding her gaze ju
+2026-07-20 01:46:11 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[12] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:08 AM | Sunspire Academy - Grand Lecture Hall | Weather: 76°
+2026-07-20 01:46:19 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:46:21 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[13] USER: *a lazy flick of his wrist, as though waving away a gnat, while he turns his gaze toward the vaulted
+2026-07-20 01:46:24 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[13] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:11 AM | Sunspire Academy - Grand Lecture Hall | Weather: 76°
+2026-07-20 01:46:31 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:46:34 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[14] USER: *a slow, sideways tilt of his head, the faintest smirk playing at the corner of his lips without eve
+2026-07-20 01:46:37 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[14] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:14 AM | Sunspire Academy - Grand Lecture Hall | Weather: 76°
+2026-07-20 01:46:45 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[15] USER: *a barely audible scoff, his fingers drumming once against the armrest in a lazy, dismissive rhythm*
+2026-07-20 01:46:48 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[15] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:17 AM | Sunspire Academy - Grand Lecture Hall | Weather: 76°
+2026-07-20 01:46:56 INFO     storyhavenai: memory extract start: session=sc4413a37abae turn=15 batch=5 exchanges
+2026-07-20 01:46:56 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:47:23 INFO     storyhavenai: chat_sessions: char state set id=sc4413a37abae
+2026-07-20 01:47:23 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:47:23 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:47:23 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:47:23 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:47:23 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:47:23 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:47:23 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:47:23 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:47:34 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf723190b1c456 type=profile importance=4 pinned=False
+2026-07-20 01:47:34 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mfd51e792a8eb5 type=event importance=4 pinned=False
+2026-07-20 01:47:34 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf082c6e09c659 type=world importance=4 pinned=False
+2026-07-20 01:47:34 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf07714a86a908 type=world importance=5 pinned=False
+2026-07-20 01:47:34 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mfd0e4021a14d3 type=profile importance=3 pinned=False
+2026-07-20 01:47:34 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf4b1bfad86d58 type=state importance=3 pinned=False
+2026-07-20 01:47:34 INFO     storyhavenai: memory fact reinforced: id=mf5087f7c1f30a turn=15
+2026-07-20 01:47:34 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:47:34 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:47:34 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:47:35 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:47:35 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:47:35 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:47:35 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:47:35 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:47:40 INFO     storyhavenai: memory extract done: session=sc4413a37abae turn=15 facts=7 added=6 reinforced=1 superseded=0 lore_updates=0
+turn 15: {'facts': 7, 'added': 6, 'reinforced': 1, 'superseded': 0, 'lore_updates_applied': 0}
+2026-07-20 01:47:40 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:47:43 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:47:45 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[16] USER: *a slow, deliberate clap, three soft beats, his smirk finally spreading into something approaching g
+2026-07-20 01:47:48 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[16] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:19 AM | Sunspire Academy - Grand Lecture Hall | Weather: 76°
+2026-07-20 01:47:56 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[17] USER: *a lazy tilt of his head, the ghost of a smirk lingering as he pulled his dagger from his belt and b
+2026-07-20 01:47:58 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[17] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:21 AM | Sunspire Academy - Grand Lecture Hall | Weather: 76°
+2026-07-20 01:48:06 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[18] USER: *a slow, deliberate sheathing of the dagger, the hilt clicking against the leather with a sound that
+2026-07-20 01:48:09 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[18] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:23 AM | Sunspire Academy - Grand Lecture Hall | Weather: 76°
+2026-07-20 01:48:17 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[19] USER: *He remained seated, one leg crossed over the other, watching the flood of students with the detache
+2026-07-20 01:48:20 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[19] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:27 AM | Sunspire Academy - Grand Lecture Hall | Weather: 77°
+2026-07-20 01:48:28 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[20] USER: *He rose in one fluid motion, adjusting his collar with deliberate care, not a trace of hurry in his
+2026-07-20 01:48:31 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[20] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:29 AM | Sunspire Academy - Grand Lecture Hall | Weather: 77°
+2026-07-20 01:48:37 INFO     storyhavenai: memory extract start: session=sc4413a37abae turn=20 batch=5 exchanges
+2026-07-20 01:48:37 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:49:20 INFO     storyhavenai: chat_sessions: char state set id=sc4413a37abae
+2026-07-20 01:49:20 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:49:20 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:49:20 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:49:20 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:49:20 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:49:20 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:49:21 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:49:30 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf2283a4870de9 type=event importance=4 pinned=False
+2026-07-20 01:49:30 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mfb996a3980614 type=event importance=3 pinned=False
+2026-07-20 01:49:30 INFO     storyhavenai: memory fact reinforced: id=mf723190b1c456 turn=20
+2026-07-20 01:49:30 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf52f1493eabee type=profile importance=3 pinned=False
+2026-07-20 01:49:30 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf9ee4f03bdffd type=profile importance=2 pinned=False
+2026-07-20 01:49:30 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf8763fe74c0cf type=world importance=2 pinned=False
+2026-07-20 01:49:30 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:49:30 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:49:30 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:49:30 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:49:30 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:49:30 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:49:31 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:49:37 INFO     storyhavenai: memory extract done: session=sc4413a37abae turn=20 facts=6 added=5 reinforced=1 superseded=0 lore_updates=0
+turn 20: {'facts': 6, 'added': 5, 'reinforced': 1, 'superseded': 0, 'lore_updates_applied': 0}
+2026-07-20 01:49:37 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[21] USER: *cracks his neck lazily, then strides toward the main doors without a backward glance*
+
+"Three floor
+2026-07-20 01:49:39 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[21] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:31 AM | Sunspire Academy - Grand Corridor | Weather: 78°F - 
+2026-07-20 01:49:49 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:49:52 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[22] USER: *He offers a lazy, condescending smile, not breaking stride as he passes the clipboard-holder withou
+2026-07-20 01:49:54 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[22] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:33 AM | Sunspire Academy - Western Hall Entrance | Weather: 
+2026-07-20 01:50:02 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[23] USER: *a flicker of amusement crosses his mismatched eyes as he steps past the pair, hands sliding into hi
+2026-07-20 01:50:04 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[23] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:34 AM | Sunspire Academy - Western Hall Corridor | Weather: 
+2026-07-20 01:50:12 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[24] USER: *He doesn't bother selecting a station, instead leaning lazily against the nearest chalkboard with h
+2026-07-20 01:50:14 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[24] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:36 AM | Sunspire Academy - Placement Assessment Room | Weath
+2026-07-20 01:50:22 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:50:24 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:50:27 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[25] USER: *a slow, almost pitying smile touches his lips as he plucks the booklet from the table without looki
+2026-07-20 01:50:29 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[25] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:37 AM | Sunspire Academy - Placement Assessment Room | Weath
+2026-07-20 01:50:36 INFO     storyhavenai: memory extract start: session=sc4413a37abae turn=25 batch=5 exchanges
+2026-07-20 01:50:37 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:50:47 INFO     storyhavenai: chat_sessions: char state set id=sc4413a37abae
+2026-07-20 01:50:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:50:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:50:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:50:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:50:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:50:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:50:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:50:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:50:47 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:51:02 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf7d0add082f04 type=event importance=3 pinned=False
+2026-07-20 01:51:02 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf103ff384762c type=state importance=2 pinned=False
+2026-07-20 01:51:02 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf8f3c2b541d9a type=profile importance=3 pinned=False
+2026-07-20 01:51:02 INFO     storyhavenai: memory fact reinforced: id=mf5087f7c1f30a turn=25
+2026-07-20 01:51:02 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf070a813f83c1 type=profile importance=3 pinned=False
+2026-07-20 01:51:02 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf63deec9f016e type=profile importance=2 pinned=False
+2026-07-20 01:51:02 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mfad246ebd0146 type=world importance=1 pinned=False
+2026-07-20 01:51:02 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf356fc1b048fb type=state importance=2 pinned=False
+2026-07-20 01:51:02 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:51:02 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:51:02 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:51:02 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:51:02 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:51:02 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:51:02 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:51:02 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:51:02 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:51:05 INFO     storyhavenai: memory extract done: session=sc4413a37abae turn=25 facts=8 added=7 reinforced=1 superseded=0 lore_updates=0
+turn 25: {'facts': 8, 'added': 7, 'reinforced': 1, 'superseded': 0, 'lore_updates_applied': 0}
+2026-07-20 01:51:05 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[26] USER: *He flips the booklet open with one hand, scanning the first page for less than three seconds before
+2026-07-20 01:51:08 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[26] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:38 AM | Sunspire Academy - Placement Assessment Room | Weath
+2026-07-20 01:51:14 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:51:16 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[27] USER: *He closes the booklet with a single snap and tosses it onto the desk, the pages already smooth agai
+2026-07-20 01:51:19 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[27] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:39 AM | Sunspire Academy - Placement Assessment Room | Weath
+2026-07-20 01:51:24 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[28] USER: *He leans back in his chair, lacing his fingers behind his head, a smirk tugging at the corner of hi
+2026-07-20 01:51:27 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[28] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:42 AM | Sunspire Academy - Placement Assessment Room | Weath
+2026-07-20 01:51:34 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:51:37 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[29] USER: *He lets out a short, dry laugh, dragging a hand through his hair as if bored.*
+
+"Soulburn, circle f
+2026-07-20 01:51:39 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[29] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:44 AM | Sunspire Academy - Placement Assessment Room | Weath
+2026-07-20 01:51:46 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[30] USER: *He tilts his head, one eyebrow arching with theatrical amusement, and flicks his wrist as though sh
+2026-07-20 01:51:49 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[30] ASSISTANT: [ September 5, 1284 | Monday | Time: 10:47 AM | Sunspire Academy - Placement Assessment Room | Weath
+2026-07-20 01:51:54 INFO     storyhavenai: memory extract start: session=sc4413a37abae turn=30 batch=5 exchanges
+2026-07-20 01:51:54 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:52:21 INFO     storyhavenai: chat_sessions: char state set id=sc4413a37abae
+2026-07-20 01:52:21 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:52:21 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:52:21 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:52:21 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:52:21 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:52:21 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:52:40 INFO     storyhavenai: memory fact reinforced: id=mf723190b1c456 turn=30
+2026-07-20 01:52:40 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf393f10f4f4be type=profile importance=4 pinned=False
+2026-07-20 01:52:40 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf696aef1a1f21 type=event importance=3 pinned=False
+2026-07-20 01:52:40 INFO     storyhavenai: memory fact added: session=sc4413a37abae id=mf64359a050d2a type=relationship importance=3 pinned=False
+2026-07-20 01:52:40 INFO     storyhavenai: memory fact reinforced: id=mf7dba8806ae79 turn=30
+2026-07-20 01:52:40 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:52:40 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:52:40 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:52:40 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:52:40 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:52:40 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:52:57 INFO     storyhavenai: memory extract done: session=sc4413a37abae turn=30 facts=5 added=3 reinforced=2 superseded=0 lore_updates=0
+turn 30: {'facts': 5, 'added': 3, 'reinforced': 2, 'superseded': 0, 'lore_updates_applied': 0}
+2026-07-20 01:52:57 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[31] USER: *a lazy, almost insulting bow, one hand tucked behind his back*
+
+"Late? I wouldn't dream of it. I'd 
+2026-07-20 01:52:59 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[31] ASSISTANT: [ September 5, 1284 | Monday | Time: 1:58 PM | Sunspire Academy - East Wing Training Yard | Weather:
+2026-07-20 01:53:06 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[32] USER: *He doesn't pick up the sword. Instead, he steps over it, circles her once with
+2026-07-20 01:53:08 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[32] ASSISTANT: [ September 5, 1284 | Monday | Time: 1:59 PM | Sunspire Academy - East Wing Training Yard | Weather:
+2026-07-20 01:53:13 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:53:15 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[33] USER: *a slow, deliberate step forward, closing the gap between them until he's nearly close enough to
+2026-07-20 01:53:17 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+[33] ASSISTANT: [ September 5, 1284 | Monday | Time: 2:01 PM | Sunspire Academy - East Wing Training Yard | Weather:
+2026-07-20 01:53:22 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:53:25 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:53:27 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+Traceback (most recent call last):
+  File "/app/ai-frontend/modules/py/memory_probe_scripts/run_academy_live.py", line 182, in <module>
+    sys.exit(1 if asyncio.run(main()) else 0)
+                  ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 691, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/app/ai-frontend/modules/py/memory_probe_scripts/run_academy_live.py", line 115, in main
+    user_line = await gen_user_line(history, milestone, persona)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/ai-frontend/modules/py/memory_probe_scripts/run_academy_live.py", line 72, in gen_user_line
+    return await gen(messages, {"temperature": 0.85, "max_tokens": 150})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/app/ai-frontend/modules/py/memory_probe_scripts/run_academy_live.py", line 47, in gen
+    raise RuntimeError(f"empty generation after {retries} attempts")
+RuntimeError: empty generation after 3 attempts

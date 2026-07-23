@@ -1,0 +1,20 @@
+{
+  "turns": [
+    {"user": "Tell me about the captain.", "assistant": "Mira leans in. \"I trust Captain Doran with my life. He saved me at Redford.\""},
+    {"user": "We walk along the docks.", "assistant": "The gulls wheel overhead as Kael points out the fishing boats coming in."},
+    {"user": "What do you carry?", "assistant": "Kael pats a worn satchel. \"Maps, mostly. And my father's compass — it never leaves me.\""},
+    {"user": "We stop for bread.", "assistant": "The baker waves them over, pressing warm rolls into their hands."},
+    {"user": "Anything else about town?", "assistant": "\"The old mill's been abandoned for years,\" Kael says. \"Nobody goes there.\""},
+    {"user": "We meet Mira again after the Hall.", "assistant": "Mira's jaw is tight. \"Doran sold us out at the Hall. I despise him now — never speak his name kindly to me again.\""},
+    {"user": "We rest by the fire.", "assistant": "The flames crackle. Kael stretches out, humming an old tune."},
+    {"user": "I check my gear.", "assistant": "Kael nods approvingly at the well-kept blade."},
+    {"user": "We talk about the weather.", "assistant": "\"Storm's coming in from the east,\" Kael mutters, eyeing the clouds."},
+    {"user": "We turn in for the night.", "assistant": "Kael banks the fire low. \"Sleep. I'll take first watch.\""}
+  ],
+  "probes": [
+    {"query": "How does Mira feel about Captain Doran?", "present": ["Mira"],
+     "expect": ["despise"], "reject": []},
+    {"query": "What does Kael always carry?", "present": [],
+     "expect": ["compass"], "reject": []}
+  ]
+}

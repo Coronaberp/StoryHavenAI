@@ -64,9 +64,13 @@ function loginEmblem() {
         </div>
       </div>
       <div class="font-display font-semibold text-2xl text-primary mt-5 tracking-tight">StoryHaven AI</div>
-      <div class="font-display italic text-sm text-muted mt-1.5">Forge worlds. Remember everything.</div>
+      <div class="font-display italic text-sm text-muted mt-1.5">${t("auth_tagline")}</div>
     </div>
   `;
+}
+
+function escAttr(value) {
+  return String(value || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
 function authField(label, key, opts = {}) {
@@ -77,7 +81,8 @@ function authField(label, key, opts = {}) {
         type="${opts.type || "text"}"
         data-field="${key}"
         placeholder="${opts.ph || ""}"
-        autocomplete="off"
+        value="${escAttr(opts.value)}"
+        autocomplete="${opts.autocomplete || "off"}"
         class="w-full py-2 px-0.5 bg-transparent text-ink text-base outline-none border-0 border-b-[1.5px] border-line-2 focus:border-primary transition-colors"
       >
     </div>
@@ -94,9 +99,31 @@ function totpBoxes(err) {
   return `
     <div class="mb-1.5">
       <div class="flex gap-2 justify-between ${err ? "mb-2" : ""}">${boxes}</div>
-      ${err ? `<div class="font-mono text-[11px] text-warn">Enter all 6 digits from your authenticator.</div>` : ""}
+      ${err ? `<div class="font-mono text-[11px] text-warn">${t("login_totp_incomplete_warning")}</div>` : ""}
     </div>
   `;
+}
+
+function wireTotpBoxAutoAdvance(scope) {
+  scope.querySelectorAll("[data-totp]").forEach((input) => {
+    input.addEventListener("input", () => {
+      input.value = input.value.replace(/\D/g, "").slice(0, 1);
+      if (input.value) {
+        const next = scope.querySelector(`[data-totp="${Number(input.dataset.totp) + 1}"]`);
+        if (next) next.focus();
+      }
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Backspace" && !input.value) {
+        const prev = scope.querySelector(`[data-totp="${Number(input.dataset.totp) - 1}"]`);
+        if (prev) { prev.focus(); prev.value = ""; e.preventDefault(); }
+      }
+    });
+  });
+}
+
+function totpBoxValue(scope) {
+  return Array.from(scope.querySelectorAll("[data-totp]")).map((el) => el.value || "").join("");
 }
 
 function authError(message) {
@@ -115,7 +142,42 @@ class AuthView {
 
   mount(main) {
     this.main = main;
+    this.values = {};
+    this.oauthProviders = [];
     this.setView("signin");
+    this.startConditionalPasskey();
+    this.loadOauthProviders();
+    this.checkOauthRedirectParams();
+  }
+
+  checkOauthRedirectParams() {
+    const params = new URLSearchParams(location.search);
+    if (!params.has("oauth_error")) return;
+    errorToast(t("oauth_login_failed"));
+    history.replaceState(null, "", "/login");
+  }
+
+  async loadOauthProviders() {
+    try {
+      const { providers } = await api("/api/auth/oauth/providers");
+      this.oauthProviders = providers;
+    } catch (e) {
+      this.oauthProviders = [];
+    }
+    if (this.view === "signin") this.render();
+  }
+
+  async startConditionalPasskey() {
+    if (this._conditionalStarted || !(await webauthnConditionalAvailable())) return;
+    this._conditionalStarted = true;
+    try {
+      ME = await webauthnLogin({ mediation: "conditional" });
+      sessionStorage.removeItem("sh_known_anon");
+      await syncMe();
+      navigate("/");
+    } catch (err) {
+      this._conditionalStarted = false;
+    }
   }
 
   setView(view) {
@@ -124,6 +186,19 @@ class AuthView {
     this.needsTotp = false;
     this.totpErr = false;
     this.render();
+  }
+
+  snapshotValues() {
+    if (!this.main) return;
+    this.values = this.values || {};
+    // heroScene() renders this same markup twice (a mobile copy and a
+    // tablet+ copy, toggled by CSS breakpoint, never both visible at once)
+    // - reading/writing every match would let the always-empty hidden copy
+    // clobber whichever one the person actually typed into, so every
+    // field/totp/link lookup here is scoped to the one currently visible.
+    visibleEls(this.main, "[data-field]").forEach((input) => {
+      this.values[input.dataset.field] = input.value;
+    });
   }
 
   render() {
@@ -135,102 +210,147 @@ class AuthView {
   renderSignin() {
     return `
       ${authError(this.error)}
-      ${authField("Username", "username", { ph: "kael" })}
-      ${authField("Password", "password", { type: "password", ph: "········" })}
+      ${authField(t("login_field_username_label"), "username", { ph: "kael", value: this.values?.username, autocomplete: "username webauthn" })}
+      ${authField(t("login_field_password_label"), "password", { type: "password", ph: "········", value: this.values?.password })}
       ${this.needsTotp ? `
-        <div class="font-mono text-[9px] tracking-[.15em] uppercase text-muted mt-2 mb-2.5">6-digit code from your authenticator</div>
+        <div class="font-mono text-[9px] tracking-[.15em] uppercase text-muted mt-2 mb-2.5">${t("login_totp_prompt_authenticator")}</div>
         ${totpBoxes(this.totpErr)}
       ` : ""}
       <div class="flex justify-between -mt-1 mb-5">
-        <button type="button" data-register-link class="text-primary text-[13px] font-medium">Create account</button>
-        <button type="button" data-auth-link="forgot" class="text-primary text-[13px] font-medium">Can't sign in?</button>
+        <button type="button" data-register-link class="text-primary text-[13px] font-medium">${t("login_create_account_link")}</button>
+        <button type="button" data-auth-link="forgot" class="text-primary text-[13px] font-medium">${t("login_cannot_sign_in_link")}</button>
       </div>
       <button type="button" data-auth-submit="signin" ${this.loading ? "disabled" : ""} class="w-full py-3.5 rounded-xl font-semibold text-[15.5px] text-paper bg-gradient-to-br from-primary to-primary-dark disabled:opacity-60">
-        ${this.loading ? "Signing in…" : "Enter StoryHaven"}
+        ${this.loading ? t("login_signing_in_progress") : t("login_enter_storyhaven_button")}
       </button>
+      ${window.PublicKeyCredential ? `
+      <button type="button" data-auth-submit="passkey" class="w-full mt-2 py-3 rounded-xl font-medium text-sm border" style="border-color:var(--color-line-2);color:var(--color-ink)">
+        ${t("login_with_passkey_button", "Sign in with fingerprint / face")}
+      </button>
+      ` : ""}
+      ${this.oauthProviders.length ? `
+      <div class="flex flex-row gap-2 mt-3">
+        ${this.oauthProviders.map((p) => `
+          <a href="/api/auth/oauth/${encodeURIComponent(p.provider)}/start" title="${_attr(t("oauth_continue_with"))} ${_attr(p.label)}" aria-label="${_attr(t("oauth_continue_with"))} ${_attr(p.label)}" class="flex-1 min-w-0 py-3 rounded-xl border flex items-center justify-center" style="border-color:${_attr(oauthProviderColor(p.provider))};color:${_attr(oauthProviderColor(p.provider))}">
+            ${oauthProviderIcon(p.provider)}
+          </a>
+        `).join("")}
+      </div>
+      ` : ""}
     `;
   }
 
   renderForgot() {
     return `
-      <div class="font-mono text-[10px] tracking-[.22em] uppercase text-primary mb-1">Recovery</div>
-      <h2 class="font-display font-semibold text-[19px] text-ink mb-1.5">Verify it's you</h2>
-      <p class="text-[12px] leading-snug text-sec mb-3">Open the authenticator app you set up and type the 6-digit code it shows right now, then set a new password.</p>
+      <div class="font-mono text-[10px] tracking-[.22em] uppercase text-primary mb-1">${t("login_recovery_label")}</div>
+      <h2 class="font-display font-semibold text-[19px] text-ink mb-1.5">${t("login_verify_identity_heading")}</h2>
+      <p class="text-[12px] leading-snug text-sec mb-3">${t("login_forgot_password_instructions")}</p>
       ${authError(this.error)}
-      ${authField("Username", "username", { ph: "kael" })}
-      <div class="font-mono text-[9px] tracking-[.15em] uppercase text-muted mt-0.5 mb-1.5">6-digit code from your app</div>
+      ${authField(t("login_field_username_label"), "username", { ph: "kael", value: this.values?.username })}
+      <div class="font-mono text-[9px] tracking-[.15em] uppercase text-muted mt-0.5 mb-1.5">${t("login_totp_prompt_app")}</div>
       ${totpBoxes(this.totpErr)}
-      ${authField("New password", "newPassword", { type: "password", ph: "At least 8 characters" })}
+      ${authField(t("login_field_new_password_label"), "newPassword", { type: "password", ph: t("login_password_placeholder_min_chars"), value: this.values?.newPassword })}
       <button type="button" data-auth-submit="forgot" ${this.loading ? "disabled" : ""} class="w-full py-3.5 rounded-xl font-semibold text-[15.5px] text-paper bg-gradient-to-br from-primary to-primary-dark disabled:opacity-60 mt-1">
-        ${this.loading ? "Verifying…" : "Reset password"}
+        ${this.loading ? t("login_verifying_progress") : t("login_reset_password_button")}
       </button>
       <div class="text-center mt-2">
-        <button type="button" data-auth-link="signin" class="text-primary text-[13px] font-medium">← Back to sign in</button>
+        <button type="button" data-auth-link="signin" class="text-primary text-[13px] font-medium">${t("login_back_to_sign_in_link")}</button>
       </div>
     `;
   }
 
   wire() {
+    // click handlers are safe to attach to every copy of the markup - a
+    // hidden (display:none) button can never actually receive a click, so
+    // no visibility filtering is needed here, unlike the value/focus lookups
+    // below which must target only the one copy currently on screen.
     this.main.querySelectorAll("[data-auth-link]").forEach((btn) => {
       btn.addEventListener("click", () => this.setView(btn.dataset.authLink));
     });
-    const registerLink = this.main.querySelector("[data-register-link]");
-    if (registerLink) registerLink.addEventListener("click", () => navigate("/register"));
+    this.main.querySelectorAll("[data-register-link]").forEach((btn) => {
+      btn.addEventListener("click", () => navigate("/register"));
+    });
     this.main.querySelectorAll("[data-totp]").forEach((input) => {
       input.addEventListener("input", () => this.handleTotpInput(input));
       input.addEventListener("keydown", (e) => this.handleTotpKey(input, e));
     });
-    const submitBtn = this.main.querySelector("[data-auth-submit]");
-    if (submitBtn) {
+    this.main.querySelectorAll("[data-auth-submit]").forEach((submitBtn) => {
       submitBtn.addEventListener("click", () => {
         const action = submitBtn.dataset.authSubmit;
         if (action === "signin") this.submitSignin();
+        if (action === "passkey") this.signinWithPasskey();
         else this.submitForgot();
       });
-    }
+    });
   }
 
   handleTotpInput(input) {
     input.value = input.value.replace(/\D/g, "").slice(0, 1);
     if (input.value) {
-      const next = this.main.querySelector(`[data-totp="${Number(input.dataset.totp) + 1}"]`);
+      const next = visibleEls(this.main, `[data-totp="${Number(input.dataset.totp) + 1}"]`)[0];
       if (next) next.focus();
     }
   }
 
   handleTotpKey(input, e) {
     if (e.key === "Backspace" && !input.value) {
-      const prev = this.main.querySelector(`[data-totp="${Number(input.dataset.totp) - 1}"]`);
+      const prev = visibleEls(this.main, `[data-totp="${Number(input.dataset.totp) - 1}"]`)[0];
       if (prev) { prev.focus(); prev.value = ""; }
     }
   }
 
   fieldValue(key) {
-    return this.main.querySelector(`[data-field="${key}"]`)?.value?.trim() || "";
+    return visibleEls(this.main, `[data-field="${key}"]`)[0]?.value?.trim() || "";
   }
 
   totpValue() {
-    return Array.from(this.main.querySelectorAll("[data-totp]")).map((el) => el.value || "").join("");
+    return visibleEls(this.main, "[data-totp]").map((el) => el.value || "").join("");
+  }
+
+  async signinWithPasskey(promptMessage) {
+    if (!window.PublicKeyCredential) { errorToast(t("login_passkey_unsupported", "This browser doesn't support fingerprint sign-in.")); return; }
+    if (promptMessage) toast(promptMessage);
+    try {
+      ME = await webauthnLogin();
+      sessionStorage.removeItem("sh_known_anon");
+      await syncMe();
+      navigate("/");
+    } catch (err) {
+      if (err.name === "NotAllowedError") return;
+      this.error = err.message || t("login_passkey_failed", "Fingerprint sign-in didn't work - use your password instead.");
+      this.render();
+    }
   }
 
   async submitSignin() {
     const username = this.fieldValue("username");
     const password = this.fieldValue("password");
-    if (!username || !password) { this.error = "Enter your username and password."; this.render(); return; }
+    if (!username || !password) { this.snapshotValues(); this.error = t("login_error_missing_username_password"); this.render(); return; }
     const totp_code = this.needsTotp ? this.totpValue() : undefined;
     if (this.needsTotp && totp_code.length < 6) { this.totpErr = true; this.render(); return; }
+    this.snapshotValues();
     this.loading = true; this.error = ""; this.render();
     try {
       ME = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password, totp_code }) });
+      sessionStorage.removeItem("sh_known_anon");
+      await syncMe();
       navigate("/");
+      maybeOfferPasskeySetup();
     } catch (err) {
       this.loading = false;
+      this.snapshotValues();
+      if (err.detail?.code === "passkey_required") {
+        this.error = "";
+        this.render();
+        this.signinWithPasskey(t("login_passkey_step", "Confirm with your fingerprint or face to finish signing in."));
+        return;
+      }
       if (err.detail?.code === "totp_required") {
         this.needsTotp = true; this.error = "";
       } else if (err.detail?.code === "totp_invalid") {
         this.needsTotp = true; this.totpErr = true; this.error = "";
       } else {
-        this.error = err.message || "Sign in failed.";
+        this.error = err.message || (err.status ? t("login_error_check_credentials") : t("login_error_cannot_reach_server"));
       }
       this.render();
     }
@@ -241,21 +361,29 @@ class AuthView {
     const new_password = this.fieldValue("newPassword");
     const code = this.totpValue();
     if (!username || code.length < 6 || !new_password) {
+      this.snapshotValues();
       this.totpErr = code.length < 6;
-      this.error = !username ? "Enter your username." : !new_password ? "Enter a new password." : "";
+      this.error = !username ? t("login_error_missing_username") : !new_password ? t("login_error_missing_new_password") : "";
       this.render();
       return;
     }
+    this.snapshotValues();
     this.loading = true; this.error = ""; this.totpErr = false; this.render();
     try {
       await api("/api/auth/password-reset/totp", { method: "POST", body: JSON.stringify({ username, code, new_password }) });
       this.setView("signin");
     } catch (err) {
       this.loading = false;
-      this.error = err.message || "Recovery failed.";
+      this.snapshotValues();
+      this.error = err.message || (err.status ? t("login_error_check_details") : t("login_error_cannot_reach_server"));
       this.render();
     }
   }
 }
 
 const AUTH = new AuthView();
+
+if (typeof window !== "undefined") {
+  window.wireTotpBoxAutoAdvance = wireTotpBoxAutoAdvance;
+  window.totpBoxValue = totpBoxValue;
+}

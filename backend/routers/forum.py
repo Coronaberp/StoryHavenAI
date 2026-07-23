@@ -6,7 +6,8 @@ from backend import db
 from backend.repositories import forum as forum_thread_repo
 from backend.state import api, log
 from backend.auth import get_current_user, get_current_user_optional
-from backend.schemas import ForumThreadIn
+from backend.feature_flags import require_feature_enabled
+from backend.schemas import ForumThreadIn, ForumVoteIn
 from backend.ratelimit import SlidingWindow
 
 _THREAD_LIMIT = SlidingWindow(
@@ -22,7 +23,8 @@ async def list_forum_threads(sort: str = "new", category: str = "",
 
 
 @api.post("/forum/threads")
-async def create_forum_thread(body: ForumThreadIn, current_user: dict = Depends(get_current_user)):
+async def create_forum_thread(body: ForumThreadIn, current_user: dict = Depends(get_current_user),
+                              _feature_ok: None = Depends(require_feature_enabled("forum"))):
     _THREAD_LIMIT.check_and_record(current_user["id"])
     title = (body.title or "").strip()[:200]
     content = (body.content or "").strip()[:10000]
@@ -56,17 +58,22 @@ async def delete_forum_thread_route(tid: str, current_user: dict = Depends(get_c
     return {"deleted": True}
 
 
-@api.post("/forum/threads/{tid}/like")
-async def like_forum_thread_route(tid: str, current_user: dict = Depends(get_current_user)):
-    if not await forum_thread_repo.get(tid):
+@api.post("/forum/threads/{tid}/vote")
+async def vote_forum_thread_route(tid: str, body: ForumVoteIn, current_user: dict = Depends(get_current_user)):
+    if body.value not in (1, -1):
+        raise HTTPException(400, "value must be 1 or -1")
+    th = await forum_thread_repo.get(tid)
+    if not th:
         raise HTTPException(404, "thread not found")
-    await forum_thread_repo.like(tid, current_user["id"])
-    log.info("forum: thread liked id=%s by=%s", tid, current_user["username"])
+    if th["author_id"] == current_user["id"]:
+        raise HTTPException(403, "You can't vote on your own thread")
+    await forum_thread_repo.vote(tid, current_user["id"], body.value)
+    log.info("forum: thread voted id=%s by=%s value=%s", tid, current_user["username"], body.value)
     return await forum_thread_repo.get(tid, current_user["id"])
 
 
-@api.post("/forum/threads/{tid}/unlike")
-async def unlike_forum_thread_route(tid: str, current_user: dict = Depends(get_current_user)):
-    await forum_thread_repo.unlike(tid, current_user["id"])
-    log.info("forum: thread unliked id=%s by=%s", tid, current_user["username"])
+@api.post("/forum/threads/{tid}/unvote")
+async def unvote_forum_thread_route(tid: str, current_user: dict = Depends(get_current_user)):
+    await forum_thread_repo.unvote(tid, current_user["id"])
+    log.info("forum: thread vote removed id=%s by=%s", tid, current_user["username"])
     return await forum_thread_repo.get(tid, current_user["id"])

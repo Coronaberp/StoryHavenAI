@@ -29,6 +29,11 @@ def _standalone_row(r) -> dict:
     d["sampler"] = d.get("sampler") or ""
     d["scheduler"] = d.get("scheduler") or ""
     d["steps"] = d.get("steps") or 20
+    d["media_type"] = d.get("media_type") or "image"
+    d["source_image_id"] = d.get("source_image_id")
+    d["fps"] = d.get("fps") or 0
+    d["frame_count"] = d.get("frame_count") or 0
+    d["duration_s"] = d.get("duration_s") or 0
     return d
 
 
@@ -75,7 +80,10 @@ async def create(user_id: str, image: str, positive: str, negative: str,
                  is_explicit: bool = False, sampler: str = "",
                  scheduler: str = "", steps: int = 20,
                  is_img2img: bool = False, cfg: float = 7.0,
-                 upscaler: str = "") -> dict:
+                 upscaler: str = "", media_type: str = "image",
+                 source_image_id: str | None = None, fps: int = 0,
+                 frame_count: int = 0, duration_s: float = 0.0,
+                 classified: bool = False) -> dict:
     iid = nid("si")
     created = time.time()
     loras_json = json.dumps(loras or [])
@@ -83,14 +91,19 @@ async def create(user_id: str, image: str, positive: str, negative: str,
         id=iid, user_id=user_id, image=image, positive=positive,
         negative=negative, created=created, checkpoint=checkpoint, loras=loras_json,
         sampler=sampler, scheduler=scheduler, steps=steps, cfg=cfg, upscaler=upscaler,
-        is_explicit=1 if is_explicit else 0, is_img2img=1 if is_img2img else 0))
-    log.info(f"standalone_images: created id={iid} user_id={user_id}")
+        is_explicit=1 if is_explicit else 0, is_img2img=1 if is_img2img else 0,
+        media_type=media_type, source_image_id=source_image_id,
+        fps=fps, frame_count=frame_count, duration_s=duration_s,
+        classified=1 if classified else 0))
+    log.info(f"standalone_images: created id={iid} user_id={user_id} media_type={media_type}")
     return {"id": iid, "image": image, "positive": positive, "negative": negative,
             "created": created, "is_public": False, "is_explicit": bool(is_explicit),
-            "human_reviewed": False, "classified": False,
+            "human_reviewed": False, "classified": bool(classified),
             "checkpoint": checkpoint, "loras": loras or [], "sampler": sampler,
             "scheduler": scheduler, "steps": steps, "is_img2img": bool(is_img2img),
-            "cfg": cfg, "upscaler": upscaler}
+            "cfg": cfg, "upscaler": upscaler, "media_type": media_type,
+            "source_image_id": source_image_id, "fps": fps,
+            "frame_count": frame_count, "duration_s": duration_s}
 
 
 async def get(iid: str) -> dict | None:
@@ -157,7 +170,7 @@ async def get_public(iid: str) -> dict | None:
         return None
     d = _standalone_row(r)
     d["owner_username"] = d.pop("username", "")
-    d["owner_display_name"] = d.pop("display_name", "") or d.get("owner_username", "")
+    d["owner_display_name"] = _decrypt_secret(d.pop("display_name", "") or "") or d.get("owner_username", "")
     d["owner_avatar"] = d.pop("avatar", "") or ""
     return d
 

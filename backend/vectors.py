@@ -6,8 +6,6 @@ indexes, sharing db.py's engine. Postgres owns the readable relational data;
 this module owns the embeddings. Cosine distance is the metric (pgvector <=>),
 so the max_dist thresholds are plain cosine distances.
 """
-import time
-import hashlib
 import logging
 import numpy as np
 
@@ -15,8 +13,6 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 log = logging.getLogger("storyhavenai")
-
-MEM_INDEX, LORE_INDEX = "mem_idx", "lore_idx"
 
 _dim = 768
 _meta = sa.MetaData()
@@ -27,6 +23,16 @@ _lore_tbl = None
 def _engine():
     from backend import db
     return db.engine()
+
+
+def _encrypt_secret(s: str) -> str:
+    from backend import db
+    return db._encrypt_secret(s)
+
+
+def _decrypt_secret(s: str) -> str:
+    from backend import db
+    return db._decrypt_secret(s)
 
 
 def _build_tables(dim: int):
@@ -47,6 +53,7 @@ def _build_tables(dim: int):
     _lore_tbl = sa.Table(
         "lore_vectors", _meta,
         sa.Column("lore_id", sa.Text, primary_key=True),
+        sa.Column("part_id", sa.Integer, primary_key=True, server_default=sa.text("0")),
         sa.Column("char_id", sa.Text),
         sa.Column("embedding", Vector(dim)),
     )
@@ -68,6 +75,15 @@ async def ensure_indexes(dim: int):
     _build_tables(dim)
     async with _engine().begin() as conn:
         await conn.execute(sa.text("CREATE EXTENSION IF NOT EXISTS vector"))
+        table_exists = await conn.scalar(sa.text(
+            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'lore_vectors')"))
+        if table_exists:
+            await conn.execute(sa.text(
+                "ALTER TABLE lore_vectors ADD COLUMN IF NOT EXISTS part_id INTEGER NOT NULL DEFAULT 0"))
+            await conn.execute(sa.text(
+                "ALTER TABLE lore_vectors DROP CONSTRAINT IF EXISTS lore_vectors_pkey"))
+            await conn.execute(sa.text(
+                "ALTER TABLE lore_vectors ADD PRIMARY KEY (lore_id, part_id)"))
         await conn.run_sync(_meta.create_all)
         await conn.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_memvec_hnsw ON memory_vectors "
@@ -75,6 +91,8 @@ async def ensure_indexes(dim: int):
         await conn.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_lorevec_hnsw ON lore_vectors "
             "USING hnsw (embedding vector_cosine_ops)"))
+    from backend.repositories import memory_facts
+    await memory_facts.ensure_tables(dim)
 
 
 async def reset_indexes(dim: int):
@@ -83,48 +101,14 @@ async def reset_indexes(dim: int):
     async with _engine().begin() as conn:
         await conn.execute(sa.text("DROP TABLE IF EXISTS memory_vectors"))
         await conn.execute(sa.text("DROP TABLE IF EXISTS lore_vectors"))
+    from backend.repositories import memory_facts
+    await memory_facts.drop_tables()
     await ensure_indexes(dim)
 
 
 # --------------------------------------------------------------------------
 # Memory
 # --------------------------------------------------------------------------
-async def store_memory(char_id: str, session_id: str, text: str, vec, mem_id: str | None = None):
-    # char_id is kept for character-level cleanup; retrieval is scoped to session.
-    # When mem_id (the triggering user message id) is given, the key is stable, so
-    # regenerating a reply overwrites that turn's memory rather than duplicating it.
-    base = mem_id or hashlib.sha1((session_id + "|" + text).encode()).hexdigest()[:20]
-    ins = pg_insert(_mem_tbl).values(
-        id=base, session_id=session_id, char_id=char_id, text=text,
-        ts=int(time.time()), embedding=_to_list(vec))
-    ins = ins.on_conflict_do_update(index_elements=["id"], set_={
-        "session_id": ins.excluded.session_id, "char_id": ins.excluded.char_id,
-        "text": ins.excluded.text, "ts": ins.excluded.ts,
-        "embedding": ins.excluded.embedding})
-    async with _engine().begin() as conn:
-        await conn.execute(ins)
-
-
-async def search_memory(session_id: str, vec, k: int, max_dist: float, exclude_id: str | None = None):
-    out = []
-    try:
-        dist = _mem_tbl.c.embedding.cosine_distance(_to_list(vec))
-        stmt = (sa.select(_mem_tbl.c.text, dist.label("score"))
-                .where(_mem_tbl.c.session_id == session_id))
-        if exclude_id:
-            stmt = stmt.where(_mem_tbl.c.id != exclude_id)
-        stmt = stmt.order_by(sa.text("score")).limit(k)
-        async with _engine().connect() as conn:
-            for r in (await conn.execute(stmt)).fetchall():
-                if float(r._mapping["score"]) <= max_dist:
-                    out.append(r._mapping["text"] or "")
-    except Exception as e:
-        # Without this log line, a down/misconfigured store is indistinguishable
-        # from "no relevant memories this turn" — silently degrading retrieval.
-        log.warning("memory search failed (session=%s): %s: %s", session_id, type(e).__name__, e)
-    return out[:k]
-
-
 async def delete_memory(mem_id: str):
     """Delete a single turn's memory (keyed by the triggering user message id)."""
     try:
@@ -134,54 +118,57 @@ async def delete_memory(mem_id: str):
         log.warning("delete_memory failed (id=%s): %s: %s", mem_id, type(e).__name__, e)
 
 
-async def list_memory(session_id: str, k: int = 30):
-    stmt = (sa.select(_mem_tbl.c.id, _mem_tbl.c.text, _mem_tbl.c.ts)
-            .where(_mem_tbl.c.session_id == session_id)
-            .order_by(_mem_tbl.c.ts.desc()).limit(k))
-    async with _engine().connect() as conn:
-        rows = (await conn.execute(stmt)).fetchall()
-    return [{"id": r._mapping["id"], "text": r._mapping["text"] or "",
-             "ts": int(r._mapping["ts"] or 0)} for r in rows]
-
-
-async def search_memory_scored(session_id: str, vec, k: int = 20):
-    dist = _mem_tbl.c.embedding.cosine_distance(_to_list(vec))
-    stmt = (sa.select(_mem_tbl.c.text, dist.label("score"), _mem_tbl.c.ts)
-            .where(_mem_tbl.c.session_id == session_id)
-            .order_by(sa.text("score")).limit(k))
-    async with _engine().connect() as conn:
-        rows = (await conn.execute(stmt)).fetchall()
-    return [{"text": r._mapping["text"] or "", "score": round(float(r._mapping["score"]), 3),
-             "ts": int(r._mapping["ts"] or 0)} for r in rows]
-
-
 # --------------------------------------------------------------------------
 # Lore vectors (content lives in the relational DB; we store id -> vector only)
 # --------------------------------------------------------------------------
-async def store_lore_vector(lore_id: str, char_id: str | None, vec):
+async def store_lore_vector(lore_id: str, char_id: str | None, vec, part_id: int = 0):
     ins = pg_insert(_lore_tbl).values(
-        lore_id=lore_id, char_id=char_id, embedding=_to_list(vec))
-    ins = ins.on_conflict_do_update(index_elements=["lore_id"], set_={
+        lore_id=lore_id, part_id=part_id, char_id=char_id, embedding=_to_list(vec))
+    ins = ins.on_conflict_do_update(index_elements=["lore_id", "part_id"], set_={
         "char_id": ins.excluded.char_id, "embedding": ins.excluded.embedding})
     async with _engine().begin() as conn:
         await conn.execute(ins)
 
 
 async def search_lore_ids(char_id: str, vec, k: int, max_dist: float):
-    ids = []
+    best_by_lore_id: dict[str, float] = {}
     try:
         dist = _lore_tbl.c.embedding.cosine_distance(_to_list(vec))
         stmt = (sa.select(_lore_tbl.c.lore_id, dist.label("score"))
                 .where(sa.or_(_lore_tbl.c.char_id == char_id,
                               _lore_tbl.c.char_id.is_(None)))
+                .order_by(sa.text("score")).limit(k * 4))
+        async with _engine().connect() as conn:
+            for r in (await conn.execute(stmt)).fetchall():
+                score = float(r._mapping["score"])
+                if score > max_dist:
+                    continue
+                lore_id = r._mapping["lore_id"]
+                if lore_id not in best_by_lore_id or score < best_by_lore_id[lore_id]:
+                    best_by_lore_id[lore_id] = score
+    except Exception as e:
+        log.warning("lore search failed (char=%s): %s: %s", char_id, type(e).__name__, e)
+    ranked = sorted(best_by_lore_id.items(), key=lambda item: item[1])
+    return [lore_id for lore_id, _ in ranked[:k]]
+
+
+async def search_lore_chunks(char_id: str, vec, k: int, max_dist: float) -> list[dict]:
+    hits = []
+    try:
+        dist = _lore_tbl.c.embedding.cosine_distance(_to_list(vec))
+        stmt = (sa.select(_lore_tbl.c.lore_id, _lore_tbl.c.part_id, dist.label("score"))
+                .where(sa.or_(_lore_tbl.c.char_id == char_id,
+                              _lore_tbl.c.char_id.is_(None)))
                 .order_by(sa.text("score")).limit(k))
         async with _engine().connect() as conn:
             for r in (await conn.execute(stmt)).fetchall():
-                if float(r._mapping["score"]) <= max_dist:
-                    ids.append(r._mapping["lore_id"])
+                score = float(r._mapping["score"])
+                if score <= max_dist:
+                    hits.append({"lore_id": r._mapping["lore_id"],
+                                "part_id": r._mapping["part_id"], "distance": score})
     except Exception as e:
-        log.warning("lore search failed (char=%s): %s: %s", char_id, type(e).__name__, e)
-    return ids
+        log.warning("lore chunk search failed (char=%s): %s: %s", char_id, type(e).__name__, e)
+    return hits
 
 
 async def delete_lore_vector(lore_id: str):
@@ -189,16 +176,12 @@ async def delete_lore_vector(lore_id: str):
         await conn.execute(sa.delete(_lore_tbl).where(_lore_tbl.c.lore_id == lore_id))
 
 
-async def delete_by_tag(index: str, field: str, value: str):
-    """Bulk-delete vectors matching a scope tag — a single scoped DELETE.
-    `field` is 'session' or 'chartag' as used by callers."""
+async def delete_lore_vectors_by_char(char_id: str):
     try:
-        tbl = _mem_tbl if index == MEM_INDEX else _lore_tbl
-        col = tbl.c.session_id if field == "session" else tbl.c.char_id
         async with _engine().begin() as conn:
-            await conn.execute(sa.delete(tbl).where(col == value))
+            await conn.execute(sa.delete(_lore_tbl).where(_lore_tbl.c.char_id == char_id))
     except Exception as e:
-        log.warning("delete_by_tag(%s, %s=%s) failed: %s", index, field, value, e)
+        log.warning("delete_lore_vectors_by_char(%s) failed: %s", char_id, e)
 
 
 async def stats():

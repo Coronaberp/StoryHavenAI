@@ -1,0 +1,20 @@
+{
+  "turns": [
+    {"user": "I meet Mira alone in the archive, no one else around.", "assistant": "Mira glances about, then whispers: \"I've been hiding my wounded brother at the old granary. No one else alive knows where he is.\""},
+    {"user": "We seal the archive and leave separately.", "assistant": "Mira slips out the back way, satchel empty, expression unreadable."},
+    {"user": "Later I meet Bram at the tavern.", "assistant": "Bram raises his mug. \"Good hunting today — the road east is clear, by the way.\""},
+    {"user": "Bram and I play cards.", "assistant": "Bram loses three hands and laughs about it, ordering another round."},
+    {"user": "I head home for the night.", "assistant": "The streets are quiet; lamplight pools on the cobbles as the door shuts behind you."},
+    {"user": "Next day, filler scene one.", "assistant": "Market stalls open slowly under a pale sun."},
+    {"user": "Filler scene two.", "assistant": "A courier hurries past with a bundle of letters."},
+    {"user": "Filler scene three.", "assistant": "Rain starts, soft against the shutters."},
+    {"user": "Filler scene four.", "assistant": "The rain passes; gutters drip in the lane."},
+    {"user": "Filler scene five.", "assistant": "Evening settles over the rooftops."}
+  ],
+  "probes": [
+    {"query": "Where is Mira's brother hidden?", "present": ["Mira"],
+     "expect": ["granary"], "reject": []},
+    {"query": "Where is Mira's brother hidden?", "present": ["Bram"],
+     "expect": [], "reject": ["granary"]}
+  ]
+}

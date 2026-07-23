@@ -1,0 +1,564 @@
+{
+ "turns": [
+  {
+   "user": "We continue the journey, scene 0.",
+   "assistant": "Kael showed off his father's brass compass again."
+  },
+  {
+   "user": "We continue the journey, scene 1.",
+   "assistant": "Mira's stabbed shoulder was aching again."
+  },
+  {
+   "user": "We continue the journey, scene 2.",
+   "assistant": "Kael still owes the innkeeper Serna forty silver."
+  },
+  {
+   "user": "We continue the journey, scene 3.",
+   "assistant": "The abandoned mill outside town creaked in the wind."
+  },
+  {
+   "user": "We continue the journey, scene 4.",
+   "assistant": "Kael hummed the Redford lament by the fire."
+  },
+  {
+   "user": "We continue the journey, scene 5.",
+   "assistant": "Kael marked the eastern pass on his map of the Greyspine."
+  },
+  {
+   "user": "We continue the journey, scene 6.",
+   "assistant": "Kael's jagged scar from the wolf attack showed above his collar."
+  },
+  {
+   "user": "We continue the journey, scene 7.",
+   "assistant": "Mira spoke fondly of her sister Tessa in the capital."
+  },
+  {
+   "user": "We continue the journey, scene 8.",
+   "assistant": "Kael admitted he cannot swim and dreads deep water."
+  },
+  {
+   "user": "We continue the journey, scene 9.",
+   "assistant": "Mira wears a silver signet ring engraved with a heron."
+  },
+  {
+   "user": "We continue the journey, scene 10.",
+   "assistant": "\"This compass was my father's,\" Kael said, turning it over."
+  },
+  {
+   "user": "We continue the journey, scene 11.",
+   "assistant": "Mira winced, favoring the shoulder where the knife went in."
+  },
+  {
+   "user": "We continue the journey, scene 12.",
+   "assistant": "\"Forty silver, Kael. I haven't forgotten,\" Serna called out."
+  },
+  {
+   "user": "We continue the journey, scene 13.",
+   "assistant": "Nobody has worked the old mill in years; it stands empty."
+  },
+  {
+   "user": "We continue the journey, scene 14.",
+   "assistant": "That old Redford lament again \u2014 Kael can't stop humming it."
+  },
+  {
+   "user": "We continue the journey, scene 15.",
+   "assistant": "The Greyspine map gained another notation: the eastern pass."
+  },
+  {
+   "user": "We continue the journey, scene 16.",
+   "assistant": "The old wolf-attack scar on Kael's neck caught the light."
+  },
+  {
+   "user": "We continue the journey, scene 17.",
+   "assistant": "Tessa, Mira's sister, sent another letter from the capital."
+  },
+  {
+   "user": "We continue the journey, scene 18.",
+   "assistant": "Deep water again \u2014 Kael tensed, unable to swim a stroke."
+  },
+  {
+   "user": "We continue the journey, scene 19.",
+   "assistant": "The heron-engraved silver ring never leaves Mira's finger."
+  },
+  {
+   "user": "We continue the journey, scene 20.",
+   "assistant": "Kael checked the old compass his father left him."
+  },
+  {
+   "user": "We continue the journey, scene 21.",
+   "assistant": "The stab wound in Mira's shoulder had not healed."
+  },
+  {
+   "user": "We continue the journey, scene 22.",
+   "assistant": "Serna reminded Kael about the forty silver he owes her."
+  },
+  {
+   "user": "We continue the journey, scene 23.",
+   "assistant": "They passed the derelict mill on the north road again."
+  },
+  {
+   "user": "We continue the journey, scene 24.",
+   "assistant": "Kael sang a verse of the lament from Redford."
+  },
+  {
+   "user": "We continue the journey, scene 25.",
+   "assistant": "Kael updated his Greyspine map, tracing the eastern pass."
+  },
+  {
+   "user": "We continue the journey, scene 26.",
+   "assistant": "Kael rubbed the scar the wolf gave him years ago."
+  },
+  {
+   "user": "We continue the journey, scene 27.",
+   "assistant": "Mira mentioned her sister Tessa again, worry in her voice."
+  },
+  {
+   "user": "We continue the journey, scene 28.",
+   "assistant": "Kael skirted the river's edge; he has never learned to swim."
+  },
+  {
+   "user": "We continue the journey, scene 29.",
+   "assistant": "Mira turned her silver heron ring absently as she spoke."
+  },
+  {
+   "user": "We continue the journey, scene 30.",
+   "assistant": "The battered compass \u2014 his father's \u2014 never leaves Kael's belt."
+  },
+  {
+   "user": "We continue the journey, scene 31.",
+   "assistant": "Mira pressed a hand to her injured shoulder."
+  },
+  {
+   "user": "We continue the journey, scene 32.",
+   "assistant": "The debt to Serna \u2014 forty silver \u2014 came up again."
+  },
+  {
+   "user": "We continue the journey, scene 33.",
+   "assistant": "The old mill loomed, long abandoned."
+  },
+  {
+   "user": "We continue the journey, scene 34.",
+   "assistant": "The Redford tune drifted from Kael's lips."
+  },
+  {
+   "user": "We continue the journey, scene 35.",
+   "assistant": "Poring over the Greyspine map, Kael circled the eastern pass."
+  },
+  {
+   "user": "We continue the journey, scene 36.",
+   "assistant": "That wolf-bite scar of Kael's stood pale against his skin."
+  },
+  {
+   "user": "We continue the journey, scene 37.",
+   "assistant": "A letter from Tessa arrived; Mira's sister writes weekly."
+  },
+  {
+   "user": "We continue the journey, scene 38.",
+   "assistant": "The ferry crossing left Kael pale; deep water terrifies him."
+  },
+  {
+   "user": "We continue the journey, scene 39.",
+   "assistant": "Light glinted off the heron signet on Mira's hand."
+  },
+  {
+   "user": "We continue the journey, scene 40.",
+   "assistant": "Kael showed off his father's brass compass again."
+  },
+  {
+   "user": "We continue the journey, scene 41.",
+   "assistant": "Mira's stabbed shoulder was aching again."
+  },
+  {
+   "user": "We continue the journey, scene 42.",
+   "assistant": "Kael still owes the innkeeper Serna forty silver."
+  },
+  {
+   "user": "We continue the journey, scene 43.",
+   "assistant": "The abandoned mill outside town creaked in the wind."
+  },
+  {
+   "user": "We continue the journey, scene 44.",
+   "assistant": "Kael hummed the Redford lament by the fire."
+  },
+  {
+   "user": "We continue the journey, scene 45.",
+   "assistant": "Kael marked the eastern pass on his map of the Greyspine."
+  },
+  {
+   "user": "We continue the journey, scene 46.",
+   "assistant": "Kael's jagged scar from the wolf attack showed above his collar."
+  },
+  {
+   "user": "We continue the journey, scene 47.",
+   "assistant": "Mira spoke fondly of her sister Tessa in the capital."
+  },
+  {
+   "user": "We continue the journey, scene 48.",
+   "assistant": "Kael admitted he cannot swim and dreads deep water."
+  },
+  {
+   "user": "We continue the journey, scene 49.",
+   "assistant": "Mira wears a silver signet ring engraved with a heron."
+  },
+  {
+   "user": "We continue the journey, scene 50.",
+   "assistant": "\"This compass was my father's,\" Kael said, turning it over."
+  },
+  {
+   "user": "We continue the journey, scene 51.",
+   "assistant": "Mira winced, favoring the shoulder where the knife went in."
+  },
+  {
+   "user": "We continue the journey, scene 52.",
+   "assistant": "\"Forty silver, Kael. I haven't forgotten,\" Serna called out."
+  },
+  {
+   "user": "We continue the journey, scene 53.",
+   "assistant": "Nobody has worked the old mill in years; it stands empty."
+  },
+  {
+   "user": "We continue the journey, scene 54.",
+   "assistant": "That old Redford lament again \u2014 Kael can't stop humming it."
+  },
+  {
+   "user": "We continue the journey, scene 55.",
+   "assistant": "The Greyspine map gained another notation: the eastern pass."
+  },
+  {
+   "user": "We continue the journey, scene 56.",
+   "assistant": "The old wolf-attack scar on Kael's neck caught the light."
+  },
+  {
+   "user": "We continue the journey, scene 57.",
+   "assistant": "Tessa, Mira's sister, sent another letter from the capital."
+  },
+  {
+   "user": "We continue the journey, scene 58.",
+   "assistant": "Deep water again \u2014 Kael tensed, unable to swim a stroke."
+  },
+  {
+   "user": "We continue the journey, scene 59.",
+   "assistant": "The heron-engraved silver ring never leaves Mira's finger."
+  },
+  {
+   "user": "We continue the journey, scene 60.",
+   "assistant": "Kael checked the old compass his father left him."
+  },
+  {
+   "user": "We continue the journey, scene 61.",
+   "assistant": "The stab wound in Mira's shoulder had not healed."
+  },
+  {
+   "user": "We continue the journey, scene 62.",
+   "assistant": "Serna reminded Kael about the forty silver he owes her."
+  },
+  {
+   "user": "We continue the journey, scene 63.",
+   "assistant": "They passed the derelict mill on the north road again."
+  },
+  {
+   "user": "We continue the journey, scene 64.",
+   "assistant": "Kael sang a verse of the lament from Redford."
+  },
+  {
+   "user": "We continue the journey, scene 65.",
+   "assistant": "Kael updated his Greyspine map, tracing the eastern pass."
+  },
+  {
+   "user": "We continue the journey, scene 66.",
+   "assistant": "Kael rubbed the scar the wolf gave him years ago."
+  },
+  {
+   "user": "We continue the journey, scene 67.",
+   "assistant": "Mira mentioned her sister Tessa again, worry in her voice."
+  },
+  {
+   "user": "We continue the journey, scene 68.",
+   "assistant": "Kael skirted the river's edge; he has never learned to swim."
+  },
+  {
+   "user": "We continue the journey, scene 69.",
+   "assistant": "Mira turned her silver heron ring absently as she spoke."
+  },
+  {
+   "user": "We continue the journey, scene 70.",
+   "assistant": "The battered compass \u2014 his father's \u2014 never leaves Kael's belt."
+  },
+  {
+   "user": "We continue the journey, scene 71.",
+   "assistant": "Mira pressed a hand to her injured shoulder."
+  },
+  {
+   "user": "We continue the journey, scene 72.",
+   "assistant": "The debt to Serna \u2014 forty silver \u2014 came up again."
+  },
+  {
+   "user": "We continue the journey, scene 73.",
+   "assistant": "The old mill loomed, long abandoned."
+  },
+  {
+   "user": "We continue the journey, scene 74.",
+   "assistant": "The Redford tune drifted from Kael's lips."
+  },
+  {
+   "user": "We continue the journey, scene 75.",
+   "assistant": "Poring over the Greyspine map, Kael circled the eastern pass."
+  },
+  {
+   "user": "We continue the journey, scene 76.",
+   "assistant": "That wolf-bite scar of Kael's stood pale against his skin."
+  },
+  {
+   "user": "We continue the journey, scene 77.",
+   "assistant": "A letter from Tessa arrived; Mira's sister writes weekly."
+  },
+  {
+   "user": "We continue the journey, scene 78.",
+   "assistant": "The ferry crossing left Kael pale; deep water terrifies him."
+  },
+  {
+   "user": "We continue the journey, scene 79.",
+   "assistant": "Light glinted off the heron signet on Mira's hand."
+  },
+  {
+   "user": "We continue the journey, scene 80.",
+   "assistant": "Kael showed off his father's brass compass again."
+  },
+  {
+   "user": "We continue the journey, scene 81.",
+   "assistant": "Mira's stabbed shoulder was aching again."
+  },
+  {
+   "user": "We continue the journey, scene 82.",
+   "assistant": "Kael still owes the innkeeper Serna forty silver."
+  },
+  {
+   "user": "We continue the journey, scene 83.",
+   "assistant": "The abandoned mill outside town creaked in the wind."
+  },
+  {
+   "user": "We continue the journey, scene 84.",
+   "assistant": "Kael hummed the Redford lament by the fire."
+  },
+  {
+   "user": "We continue the journey, scene 85.",
+   "assistant": "Kael marked the eastern pass on his map of the Greyspine."
+  },
+  {
+   "user": "We continue the journey, scene 86.",
+   "assistant": "Kael's jagged scar from the wolf attack showed above his collar."
+  },
+  {
+   "user": "We continue the journey, scene 87.",
+   "assistant": "Mira spoke fondly of her sister Tessa in the capital."
+  },
+  {
+   "user": "We continue the journey, scene 88.",
+   "assistant": "Kael admitted he cannot swim and dreads deep water."
+  },
+  {
+   "user": "We continue the journey, scene 89.",
+   "assistant": "Mira wears a silver signet ring engraved with a heron."
+  },
+  {
+   "user": "We continue the journey, scene 90.",
+   "assistant": "\"This compass was my father's,\" Kael said, turning it over."
+  },
+  {
+   "user": "We continue the journey, scene 91.",
+   "assistant": "Mira winced, favoring the shoulder where the knife went in."
+  },
+  {
+   "user": "We continue the journey, scene 92.",
+   "assistant": "\"Forty silver, Kael. I haven't forgotten,\" Serna called out."
+  },
+  {
+   "user": "We continue the journey, scene 93.",
+   "assistant": "Nobody has worked the old mill in years; it stands empty."
+  },
+  {
+   "user": "We continue the journey, scene 94.",
+   "assistant": "That old Redford lament again \u2014 Kael can't stop humming it."
+  },
+  {
+   "user": "We continue the journey, scene 95.",
+   "assistant": "The Greyspine map gained another notation: the eastern pass."
+  },
+  {
+   "user": "We continue the journey, scene 96.",
+   "assistant": "The old wolf-attack scar on Kael's neck caught the light."
+  },
+  {
+   "user": "We continue the journey, scene 97.",
+   "assistant": "Tessa, Mira's sister, sent another letter from the capital."
+  },
+  {
+   "user": "We continue the journey, scene 98.",
+   "assistant": "Deep water again \u2014 Kael tensed, unable to swim a stroke."
+  },
+  {
+   "user": "We continue the journey, scene 99.",
+   "assistant": "The heron-engraved silver ring never leaves Mira's finger."
+  },
+  {
+   "user": "We continue the journey, scene 100.",
+   "assistant": "Kael checked the old compass his father left him."
+  },
+  {
+   "user": "We continue the journey, scene 101.",
+   "assistant": "The stab wound in Mira's shoulder had not healed."
+  },
+  {
+   "user": "We continue the journey, scene 102.",
+   "assistant": "Serna reminded Kael about the forty silver he owes her."
+  },
+  {
+   "user": "We continue the journey, scene 103.",
+   "assistant": "They passed the derelict mill on the north road again."
+  },
+  {
+   "user": "We continue the journey, scene 104.",
+   "assistant": "Kael sang a verse of the lament from Redford."
+  },
+  {
+   "user": "We continue the journey, scene 105.",
+   "assistant": "Kael updated his Greyspine map, tracing the eastern pass."
+  },
+  {
+   "user": "We continue the journey, scene 106.",
+   "assistant": "Kael rubbed the scar the wolf gave him years ago."
+  },
+  {
+   "user": "We continue the journey, scene 107.",
+   "assistant": "Mira mentioned her sister Tessa again, worry in her voice."
+  },
+  {
+   "user": "We continue the journey, scene 108.",
+   "assistant": "Kael skirted the river's edge; he has never learned to swim."
+  },
+  {
+   "user": "We continue the journey, scene 109.",
+   "assistant": "Mira turned her silver heron ring absently as she spoke."
+  },
+  {
+   "user": "We continue the journey, scene 110.",
+   "assistant": "The battered compass \u2014 his father's \u2014 never leaves Kael's belt."
+  },
+  {
+   "user": "We continue the journey, scene 111.",
+   "assistant": "Mira pressed a hand to her injured shoulder."
+  },
+  {
+   "user": "We continue the journey, scene 112.",
+   "assistant": "The debt to Serna \u2014 forty silver \u2014 came up again."
+  },
+  {
+   "user": "We continue the journey, scene 113.",
+   "assistant": "The old mill loomed, long abandoned."
+  },
+  {
+   "user": "We continue the journey, scene 114.",
+   "assistant": "The Redford tune drifted from Kael's lips."
+  },
+  {
+   "user": "We continue the journey, scene 115.",
+   "assistant": "Poring over the Greyspine map, Kael circled the eastern pass."
+  },
+  {
+   "user": "We continue the journey, scene 116.",
+   "assistant": "That wolf-bite scar of Kael's stood pale against his skin."
+  },
+  {
+   "user": "We continue the journey, scene 117.",
+   "assistant": "A letter from Tessa arrived; Mira's sister writes weekly."
+  },
+  {
+   "user": "We continue the journey, scene 118.",
+   "assistant": "The ferry crossing left Kael pale; deep water terrifies him."
+  },
+  {
+   "user": "We continue the journey, scene 119.",
+   "assistant": "Light glinted off the heron signet on Mira's hand."
+  }
+ ],
+ "probes": [
+  {
+   "query": "What does Kael carry from his father?",
+   "present": [],
+   "expect": [
+    "compass"
+   ],
+   "reject": []
+  },
+  {
+   "query": "What does Kael owe and to whom?",
+   "present": [
+    "Serna"
+   ],
+   "expect": [
+    "forty silver"
+   ],
+   "reject": []
+  },
+  {
+   "query": "What is wrong with Mira?",
+   "present": [
+    "Mira"
+   ],
+   "expect": [
+    "shoulder"
+   ],
+   "reject": []
+  },
+  {
+   "query": "What lies on the north road?",
+   "present": [],
+   "expect": [
+    "mill"
+   ],
+   "reject": []
+  },
+  {
+   "query": "What song does Kael like?",
+   "present": [],
+   "expect": [
+    "Redford"
+   ],
+   "reject": []
+  },
+  {
+   "query": "What did Kael mark on the map?",
+   "present": [],
+   "expect": [
+    "eastern pass"
+   ],
+   "reject": []
+  },
+  {
+   "query": "Tell me everything you know about Kael.",
+   "present": [
+    "Serna"
+   ],
+   "expect": [
+    "compass",
+    "forty silver",
+    "Redford",
+    "swim"
+   ],
+   "reject": []
+  },
+  {
+   "query": "Tell me everything you know about Mira.",
+   "present": [
+    "Mira",
+    "Tessa"
+   ],
+   "expect": [
+    "shoulder",
+    "Tessa",
+    "heron"
+   ],
+   "reject": []
+  }
+ ]
+}

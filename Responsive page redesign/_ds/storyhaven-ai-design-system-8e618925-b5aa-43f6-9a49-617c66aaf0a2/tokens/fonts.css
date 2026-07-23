@@ -1,0 +1,20 @@
+/* StoryHaven AI — webfonts
+   The product loads Fraunces (display serif) + Inter (sans) from Google Fonts.
+   We mirror that here. Aptos Mono (the product's --mono primary) is a proprietary
+   Microsoft font with no webfont; the mono role falls back to the system monospace
+   stack declared in typography.css. See readme.md "Font substitutions". */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+/* Aptos Mono is the product's --mono primary. It is a proprietary Microsoft
+   font with no webfont, so this face is local()-only: it resolves to an
+   installed copy if the user has one, otherwise the --mono fallback stack
+   (Cascadia Code / ui-monospace / SF Mono / Menlo) renders. Replace this with
+   a real src: url(...) if you obtain an Aptos Mono webfont. Do NOT swap the
+   family for a different mono — keep the token pointing at Aptos Mono. */
+@font-face {
+  font-family: 'Aptos Mono';
+  src: local('Aptos Mono'), local('AptosMono'), local('Aptos-Mono');
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}

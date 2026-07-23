@@ -7,8 +7,8 @@ storyhavenai.db
 storyhavenai.db-shm
 storyhavenai.db-wal
 storyhavenai.db.backup*
-storyhavenai.logs.jsonl
-personae.logs.jsonl
+*.logs.jsonl
+*.log
 
 # Contains real account credentials — never commit
 CLAUDE.md
@@ -25,6 +25,11 @@ files/
 
 # StoryHaven AI installer-generated files (contain secrets)
 .env
+.env.*
 docker-compose.yml
 installer/Output/
 backup_before_encrypt_backfill.sql
+.superpowers/
+storyhavenai.gputemp*
+storyhavenai.gputemp*
+test.html

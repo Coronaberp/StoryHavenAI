@@ -3,6 +3,8 @@
 class ToastManager {
   constructor() {
     this.timer = null;
+    this.queue = [];
+    this.showing = false;
   }
 
   _render(message, isError) {
@@ -12,23 +14,45 @@ class ToastManager {
     box.classList.toggle("error", isError);
     box.innerHTML = `
       <span class="toast-msg"></span>
-      <button type="button" class="toast-close" aria-label="Close">&times;</button>
+      <button type="button" class="toast-close" aria-label="${_attr(t("modal_close"))}">&times;</button>
     `;
     box.querySelector(".toast-msg").textContent = message;
     box.querySelector(".toast-close").onclick = () => {
       clearTimeout(this.timer);
       box.classList.remove("show");
+      this.showing = false;
+      this._dequeue();
     };
     box.classList.add("show");
-    this.timer = setTimeout(() => box.classList.remove("show", "error"), 10000);
+    this.showing = true;
+    this.timer = setTimeout(() => {
+      box.classList.remove("show", "error");
+      this.showing = false;
+      this._dequeue();
+    }, 10000);
+  }
+
+  _dequeue() {
+    if (this.queue.length > 0) {
+      const { message, kind } = this.queue.shift();
+      this._render(message, kind === "error");
+    }
   }
 
   show(message) {
-    this._render(message, false);
+    if (this.showing) {
+      this.queue.push({ message, kind: "normal" });
+    } else {
+      this._render(message, false);
+    }
   }
 
   showError(message) {
-    this._render(message, true);
+    if (this.showing) {
+      this.queue.push({ message, kind: "error" });
+    } else {
+      this._render(message, true);
+    }
   }
 }
 

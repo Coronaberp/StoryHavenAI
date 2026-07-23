@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/storyhaven-ai-design-system-8e618925-b5aa-43f6-9a49-617c66aaf0a2/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/storyhaven-ai-design-system-8e618925-b5aa-43f6-9a49-617c66aaf0a2/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/storyhaven-ai-design-system-8e618925-b5aa-43f6-9a49-617c66aaf0a2/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/storyhaven-ai-design-system-8e618925-b5aa-43f6-9a49-617c66aaf0a2/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/storyhaven-ai-design-system-8e618925-b5aa-43f6-9a49-617c66aaf0a2/tokens/base.css">
+  <link rel="stylesheet" href="_ds/storyhaven-ai-design-system-8e618925-b5aa-43f6-9a49-617c66aaf0a2/styles.css">
+  <script src="_ds/storyhaven-ai-design-system-8e618925-b5aa-43f6-9a49-617c66aaf0a2/_ds_bundle.js"></script>
+  <style>
+    @keyframes sh-spin { to { transform: rotate(360deg); } }
+    @keyframes sh-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+    @keyframes sh-pulse { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+    body { margin: 0; background: var(--paper); }
+    a { color: var(--accent); }
+    a:hover { color: var(--accent-deep); }
+    *::-webkit-scrollbar { width: 10px; height: 10px; }
+    *::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 999px; }
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:radial-gradient(120% 90% at 50% -10%, #17140d 0%, var(--paper) 55%);font-family:var(--sans);color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:20px;padding:26px 12px 48px;box-sizing:border-box">
+
+  <div style="display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center">
+    <div style="font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--muted)">Responsive redesign · preview</div>
+    <div style="display:inline-flex;gap:6px;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:999px">
+      <sc-for list="{{ deviceBtns }}" as="d" hint-placeholder-count="4">
+        <button onClick="{{ d.onSelect }}" style="{{ d.style }}">
+          <span style="font-weight:600">{{ d.label }}</span>
+          <span style="font-family:var(--mono);font-size:10.5px;opacity:.7">{{ d.dim }}</span>
+        </button>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="{{ frameWrapStyle }}">
+    <div style="{{ frameOuterStyle }}">
+      <div style="height:100%;overflow:auto;position:relative;background:var(--paper)">
+
+        <div style="{{ pageStyle }}">
+
+          <header style="margin-bottom:22px">
+            <div style="font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Sanctum · generate media</div>
+            <h1 style="font-family:var(--display);font-weight:600;letter-spacing:-.01em;color:var(--ink);margin:0 0 8px;font-size:clamp(30px,4vw,40px);line-height:1.05">My forge</h1>
+            <p style="margin:0;color:var(--sec);font-size:15px;line-height:1.55;max-width:52ch">Turn words into a picture. Write what you want to see, tune a few dials if you like, then hit generate — the rest is optional.</p>
+          </header>
+
+          <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:8px">
+            <sc-for list="{{ modeTabs }}" as="t" hint-placeholder-count="4">
+              <x-import component-from-global-scope="StoryHavenAIDesignSystem_8e6189.Button" dc-props="{{ t.props }}" hint-size="auto,38px">{{ t.text }}</x-import>
+            </sc-for>
+          </div>
+          <p style="margin:0 0 22px;color:var(--muted);font-size:12.5px;line-height:1.5">{{ modeHint }}</p>
+
+          <div style="display:grid;{{ gridStyle }}">
+
+            <aside style="{{ previewColStyle }}">
+              <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:16px;overflow:hidden">
+                <div style="{{ previewMediaStyle }}">
+                  <sc-if value="{{ isIdle }}" hint-placeholder-val="{{ true }}">
+                    <div style="text-align:center;padding:24px;animation:sh-rise .3s ease">
+                      <div style="width:56px;height:56px;margin:0 auto 16px;border-radius:14px;border:1px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:var(--muted)">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><circle cx="9" cy="9" r="1.6"></circle><path d="m21 15-4.5-4.5L6 21"></path></svg>
+                      </div>
+                      <div style="font-family:var(--display);font-size:19px;color:var(--ink);margin-bottom:6px">Your image will appear here</div>
+                      <div style="font-size:13px;color:var(--muted);line-height:1.5;max-width:30ch;margin:0 auto">Write a prompt below, then tap <b style="color:var(--sec)">Generate</b>. This box mirrors your chosen aspect ratio.</div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ isLoading }}" hint-placeholder-val="{{ false }}">
+                    <div style="text-align:center;padding:24px">
+                      <div style="width:40px;height:40px;margin:0 auto 16px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);animation:sh-spin .8s linear infinite"></div>
+                      <div style="font-family:var(--display);font-size:18px;color:var(--ink);margin-bottom:6px">Forging your image…</div>
+                      <div style="font-size:12.5px;color:var(--muted);animation:sh-pulse 1.4s ease-in-out infinite">{{ promptEcho }}</div>
+                    </div>
+                  </sc-if>
+                  <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute;inset:0;background:{{ resultGrad }};animation:sh-rise .35s ease">
+                      <div style="position:absolute;inset:0;background:linear-gradient(0deg,#0C0C0E 0%,transparent 55%)"></div>
+                      <div style="position:absolute;left:16px;bottom:14px;right:16px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+                        <span style="font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--sec)">◷ SEED 8842 · {{ aspectKey }}</span>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+                <div style="display:flex;gap:10px;padding:12px 14px;border-top:1px solid var(--line)">
+                  <x-import component-from-global-scope="StoryHavenAIDesignSystem_8e6189.Button" dc-props="{{ regenProps }}" hint-size="auto,40px">Regenerate</x-import>
+                  <x-import component-from-global-scope="StoryHavenAIDesignSystem_8e6189.Button" dc-props="{{ downloadProps }}" hint-size="auto,40px">Download</x-import>
+                  <div style="flex:1"></div>
+                  <span style="align-self:center;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:var(--muted)">{{ previewNote }}</span>
+                </div>
+              </div>
+            </aside>
+
+            <div style="min-width:0;order:1">
+
+              <section style="margin-bottom:22px">
+                <div style="{{ ebStyle }}">Prompt</div>
+                <x-import component-from-global-scope="StoryHavenAIDesignSystem_8e6189.TextField" dc-props="{{ promptFieldProps }}" hint-size="100%,150px"></x-import>
+              </section>
+
+              <section style="margin-bottom:22px">
+                <div style="{{ ebStyle }}">Reference image · optional</div>
+                <p style="{{ hintStyle }}">Start from a picture instead of a blank canvas — the result keeps its pose and composition. Leave empty to generate purely from your prompt.</p>
+                <sc-if value="{{ refImg }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;gap:14px;align-items:center;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px">
+                    <div style="width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,#3a2a1e,#0c0c0e);flex-shrink:0;border:1px solid var(--line-2)"></div>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-size:13.5px;color:var(--ink);margin-bottom:6px">reference.png</div>
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--muted);white-space:nowrap">INFLUENCE {{ refStrLabel }}</span>
+                        <input type="range" min="0" max="1" step="0.05" value="{{ refStr }}" onInput="{{ onRefStr }}" style="flex:1;accent-color:var(--accent)">
+                      </div>
+                    </div>
+                    <button onClick="{{ toggleRef }}" style="{{ removeBtnStyle }}">Remove</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ noRef }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ toggleRef }}" style="{{ dropStyle }}">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+                    <span>Add a reference image</span>
+                    <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--muted)">DROP OR BROWSE · PNG / JPG</span>
+                  </button>
+                </sc-if>
+              </section>
+
+              <section style="margin-bottom:22px">
+                <button onClick="{{ toggleNeg }}" style="{{ negToggleStyle }}">
+                  <span style="{{ ebStyle }}">Negative prompt · optional</span>
+                  <span style="font-family:var(--mono);font-size:15px;color:var(--muted);transition:transform .18s;transform:{{ negCaret }}">⌄</span>
+                </button>
+                <p style="{{ hintStyle }}">List things to keep <i>out</i> of the picture (e.g. blurry, extra fingers, watermark).</p>
+                <sc-if value="{{ negOpen }}" hint-placeholder-val="{{ true }}">
+                  <x-import component-from-global-scope="StoryHavenAIDesignSystem_8e6189.TextField" dc-props="{{ negFieldProps }}" hint-size="100%,110px"></x-import>
+                </sc-if>
+              </section>
+
+              <section style="margin-bottom:22px">
+                <div style="{{ ebStyle }}">Aspect ratio</div>
+                <p style="{{ hintStyle }}">The shape of the image. Portrait for characters, wide for scenes.</p>
+                <div style="display:flex;flex-wrap:wrap;gap:8px">
+                  <sc-for list="{{ aspects }}" as="a" hint-placeholder-count="5">
+                    <button onClick="{{ a.onSelect }}" style="{{ a.style }}">
+                      <span aria-hidden="true" style="{{ a.boxStyle }}"></span>
+                      <span style="display:flex;flex-direction:column;line-height:1.15;text-align:left">
+                        <span style="font-weight:600;font-size:13px">{{ a.label }}</span>
+                        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">{{ a.key }}</span>
+                      </span>
+                    </button>
+                  </sc-for>
+                </div>
+              </section>
+
+              <section style="margin-bottom:22px">
+                <div style="{{ ebStyle }}">Model</div>
+                <p style="{{ hintStyle }}">The base checkpoint everything is built on. Its type decides which add-ons fit.</p>
+                <button style="{{ modelCardStyle }}">
+                  <span style="width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,#4a3826,#0c0c0e);border:1px solid var(--line-2);flex-shrink:0"></span>
+                  <span style="flex:1;min-width:0;text-align:left">
+                    <span style="display:block;font-family:var(--display);font-size:16px;color:var(--ink)">MiaoMiao RealSkin</span>
+                    <span style="display:flex;gap:6px;margin-top:5px">
+                      <span style="{{ baseBadgeStyle }}">SDXL</span>
+                      <span style="font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--muted);align-self:center">CHECKPOINT · 8 installed</span>
+                    </span>
+                  </span>
+                  <span style="color:var(--muted)">›</span>
+                </button>
+              </section>
+
+              <section style="margin-bottom:22px">
+                <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
+                  <div style="{{ ebStyle }}">Style add-ons · LoRAs</div>
+                  <a href="#" style="font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--accent);text-decoration:none">See all →</a>
+                </div>
+                <p style="{{ hintStyle }}">Optional style boosts you stack on top of the model. Each shows the model type it fits — match it to <b style="color:var(--sec)">SDXL</b> above.</p>
+                <div style="display:flex;gap:12px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x proximity">
+                  <sc-for list="{{ loras }}" as="l" hint-placeholder-count="5">
+                    <button onClick="{{ l.onSelect }}" style="{{ l.style }}">
+                      <span style="{{ l.thumbStyle }}">
+                        <span style="font-family:var(--mono);font-size:14px;color:var(--sec)">{{ l.initial }}</span>
+                        <sc-if value="{{ l.active }}" hint-placeholder-val="{{ false }}">
+                          <span style="position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--gold-ink);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">✓</span>
+                        </sc-if>
+                      </span>
+                      <span style="display:block;font-size:12px;color:var(--ink);margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:104px">{{ l.name }}</span>
+                      <span style="display:flex;gap:4px;margin-top:5px">
+                        <span style="{{ l.baseStyle }}">{{ l.base }}</span>
+                        <span style="font-family:var(--mono);font-size:9px;letter-spacing:.04em;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 5px;align-self:center">{{ l.tag }}</span>
+                      </span>
+                    </button>
+                  </sc-for>
+                </div>
+                <sc-if value="{{ hasActiveLoras }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin-top:6px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px">
+                    <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--muted);margin-bottom:10px">ADDED · {{ activeCount }}</div>
+                    <sc-for list="{{ activeLoras }}" as="al" hint-placeholder-count="1">
+                      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+                        <span style="font-size:12.5px;color:var(--ink);flex:0 0 40%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ al.name }}</span>
+                        <input type="range" min="0" max="1" step="0.05" value="{{ al.strength }}" onInput="{{ al.onStrength }}" style="flex:1;accent-color:var(--accent)">
+                        <span style="font-family:var(--mono);font-size:11px;color:var(--accent-deep);width:34px;text-align:right">{{ al.strengthLabel }}</span>
+                        <button onClick="{{ al.onRemove }}" style="{{ removeBtnStyle }}">✕</button>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ hasIncompat }}" hint-placeholder-val="{{ false }}">
+                      <div style="display:flex;gap:8px;align-items:flex-start;margin-top:4px;padding:9px 11px;background:var(--warn-bg);border:1px solid var(--warn-soft);border-radius:9px">
+                        <span style="color:var(--warn);font-size:13px;line-height:1.3">⚠</span>
+                        <span style="font-size:12px;color:var(--sec);line-height:1.45">One add-on is built for a different model type than <b style="color:var(--ink)">SDXL</b>. It may have little or no effect.</span>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </section>
+
+              <section style="margin-bottom:8px">
+                <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:14px;overflow:hidden">
+                  <button onClick="{{ toggleAdv }}" style="{{ advToggleStyle }}">
+                    <span style="display:flex;flex-direction:column;text-align:left">
+                      <span style="font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--sec)">Advanced</span>
+                      <span style="font-size:12px;color:var(--muted);margin-top:3px">Fine control — safe to ignore. Defaults work well.</span>
+                    </span>
+                    <span style="font-family:var(--mono);font-size:15px;color:var(--muted);transition:transform .18s;transform:{{ advCaret }}">⌄</span>
+                  </button>
+                  <sc-if value="{{ advOpen }}" hint-placeholder-val="{{ true }}">
+                    <div style="padding:4px 16px 18px">
+                      <div style="padding:14px 0;border-top:1px solid var(--line)">
+                        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+                          <span style="font-size:13.5px;color:var(--ink);font-weight:500">Detail steps</span>
+                          <span style="font-family:var(--mono);font-size:13px;color:var(--accent-deep)">{{ steps }}</span>
+                        </div>
+                        <input type="range" min="10" max="50" step="1" value="{{ steps }}" onInput="{{ onSteps }}" style="width:100%;accent-color:var(--accent)">
+                        <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.45">More steps = more refined detail, but slower. 20–30 is the sweet spot.</div>
+                      </div>
+                      <div style="padding:14px 0;border-top:1px solid var(--line)">
+                        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+                          <span style="font-size:13.5px;color:var(--ink);font-weight:500">Prompt strength</span>
+                          <span style="font-family:var(--mono);font-size:13px;color:var(--accent-deep)">{{ cfgLabel }}</span>
+                        </div>
+                        <input type="range" min="1" max="15" step="0.5" value="{{ cfg }}" onInput="{{ onCfg }}" style="width:100%;accent-color:var(--accent)">
+                        <div style="font-size:12px;color:var(--muted);margin-top:6px;line-height:1.45">How strictly the image obeys your prompt. Low = looser &amp; more creative, high = literal. Around 5–7 is balanced.</div>
+                      </div>
+                      <div style="padding:14px 0 0;border-top:1px solid var(--line);position:relative">
+                        <div style="font-size:13.5px;color:var(--ink);font-weight:500;margin-bottom:8px">Sampler</div>
+                        <button onClick="{{ toggleSampler }}" style="{{ samplerBtnStyle }}">
+                          <span style="display:flex;flex-direction:column;text-align:left;min-width:0">
+                            <span style="font-size:13.5px;color:var(--ink)">{{ samplerLabel }}</span>
+                            <span style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ samplerDesc }}</span>
+                          </span>
+                          <span style="color:var(--muted)">⌄</span>
+                        </button>
+                        <sc-if value="{{ samplerOpen }}" hint-placeholder-val="{{ false }}">
+                          <div style="position:absolute;left:0;right:0;top:100%;z-index:20;margin-top:6px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:12px;padding:6px;box-shadow:0 14px 32px -12px rgba(0,0,0,.6)">
+                            <sc-for list="{{ samplerOptions }}" as="s" hint-placeholder-count="4">
+                              <button onClick="{{ s.onSelect }}" style="{{ s.style }}">
+                                <span style="display:block;font-size:13px;color:var(--ink)">{{ s.label }}</span>
+                                <span style="display:block;font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.35">{{ s.desc }}</span>
+                              </button>
+                            </sc-for>
+                          </div>
+                        </sc-if>
+                      </div>
+                    </div>
+                  </sc-if>
+                </div>
+              </section>
+
+            </div>
+
+            <sc-if value="{{ showRecent }}" hint-placeholder-val="{{ false }}">
+              <aside style="order:2;position:sticky;top:0;align-self:start">
+                <div style="{{ ebStyle }}">Recent</div>
+                <p style="{{ hintStyle }}">Your last few creations.</p>
+                <div style="display:flex;flex-direction:column;gap:12px">
+                  <sc-for list="{{ recents }}" as="r" hint-placeholder-count="4">
+                    <div style="{{ r.style }}">
+                      <span style="position:absolute;inset:0;background:linear-gradient(0deg,#0C0C0E,transparent 60%)"></span>
+                      <span style="position:absolute;left:10px;bottom:8px;font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:var(--sec)">{{ r.label }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </aside>
+            </sc-if>
+
+          </div>
+        </div>
+
+        <div style="position:sticky;bottom:0;z-index:30;background:color-mix(in srgb, var(--paper) 82%, transparent);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:{{ barPad }}">
+          <div style="display:flex;align-items:center;gap:14px;{{ barInnerStyle }}">
+            <div style="min-width:0;{{ barSummaryStyle }}">
+              <div style="font-family:var(--mono);font-size:10px;letter-spacing:.12em;color:var(--muted);margin-bottom:3px">READY TO FORGE</div>
+              <div style="font-size:12.5px;color:var(--sec);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ summaryText }}</div>
+            </div>
+            <x-import component-from-global-scope="StoryHavenAIDesignSystem_8e6189.Button" dc-props="{{ generateProps }}" hint-size="auto,50px">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:2px"><path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z"></path></svg>
+              {{ genLabel }}
+            </x-import>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  DEVICES = {
+    mobile:    { label: 'Mobile',    w: 390,  h: 720 },
+    tablet:    { label: 'Tablet',    w: 834,  h: 720 },
+    desktop:   { label: 'Desktop',   w: 1366, h: 768 },
+    ultrawide: { label: 'Ultrawide', w: 1920, h: 812 },
+  };
+
+  ASPECTS = [
+    { key: '1:1',  label: 'Square',   w: 22, h: 22 },
+    { key: '2:3',  label: 'Portrait', w: 16, h: 24 },
+    { key: '3:4',  label: 'Photo',    w: 18, h: 24 },
+    { key: '16:9', label: 'Wide',     w: 28, h: 16 },
+    { key: '9:16', label: 'Story',    w: 14, h: 24 },
+  ];
+
+  LORAS = [
+    { name: '96YOTTEA Detailer', base: 'SDXL',  tag: 'detail',    initial: '96', grad: 'linear-gradient(135deg,#3a2a1e,#0c0c0e)' },
+    { name: 'ZodaPlus Cinematic', base: 'SDXL', tag: 'lighting',  initial: 'ZP', grad: 'linear-gradient(135deg,#2a3040,#0c0c0e)' },
+    { name: 'Adjusting Clothes',  base: 'SD1.5', tag: 'concept',  initial: 'AC', grad: 'linear-gradient(135deg,#402a30,#0c0c0e)' },
+    { name: 'Age Slider',         base: 'SDXL', tag: 'slider',    initial: 'AS', grad: 'linear-gradient(135deg,#3a2e1e,#0c0c0e)' },
+    { name: 'AIイラスト Anime',    base: 'Pony', tag: 'style',     initial: 'AI', grad: 'linear-gradient(135deg,#2e3a2a,#0c0c0e)' },
+    { name: 'Neon Ronin',         base: 'SDXL', tag: 'character', initial: 'NR', grad: 'linear-gradient(135deg,#402038,#0c0c0e)' },
+  ];
+
+  SAMPLERS = [
+    { key: 'dpmpp_2m_sde_gpu', label: 'DPM++ 2M SDE (GPU)', desc: 'Rich detail, great default — slightly slower.' },
+    { key: 'euler_a',          label: 'Euler a',            desc: 'Fast and smooth. Good for quick drafts.' },
+    { key: 'dpmpp_2m',         label: 'DPM++ 2M',           desc: 'Balanced quality and speed.' },
+    { key: 'ddim',             label: 'DDIM',               desc: 'Deterministic — reproducible results.' },
+  ];
+
+  MODEL_BASE = 'SDXL';
+  RESULTS = [
+    'linear-gradient(135deg,#5a4326,#1a120a)',
+    'linear-gradient(135deg,#3a4a5a,#12161a)',
+    'linear-gradient(135deg,#5a2e40,#1a1012)',
+    'linear-gradient(135deg,#3a5a3a,#101a10)',
+  ];
+
+  state = {
+    device: 'desktop', mode: 'image', engine: 'current',
+    prompt: 'yellow hair, 1girl, soft light, detailed', neg: 'blurry, extra fingers, watermark',
+    negOpen: false, aspect: '1:1',
+    loras: {}, str: {},
+    advOpen: true, steps: 20, cfg: 5.5,
+    sampler: 'dpmpp_2m_sde_gpu', samplerOpen: false,
+    refImg: false, refStr: 0.65,
+    status: 'idle', vw: 1200,
+  };
+
+  componentDidMount() {
+    this._onR = () => this.setState({ vw: window.innerWidth });
+    window.addEventListener('resize', this._onR);
+    this._onR();
+  }
+  componentWillUnmount() {
+    window.removeEventListener('resize', this._onR);
+    clearTimeout(this._t);
+  }
+
+  set(k, v) { this.setState({ [k]: v }); }
+
+  generate = () => {
+    if (!this.state.prompt.trim()) return;
+    this.setState({ status: 'loading', samplerOpen: false });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ status: 'done' }), 1700);
+  };
+
+  renderVals() {
+    const s = this.state;
+    const dev = this.DEVICES[s.device];
+    const isSplit = s.device === 'desktop' || s.device === 'ultrawide';
+    const showRecent = s.device === 'ultrawide';
+    const availW = Math.max(320, s.vw - 40);
+    const scale = Math.min(1, availW / dev.w);
+    const frameWrapW = Math.round(dev.w * scale);
+    const frameWrapH = Math.round(dev.h * scale);
+    const pad = s.device === 'mobile' ? 16 : s.device === 'tablet' ? 28 : s.device === 'ultrawide' ? 40 : 32;
+
+    const gridStyle = isSplit
+      ? (showRecent
+          ? 'grid-template-columns:minmax(440px,520px) minmax(0,1fr) 240px;gap:28px;align-items:start'
+          : 'grid-template-columns:minmax(0,1fr) minmax(420px,460px);gap:28px;align-items:start')
+      : 'grid-template-columns:minmax(0,1fr);gap:22px';
+
+    // preview column
+    const previewOrder = isSplit ? 2 : 0;
+    const previewColStyle = isSplit
+      ? `order:${previewOrder};position:sticky;top:0;align-self:start;min-width:0`
+      : 'order:0;min-width:0';
+    const aspectCss = s.aspect.replace(':', '/');
+    const mediaMax = s.device === 'mobile' ? 300 : s.device === 'tablet' ? 360 : 999999;
+    const previewMediaStyle = `position:relative;display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:${aspectCss};max-height:${mediaMax}px;background:radial-gradient(circle at 50% 40%, #17140d, var(--surface))`;
+
+    // sticky bar layout tweaks
+    const barPad = s.device === 'mobile' ? '12px 16px' : '14px ' + pad + 'px';
+    const barInnerStyle = isSplit ? 'max-width:100%' : '';
+    const barSummaryStyle = s.device === 'mobile' ? 'flex:1' : 'flex:1';
+
+    // shared style snippets
+    const ebStyle = 'font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:6px';
+    const hintStyle = 'margin:0 0 12px;color:var(--muted);font-size:12.5px;line-height:1.5';
+    const removeBtnStyle = 'background:none;border:1px solid var(--line-2);border-radius:8px;color:var(--muted);font-size:11px;padding:5px 9px;cursor:pointer;font-family:var(--sans)';
+    const dropStyle = 'width:100%;display:flex;flex-direction:column;align-items:center;gap:7px;padding:22px;background:var(--surface);border:1.5px dashed var(--line-2);border-radius:12px;color:var(--sec);cursor:pointer;font-family:var(--sans);font-size:14px;transition:var(--dur)';
+    const negToggleStyle = 'display:flex;align-items:center;gap:8px;background:none;border:none;padding:0;cursor:pointer';
+    const advToggleStyle = 'width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:none;border:none;padding:16px;cursor:pointer';
+    const modelCardStyle = 'width:100%;display:flex;align-items:center;gap:14px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;font-family:var(--sans);transition:var(--dur)';
+    const baseBadgeStyle = 'font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--accent-deep);background:var(--accent-soft);border:1px solid var(--accent-soft);border-radius:5px;padding:2px 7px;align-self:center';
+    const samplerBtnStyle = 'width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 13px;cursor:pointer;font-family:var(--sans);text-align:left';
+
+    // device buttons
+    const deviceBtns = Object.keys(this.DEVICES).map((k) => {
+      const d = this.DEVICES[k];
+      const on = s.device === k;
+      return {
+        label: d.label, dim: d.w + 'px',
+        onSelect: () => this.set('device', k),
+        style: `display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border-radius:999px;border:1px solid ${on ? 'var(--accent)' : 'transparent'};background:${on ? 'var(--accent-soft)' : 'transparent'};color:${on ? 'var(--accent-deep)' : 'var(--sec)'};cursor:pointer;font-family:var(--sans);font-size:13px;transition:var(--dur)`,
+      };
+    });
+
+    // mode tabs (DS Button props)
+    const modes = [
+      { key: 'image', text: 'Image', dis: false },
+      { key: 'upscale', text: 'Upscale', dis: false },
+      { key: 'inpaint', text: 'Inpaint · soon', dis: true },
+      { key: 'video', text: 'Video · soon', dis: true },
+    ];
+    const modeTabs = modes.map((m) => ({
+      text: m.text,
+      props: {
+        size: 'sm',
+        active: s.mode === m.key,
+        disabled: m.dis,
+        onClick: m.dis ? undefined : () => this.set('mode', m.key),
+      },
+    }));
+    const modeHints = {
+      image: 'Image gen — create a brand-new picture from your prompt (and an optional reference).',
+      upscale: 'Upscale — enlarge an existing image and sharpen its detail.',
+    };
+    const modeHint = modeHints[s.mode] || modeHints.image;
+
+    // text fields
+    const promptFieldProps = {
+      multiline: true, rows: 4,
+      value: s.prompt, onChange: (e) => this.set('prompt', e.target.value),
+      counter: s.prompt.length + ' chars',
+      placeholder: 'e.g. a knight resting in a candlelit library, warm light, painterly',
+      hint: 'Be specific: subject, setting, lighting, mood. Separate ideas with commas.',
+      style: { marginBottom: 0 },
+    };
+    const negFieldProps = {
+      multiline: true, rows: 2,
+      value: s.neg, onChange: (e) => this.set('neg', e.target.value),
+      placeholder: 'blurry, low quality, extra limbs…',
+      style: { marginBottom: 0 },
+    };
+
+    // aspect ratio
+    const aspects = this.ASPECTS.map((a) => {
+      const on = s.aspect === a.key;
+      return {
+        key: a.key, label: a.label,
+        onSelect: () => this.set('aspect', a.key),
+        style: `display:flex;align-items:center;gap:9px;padding:8px 13px;border-radius:10px;border:1px solid ${on ? 'var(--accent)' : 'var(--line-2)'};background:${on ? 'var(--accent-soft)' : 'var(--surface)'};color:${on ? 'var(--accent-deep)' : 'var(--ink)'};cursor:pointer;font-family:var(--sans);transition:var(--dur)`,
+        boxStyle: `display:inline-block;width:${a.w}px;height:${a.h}px;border:1.5px solid ${on ? 'var(--accent)' : 'var(--muted)'};border-radius:3px;flex-shrink:0`,
+      };
+    });
+
+    // loras
+    const loras = this.LORAS.map((l) => {
+      const on = !!s.loras[l.name];
+      const compat = l.base === this.MODEL_BASE;
+      return {
+        name: l.name, initial: l.initial, base: l.base, tag: l.tag, active: on,
+        onSelect: () => {
+          const nl = { ...s.loras }; const ns = { ...s.str };
+          if (on) { delete nl[l.name]; delete ns[l.name]; }
+          else { nl[l.name] = true; ns[l.name] = 0.8; }
+          this.setState({ loras: nl, str: ns });
+        },
+        style: `flex:0 0 auto;width:112px;padding:8px;border-radius:12px;border:1px solid ${on ? 'var(--accent)' : 'var(--line)'};background:var(--surface-2);cursor:pointer;text-align:left;font-family:var(--sans);scroll-snap-align:start;transition:var(--dur)`,
+        thumbStyle: `position:relative;display:flex;align-items:center;justify-content:center;width:96px;height:96px;border-radius:9px;background:${l.grad};border:1px solid var(--line-2)`,
+        baseStyle: `font-family:var(--mono);font-size:9px;letter-spacing:.04em;border-radius:5px;padding:1px 5px;align-self:center;color:${compat ? 'var(--accent-deep)' : 'var(--warn)'};background:${compat ? 'var(--accent-soft)' : 'var(--warn-soft)'};border:1px solid ${compat ? 'var(--accent-soft)' : 'var(--warn-soft)'}`,
+      };
+    });
+    const activeNames = this.LORAS.filter((l) => s.loras[l.name]);
+    const activeLoras = activeNames.map((l) => {
+      const v = s.str[l.name] ?? 0.8;
+      return {
+        name: l.name, strength: v, strengthLabel: v.toFixed(2),
+        onStrength: (e) => this.setState({ str: { ...s.str, [l.name]: parseFloat(e.target.value) } }),
+        onRemove: () => {
+          const nl = { ...s.loras }; const ns = { ...s.str };
+          delete nl[l.name]; delete ns[l.name];
+          this.setState({ loras: nl, str: ns });
+        },
+      };
+    });
+    const hasIncompat = activeNames.some((l) => l.base !== this.MODEL_BASE);
+
+    // sampler
+    const cur = this.SAMPLERS.find((x) => x.key === s.sampler) || this.SAMPLERS[0];
+    const samplerOptions = this.SAMPLERS.map((x) => {
+      const on = x.key === s.sampler;
+      return {
+        label: x.label, desc: x.desc,
+        onSelect: () => this.setState({ sampler: x.key, samplerOpen: false }),
+        style: `display:block;width:100%;text-align:left;padding:9px 11px;border:none;border-radius:8px;cursor:pointer;font-family:var(--sans);background:${on ? 'var(--accent-soft)' : 'transparent'}`,
+      };
+    });
+
+    // recents (ultrawide)
+    const recents = this.RESULTS.map((g, i) => ({
+      label: 'FORGE ' + (i + 1),
+      style: `position:relative;width:100%;aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:${g};border:1px solid var(--line)`,
+    }));
+
+    // sticky bar / cta
+    const canGen = s.prompt.trim().length > 0;
+    const aLabel = (this.ASPECTS.find((a) => a.key === s.aspect) || {}).label || 'Square';
+    const summaryText = `${aLabel} ${s.aspect} · ${s.steps} steps · strength ${s.cfg.toFixed(1)} · ${activeNames.length} add-on${activeNames.length === 1 ? '' : 's'}`;
+    const genLabel = s.status === 'loading' ? 'Forging…' : s.status === 'done' ? 'Generate again' : 'Generate';
+    const generateProps = {
+      variant: 'primary', onClick: this.generate, disabled: !canGen || s.status === 'loading',
+      style: { padding: '14px 26px', fontSize: '16px', whiteSpace: 'nowrap' },
+    };
+    const regenProps = { size: 'sm', variant: 'default', disabled: s.status !== 'done', onClick: this.generate };
+    const downloadProps = { size: 'sm', variant: 'default', disabled: s.status !== 'done', onClick: () => {} };
+
+    return {
+      // frame
+      frameWrapStyle: `width:${frameWrapW}px;height:${frameWrapH}px;position:relative`,
+      frameOuterStyle: `position:absolute;top:0;left:0;width:${dev.w}px;height:${dev.h}px;transform:scale(${scale});transform-origin:top left;border-radius:20px;overflow:hidden;border:1px solid var(--line-2);box-shadow:0 30px 80px -30px rgba(0,0,0,.8)`,
+      pageStyle: `padding:${pad}px ${pad}px 104px;box-sizing:border-box`,
+      gridStyle, previewColStyle, previewMediaStyle,
+      barPad, barInnerStyle, barSummaryStyle,
+      ebStyle, hintStyle, removeBtnStyle, dropStyle, negToggleStyle, advToggleStyle,
+      modelCardStyle, baseBadgeStyle, samplerBtnStyle,
+      showRecent, recents,
+
+      deviceBtns, modeTabs, modeHint,
+      promptFieldProps, negFieldProps,
+
+      refImg: s.refImg, noRef: !s.refImg, toggleRef: () => this.set('refImg', !s.refImg),
+      refStr: s.refStr, refStrLabel: s.refStr.toFixed(2),
+      onRefStr: (e) => this.set('refStr', parseFloat(e.target.value)),
+
+      negOpen: s.negOpen, toggleNeg: () => this.set('negOpen', !s.negOpen),
+      negCaret: s.negOpen ? 'rotate(180deg)' : 'none',
+
+      aspects,
+      loras, activeLoras, hasActiveLoras: activeNames.length > 0, activeCount: activeNames.length, hasIncompat,
+
+      advOpen: s.advOpen, toggleAdv: () => this.set('advOpen', !s.advOpen),
+      advCaret: s.advOpen ? 'rotate(180deg)' : 'none',
+      steps: s.steps, onSteps: (e) => this.set('steps', parseInt(e.target.value, 10)),
+      cfg: s.cfg, cfgLabel: s.cfg.toFixed(1), onCfg: (e) => this.set('cfg', parseFloat(e.target.value)),
+
+      samplerLabel: cur.label, samplerDesc: cur.desc, samplerOpen: s.samplerOpen,
+      toggleSampler: () => this.set('samplerOpen', !s.samplerOpen), samplerOptions,
+
+      // preview states
+      isIdle: s.status === 'idle', isLoading: s.status === 'loading', isDone: s.status === 'done',
+      promptEcho: '“' + (s.prompt.slice(0, 60) || 'your prompt') + '”',
+      resultGrad: this.RESULTS[0], aspectKey: s.aspect,
+      previewNote: s.status === 'done' ? 'DONE' : 'PREVIEW',
+
+      summaryText, genLabel, generateProps, regenProps, downloadProps,
+    };
+  }
+}
+</script>
+</body>
+</html>

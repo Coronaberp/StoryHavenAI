@@ -10,8 +10,12 @@ from PIL import Image
 from fastapi import UploadFile, File, HTTPException, Response, Depends, Request
 
 from backend import db
+from backend import guest_quota
 from backend.repositories import characters
 from backend.repositories import personas
+from backend.repositories import memory_facts
+from backend.repositories import groups as groups_repo
+from backend.repositories import users as users_repo
 from backend import vectors
 from backend.state import api, MEDIA_DIR, IMG_EXTS, CFG, log
 from backend.auth import get_current_user, get_current_user_optional
@@ -22,9 +26,24 @@ from backend.ai_helpers import generate_character_from_description
 from backend.classify import classify_image_background
 from backend.schemas import CharacterIn
 from backend.ratelimit import SlidingWindow
+from backend.feature_flags import require_feature_enabled
 
 _GENERATE_LIMIT = SlidingWindow(
     10, 60, "Too many generations — please wait a moment and try again")
+
+async def _group_feed_item(g: dict) -> dict:
+    preview = []
+    for row in (await groups_repo.list_cast(g["id"]))[:4]:
+        c = await characters.get(row["char_id"])
+        if c and c.get("is_public"):
+            preview.append({"char_id": c["id"], "name": c["name"], "avatar": c.get("avatar")})
+    creator = None
+    owner = await users_repo.get_user_by_id(g["owner_id"])
+    if owner:
+        creator = {"username": owner.get("username"), "display_name": owner.get("display_name")}
+    return {"id": g["id"], "kind": "group", "name": g["name"],
+            "group_mode": g["group_mode"], "cast_preview": preview, "creator": creator}
+
 
 @api.get("/characters")
 async def list_characters(q: str | None = None, scope: str | None = None,
@@ -34,19 +53,28 @@ async def list_characters(q: str | None = None, scope: str | None = None,
     if not current_user:
         if scope != "community":
             raise HTTPException(401, "Not authenticated")
-        # Explicit characters are included too — the frontend blurs their images
-        # for anyone (anon or opted-out) who shouldn't see them plainly, same
-        # gate logged-in SFW-mode users get. Hiding them outright here would
-        # also break shared links to explicit characters for anon visitors.
-        return await characters.list_all(q, scope="community",
+        rows = await characters.list_all(q, scope="community",
                                         tags=tag_list, creator=creator)
-    rows = await characters.list_all(q, user_id=current_user["id"],
-                                    is_admin=current_user["is_admin"],
-                                    scope=scope, tags=tag_list, creator=creator)
-    hidden = await db.hidden_user_ids(current_user["id"])
-    if hidden:
-        rows = [c for c in rows if c.get("owner_id") not in hidden]
+        hidden = set()
+    else:
+        rows = await characters.list_all(q, user_id=current_user["id"],
+                                        is_admin=current_user["is_admin"],
+                                        scope=scope, tags=tag_list, creator=creator)
+        hidden = await db.hidden_user_ids(current_user["id"])
+        if hidden:
+            rows = [c for c in rows if c.get("owner_id") not in hidden]
+    if scope == "community":
+        for g in await groups_repo.list_public(q, None):
+            if g["owner_id"] in hidden:
+                continue
+            rows.append(await _group_feed_item(g))
     return rows
+
+
+@api.get("/characters/{cid}/groups")
+async def character_groups(cid: str, current_user: dict | None = Depends(get_current_user_optional)):
+    hidden = await db.hidden_user_ids(current_user["id"]) if current_user else set()
+    return [await _group_feed_item(g) for g in await groups_repo.list_public_for_char(cid) if g["owner_id"] not in hidden]
 
 
 @api.get("/characters/persona-pool")
@@ -74,7 +102,9 @@ async def get_character(cid: str, current_user: dict | None = Depends(get_curren
 
 
 @api.post("/characters")
-async def create_character(body: CharacterIn, current_user: dict = Depends(get_current_user)):
+async def create_character(body: CharacterIn, current_user: dict = Depends(get_current_user),
+                            _feature_ok: None = Depends(require_feature_enabled("characters"))):
+    guest_quota.require_full(current_user, "create characters")
     data = body.model_dump()
     data["owner_id"] = current_user["id"]   # creator always owns it
     if not (data.get("creator") or "").strip() or data.get("creator") == "you":
@@ -160,8 +190,8 @@ async def delete_character(cid: str, current_user: dict = Depends(get_current_us
     if owner_id != current_user["id"] and not current_user["is_admin"]:
         raise HTTPException(403, "Not authorized to delete this character")
     await characters.delete(cid)
-    await vectors.delete_by_tag(vectors.MEM_INDEX, "chartag", cid)
-    await vectors.delete_by_tag(vectors.LORE_INDEX, "chartag", cid)
+    await memory_facts.purge_char(cid)
+    await vectors.delete_lore_vectors_by_char(cid)
     log.info("character deleted: id=%s by=%s", cid, current_user["id"])
     return {"deleted": True}
 
@@ -254,6 +284,7 @@ def _decode_media_paths(value):
 @api.post("/characters/import")
 async def import_character(file: UploadFile = File(...),
                            current_user: dict = Depends(get_current_user)):
+    guest_quota.require_full(current_user, "import characters")
     """Parses a card and returns its fields for the editor to prefill — this
     does NOT create or save anything. The importer reviews/edits in the normal
     "new character" editor and only a real, explicit Save persists it, same as
@@ -458,13 +489,13 @@ def build_card(char: dict, lore: list, spec: str = "v2") -> dict:
 
 @api.get("/characters/{cid}/export")
 async def export_character(cid: str, spec: str = "v2",
-                           current_user: dict = Depends(get_current_user)):
+                           current_user: dict | None = Depends(get_current_user_optional)):
     if spec not in ("v2", "v3", "storyhaven"):
         raise HTTPException(400, "spec must be 'v2', 'v3', or 'storyhaven'")
     c = await characters.get(cid)
     if not c:
         raise HTTPException(404, "character not found")
-    is_owner = c.get("owner_id") == current_user["id"]
+    is_owner = bool(current_user) and c.get("owner_id") == current_user["id"]
     if not is_owner and not (c.get("is_public") and c.get("allow_download")):
         raise HTTPException(403, "The creator hasn't allowed this character to be downloaded")
     lore = [e for e in await db.list_lore(cid) if not e.get("global")]

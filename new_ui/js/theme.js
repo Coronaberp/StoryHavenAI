@@ -6,29 +6,85 @@ const ACCENT_NAMES = {
   aurum: "Aurum", azure: "Azure", crimson: "Crimson",
   verdant: "Verdant", amethyst: "Amethyst", rose: "Rose Quartz",
 };
+const ACCENT_SEED_HEX = {
+  aurum: "#E3BD6C", azure: "#4FB6FF", crimson: "#E2493D",
+  verdant: "#3ECF8E", amethyst: "#A675E0", rose: "#E07BA0",
+};
 
-const THEMES = THEME_BASES.flatMap((base) =>
-  ACCENT_IDS.map((accentId) => ({ base, accentId }))
-);
 
-const SUN_ICON = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/><line x1="4.2" y1="4.2" x2="5.9" y2="5.9"/><line x1="18.1" y1="18.1" x2="19.8" y2="19.8"/><line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/><line x1="4.2" y1="19.8" x2="5.9" y2="18.1"/><line x1="18.1" y1="5.9" x2="19.8" y2="4.2"/></svg>';
-const MOON_ICON = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+const OVERRIDE_CSS_VAR = {
+  accent: "--color-accent", text: "--color-ink", appBg: "--color-paper",
+  cmdPurple: "--color-cmd-purple", cmdYellow: "--color-cmd-yellow",
+};
+const ACCENT_OVERRIDE_KEYS = ["accent", "text", "appBg"];
 
-function applyTheme(index) {
-  const { base, accentId } = THEMES[index];
+function _defaultThemeState() {
+  return {
+    activeBase: "dark",
+    dark: { accentId: "aurum", overrides: {} },
+    light: { accentId: "aurum", overrides: {} },
+  };
+}
+
+function _loadThemeState() {
+  const saved = store.get("themeState", null);
+  if (saved && saved.dark && saved.light && saved.activeBase) return saved;
+  const legacyIndex = store.get("themeIndex", null);
+  if (legacyIndex !== null && Number.isInteger(legacyIndex)) {
+    const perBase = ACCENT_IDS.length;
+    const base = THEME_BASES[Math.floor(legacyIndex / perBase) % THEME_BASES.length];
+    const accentId = ACCENT_IDS[legacyIndex % perBase] || "aurum";
+    return { activeBase: base, dark: { accentId, overrides: {} }, light: { accentId, overrides: {} } };
+  }
+  return _defaultThemeState();
+}
+
+let THEME_STATE = _loadThemeState();
+
+function getThemeState() {
+  return THEME_STATE;
+}
+
+function applyTheme() {
   const root = document.documentElement;
-
+  const base = THEME_STATE.activeBase;
+  const baseState = THEME_STATE[base];
   root.dataset.theme = base;
-  root.dataset.accent = accentId;
-
-  store.set("themeIndex", index);
-  const icon = document.querySelector("[data-theme-icon]");
-  if (icon) icon.innerHTML = base === "light" ? SUN_ICON : MOON_ICON;
+  root.dataset.accent = baseState.accentId;
+  Object.entries(OVERRIDE_CSS_VAR).forEach(([key, cssVar]) => {
+    const value = baseState.overrides[key];
+    if (value) root.style.setProperty(cssVar, value);
+    else root.style.removeProperty(cssVar);
+  });
+  store.set("themeState", THEME_STATE);
 }
 
-function cycleTheme() {
-  const current = store.get("themeIndex", 0);
-  applyTheme((current + 1) % THEMES.length);
+function setThemeBase(base) {
+  THEME_STATE.activeBase = base;
+  applyTheme();
 }
 
-applyTheme(store.get("themeIndex", 0));
+function setThemeAccent(base, accentId) {
+  THEME_STATE[base] = { accentId, overrides: {} };
+  applyTheme();
+}
+
+function setThemeOverride(base, key, hexValue) {
+  if (ACCENT_OVERRIDE_KEYS.includes(key)) THEME_STATE[base].accentId = "custom";
+  THEME_STATE[base].overrides[key] = hexValue;
+  applyTheme();
+}
+
+function resetCmdColorOverrides(base) {
+  delete THEME_STATE[base].overrides.cmdPurple;
+  delete THEME_STATE[base].overrides.cmdYellow;
+  applyTheme();
+}
+
+function clearThemeOverrides(base) {
+  const fallbackAccent = THEME_STATE[base].accentId === "custom" ? "aurum" : THEME_STATE[base].accentId;
+  THEME_STATE[base] = { accentId: fallbackAccent, overrides: {} };
+  applyTheme();
+}
+
+applyTheme();

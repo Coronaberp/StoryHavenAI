@@ -22,11 +22,11 @@
 }
 .login-orbit {
   position: absolute;
-  left: 50%;
+  inset-inline-start: 50%;
   top: 50%;
   width: 5px;
   height: 5px;
-  margin-left: -2.5px;
+  margin-inline-start: -2.5px;
   margin-top: -2.5px;
   border-radius: 999px;
   background: var(--color-primary);

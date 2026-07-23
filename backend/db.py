@@ -32,6 +32,7 @@ def _preview(content: str, n: int = 80) -> str:
 
 _engine: AsyncEngine | None = None
 _fernet: Fernet | None = None
+_jwt_secret: str | None = None
 
 
 # ── schema ──────────────────────────────────────────────────────────────────
@@ -52,9 +53,12 @@ users = sa.Table(
     sa.Column("banner_color", sa.Text),
     sa.Column("accent_color", sa.Text),
     sa.Column("banner_img", sa.Text),
+    sa.Column("chat_background_img", sa.Text),
     sa.Column("social_links", sa.Text, nullable=False, server_default=text("'{}'")),
     sa.Column("profile_html", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("card_html", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("nsfw_allowed", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("experimental_features_enabled", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("is_explicit", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("title", sa.Text),
     sa.Column("title_status", sa.Text, nullable=False, server_default=text("'none'")),
@@ -67,6 +71,20 @@ users = sa.Table(
     # anyone. Additive to is_admin, not a replacement — every dev is still
     # is_admin=1, this only gates the extra tier on top.
     sa.Column("role", sa.Text, nullable=False, server_default=text("'user'")),
+    sa.Column("totp_secret", sa.Text),
+    sa.Column("totp_enabled", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("totp_backup_codes", sa.Text),
+    # Separate from totp_enabled: having TOTP configured always enables it as an
+    # account-recovery path (POST /api/auth/password-reset/totp), but does NOT
+    # by itself force a code at login — that's this column, an explicit second
+    # opt-in a user must flip on top of totp_enabled.
+    sa.Column("totp_login_required", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("passkey_required", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("invite_code_id", sa.Text),
+    sa.Column("tier", sa.Text, nullable=False, server_default=text("'full'")),
+    sa.Column("guest_tokens_used", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("guest_images_used", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("guest_videos_used", sa.Integer, nullable=False, server_default=text("0")),
 )
 
 auth_sessions = sa.Table(
@@ -74,6 +92,72 @@ auth_sessions = sa.Table(
     sa.Column("token", sa.Text, primary_key=True),
     sa.Column("user_id", sa.Text, nullable=False),
     sa.Column("expires", sa.Float, nullable=False),
+)
+
+SESSION_TTL = 60 * 60 * 24 * 30   # 30 days
+
+jwt_access_tokens = sa.Table(
+    "jwt_access_tokens", _meta,
+    sa.Column("jti", sa.Text, primary_key=True),
+    sa.Column("user_id", sa.Text, nullable=False),
+    sa.Column("expires", sa.Float, nullable=False),
+    sa.Column("created", sa.Float, nullable=False),
+)
+
+jwt_refresh_tokens = sa.Table(
+    "jwt_refresh_tokens", _meta,
+    sa.Column("jti", sa.Text, primary_key=True),
+    sa.Column("user_id", sa.Text, nullable=False),
+    sa.Column("expires", sa.Float, nullable=False),
+    sa.Column("created", sa.Float, nullable=False),
+    # Rotated-out (used) tokens are marked here rather than deleted, so a
+    # replay of an already-rotated refresh token can be recognized as theft
+    # (see /api/auth/refresh) instead of just looking like an unknown token.
+    sa.Column("revoked", sa.Integer, nullable=False, server_default=text("0")),
+)
+
+webauthn_credentials = sa.Table(
+    "webauthn_credentials", _meta,
+    sa.Column("id", sa.Text, primary_key=True),
+    sa.Column("user_id", sa.Text, nullable=False, index=True),
+    sa.Column("credential_id", sa.Text, nullable=False, unique=True),
+    sa.Column("public_key", sa.Text, nullable=False),
+    sa.Column("sign_count", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("transports", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("aaguid", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("nickname", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("created", sa.Float, nullable=False),
+    sa.Column("last_used", sa.Float),
+)
+
+oauth_providers = sa.Table(
+    "oauth_providers", _meta,
+    sa.Column("provider", sa.Text, primary_key=True),
+    sa.Column("client_id", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("client_secret", sa.Text),
+    sa.Column("enabled", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("updated", sa.Float, nullable=False),
+)
+
+oauth_identities = sa.Table(
+    "oauth_identities", _meta,
+    sa.Column("id", sa.Text, primary_key=True),
+    sa.Column("provider", sa.Text, nullable=False),
+    sa.Column("provider_user_id", sa.Text, nullable=False),
+    sa.Column("user_id", sa.Text, nullable=False, index=True),
+    sa.Column("display_name", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("created", sa.Float, nullable=False),
+    sa.UniqueConstraint("provider", "provider_user_id", name="uq_oauth_identity_provider_pair"),
+)
+
+oauth_pending = sa.Table(
+    "oauth_pending", _meta,
+    sa.Column("state", sa.Text, primary_key=True),
+    sa.Column("provider", sa.Text, nullable=False),
+    sa.Column("mode", sa.Text, nullable=False),
+    sa.Column("user_id", sa.Text),
+    sa.Column("code_verifier", sa.Text),
+    sa.Column("created", sa.Float, nullable=False),
 )
 
 user_settings = sa.Table(
@@ -106,6 +190,8 @@ characters = sa.Table(
     sa.Column("description", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("is_explicit", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("is_draft", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("appearance_tags", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("appearance_tags_negative", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("created", sa.Float, nullable=False),
 )
 
@@ -114,10 +200,14 @@ personas = sa.Table(
     sa.Column("id", sa.Text, primary_key=True),
     sa.Column("name", sa.Text, nullable=False, server_default=text("'You'")),
     sa.Column("description", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("gender", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("avatar", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("is_default", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("owner_id", sa.Text),
     sa.Column("source_char_id", sa.Text),
+    sa.Column("source_lore_id", sa.Text),
     sa.Column("is_draft", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("session_id", sa.Text),
     sa.Column("created", sa.Float, nullable=False),
 )
 
@@ -125,7 +215,10 @@ lore = sa.Table(
     "lore", _meta,
     sa.Column("id", sa.Text, primary_key=True),
     sa.Column("char_id", sa.Text),
+    sa.Column("owner_id", sa.Text),
     sa.Column("keys", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("require_keys", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("exclude_keys", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("content", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("always", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("image", sa.Text, nullable=False, server_default=text("''")),
@@ -135,7 +228,57 @@ lore = sa.Table(
     sa.Column("appearance_tags", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("appearance_tags_negative", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("is_explicit", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("usable_as_persona", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("created", sa.Float, nullable=False),
+)
+
+lore_links = sa.Table(
+    "lore_links", _meta,
+    sa.Column("id", sa.Text, primary_key=True),
+    sa.Column("lore_id_a", sa.Text, nullable=False),
+    sa.Column("lore_id_b", sa.Text, nullable=False),
+    sa.Column("label", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("created", sa.Float, nullable=False),
+    sa.UniqueConstraint("lore_id_a", "lore_id_b", name="uq_lore_link_pair"),
+    sa.CheckConstraint("lore_id_a != lore_id_b", name="ck_lore_link_no_self"),
+)
+
+lore_secrets = sa.Table(
+    "lore_secrets", _meta,
+    sa.Column("id", sa.Text, primary_key=True),
+    sa.Column("lore_id", sa.Text, nullable=False),
+    sa.Column("text", sa.Text, nullable=False),
+    sa.Column("position", sa.Integer, nullable=False),
+    sa.Column("created", sa.Float, nullable=False),
+)
+
+lore_chunks = sa.Table(
+    "lore_chunks", _meta,
+    sa.Column("id", sa.Text, primary_key=True),
+    sa.Column("lore_id", sa.Text, nullable=False),
+    sa.Column("part_id", sa.Integer, nullable=False),
+    sa.Column("content", sa.Text, nullable=False),
+    sa.Column("created_ts", sa.BigInteger, nullable=False),
+)
+
+session_secret_reveals = sa.Table(
+    "session_secret_reveals", _meta,
+    sa.Column("id", sa.Text, primary_key=True),
+    sa.Column("session_id", sa.Text, nullable=False),
+    sa.Column("secret_id", sa.Text, nullable=False),
+    sa.Column("revealed", sa.Float, nullable=False),
+    sa.UniqueConstraint("session_id", "secret_id", name="uq_session_secret_pair"),
+)
+
+session_lore_state = sa.Table(
+    "session_lore_state", _meta,
+    sa.Column("id", sa.Text, primary_key=True),
+    sa.Column("session_id", sa.Text, nullable=False),
+    sa.Column("lore_id", sa.Text, nullable=False),
+    sa.Column("override_content", sa.Text),
+    sa.Column("override_fact_id", sa.Text),
+    sa.Column("updated", sa.Float, nullable=False),
+    sa.UniqueConstraint("session_id", "lore_id", name="uq_session_lore_pair"),
 )
 
 sessions = sa.Table(
@@ -150,12 +293,80 @@ sessions = sa.Table(
     sa.Column("updated", sa.Float, nullable=False),
     sa.Column("style_key", sa.Text, nullable=False, server_default=text("'unspecified'")),
     sa.Column("style_prompt", sa.Text),
+    sa.Column("length_key", sa.Text, nullable=False, server_default=text("'epic'")),
+    sa.Column("explicit_mode", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("language", sa.Text),
     sa.Column("char_doing", sa.Text),
     sa.Column("char_location", sa.Text),
     sa.Column("known_names", sa.Text, nullable=False, server_default=text("'[]'")),
     sa.Column("author_note", sa.Text),
     sa.Column("glossary", sa.Text, nullable=False, server_default=text("'{}'")),
+    sa.Column("is_group", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("group_mode", sa.Text, nullable=False, server_default=text("'roleplay'")),
+    sa.Column("source_group_id", sa.Text),
+)
+
+session_characters = sa.Table(
+    "session_characters", _meta,
+    sa.Column("id", sa.Text, primary_key=True),
+    sa.Column("session_id", sa.Text, nullable=False),
+    sa.Column("char_id", sa.Text, nullable=False),
+    sa.Column("position", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("muted", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("is_narrator", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("added", sa.Float, nullable=False),
+    sa.UniqueConstraint("session_id", "char_id", name="uq_session_char"),
+)
+
+session_participants = sa.Table(
+    "session_participants", _meta,
+    sa.Column("session_id", sa.Text, primary_key=True),
+    sa.Column("user_id", sa.Text, primary_key=True),
+    sa.Column("persona_id", sa.Text),
+    sa.Column("role", sa.Text, nullable=False, server_default=text("'member'")),
+    sa.Column("joined_at", sa.Float, nullable=False),
+)
+
+session_invite_tokens = sa.Table(
+    "session_invite_tokens", _meta,
+    sa.Column("token", sa.Text, primary_key=True),
+    sa.Column("session_id", sa.Text, nullable=False),
+    sa.Column("created_by", sa.Text, nullable=False),
+    sa.Column("created_at", sa.Float, nullable=False),
+    sa.Column("revoked", sa.Integer, nullable=False, server_default=text("0")),
+)
+
+party_chat_messages = sa.Table(
+    "party_chat_messages", _meta,
+    sa.Column("id", sa.Text, primary_key=True),
+    sa.Column("session_id", sa.Text, nullable=False),
+    sa.Column("sender_user_id", sa.Text, nullable=False),
+    sa.Column("content", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("image", sa.Text),
+    sa.Column("attachment_kind", sa.Text),
+    sa.Column("created", sa.Float, nullable=False),
+)
+sa.Index("idx_party_chat_session", party_chat_messages.c.session_id, party_chat_messages.c.created)
+
+groups = sa.Table(
+    "groups", _meta,
+    sa.Column("id", sa.Text, primary_key=True),
+    sa.Column("owner_id", sa.Text, nullable=False),
+    sa.Column("name", sa.Text, nullable=False),
+    sa.Column("opening", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("group_mode", sa.Text, nullable=False, server_default=text("'roleplay'")),
+    sa.Column("is_public", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("created", sa.Float, nullable=False),
+    sa.Column("updated", sa.Float, nullable=False),
+)
+
+group_characters = sa.Table(
+    "group_characters", _meta,
+    sa.Column("id", sa.Text, primary_key=True),
+    sa.Column("group_id", sa.Text, nullable=False),
+    sa.Column("char_id", sa.Text, nullable=False),
+    sa.Column("position", sa.Integer, nullable=False, server_default=text("0")),
+    sa.UniqueConstraint("group_id", "char_id", name="uq_group_char"),
 )
 
 messages = sa.Table(
@@ -167,11 +378,18 @@ messages = sa.Table(
     sa.Column("content", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("ts", sa.Integer, nullable=False),
     sa.Column("lang", sa.Text),
+    sa.Column("mood", sa.Text),
+    sa.Column("user_name", sa.Text),
+    sa.Column("persona_avatar", sa.Text),
     sa.Column("image", sa.Text),
     sa.Column("image_positive", sa.Text),
     sa.Column("image_negative", sa.Text),
     sa.Column("image_ts", sa.Integer),
     sa.Column("image_is_explicit", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("swipes", sa.Text),
+    sa.Column("char_id", sa.Text),
+    sa.Column("turn_group", sa.Text),
+    sa.Column("sender_user_id", sa.Text),
 )
 
 settings = sa.Table(
@@ -222,6 +440,11 @@ standalone_images = sa.Table(
     # can tell a saved image was run through a second upscale pass on top of
     # the original generation.
     sa.Column("upscaler", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("media_type", sa.Text, nullable=False, server_default=text("'image'")),
+    sa.Column("source_image_id", sa.Text, nullable=True),
+    sa.Column("fps", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("frame_count", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("duration_s", sa.Float, nullable=False, server_default=text("0")),
 )
 
 checkpoint_previews = sa.Table(
@@ -327,6 +550,20 @@ password_reset_requests = sa.Table(
     sa.Column("created", sa.Float, nullable=False),
 )
 
+invite_codes = sa.Table(
+    "invite_codes", _meta,
+    sa.Column("id", sa.Text, primary_key=True),
+    sa.Column("code", sa.Text, nullable=False, unique=True),
+    sa.Column("tier", sa.Text, nullable=False, server_default=text("'full'")),
+    sa.Column("created_by", sa.Text, nullable=False),
+    sa.Column("note", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("max_uses", sa.Integer, nullable=False, server_default=text("1")),
+    sa.Column("uses", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("expires", sa.Float),
+    sa.Column("disabled", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("created", sa.Float, nullable=False),
+)
+
 comments = sa.Table(
     "comments", _meta,
     sa.Column("id", sa.Text, primary_key=True),
@@ -421,6 +658,7 @@ thread_likes = sa.Table(
     "thread_likes", _meta,
     sa.Column("thread_id", sa.Text, primary_key=True),
     sa.Column("user_id", sa.Text, primary_key=True),
+    sa.Column("value", sa.Integer, nullable=False, server_default=text("1")),
 )
 
 user_blocks = sa.Table(
@@ -428,6 +666,13 @@ user_blocks = sa.Table(
     sa.Column("blocker_id", sa.Text, primary_key=True),
     sa.Column("blocked_id", sa.Text, primary_key=True),
     sa.Column("reason", sa.Text, nullable=False, server_default=text("''")),
+    sa.Column("created", sa.Float, nullable=False),
+)
+
+user_follows = sa.Table(
+    "user_follows", _meta,
+    sa.Column("follower_id", sa.Text, primary_key=True),
+    sa.Column("followee_id", sa.Text, primary_key=True),
     sa.Column("created", sa.Float, nullable=False),
 )
 
@@ -552,14 +797,34 @@ notifications = sa.Table(
     sa.Column("created", sa.Float, nullable=False),
 )
 
+feature_flags = sa.Table(
+    "feature_flags", _meta,
+    sa.Column("key", sa.Text, primary_key=True),
+    sa.Column("enabled", sa.Boolean, nullable=False, server_default=text("true")),
+    sa.Column("message", sa.Text),
+    sa.Column("disabled_at", sa.BigInteger),
+    sa.Column("eta_minutes", sa.Integer),
+    sa.Column("updated_by", sa.Text),
+    sa.Column("updated_by_name", sa.Text),
+    sa.Column("updated_by_role", sa.Text),
+    sa.Column("updated_ts", sa.BigInteger, nullable=False),
+)
+
 sa.Index("idx_notif_user", notifications.c.user_id, notifications.c.created)
 sa.Index("idx_comments_target", comments.c.target_type, comments.c.target_id)
 sa.Index("idx_msg_session", messages.c.session_id, messages.c.seq)
 sa.Index("idx_lore_char", lore.c.char_id)
+sa.Index("idx_lore_links_a", lore_links.c.lore_id_a)
+sa.Index("idx_lore_links_b", lore_links.c.lore_id_b)
+sa.Index("idx_lore_secrets_lore", lore_secrets.c.lore_id)
+sa.Index("idx_session_secret_reveals_session", session_secret_reveals.c.session_id)
+sa.Index("idx_session_secret_reveals_secret", session_secret_reveals.c.secret_id)
+sa.Index("idx_session_lore_state_session", session_lore_state.c.session_id)
 sa.Index("idx_sess_char", sessions.c.char_id, sessions.c.updated)
 sa.Index("idx_sess_user", sessions.c.user_id, sessions.c.updated)
 sa.Index("idx_char_owner", characters.c.owner_id)
-sa.Index("idx_auth_user", auth_sessions.c.user_id)
+sa.Index("idx_jwt_access_user", jwt_access_tokens.c.user_id)
+sa.Index("idx_jwt_refresh_user", jwt_refresh_tokens.c.user_id)
 sa.Index("idx_standalone_user", standalone_images.c.user_id, standalone_images.c.created)
 sa.Index("idx_health_service_created", service_health_pings.c.service, service_health_pings.c.created)
 
@@ -590,6 +855,39 @@ async def init():
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS nsfw_allowed "
             "INTEGER NOT NULL DEFAULT 0"))
         await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS experimental_features_enabled "
+            "INTEGER NOT NULL DEFAULT 0"))
+        await conn.execute(text(
+            "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS length_key "
+            "TEXT NOT NULL DEFAULT 'epic'"))
+        await conn.execute(text(
+            "ALTER TABLE sessions ALTER COLUMN length_key SET DEFAULT 'epic'"))
+        await conn.execute(text(
+            "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS explicit_mode "
+            "INTEGER NOT NULL DEFAULT 0"))
+        await conn.execute(text(
+            "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS is_group "
+            "INTEGER NOT NULL DEFAULT 0"))
+        await conn.execute(text(
+            "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS group_mode "
+            "TEXT NOT NULL DEFAULT 'roleplay'"))
+        await conn.execute(text(
+            "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS source_group_id TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS char_id TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS turn_group TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS sender_user_id TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE lore ADD COLUMN IF NOT EXISTS owner_id TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE lore ADD COLUMN IF NOT EXISTS require_keys "
+            "TEXT NOT NULL DEFAULT ''"))
+        await conn.execute(text(
+            "ALTER TABLE lore ADD COLUMN IF NOT EXISTS exclude_keys "
+            "TEXT NOT NULL DEFAULT ''"))
+        await conn.execute(text(
             "ALTER TABLE characters ADD COLUMN IF NOT EXISTS is_draft "
             "INTEGER NOT NULL DEFAULT 0"))
         await conn.execute(text(
@@ -598,6 +896,12 @@ async def init():
         await conn.execute(text(
             "ALTER TABLE personas ADD COLUMN IF NOT EXISTS is_draft "
             "INTEGER NOT NULL DEFAULT 0"))
+        await conn.execute(text(
+            "ALTER TABLE personas ADD COLUMN IF NOT EXISTS session_id TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE party_chat_messages ADD COLUMN IF NOT EXISTS image TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE party_chat_messages ADD COLUMN IF NOT EXISTS attachment_kind TEXT"))
         await conn.execute(text(
             "ALTER TABLE standalone_images ADD COLUMN IF NOT EXISTS is_public "
             "INTEGER NOT NULL DEFAULT 0"))
@@ -679,6 +983,9 @@ async def init():
         await conn.execute(text(
             "ALTER TABLE lore ADD COLUMN IF NOT EXISTS is_explicit "
             "INTEGER NOT NULL DEFAULT 0"))
+        await conn.execute(text(
+            "ALTER TABLE lore_links ADD COLUMN IF NOT EXISTS label "
+            "TEXT NOT NULL DEFAULT ''"))
         await conn.execute(text(
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS image_is_explicit "
             "INTEGER NOT NULL DEFAULT 0"))
@@ -762,6 +1069,50 @@ async def init():
         await conn.execute(text(
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS role "
             "TEXT NOT NULL DEFAULT 'user'"))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled "
+            "INTEGER NOT NULL DEFAULT 0"))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_backup_codes TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_login_required "
+            "INTEGER NOT NULL DEFAULT 0"))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS passkey_required "
+            "INTEGER NOT NULL DEFAULT 0"))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code_id TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS card_html TEXT NOT NULL DEFAULT ''"))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS tier TEXT NOT NULL DEFAULT 'full'"))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS guest_tokens_used INTEGER NOT NULL DEFAULT 0"))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS guest_images_used INTEGER NOT NULL DEFAULT 0"))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS guest_videos_used INTEGER NOT NULL DEFAULT 0"))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS chat_background_img TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE invite_codes ADD COLUMN IF NOT EXISTS tier TEXT NOT NULL DEFAULT 'full'"))
+        await conn.execute(text(
+            "ALTER TABLE jwt_refresh_tokens ADD COLUMN IF NOT EXISTS revoked "
+            "INTEGER NOT NULL DEFAULT 0"))
+        await conn.execute(text(
+            "ALTER TABLE thread_likes ADD COLUMN IF NOT EXISTS value "
+            "INTEGER NOT NULL DEFAULT 1"))
+        await conn.execute(text(
+            "ALTER TABLE personas ADD COLUMN IF NOT EXISTS gender "
+            "TEXT NOT NULL DEFAULT ''"))
+        await conn.execute(text(
+            "ALTER TABLE characters ADD COLUMN IF NOT EXISTS appearance_tags "
+            "TEXT NOT NULL DEFAULT ''"))
+        await conn.execute(text(
+            "ALTER TABLE characters ADD COLUMN IF NOT EXISTS appearance_tags_negative "
+            "TEXT NOT NULL DEFAULT ''"))
         # Backfill: every existing admin becomes role='admin' (never downgrades
         # an already-set 'dev'). Idempotent — only ever touches rows still
         # sitting at the column's default.
@@ -813,6 +1164,26 @@ async def init():
         key = res.fetchone()[0].encode()
     _fernet = Fernet(key)
 
+    global _jwt_secret
+    env_jwt_key = os.environ.get("JWT_SECRET_KEY", "").strip()
+    if env_jwt_key:
+        _jwt_secret = env_jwt_key
+    else:
+        async with _engine.begin() as conn:
+            generated = secrets.token_hex(32)
+            await conn.execute(
+                pg_insert(settings).values(key="_jwt_secret", value=generated)
+                .on_conflict_do_nothing(index_elements=[settings.c.key]))
+            res = await conn.execute(
+                select(settings.c.value).where(settings.c.key == "_jwt_secret"))
+            _jwt_secret = res.fetchone()[0]
+
+
+def get_jwt_secret() -> str:
+    if not _jwt_secret:
+        raise RuntimeError("JWT secret not initialized — db.init() must run first")
+    return _jwt_secret
+
 
 def _encrypt_secret(s: str) -> str:
     if not s:
@@ -842,29 +1213,40 @@ async def close():
         await _engine.dispose()
 
 
+class DatabaseUnavailable(RuntimeError):
+    def __init__(self):
+        super().__init__("database is not connected yet")
+
+
+def _require_engine() -> AsyncEngine:
+    if _engine is None:
+        raise DatabaseUnavailable()
+    return _engine
+
+
 # ── query helpers ────────────────────────────────────────────────────────────
 
 async def _q(stmt) -> list[dict]:
-    async with _engine.connect() as conn:
+    async with _require_engine().connect() as conn:
         res = await conn.execute(stmt)
         return [dict(r._mapping) for r in res.fetchall()]
 
 
 async def _q1(stmt) -> dict | None:
-    async with _engine.connect() as conn:
+    async with _require_engine().connect() as conn:
         res = await conn.execute(stmt)
         row = res.fetchone()
         return dict(row._mapping) if row else None
 
 
 async def _scalar(stmt):
-    async with _engine.connect() as conn:
+    async with _require_engine().connect() as conn:
         res = await conn.execute(stmt)
         return res.scalar()
 
 
 async def _w(stmt):
-    async with _engine.begin() as conn:
+    async with _require_engine().begin() as conn:
         await conn.execute(stmt)
 
 
@@ -879,7 +1261,8 @@ def _loads(v, default):
 
 # ── passwords ────────────────────────────────────────────────────────────────
 
-SESSION_TTL = 60 * 60 * 24 * 30   # 30 days
+ACCESS_TOKEN_TTL = 60 * 60 * 6        # 6 hours
+REFRESH_TOKEN_TTL = 60 * 60 * 24 * 3   # 3 days
 
 
 def hash_password(password: str) -> str:
@@ -903,13 +1286,23 @@ def _user_row(row) -> dict:
     d = dict(row)
     d.pop("password_hash", None)
     d.pop("identity_label", None)   # admin-only; exposed solely via list_users
+    d.pop("totp_secret", None)
+    d.pop("totp_backup_codes", None)
+    d["experimental_features_enabled"] = bool(d.get("experimental_features_enabled"))
     d["is_admin"] = bool(d.get("is_admin"))
     d["nsfw_allowed"] = bool(d.get("nsfw_allowed"))
+    if "totp_enabled" in d:
+        d["totp_enabled"] = bool(d.get("totp_enabled"))
+    if "totp_login_required" in d:
+        d["totp_login_required"] = bool(d.get("totp_login_required"))
+    if "passkey_required" in d:
+        d["passkey_required"] = bool(d.get("passkey_required"))
     try:
         d["social_links"] = json.loads(d.get("social_links") or "{}")
     except (json.JSONDecodeError, TypeError):
         d["social_links"] = {}
     d["profile_html"] = _decrypt_secret(d.get("profile_html") or "")
+    d["card_html"] = _decrypt_secret(d.get("card_html") or "")
     if "bio" in d:
         d["bio"] = _decrypt_secret(d.get("bio") or "")
     if "display_name" in d:
@@ -996,6 +1389,9 @@ async def list_public_users(q: str | None = None) -> list[dict]:
                       .where(characters.c.is_public == 1)
                       .group_by(characters.c.owner_id))
     pub_counts = {r["owner_id"]: r["n"] for r in counts if r["owner_id"]}
+    follower_counts = await _q(select(user_follows.c.followee_id, func.count().label("n"))
+                               .group_by(user_follows.c.followee_id))
+    follower_count_map = {r["followee_id"]: r["n"] for r in follower_counts}
     ql = (q or "").strip().lower()
     out = []
     for r in await _q(select(users).where(users.c.status == "active")):
@@ -1011,10 +1407,12 @@ async def list_public_users(q: str | None = None) -> list[dict]:
             "avatar": u.get("avatar") or "",
             "bio": bio[:180],
             "public_characters": n,
+            "follower_count": follower_count_map.get(u["id"], 0),
             "banner_img": u.get("banner_img") or "",
             "banner_color": u.get("banner_color") or "",
             "accent_color": u.get("accent_color") or "",
             "is_explicit": bool(u.get("is_explicit")),
+            "card_html": u.get("card_html") or "",
         })
     out.sort(key=lambda x: (-x["public_characters"], x["username"]))
     return out
@@ -1121,6 +1519,8 @@ def _lore_row(row) -> dict:
     d["appearance_tags"] = _decrypt_secret(d.get("appearance_tags") or "")
     d["appearance_tags_negative"] = _decrypt_secret(d.get("appearance_tags_negative") or "")
     d["keys"] = [k for k in _decrypt_secret(d.get("keys") or "").split(",") if k]
+    d["require_keys"] = [k for k in (d.get("require_keys") or "").split(",") if k]
+    d["exclude_keys"] = [k for k in (d.get("exclude_keys") or "").split(",") if k]
     d["always"] = bool(d.get("always"))
     d["hidden"] = bool(d.get("hidden"))
     d["is_explicit"] = bool(d.get("is_explicit"))
@@ -1128,9 +1528,11 @@ def _lore_row(row) -> dict:
     return d
 
 
-async def list_lore(char_id: str) -> list[dict]:
+async def list_lore(char_id: str, viewer_id: str | None = None) -> list[dict]:
+    global_clause = (sa.and_(lore.c.char_id.is_(None), lore.c.owner_id == viewer_id)
+                     if viewer_id else sa.false())
     stmt = (select(lore)
-            .where(or_(lore.c.char_id == char_id, lore.c.char_id.is_(None)))
+            .where(or_(lore.c.char_id == char_id, global_clause))
             .order_by(lore.c.always.desc(), lore.c.created.desc()))
     return [_lore_row(r) for r in await _q(stmt)]
 
@@ -1165,7 +1567,8 @@ async def get_session(sid: str) -> dict | None:
 
 async def get_messages(sid: str) -> list[dict]:
     stmt = (select(messages.c.id, messages.c.role, messages.c.content,
-                   messages.c.ts, messages.c.image, messages.c.lang)
+                   messages.c.ts, messages.c.image, messages.c.lang, messages.c.mood,
+                   messages.c.user_name, messages.c.persona_avatar)
             .where(messages.c.session_id == sid).order_by(messages.c.seq.asc()))
     rows = await _q(stmt)
     for r in rows:
@@ -1343,7 +1746,7 @@ async def get_localizations(hashes: list[str], lang: str) -> dict:
                         .where(and_(localization.c.lang == lang,
                                     localization.c.src_hash.in_(chunk))))
         for r in rows:
-            out[r["src_hash"]] = r["translated"]
+            out[r["src_hash"]] = _decrypt_secret(r["translated"])
     return out
 
 

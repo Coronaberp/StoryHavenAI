@@ -4,19 +4,34 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0C0C0E">
-<title>StoryHaven AI</title>
+<title>StoryHaven AI - Forge worlds. Remember everything.</title>
+<!-- og:default:start -->
+<meta property="og:site_name" content="StoryHaven AI">
+<meta property="og:type" content="website">
+<meta property="og:title" content="StoryHaven AI">
+<meta property="og:description" content="Self-hosted AI character roleplay that actually remembers your stories. Forge worlds. Remember everything.">
+<meta property="og:image" content="/img/storyhaven-og.png?v=5">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="StoryHaven AI">
+<meta name="twitter:description" content="Self-hosted AI character roleplay that actually remembers your stories. Forge worlds. Remember everything.">
+<meta name="twitter:image" content="/img/storyhaven-og.png?v=5">
+<!-- og:default:end -->
 <link rel="icon" href="/favicon.ico" type="image/x-icon">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/app.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" integrity="sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi" crossorigin="anonymous" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.11/purify.min.js" integrity="sha384-Ic7KEGROu37YaruU6NyiYeib7UhjFyDZQ5fzBAji965L75T/4LGk5nzwMEjNGexs" crossorigin="anonymous" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.0/chart.umd.min.js" integrity="sha512-Y51n9mtKTVBh3Jbx5pZSJNDDMyY+yGe77DGtBPzRlgsf/YLCh13kSZ3JmfHGzYFCmOndraf0sQgfM654b7dJ3w==" crossorigin="anonymous" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/standalone/umd/vis-network.min.js" integrity="sha384-yxKDWWf0wwdUj/gPeuL11czrnKFQROnLgY8ll7En9NYoXibgg3C6NK/UDHNtUgWJ" crossorigin="anonymous" defer></script>
 </head>
 <body class="min-h-screen bg-paper text-ink font-sans">
   <div class="flex min-h-screen flex-col md:flex-row">
-    <aside id="sidebar" class="flex-col w-60 border-r border-line p-4" style="display:none">
-      <a href="/compendium" onclick="event.preventDefault();navigate('/compendium')" class="flex items-center gap-2 text-primary">
+    <aside id="sidebar" class="hidden lg:flex flex-col w-60 border-r border-line p-4">
+      <a href="/explore" onclick="event.preventDefault();navigate('/explore')" class="flex items-center gap-2 text-primary">
         <svg viewBox="0 0 500 500" class="h-9 w-9 shrink-0"><g>
           <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"/>
           <circle cx="250" cy="250" r="210" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="6 12" opacity="0.4"/>
@@ -46,19 +61,164 @@
         </g></svg>
         <span class="flex flex-col leading-tight">
           <span class="font-display text-base font-semibold tracking-wide">StoryHaven AI</span>
-          <span class="text-[10px] italic text-muted">Forge worlds. Remember everything.</span>
+          <span class="text-[10px] italic text-muted" data-translate="nav_tagline">Forge worlds. Remember everything.</span>
         </span>
       </a>
-      <nav id="nav" class="mt-6 flex flex-1 flex-col gap-1 text-sm">
-        <button type="button" data-route="compendium" onclick="openCompendiumMenu()" class="text-left rounded-md px-3 py-2 hover:bg-surface-2">Compendium</button>
-        <a href="/parlance" data-route="parlance" class="rounded-md px-3 py-2 hover:bg-surface-2">Parlance</a>
-        <button type="button" data-route="sanctum" onclick="openSanctumMenu()" class="text-left rounded-md px-3 py-2 hover:bg-surface-2">Sanctum</button>
-        <button type="button" data-route="dossier" onclick="openDossierMenu()" class="text-left rounded-md px-3 py-2 hover:bg-surface-2">My Dossier</button>
+      <nav id="nav" class="mt-6 flex flex-1 flex-col gap-1">
+        <div class="sidebar-group" data-sidebar-group="explore">
+          <a href="/explore" onclick="event.preventDefault();navigate('/explore')" data-route="explore" class="sidebar-nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88"/></svg>
+            <span class="sidebar-nav-label" data-translate="nav_explore">Explore</span>
+          </a>
+          <div class="sidebar-submenu"><div>
+            <a href="/explore/characters" onclick="event.preventDefault();navigate('/explore/characters')" class="sidebar-sub-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.3"/><path d="M6 19c.8-3.6 3-5.3 6-5.3s5.2 1.7 6 5.3"/></svg>
+              <span data-translate="nav_sub_characters">Characters</span>
+            </a>
+            <a href="/explore/creators" onclick="event.preventDefault();navigate('/explore/creators')" class="sidebar-sub-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-.5-1.5-.5-2.5A2.5 2.5 0 0 1 16 14h2a3 3 0 0 0 3-3c0-4.4-4-8-9-8z"/><circle cx="8" cy="11" r="1"/><circle cx="8" cy="15" r="1"/><circle cx="12" cy="8" r="1"/><circle cx="16" cy="10" r="1"/></svg>
+              <span data-translate="nav_sub_creators">Creators</span>
+            </a>
+            <a href="/explore/media" onclick="event.preventDefault();navigate('/explore/media')" class="sidebar-sub-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="13" rx="1.5"/><circle cx="9" cy="10" r="1.5"/><path d="M4 15.5l4.5-4.5c.6-.6 1.4-.6 2 0L17 17.5"/></svg>
+              <span data-translate="nav_sub_media_gallery">Media Gallery</span>
+            </a>
+            <a href="/explore/forum" onclick="event.preventDefault();navigate('/explore/forum')" class="sidebar-sub-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14v9H9l-4 3.5V15H5z"/></svg>
+              <span data-translate="nav_sub_forum">Forum</span>
+            </a>
+          </div></div>
+        </div>
+        <a href="/chats" onclick="event.preventDefault();navigate('/chats')" data-route="chats" class="sidebar-nav-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg>
+          <span class="sidebar-nav-label" data-translate="nav_chats">Chats</span>
+        </a>
+        <div class="sidebar-group" data-sidebar-group="workshop">
+          <a href="/workshop" onclick="event.preventDefault();navigate('/workshop')" data-route="workshop" class="sidebar-nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            <span class="sidebar-nav-label" data-translate="nav_workshop">Workshop</span>
+          </a>
+          <div class="sidebar-submenu"><div>
+            <a href="/workshop/media" onclick="event.preventDefault();navigate('/workshop/media')" class="sidebar-sub-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18l7-7"/><path d="M14.5 4.5l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/><path d="M17.5 12.5l.7 1.4 1.4.7-1.4.7-.7 1.4-.7-1.4-1.4-.7 1.4-.7z"/></svg>
+              <span data-translate="nav_sub_generate">Generate</span>
+            </a>
+            <a href="/workshop/lore" onclick="event.preventDefault();navigate('/workshop/lore')" class="sidebar-sub-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5.5c2-1 4-1.3 6 0v13c-2-1.3-4-1-6 0z"/><path d="M18 5.5c-2-1-4-1.3-6 0v13c2-1.3 4-1 6 0z"/></svg>
+              <span data-translate="nav_sub_lorebook">Lorebook</span>
+            </a>
+            <a href="/workshop/personas" onclick="event.preventDefault();navigate('/workshop/personas')" class="sidebar-sub-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.5" cy="10" r="4.2"/><path d="M12.8 8.2A4.2 4.2 0 1 1 12.8 15.8"/></svg>
+              <span data-translate="nav_sub_personas">Personas</span>
+            </a>
+            <a href="/workshop/characters" onclick="event.preventDefault();navigate('/workshop/characters')" class="sidebar-sub-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="2.6"/><path d="M4.5 18c.6-3 2.2-4.6 4.5-4.6s3.9 1.6 4.5 4.6"/><circle cx="16" cy="9.5" r="2.1"/><path d="M14.3 13.2c1.8.2 3 1.5 3.4 3.5"/></svg>
+              <span data-translate="nav_sub_my_characters">My Characters</span>
+            </a>
+          </div></div>
+        </div>
       </nav>
+      <div class="sidebar-footer">
+        <div data-route="dossier" onclick="openDossierMenu()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDossierMenu()}" aria-label="My Dossier" class="w-full flex items-center gap-2.5 p-2 mb-2.5 rounded-xl border border-line bg-surface hover:bg-surface-2 cursor-pointer">
+          <span data-avatar-ring class="relative block w-9 h-9 rounded-full p-[2px] flex-none" style="background:var(--nav-avatar-ring, linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark)))">
+            <span class="block w-full h-full rounded-full overflow-hidden bg-surface-2 grid place-items-center">
+              <img class="hidden w-full h-full object-cover" alt="">
+              <span data-avatar-fallback class="font-display font-semibold text-sm text-ink">?</span>
+            </span>
+          </span>
+          <span class="min-w-0 flex-1">
+            <span data-dossier-name class="block font-display font-semibold text-[13.5px] text-ink truncate">-</span>
+            <span class="flex items-center gap-1.5 mt-1">
+              <span data-dossier-handle class="text-[11px] text-muted truncate">-</span>
+              <span data-dossier-role hidden class="font-mono text-[8.5px] tracking-[.08em] uppercase text-primary border border-primary rounded-full px-1.5 py-[1px]" style="background:color-mix(in srgb, var(--color-primary) 12%, transparent)"></span>
+            </span>
+          </span>
+          <button type="button" onclick="event.stopPropagation();confirmSignOut()" data-tooltip="Sign out" aria-label="Sign out" data-translate-tooltip="session_sign_out" data-translate-aria="session_sign_out" class="sidebar-footer-btn flex-none">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+          </button>
+        </div>
+        <div class="sidebar-footer-icons" id="sidebarFooterIcons">
+          <button type="button" onclick="quickSearch()" data-tooltip="Quick search" aria-label="Quick search" data-translate-tooltip="nav_quick_search" data-translate-aria="nav_quick_search" class="sidebar-footer-btn">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </button>
+          <button type="button" onclick="openCreateMenu()" data-tooltip="Create" aria-label="Create" data-translate-tooltip="dropdown_create" data-translate-aria="dropdown_create" class="sidebar-footer-btn">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <button type="button" onclick="setThemeBase(getThemeState().activeBase === 'dark' ? 'light' : 'dark')" data-tooltip="Toggle theme" aria-label="Toggle theme" data-translate-tooltip="nav_toggle_theme" data-translate-aria="nav_toggle_theme" class="sidebar-footer-btn theme-toggle-btn">
+            <svg class="theme-icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2.5 12H5M19 12h2.5M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>
+            <svg class="theme-icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+          </button>
+          <button type="button" id="sidebarAdminBtn" hidden onclick="navigate('/admin')" data-tooltip="Admin panel" aria-label="Admin panel" data-translate-tooltip="settings_row_admin" data-translate-aria="settings_row_admin" class="sidebar-footer-btn">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </button>
+        </div>
+        <div class="sidebar-footer-version">V2.0.0</div>
+      </div>
+    </aside>
+
+    <aside id="tabletRail" class="hidden md:flex lg:hidden flex-col items-center w-16 border-r border-line py-4 md:sticky md:top-0 md:h-screen">
+    <a href="/explore" onclick="event.preventDefault();navigate('/explore')" class="flex-none w-11 h-11 grid place-items-center text-primary mb-2">
+      <svg viewBox="0 0 500 500" class="h-8 w-8 shrink-0"><g>
+        <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"/>
+        <circle cx="250" cy="250" r="210" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="6 12" opacity="0.4"/>
+        <path d="M 250 40 L 420 138 L 420 362 L 250 460 L 80 362 L 80 138 Z" fill="none" stroke="currentColor" stroke-width="10" stroke-linejoin="round"/>
+        <path d="M 250 75 L 385 153 L 385 347 L 250 425 L 115 347 L 115 153 Z" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+        <circle cx="195" cy="150" r="10" fill="currentColor" opacity="0.9"/>
+        <circle cx="305" cy="150" r="35" fill="none" stroke="currentColor" stroke-width="10"/>
+        <circle cx="305" cy="150" r="30" fill="currentColor" opacity="0.15"/>
+        <path d="M 130 230 C 170 190, 220 200, 250 215 C 280 200, 330 190, 370 230 C 330 260, 280 240, 250 230 C 220 240, 170 260, 130 230 Z" fill="currentColor"/>
+        <path d="M 120 370 C 160 400, 220 390, 250 340 C 280 390, 340 400, 380 370 V 300 C 340 330, 280 320, 250 270 C 220 320, 160 330, 120 300 Z" fill="none" stroke="currentColor" stroke-width="12" stroke-linejoin="round"/>
+        <line x1="250" y1="270" x2="250" y2="445" stroke="currentColor" stroke-width="12" stroke-linecap="round"/>
+      </g></svg>
+    </a>
+    <button type="button" onclick="openCreateMenu()" data-tooltip="Create" aria-label="Create" data-translate-tooltip="dropdown_create" data-translate-aria="dropdown_create"
+      class="flex-none w-11 h-11 rounded-full grid place-items-center text-paper mb-2"
+      style="background:linear-gradient(150deg, var(--color-accent), var(--color-accent-deep));box-shadow:0 6px 14px -6px color-mix(in srgb, var(--color-accent) 55%, transparent)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <div class="flex-1 min-h-0 w-full flex flex-col items-center gap-1 overflow-y-auto">
+      <button type="button" data-route="explore/characters" onclick="navigate('/explore/characters')" class="flex-none w-11 h-11 grid place-items-center rounded-lg hover:bg-surface-2 text-sec" title="Characters" aria-label="Characters" data-translate-title="nav_sub_characters" data-translate-aria="nav_sub_characters">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.3"/><path d="M6 19c.8-3.6 3-5.3 6-5.3s5.2 1.7 6 5.3"/></svg>
+      </button>
+      <button type="button" data-route="explore/creators" onclick="navigate('/explore/creators')" class="flex-none w-11 h-11 grid place-items-center rounded-lg hover:bg-surface-2 text-sec" title="Creators" aria-label="Creators" data-translate-title="nav_sub_creators" data-translate-aria="nav_sub_creators">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-.5-1.5-.5-2.5A2.5 2.5 0 0 1 16 14h2a3 3 0 0 0 3-3c0-4.4-4-8-9-8z"/><circle cx="8" cy="11" r="1"/><circle cx="8" cy="15" r="1"/><circle cx="12" cy="8" r="1"/><circle cx="16" cy="10" r="1"/></svg>
+      </button>
+      <button type="button" data-route="explore/media" onclick="navigate('/explore/media')" class="flex-none w-11 h-11 grid place-items-center rounded-lg hover:bg-surface-2 text-sec" title="Media Gallery" aria-label="Media Gallery" data-translate-title="nav_sub_media_gallery" data-translate-aria="nav_sub_media_gallery">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="13" rx="1.5"/><circle cx="9" cy="10" r="1.5"/><path d="M4 15.5l4.5-4.5c.6-.6 1.4-.6 2 0L17 17.5"/></svg>
+      </button>
+      <button type="button" data-route="explore/forum" onclick="navigate('/explore/forum')" class="flex-none w-11 h-11 grid place-items-center rounded-lg hover:bg-surface-2 text-sec" title="Forum" aria-label="Forum" data-translate-title="nav_sub_forum" data-translate-aria="nav_sub_forum">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14v9H9l-4 3.5V15H5z"/></svg>
+      </button>
+      <div class="w-8 h-px bg-line my-1"></div>
+      <button type="button" data-route="chats" onclick="navigate('/chats')" class="flex-none w-11 h-11 grid place-items-center rounded-lg hover:bg-surface-2 text-sec" title="Chats" aria-label="Chats" data-translate-title="nav_chats" data-translate-aria="nav_chats">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg>
+      </button>
+      <div class="w-8 h-px bg-line my-1"></div>
+      <button type="button" data-route="workshop/media" onclick="navigate('/workshop/media')" class="flex-none w-11 h-11 grid place-items-center rounded-lg hover:bg-surface-2 text-sec" title="Generate" aria-label="Generate" data-translate-title="nav_sub_generate" data-translate-aria="nav_sub_generate">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18l7-7"/><path d="M14.5 4.5l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/><path d="M17.5 12.5l.7 1.4 1.4.7-1.4.7-.7 1.4-.7-1.4-1.4-.7 1.4-.7z"/></svg>
+      </button>
+      <button type="button" data-route="workshop/lore" onclick="navigate('/workshop/lore')" class="flex-none w-11 h-11 grid place-items-center rounded-lg hover:bg-surface-2 text-sec" title="Lorebook" aria-label="Lorebook" data-translate-title="nav_sub_lorebook" data-translate-aria="nav_sub_lorebook">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5.5c2-1 4-1.3 6 0v13c-2-1.3-4-1-6 0z"/><path d="M18 5.5c-2-1-4-1.3-6 0v13c2-1.3 4-1 6 0z"/></svg>
+      </button>
+      <button type="button" data-route="workshop/personas" onclick="navigate('/workshop/personas')" class="flex-none w-11 h-11 grid place-items-center rounded-lg hover:bg-surface-2 text-sec" title="Personas" aria-label="Personas" data-translate-title="nav_sub_personas" data-translate-aria="nav_sub_personas">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9.5" cy="10" r="4.2"/><path d="M12.8 8.2A4.2 4.2 0 1 1 12.8 15.8"/></svg>
+      </button>
+      <button type="button" data-route="workshop/characters" onclick="navigate('/workshop/characters')" class="flex-none w-11 h-11 grid place-items-center rounded-lg hover:bg-surface-2 text-sec" title="My Characters" aria-label="My Characters" data-translate-title="nav_sub_my_characters" data-translate-aria="nav_sub_my_characters">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="2.6"/><path d="M4.5 18c.6-3 2.2-4.6 4.5-4.6s3.9 1.6 4.5 4.6"/><circle cx="16" cy="9.5" r="2.1"/><path d="M14.3 13.2c1.8.2 3 1.5 3.4 3.5"/></svg>
+      </button>
+    </div>
+      <button type="button" data-route="dossier" onclick="openDossierMenu()" class="flex-none w-11 h-11 grid place-items-center" title="My Dossier" aria-label="My Dossier" data-translate-title="nav_dossier" data-translate-aria="nav_dossier">
+        <span data-avatar-ring class="relative block w-8 h-8 rounded-full p-[2px]" style="background:var(--nav-avatar-ring, linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark)))">
+          <span class="block w-full h-full rounded-full overflow-hidden bg-surface-2 grid place-items-center">
+            <img class="hidden w-full h-full object-cover" alt="">
+            <span data-avatar-fallback class="font-mono text-[11px] text-ink">?</span>
+          </span>
+        </span>
+      </button>
     </aside>
 
     <header id="mobileHeader" class="fixed inset-x-0 top-0 z-10 flex items-center justify-between border-b border-line px-4 py-3 bg-paper md:hidden" style="display:none">
-      <a href="/compendium" onclick="event.preventDefault();navigate('/compendium')" class="flex items-center gap-1.5 text-primary">
+      <a href="/explore" onclick="event.preventDefault();navigate('/explore')" class="flex items-center gap-1.5 text-primary">
         <svg viewBox="0 0 500 500" class="h-7 w-7 shrink-0"><g>
           <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"/>
           <circle cx="250" cy="250" r="210" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="6 12" opacity="0.4"/>
@@ -88,33 +248,38 @@
         </g></svg>
         <span class="flex flex-col leading-tight">
           <span class="font-display text-sm font-semibold tracking-wide">StoryHaven AI</span>
-          <span class="text-[9px] italic text-muted">Forge worlds. Remember everything.</span>
+          <span class="text-[9px] italic text-muted" data-translate="nav_tagline">Forge worlds. Remember everything.</span>
         </span>
       </a>
-      <button id="mGear" class="text-sec" aria-label="Settings">⚙</button>
     </header>
 
-    <main id="main" class="flex-1 overflow-y-auto p-4 pt-[68px] pb-20 md:pt-4 md:pb-4"></main>
+    <main id="main" class="flex-1 overflow-y-auto p-4 pt-[68px] pb-20 md:pt-4 md:pb-4 lg:pt-16 2xl:max-w-[1600px] 2xl:mx-auto"></main>
 
-    <nav id="bottomNav" class="fixed inset-x-0 bottom-0 z-10 border-t-2 border-line-2 bg-paper" style="display:none">
+    <header id="publicHeader" class="hidden fixed inset-x-0 top-0 z-[6] flex items-center justify-between gap-3 px-4 border-b border-line" style="height:48px;background:var(--color-paper)"></header>
+
+    <footer id="publicFooter" class="hidden fixed inset-x-0 bottom-0 z-[5] border-t border-line px-4 py-2.5 text-center" style="background:var(--color-paper)">
+      <span class="font-mono text-[10px] tracking-[.14em] uppercase" style="color:var(--color-muted)" id="publicFooterVersion"></span>
+    </footer>
+
+    <nav id="bottomNav" class="fixed inset-x-0 bottom-0 z-10 border-t-2 border-line-2 bg-paper md:hidden" style="display:none">
       <div id="navRibbon" class="absolute -top-2.5 h-[18px] transition-[left,width] duration-300 ease-out motion-reduce:transition-none" style="clip-path:polygon(22% 0%,78% 0%,78% 74%,50% 100%,22% 74%);background:linear-gradient(180deg, var(--color-primary-light), var(--color-primary-dark));filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))"></div>
       <div class="relative flex items-center">
-        <button type="button" data-route="compendium" onclick="openCompendiumMenu()" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 4v6l3-2 3 2V4"/></svg>
-          <span class="font-mono text-[9px] tracking-[.12em] uppercase">Compendium</span>
+        <button type="button" data-route="explore" onclick="openCompendiumMenu()" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88"/></svg>
+          <span class="font-mono text-[9px] tracking-[.12em] uppercase" data-translate="nav_explore">Explore</span>
         </button>
-        <a href="/parlance" data-route="parlance" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h9a3 3 0 0 1 3 3v11"/><path d="M6 4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12"/><path d="M9 9h6M9 12.5h6"/></svg>
-          <span class="font-mono text-[9px] tracking-[.12em] uppercase">Parlance</span>
+        <a href="/chats" data-route="chats" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg>
+          <span class="font-mono text-[9px] tracking-[.12em] uppercase" data-translate="nav_chats">Chats</span>
         </a>
-        <button type="button" onclick="navigate('/create')" title="New character"
+        <button type="button" onclick="openCreateMenu()" data-tooltip="Create" aria-label="Create" data-translate-tooltip="dropdown_create" data-translate-aria="dropdown_create"
           class="flex-none -mt-[22px] w-[54px] h-[54px] rounded-2xl grid place-items-center text-paper"
           style="background:linear-gradient(150deg, var(--color-accent), var(--color-accent-deep));box-shadow:0 8px 18px -6px color-mix(in srgb, var(--color-accent) 55%, transparent)">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
         </button>
-        <button type="button" data-route="sanctum" onclick="openSanctumMenu()" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V11a6 6 0 0 1 12 0v9"/><path d="M6 20h12"/><path d="M12 15v2.5"/></svg>
-          <span class="font-mono text-[9px] tracking-[.12em] uppercase">Sanctum</span>
+        <button type="button" data-route="workshop" onclick="openSanctumMenu()" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          <span class="font-mono text-[9px] tracking-[.12em] uppercase" data-translate="nav_workshop">Workshop</span>
         </button>
         <button type="button" data-route="dossier" onclick="openDossierMenu()" class="flex flex-1 flex-col items-center gap-1 py-2.5 text-sec">
           <span data-avatar-ring class="relative block w-[22px] h-[22px] rounded-full p-[2px] opacity-70" style="background:var(--nav-avatar-ring, linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark)))">
@@ -123,7 +288,7 @@
               <span data-avatar-fallback class="font-mono text-[10px] text-ink">?</span>
             </span>
           </span>
-          <span class="font-mono text-[9px] tracking-[.05em] uppercase whitespace-nowrap">My Dossier</span>
+          <span class="font-mono text-[9px] tracking-[.05em] uppercase whitespace-nowrap" data-translate="nav_dossier">My Dossier</span>
         </button>
       </div>
     </nav>
@@ -131,36 +296,88 @@
 
   <div id="toast" class="toast"></div>
   <div id="heroChrome" class="hidden"></div>
-  <div class="fixed top-2 right-2 z-[9999] flex items-center gap-1.5">
-    <button type="button" id="censorToggle" onclick="cycleCensor()" title="Censor mature content"
+  <div id="authGalleryHost" class="hidden absolute inset-0 overflow-hidden pointer-events-none">
+    <canvas id="authGlitter" class="absolute inset-0 w-full h-full"></canvas>
+  </div>
+  <div id="railToolsAnchor"></div>
+  <div id="railTools" class="rail-tools fixed top-2 right-2 z-[9999] flex items-center gap-1.5 md:top-auto md:right-auto md:left-[14px] md:bottom-[76px] md:flex-col lg:static lg:flex-row">
+    <button type="button" id="notifBellBtn" onclick="notificationsBell.toggle()" data-tooltip="Notifications" aria-label="Notifications" data-translate-tooltip="nav_notifications" data-translate-aria="nav_notifications"
+      class="hidden relative w-9 h-9 rounded-lg border border-line bg-surface text-primary grid place-items-center hover:bg-surface-2">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <span id="notifBellBadge" class="hidden notif-badge"></span>
+    </button>
+    <button type="button" id="censorToggle" onclick="cycleCensor()" data-tooltip="Blur mature content" aria-label="Blur mature content" data-translate-tooltip="nav_blur_mature_content" data-translate-aria="nav_blur_mature_content"
       data-censor-icon
       class="hidden w-9 h-9 rounded-lg border border-line bg-surface text-primary grid place-items-center hover:bg-surface-2"></button>
-    <button type="button" id="tempThemeCycle" onclick="cycleTheme()" title="Cycle theme (temp)"
-      data-theme-icon
-      class="w-9 h-9 rounded-lg border border-line bg-surface text-primary grid place-items-center hover:bg-surface-2"></button>
   </div>
 
   <script src="/js/state-store.js" defer></script>
   <script src="/js/theme.js" defer></script>
   <script src="/js/app-session.js" defer></script>
+  <script src="/js/translations.js" defer></script>
+  <script src="/js/webauthn.js" defer></script>
+  <script src="/js/oauth-icons.js" defer></script>
   <script src="/js/login.js" defer></script>
-  <script src="/js/auth-scene.js" defer></script>
+  <script src="/js/auth-chrome.js" defer></script>
   <script src="/js/qrcode-generator.js" defer></script>
   <script src="/js/register.js" defer></script>
   <script src="/js/onboard.js" defer></script>
   <script src="/js/wait.js" defer></script>
   <script src="/js/toast.js" defer></script>
+  <script src="/js/tooltip.js" defer></script>
   <script src="/js/modal.js" defer></script>
+  <script src="/js/color-picker.js" defer></script>
   <script src="/js/dropdown.js" defer></script>
-  <script src="/js/pantheon.js" defer></script>
-  <script src="/js/artisans.js" defer></script>
+  <script src="/js/cropper.js" defer></script>
+  <script src="/js/explore-characters.js" defer></script>
+  <script src="/js/explore-creators.js" defer></script>
   <script src="/js/card-sandbox.js" defer></script>
   <script src="/js/comments.js" defer></script>
   <script src="/js/profile-template.js" defer></script>
-  <script src="/js/artisan-profile.js" defer></script>
-  <script src="/js/compendium.js" defer></script>
+  <script src="/js/profile-editor.js" defer></script>
+  <script src="/js/compliance.js" defer></script>
+  <script src="/js/profile.js" defer></script>
+  <script src="/js/explore.js" defer></script>
+  <script src="/js/explore-media.js" defer></script>
+  <script src="/js/explore-forum.js" defer></script>
+  <script src="/js/character.js" defer></script>
+  <script src="/js/session-lore-web.js" type="module"></script>
+  <script src="/js/chat.js" defer></script>
+  <script src="/js/chats.js" defer></script>
   <script src="/js/nav-menus.js" defer></script>
+  <script src="/js/group-create.js" defer></script>
+  <script src="/js/group-detail.js" defer></script>
+  <script src="/js/workshop.js" defer></script>
+  <script src="/js/workshop-lore.js" defer></script>
+  <script src="/js/workshop-lore-web.js" defer></script>
+  <script src="/js/workshop-personas.js" defer></script>
+  <script src="/js/workshop-characters-form.js" defer></script>
+  <script src="/js/vendor/gif-encoder.js" defer></script>
+  <script src="/js/workshop-media-compile.js" defer></script>
+  <script src="/js/workshop-media.js" defer></script>
+  <script src="/js/settings.js" defer></script>
+  <script src="/js/multiplayer.js" defer></script>
+  <script src="/js/settings-appearance.js" defer></script>
+  <script src="/js/settings-model.js" defer></script>
+  <script src="/js/tutorial-engine.js" defer></script>
+  <script src="/js/tutorial.js" defer></script>
+  <script src="/js/settings-account.js" defer></script>
+  <script src="/js/settings-docs.js" defer></script>
+  <script src="/js/settings-blocks.js" defer></script>
+  <script src="/js/admin.js" defer></script>
+  <script src="/js/admin-users.js" defer></script>
+  <script src="/js/admin-moderation.js" defer></script>
+  <script src="/js/admin-previews.js" defer></script>
+  <script src="/js/admin-train.js" defer></script>
+  <script src="/js/admin-emojis.js" defer></script>
+  <script src="/js/admin-config.js" defer></script>
+  <script src="/js/admin-health.js" defer></script>
+  <script src="/js/notifications.js" defer></script>
   <script src="/js/router.js" defer></script>
+  <script src="/js/scroll-top.js" defer></script>
+  <script src="/js/media-gen.js" defer></script>
+  <script src="/js/feature-flags.js" defer></script>
+  <script src="/js/admin-features.js" defer></script>
   <script src="/js/boot.js" defer></script>
 </body>
 </html>

@@ -17,6 +17,7 @@ from backend.repositories.emojis import _shape_custom_emoji
 from backend.repositories import notifications as notification_repo
 from backend.state import api, log, IMG_EXTS, MEDIA_DIR
 from backend.auth import get_current_user, get_admin
+from backend.feature_flags import require_feature_enabled
 from backend.media import _save_uploaded_image, _delete_media_file, gif_blurred_preview
 from backend.classify import classify_image_nsfw, _is_animated_image
 from backend.ratelimit import SlidingWindow
@@ -39,7 +40,8 @@ async def list_emojis(current_user: dict = Depends(get_current_user)):
 
 @api.post("/emojis")
 async def upload_emoji(shortcode: str = Form(...), kind: str = Form("emoji"),
-                       file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+                       file: UploadFile = File(...), current_user: dict = Depends(get_current_user),
+                       _feature: None = Depends(require_feature_enabled("emojis"))):
     if kind not in ("emoji", "sticker"):
         raise HTTPException(400, "kind must be 'emoji' or 'sticker'")
     _UPLOAD_LIMIT.check_and_record(current_user["id"])

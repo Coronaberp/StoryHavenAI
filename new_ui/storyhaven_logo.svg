@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  <!-- No hardcoded color — every element uses currentColor, so the color
+       is whatever `color` is on the element this SVG is inlined into. -->
+  <g>
+    <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"/>
+    <circle cx="250" cy="250" r="210" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="6 12" opacity="0.4"/>
+    <path d="M 250 40 L 420 138 L 420 362 L 250 460 L 80 362 L 80 138 Z" fill="none" stroke="currentColor" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M 250 75 L 385 153 L 385 347 L 250 425 L 115 347 L 115 153 Z" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3"/>
+    <circle cx="250" cy="40" r="6" fill="currentColor"/>
+    <circle cx="420" cy="138" r="6" fill="currentColor"/>
+    <circle cx="420" cy="362" r="6" fill="currentColor"/>
+    <circle cx="250" cy="460" r="6" fill="currentColor"/>
+    <circle cx="80" cy="362" r="6" fill="currentColor"/>
+    <circle cx="80" cy="138" r="6" fill="currentColor"/>
+    <circle cx="195" cy="150" r="10" fill="currentColor" opacity="0.9"/>
+    <line x1="145" y1="150" x2="225" y2="150" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+    <line x1="195" y1="120" x2="195" y2="180" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+    <circle cx="305" cy="150" r="35" fill="none" stroke="currentColor" stroke-width="10"/>
+    <circle cx="305" cy="150" r="30" fill="currentColor" opacity="0.15"/>
+    <path d="M 285 130 A 20 20 0 0 1 325 135" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.6"/>
+    <circle cx="346" cy="150" r="5" fill="none" stroke="currentColor" stroke-width="3"/>
+    <line x1="350" y1="150" x2="350" y2="340" stroke="currentColor" stroke-width="3" stroke-dasharray="6 6" opacity="0.7"/>
+    <path d="M 130 230 C 170 190, 220 200, 250 215 C 280 200, 330 190, 370 230 C 330 260, 280 240, 250 230 C 220 240, 170 260, 130 230 Z" fill="currentColor"/>
+    <circle cx="350" cy="340" r="6" fill="currentColor"/>
+    <circle cx="350" cy="340" r="12" fill="none" stroke="currentColor" stroke-width="2" opacity="0.5"/>
+    <path d="M 120 370 C 160 400, 220 390, 250 340 C 280 390, 340 400, 380 370 V 300 C 340 330, 280 320, 250 270 C 220 320, 160 330, 120 300 Z" fill="none" stroke="currentColor" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M 150 350 C 180 370, 220 365, 250 325 C 280 365, 320 370, 350 350 V 295 C 320 315, 280 310, 250 270 C 220 310, 180 315, 150 295 Z" fill="none" stroke="currentColor" stroke-width="6" opacity="0.6"/>
+    <path d="M 180 330 C 200 345, 230 340, 250 310 C 270 340, 300 345, 320 330 V 290 C 300 305, 270 300, 250 270 C 230 300, 200 305, 180 290 Z" fill="none" stroke="currentColor" stroke-width="3" opacity="0.3"/>
+    <line x1="250" y1="270" x2="250" y2="445" stroke="currentColor" stroke-width="12" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -1,0 +1,59 @@
+/* StoryHaven AI — base element styling
+   The minimum global rules the product applies to the document: warm dark
+   surface, antialiased body, Inter, editorial serif for headline touchpoints,
+   gold-tinted scrollbars & selection. Lifted from static/css/base.css. */
+
+html { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--base-font-size);
+  line-height: var(--body-line-height);
+  -webkit-font-smoothing: antialiased;
+  text-shadow: var(--body-text-shadow);
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-deep); }
+
+button { font-family: inherit; cursor: pointer; }
+
+::selection { background: var(--accent-soft); }
+
+/* Native range + checkbox pick up the gold accent everywhere */
+input[type="range"], input[type="checkbox"] { accent-color: var(--accent); }
+
+/* headline touchpoints get the display serif for a distinct, editorial voice */
+h1, h2, h3, .display {
+  font-family: var(--display);
+  letter-spacing: -.01em;
+}
+
+/* the brand's signature label style: mono, uppercase, wide tracking, gold */
+.eyebrow {
+  font-family: var(--mono);
+  font-size: var(--fs-eyebrow);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* refined, gold-tinted scrollbars */
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 35%, var(--line-2) 65%);
+  border-radius: 8px;
+  border: 3px solid var(--paper);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+* {
+  scrollbar-color: color-mix(in srgb, var(--accent) 35%, var(--line-2) 65%) transparent;
+  scrollbar-width: thin;
+}

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0C0C0E">
+<title>StoryHaven AI — Forge worlds. Remember everything.</title>
+<!-- og:default:start -->
+<meta property="og:site_name" content="StoryHaven AI">
+<meta property="og:type" content="website">
+<meta property="og:title" content="StoryHaven AI">
+<meta property="og:description" content="Forge worlds. Remember everything.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="StoryHaven AI">
+<meta name="twitter:description" content="Forge worlds. Remember everything.">
+<!-- og:default:end -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230C0C0E'/%3E%3Ctext x='32' y='45' font-size='36' text-anchor='middle' fill='%23E3BD6C' font-family='Georgia,serif'%3E%E2%9D%96%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/profile.css">
+<link rel="stylesheet" href="/css/overlay.css">
+<link rel="stylesheet" href="/css/studio.css">
+<link rel="stylesheet" href="/css/pages.css">
+<link rel="stylesheet" href="/css/studio2.css">
+<link rel="stylesheet" href="/css/admin.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" integrity="sha384-/TQbtLCAerC3jgaim+N78RZSDYV7ryeoBCVqTuzRrFec2akfBkHS7ACQ3PQhvMVi" crossorigin="anonymous" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.11/purify.min.js" integrity="sha384-Ic7KEGROu37YaruU6NyiYeib7UhjFyDZQ5fzBAji965L75T/4LGk5nzwMEjNGexs" crossorigin="anonymous" defer></script>
+</head>
+<body class="unauthed">
+<!-- mobile-only fixed top bar -->
+<div class="mtop">
+  <button class="hamb" id="mHamb" aria-label="Menu">☰</button>
+
+  <div class="brand">
+    <span class="glyph">❖</span>
+    <a href="/" class="brand-text">
+      <span class="name">StoryHaven AI</span>
+      <span class="tagline" data-i18n="tagline">Forge worlds. Remember everything.</span>
+    </a>
+  </div>
+
+  <button class="gear" id="mGear" aria-label="Settings">⚙</button>
+</div>
+
+<div class="shell">
+  <div class="scrim-nav" id="scrimNav"></div>
+  <aside class="rail" id="rail">
+    <div class="brand">
+      <button type="button" class="glyph" id="railGlyphBtn" aria-label="Toggle sidebar" title="Toggle sidebar">
+        <span class="glyph-icon">❖</span>
+        <svg class="glyph-expand" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <a href="/" class="brand-text">
+        <span class="name">StoryHaven AI</span>
+        <span class="tagline" data-i18n="tagline">Forge worlds. Remember everything.</span>
+      </a>
+      <button type="button" class="rail-collapse-btn" id="railCollapseBtn" aria-label="Collapse sidebar" title="Collapse sidebar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+    </div>
+    <div class="rail-scroll">
+      <nav class="nav" id="nav">
+        <a href="/" data-route="library"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> <span data-i18n="nav_library">Library</span></a>
+        <a href="/community" data-route="community"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> <span data-i18n="nav_community">Community</span></a>
+        <a href="/personas" data-route="personas"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg> <span data-i18n="nav_personas">Personas</span></a>
+        <a href="/images" data-route="images"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/><circle cx="12" cy="12" r="2.5"/></svg> <span data-i18n="nav_images">Creations</span></a>
+        <a href="/forum" data-route="forum"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> <span data-i18n="nav_forum">Forum</span></a>
+        <a href="/admin" data-route="admin" id="adminNavLink" style="display:none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> <span data-i18n="nav_admin">Admin</span></a>
+        <a href="/create" class="new"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> <span data-i18n="nav_new_character">New character</span></a>
+      </nav>
+      <button type="button" class="label recent-toggle" id="recentToggle" aria-expanded="true">
+        <span data-i18n="recent_chats">Recent chats</span>
+        <svg class="recent-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="recent" id="recent"></div>
+    </div>
+    <div class="foot">
+      <button type="button" id="railAvaBtn" class="rail-ava-btn" aria-label="Account" title="Account"></button>
+      <div id="userInfo" class="user-info-empty" style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--line);"></div>
+      <div class="rail-icon-row">
+        <button type="button" id="notifBtn" class="rail-icon-btn notif-bell" aria-label="Notifications" title="Notifications">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-badge" id="notifBadge" hidden>0</span>
+        </button>
+        <button type="button" id="settingsBtn" class="rail-icon-btn" aria-label="Settings" title="Settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button type="button" id="themeBtn" class="rail-icon-btn" aria-label="Toggle dark/light mode" title="Toggle dark/light mode"></button>
+        <button type="button" id="privacyBtn" class="rail-icon-btn" aria-label="Privacy mode" title="Privacy mode" style="display:none;"></button>
+        <button type="button" id="logoutBtn" class="rail-icon-btn" aria-label="Log out" title="Log out">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+      <div class="rail-app-version" id="railAppVersion"></div>
+    </div>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+
+<!-- mobile-only bottom tab bar -->
+<nav class="tabbar" id="tabbar">
+  <a href="/" data-route="library"><span class="ic">▤</span><span data-i18n="nav_library">Library</span></a>
+  <a href="/community" data-route="community"><span class="ic">⊹</span><span data-i18n="nav_community">Community</span></a>
+  <a href="/create" data-route="create"><span class="ic">+</span><span data-i18n="btn_new">New</span></a>
+  <a href="#" id="tabMenu"><span class="ic">☰</span><span data-i18n="nav_more">More</span></a>
+</nav>
+
+<div class="scrim" id="scrim"></div>
+<div class="toast" id="toast"></div>
+
+<script src="/js/state-store.js" defer></script>
+<script src="/js/app-session.js" defer></script>
+<script src="/js/i18n.js" defer></script>
+<script src="/js/appearance.js" defer></script>
+<script src="/js/dom-utils.js" defer></script>
+<script src="/js/autocomplete-widgets.js" defer></script>
+<script src="/js/ui-popovers.js" defer></script>
+<script src="/js/card-sandbox.js" defer></script>
+<script src="/js/card-utils.js" defer></script>
+<script src="/js/toast.js" defer></script>
+<script src="/js/imagegen-picker.js" defer></script>
+<script src="/js/report-image.js" defer></script>
+<script src="/js/recent-sessions.js" defer></script>
+<script src="/js/auth.js" defer></script>
+<script src="/js/nav.js" defer></script>
+<script src="/js/library.js" defer></script>
+<script src="/js/forum.js" defer></script>
+<script src="/js/admin-users.js" defer></script>
+<script src="/js/admin-moderation.js" defer></script>
+<script src="/js/admin-previews.js" defer></script>
+<script src="/js/admin-emojis.js" defer></script>
+<script src="/js/admin-config.js" defer></script>
+<script src="/js/admin-health.js" defer></script>
+<script src="/js/admin-core.js" defer></script>
+<script src="/js/emoji-picker.js" defer></script>
+<script src="/js/comments.js" defer></script>
+<script src="/js/dossier.js" defer></script>
+<script src="/js/chat.js" defer></script>
+<script src="/js/chat-modals.js" defer></script>
+<script src="/js/chat-actions.js" defer></script>
+<script src="/js/card-template.js" defer></script>
+<script src="/js/editor.js" defer></script>
+<script src="/js/personas.js" defer></script>
+<script src="/js/imagegen.js" defer></script>
+<script src="/js/imagegen-feed.js" defer></script>
+<script src="/js/imagegen-detail.js" defer></script>
+<script src="/js/lora-training.js" defer></script>
+<script src="/js/lorebook.js" defer></script>
+<script src="/js/modal-core.js" defer></script>
+<script src="/js/compliance.js" defer></script>
+<script src="/js/user-settings.js" defer></script>
+<script src="/js/version-watch.js" defer></script>
+<script src="/js/notifications.js" defer></script>
+<script src="/js/boot.js" defer></script>
+</body>
+</html>

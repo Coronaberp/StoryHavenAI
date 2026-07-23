@@ -1,0 +1,38 @@
+/* StoryHaven AI — typography tokens
+   Three families: an editorial display serif (Fraunces) for headline
+   touchpoints, Inter for all body/UI text, and a monospace used for the
+   brand's signature uppercase, letter-spaced eyebrows & labels.
+
+   --mono primary in the product is 'Aptos Mono' (proprietary, no webfont).
+   We keep the exact fallback stack; the system monospace resolves in its
+   place. See readme.md "Font substitutions". */
+:root {
+  --sans: 'Inter', 'Aptos', 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; /* @kind font */
+  --mono: 'Aptos Mono', 'Cascadia Code', ui-monospace, 'SF Mono', Menlo, monospace; /* @kind font */
+  --display: 'Fraunces', 'Iowan Old Style', Georgia, serif; /* @kind font */
+
+  --base-font-size: 16px;
+  --body-line-height: 1.6;
+
+  /* headline sizes seen across the app */
+  --fs-display: 30px;   /* h1.page */
+  --fs-h1: 24px;        /* dossier / profile name */
+  --fs-h2: 22px;        /* error-page h2 */
+  --fs-h3: 20px;        /* modal h3, entry h3 */
+  --fs-body: 15px;      /* default UI body */
+  --fs-body-lg: 16px;   /* composer, base */
+  --fs-sm: 13px;
+  --fs-xs: 12px;
+
+  /* eyebrow / label — mono, uppercase, wide tracking */
+  --fs-eyebrow: 11px;
+  --tracking-eyebrow: .2em;
+  --tracking-label: .16em;
+  --tracking-mono: .12em;
+
+  /* faint anti-low-contrast shadow applied to body copy in dark theme */
+  --body-text-shadow: 0 1px 2px rgba(0,0,0,.35);
+}
+:root[data-theme="light"] {
+  --body-text-shadow: 0 1px 1px rgba(28,27,23,.07);
+}

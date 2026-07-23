@@ -12,6 +12,7 @@ from backend.state import api, log, _log_buffer, CFG
 from backend.auth import get_admin, get_dev, normalize_username
 from backend.routers.imagegen import _match_model_request_host
 from backend.repositories import flagged_endpoints as flagged_endpoint_repo
+from backend.repositories import invite_codes as invite_code_repo
 from backend.repositories import model_requests as model_request_repo
 from backend.repositories import content_reports as content_report_repo
 from backend.repositories import password_reset_requests as password_reset_request_repo
@@ -20,7 +21,7 @@ from backend.repositories import characters
 from backend.repositories import lore
 from backend.repositories import admin_notes as admin_note_repo
 from backend.schemas import (UserCreateIn, SuspendUserIn, AdminNoteIn, IdentityLabelIn,
-                     ImageReportResolveIn, ContentReportResolveIn, DevRoleIn)
+                     ImageReportResolveIn, ContentReportResolveIn, DevRoleIn, InviteCodeIn, UserTierIn)
 
 _KNOWN_MODEL_EXTS = (".safetensors", ".ckpt", ".pt", ".pth")
 
@@ -56,6 +57,8 @@ async def _fulfilled_model_slugs(request_type: str) -> set[str]:
     try:
         if request_type in ("checkpoint", "anima"):
             names = await imagegen.list_checkpoints(base_url) + await imagegen.list_anima_unets(base_url)
+        elif request_type == "wan":
+            names = await imagegen.list_wan_unets(base_url) + await imagegen.list_wan_clip_models(base_url)
         elif request_type == "lora":
             names = await imagegen.list_loras(base_url)
         elif request_type == "upscaler":
@@ -81,6 +84,52 @@ async def admin_list_users(_: dict = Depends(get_admin)):
     return await user_repo.list_users()
 
 
+@api.get("/admin/invite-codes")
+async def admin_list_invite_codes(current_user: dict = Depends(get_admin)):
+    codes = await invite_code_repo.list_all()
+    for c in codes:
+        c["redeemed_by"] = await invite_code_repo.redeemer_usernames(c["id"])
+    return codes
+
+
+@api.post("/admin/invite-codes")
+async def admin_create_invite_code(body: InviteCodeIn,
+                                   current_user: dict = Depends(get_admin)):
+    code = await invite_code_repo.create(current_user["id"], max_uses=body.max_uses,
+                                         expires_days=body.expires_days, note=body.note or "",
+                                         tier=body.tier)
+    log.info("admin: invite code created id=%s by=%s", code["id"], current_user["username"])
+    return code
+
+
+@api.post("/admin/invite-codes/{cid}/disable")
+async def admin_disable_invite_code(cid: str, current_user: dict = Depends(get_admin)):
+    if not await invite_code_repo.disable(cid):
+        raise HTTPException(404, "invite code not found")
+    log.info("admin: invite code disabled id=%s by=%s", cid, current_user["username"])
+    return {"disabled": True}
+
+
+@api.delete("/admin/invite-codes/{cid}")
+async def admin_delete_invite_code(cid: str, current_user: dict = Depends(get_admin)):
+    await invite_code_repo.delete(cid)
+    log.info("admin: invite code deleted id=%s by=%s", cid, current_user["username"])
+    return {"deleted": True}
+
+
+@api.put("/admin/users/{uid}/tier")
+async def admin_set_user_tier(uid: str, body: UserTierIn,
+                              current_user: dict = Depends(get_admin)):
+    target = await user_repo.get_user_by_id(uid)
+    if not target:
+        raise HTTPException(404, "user not found")
+    if target.get("role") in ("admin", "dev") or target.get("is_admin"):
+        raise HTTPException(400, "Admins are always full tier")
+    await user_repo.set_tier(uid, body.tier)
+    log.info("admin: tier=%s uid=%s by=%s", body.tier, uid, current_user["username"])
+    return {"id": uid, "tier": body.tier}
+
+
 @api.get("/admin/model-requests")
 async def admin_list_model_requests(current_user: dict = Depends(get_admin)):
     rows = [r for r in await model_request_repo.list(pending_only=False)
@@ -102,7 +151,7 @@ async def admin_list_model_requests(current_user: dict = Depends(get_admin)):
         r["resolved_text_encoder_api_key"] = (te_match["api_key"]
                                               if te_match and te_match.get("api_key") else None)
         r["fulfilled"] = False
-        if r["status"] == "approved" and r["request_type"] in ("checkpoint", "lora", "upscaler", "anima"):
+        if r["status"] == "approved" and r["request_type"] in ("checkpoint", "lora", "upscaler", "anima", "wan"):
             if r["request_type"] not in fulfilled_cache:
                 fulfilled_cache[r["request_type"]] = await _fulfilled_model_slugs(r["request_type"])
             # Alnum-only substring match, not exact — the real downloaded
@@ -236,7 +285,7 @@ async def admin_reset_password(uid: str, body: UserCreateIn, current_user: dict 
     if len(body.password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters")
     await user_repo.update_user_password(uid, body.password)
-    await user_repo.delete_other_user_sessions(uid)
+    await user_repo.revoke_user_tokens(uid)
     log.info("admin: password reset by=%s target=%s", current_user["username"], target["username"])
     return {"ok": True}
 
@@ -321,6 +370,17 @@ async def admin_unsuspend_user(uid: str, current_user: dict = Depends(get_admin)
         raise HTTPException(404, "User not found")
     await user_repo.unsuspend_user(uid)
     log.info("admin: user unsuspended by=%s target=%s", current_user["username"], target["username"])
+    return await user_repo.get_user_by_id(uid)
+
+
+@api.post("/admin/users/{uid}/totp/clear")
+async def admin_clear_user_totp(uid: str, current_user: dict = Depends(get_admin)):
+    target = await user_repo.get_user_by_id(uid)
+    if not target:
+        raise HTTPException(404, "User not found")
+    await user_repo.set_totp_secret(uid, None)
+    await user_repo.set_totp_enabled(uid, False)
+    log.info("admin: totp cleared by=%s target=%s", current_user["username"], target["username"])
     return await user_repo.get_user_by_id(uid)
 
 
@@ -416,7 +476,7 @@ async def admin_approve_password_reset(rid: str, current_user: dict = Depends(ge
         raise HTTPException(404, "User no longer exists")
     new_password = secrets.token_urlsafe(14)
     await user_repo.update_user_password(req["user_id"], new_password)
-    await user_repo.delete_other_user_sessions(req["user_id"])
+    await user_repo.revoke_user_tokens(req["user_id"])
     await password_reset_request_repo.set_status(rid, "approved")
     log.info("admin: password reset approved by=%s target=%s",
              current_user["username"], target["username"])

@@ -33,6 +33,7 @@ from backend.repositories import checkpoints as checkpoint_repo, loras as lora_r
 from backend import modal_client
 from backend import modal_provision
 from backend.auth import get_admin
+from backend.feature_flags import require_feature_enabled
 from backend.imagegen import ANIMA_CLIP_NAME, ANIMA_VAE_NAME
 from backend.state import (api, log, LORA_OUTPUT_DIR, CHECKPOINTS_DIR, DIFFUSION_MODELS_DIR,
                             TEXT_ENCODERS_DIR, VAE_DIR, COMFYUI_OWNER_UID)
@@ -228,7 +229,8 @@ async def create_and_stream_lora_training_job(
         captions: str = Form("[]"),
         noise_offset: float = Form(0.0), network_dropout: float = Form(0.0),
         images: list[UploadFile] = File(...),
-        current_user: dict = Depends(get_admin)):
+        current_user: dict = Depends(get_admin),
+        _feature_ok: None = Depends(require_feature_enabled("lora_training"))):
     body = LoraTrainingJobIn(name=name, trigger_word=trigger_word, base_checkpoint=local_checkpoint,
                              resolution=resolution, rank=rank, alpha=alpha,
                              learning_rate=learning_rate, steps=steps, batch_size=batch_size,

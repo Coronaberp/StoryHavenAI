@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/storyhaven-ai-design-system-8e618925-b5aa-43f6-9a49-617c66aaf0a2/tokens/fonts.css">
+<link rel="stylesheet" href="_ds/storyhaven-ai-design-system-8e618925-b5aa-43f6-9a49-617c66aaf0a2/tokens/colors.css">
+<link rel="stylesheet" href="_ds/storyhaven-ai-design-system-8e618925-b5aa-43f6-9a49-617c66aaf0a2/tokens/typography.css">
+<style>
+  html,body{margin:0;padding:0;background:#08080a;-webkit-font-smoothing:antialiased;}
+  *{box-sizing:border-box;}
+  body{font-family:var(--sans),Inter,system-ui,sans-serif;color:var(--ink);}
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{color:var(--accent-deep);}
+  .noscroll{scrollbar-width:none;-ms-overflow-style:none;}
+  .noscroll::-webkit-scrollbar{width:0;height:0;display:none;}
+  .sh-in{animation:sh-rise .32s cubic-bezier(.2,.7,.3,1) both;}
+  @keyframes sh-rise{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  @keyframes sh-blink{50%{opacity:.2;}}
+  @keyframes sh-draw{from{transform:translateX(-102%);}to{transform:translateX(0);}}
+  @keyframes sh-fade{from{opacity:0;}to{opacity:1;}}
+  @keyframes sh-pop{from{opacity:0;transform:scale(.94);}to{opacity:1;transform:scale(1);}}
+  @keyframes sh-ember{0%{transform:translateY(0) translateX(0);opacity:0;}12%{opacity:.9;}100%{transform:translateY(-260px) translateX(var(--dx,14px));opacity:0;}}
+  @keyframes sh-glow{0%,100%{opacity:.5;}50%{opacity:1;}}
+  @keyframes sh-float{0%,100%{transform:translateY(0) rotate(var(--rot,0deg));}50%{transform:translateY(-10px) rotate(var(--rot,0deg));}}
+  @keyframes sh-caret{0%,100%{box-shadow:0 0 0 3px var(--accent-soft);}50%{box-shadow:0 0 0 3px transparent;}}
+  @keyframes sh-spin{to{transform:rotate(360deg);}}
+  @keyframes sh-spin-rev{to{transform:rotate(-360deg);}}
+  @keyframes sh-emblem{from{opacity:0;transform:scale(.86);}to{opacity:1;transform:scale(1);}}
+  @keyframes sh-pulse{0%,100%{opacity:.4;transform:scale(1);}50%{opacity:.85;transform:scale(1.12);}}
+  @keyframes sh-orbit{from{transform:rotate(0) translateX(var(--rad,86px)) rotate(0);}to{transform:rotate(360deg) translateX(var(--rad,86px)) rotate(-360deg);}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;width:100%;display:flex;align-items:flex-start;justify-content:center;gap:56px;padding:54px 40px 90px;background:radial-gradient(1100px 640px at 32% -12%, #17130b 0%, #08080a 58%);">
+
+  <!-- ============ REVIEW JUMPER ============ -->
+  <aside style="position:sticky;top:54px;width:212px;flex:none;padding-top:6px;">
+    <div style="display:flex;align-items:center;gap:9px;margin-bottom:22px;">
+      <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(150deg,var(--violet),var(--violet-deep));display:grid;place-items:center;color:var(--gold-ink);font-family:var(--display);font-weight:700;font-size:17px;">S</div>
+      <div>
+        <div style="font-family:var(--display);font-weight:600;font-size:15px;color:var(--ink);line-height:1;">StoryHaven</div>
+        <div style="font-family:var(--mono);font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin-top:3px;">Mobile · redesign</div>
+      </div>
+    </div>
+    <div style="font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 0 10px 2px;">Jump to screen</div>
+    <nav style="display:flex;flex-direction:column;gap:3px;">
+      <sc-for list="{{ jumpItems }}" as="j" hint-placeholder-count="9">
+        <a onClick="{{ j.go }}" style="{{ j.style }}">
+          <span style="font-family:var(--mono);font-size:10px;opacity:.5;width:16px;">{{ j.num }}</span>
+          <span>{{ j.label }}</span>
+        </a>
+      </sc-for>
+    </nav>
+    <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;line-height:1.6;color:var(--muted);">
+      Tap the phone to move through the flow. Bottom bar switches top-level tabs; the <span style="color:var(--sec);">＋</span> creates, and the menu opens the drawer.
+    </div>
+  </aside>
+
+  <!-- ============ PHONE ============ -->
+  <div style="position:relative;flex:none;">
+    <div style="position:relative;width:392px;height:848px;border-radius:52px;background:linear-gradient(160deg,#2a2a2f,#101012);padding:13px;box-shadow:0 2px 4px rgba(0,0,0,.6),0 40px 90px -30px rgba(0,0,0,.9),inset 0 0 0 1px rgba(255,255,255,.05);">
+      <div style="position:relative;width:100%;height:100%;border-radius:40px;overflow:hidden;background:var(--paper);display:flex;flex-direction:column;">
+
+        <!-- status bar -->
+        <div style="position:absolute;top:0;left:0;right:0;height:46px;z-index:40;display:flex;align-items:center;justify-content:space-between;padding:0 26px;pointer-events:none;">
+          <span style="font-family:var(--sans);font-weight:600;font-size:14px;color:var(--ink);letter-spacing:.02em;">9:41</span>
+          <div style="position:absolute;left:50%;top:9px;transform:translateX(-50%);width:104px;height:26px;background:#000;border-radius:16px;"></div>
+          <div style="display:flex;align-items:center;gap:6px;color:var(--ink);">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="16" height="11" viewBox="0 0 16 11" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1 4.2A9 9 0 0 1 15 4.2M3.4 6.6a5.6 5.6 0 0 1 9.2 0M6 9a2.2 2.2 0 0 1 4 0" stroke-linecap="round"/></svg>
+            <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="1" y="1" width="20" height="10" rx="3" stroke="currentColor" stroke-opacity=".5"/><rect x="3" y="3" width="15" height="6" rx="1.5" fill="currentColor"/><rect x="22.5" y="4" width="1.6" height="4" rx=".8" fill="currentColor" fill-opacity=".5"/></svg>
+          </div>
+        </div>
+
+        <!-- screen viewport -->
+        <div style="position:relative;flex:1;min-height:0;">{{ screenEl }}</div>
+
+        <!-- bottom tab bar -->
+        <sc-if value="{{ showTabs }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute;bottom:0;left:0;right:0;z-index:30;background:linear-gradient(to top, var(--surface-2) 72%, transparent);padding:8px 14px calc(env(safe-area-inset-bottom,10px) + 10px);">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:8px 10px;box-shadow:0 12px 30px -14px rgba(0,0,0,.7);">
+            <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+              {{ t.el }}
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- global settings modal -->
+        <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:62;">
+          <div onClick="{{ closeSettings }}" style="position:absolute;inset:0;background:rgba(4,4,6,.72);backdrop-filter:blur(3px);animation:sh-fade .2s both;"></div>
+          <div style="position:absolute;left:14px;right:14px;top:52px;bottom:16px;">{{ settingsCardEl }}</div>
+        </div>
+        </sc-if>
+
+        <!-- create sheet -->
+        <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:60;">
+          <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(4,4,6,.66);animation:sh-fade .2s both;"></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;background:var(--surface-2);border-top:1px solid var(--line);border-radius:24px 24px 0 0;animation:sh-rise .3s cubic-bezier(.2,.7,.3,1) both;padding:12px 18px calc(env(safe-area-inset-bottom,14px) + 18px);">{{ sheetEl }}</div>
+        </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:760,&quot;height&quot;:980}}">
+const A = {
+  paper:'var(--paper)', surface:'var(--surface)', s2:'var(--surface-2)', ink:'var(--ink)',
+  sec:'var(--sec)', muted:'var(--muted)', line:'var(--line)', line2:'var(--line-2)',
+  accent:'var(--accent)', accentDeep:'var(--accent-deep)', accentSoft:'var(--accent-soft)',
+  accentTint:'var(--accent-tint)', goldInk:'var(--gold-ink)', warn:'var(--warn)',
+  display:'var(--display)', mono:'var(--mono)', sans:'var(--sans)',
+};
+const h = React.createElement;
+
+// ---- icon helper (Lucide-style) ----
+function Ic(paths, size, extra){
+  return h('svg', Object.assign({width:size||18,height:size||18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.9,strokeLinecap:'round',strokeLinejoin:'round'}, extra||{}), paths.map((d,i)=> Array.isArray(d)? h(d[0],Object.assign({key:i},d[1])) : h('path',{key:i,d})));
+}
+const ICON = {
+  explore:(s)=>Ic([['circle',{cx:12,cy:12,r:9}],'M8 14s1.6-1 4-1 4 1 4 1','M15.5 8.5l-2.2 4.2-4.2 2.2 2.2-4.2z'],s),
+  chats:(s)=>Ic(['M21 15a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z'],s),
+  creations:(s)=>Ic(['M12 3v3M12 18v3M3 12h3M18 12h3','M6 6l2 2M16 16l2 2M18 6l-2 2M8 16l-2 2',['circle',{cx:12,cy:12,r:2.6}]],s),
+  personas:(s)=>Ic([['circle',{cx:12,cy:12,r:9}],'M8 14s1.5 2 4 2 4-2 4-2',['line',{x1:9,y1:9.5,x2:9.01,y2:9.5}],['line',{x1:15,y1:9.5,x2:15.01,y2:9.5}]],s),
+  menu:(s)=>Ic([['line',{x1:3,y1:6,x2:21,y2:6}],['line',{x1:3,y1:12,x2:21,y2:12}],['line',{x1:3,y1:18,x2:21,y2:18}]],s),
+  plus:(s)=>Ic([['line',{x1:12,y1:5,x2:12,y2:19}],['line',{x1:5,y1:12,x2:19,y2:12}]],s),
+  search:(s)=>Ic([['circle',{cx:11,cy:11,r:7.5}],['line',{x1:21,y1:21,x2:16.7,y2:16.7}]],s),
+  back:(s)=>Ic([['line',{x1:19,y1:12,x2:5,y2:12}],'M12 19l-7-7 7-7'],s),
+  bell:(s)=>Ic(['M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9','M13.7 21a2 2 0 0 1-3.4 0'],s),
+  gear:(s)=>Ic([['circle',{cx:12,cy:12,r:3}],'M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.8 1.1V21a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-2.8-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4.6 15a1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1A1.6 1.6 0 0 0 4.6 9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 9 4.6a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 2.8 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0 1.1 2.8H21a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z'],s),
+  logout:(s)=>Ic(['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4',['polyline',{points:'16 17 21 12 16 7'}],['line',{x1:21,y1:12,x2:9,y2:12}]],s),
+  brain:(s)=>Ic(['M9.5 3A2.5 2.5 0 0 1 12 5.5v13A2.5 2.5 0 0 1 7 18.5a2.5 2.5 0 0 1-2-4 2.5 2.5 0 0 1 0-4 2.5 2.5 0 0 1 2-4A2.5 2.5 0 0 1 9.5 3z','M14.5 3A2.5 2.5 0 0 0 12 5.5v13a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 2-4 2.5 2.5 0 0 0 0-4 2.5 2.5 0 0 0-2-4A2.5 2.5 0 0 0 14.5 3z'],s),
+  image:(s)=>Ic([['rect',{x:3,y:3,width:18,height:18,rx:2}],['circle',{cx:8.5,cy:8.5,r:1.5}],['polyline',{points:'21 15 16 10 5 21'}]],s),
+  memory:(s)=>Ic([['circle',{cx:12,cy:12,r:9}],['polyline',{points:'12 7 12 12 16 14'}]],s),
+  send:(s)=>Ic(['M22 2 11 13','M22 2 15 22l-4-9-9-4z'],s),
+  heart:(s)=>Ic(['M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z'],s),
+  chevron:(s)=>Ic(['M9 6l6 6-6 6'],s),
+  sparkle:(s)=>Ic(['M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z'],s),
+  edit:(s)=>Ic(['M12 20h9','M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z'],s),
+  share:(s)=>Ic([['circle',{cx:18,cy:5,r:3}],['circle',{cx:6,cy:12,r:3}],['circle',{cx:18,cy:19,r:3}],'M8.6 13.5l6.8 4M15.4 6.5l-6.8 4'],s),
+  moon:(s)=>Ic(['M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z'],s),
+  check:(s)=>Ic([['polyline',{points:'20 6 9 17 4 12'}]],s),
+  dice:(s)=>Ic([['rect',{x:3,y:3,width:18,height:18,rx:4}],['circle',{cx:8.5,cy:8.5,r:1.1,fill:'currentColor',stroke:'none'}],['circle',{cx:15.5,cy:15.5,r:1.1,fill:'currentColor',stroke:'none'}],['circle',{cx:15.5,cy:8.5,r:1.1,fill:'currentColor',stroke:'none'}],['circle',{cx:8.5,cy:15.5,r:1.1,fill:'currentColor',stroke:'none'}]],s),
+  brush:(s)=>Ic(['M9.5 14.5 4 20l-1 1','M14.5 3.5a2.1 2.1 0 0 1 3 3L9 15l-4 1 1-4z'],s),
+  eraser:(s)=>Ic(['M7 21H4a1 1 0 0 1-.7-1.7L14 8.6l4.4 4.4L11 20.4a2 2 0 0 1-1.4.6z','M14 8.6l3.6-3.6a2 2 0 0 1 2.8 0l1.6 1.6a2 2 0 0 1 0 2.8L18.4 13'],s),
+  undo:(s)=>Ic(['M9 14 4 9l5-5','M4 9h11a5 5 0 0 1 0 10h-3'],s),
+  play:(s)=>Ic([['polygon',{points:'7 4 20 12 7 20',fill:'currentColor',stroke:'none'}]],s),
+  lock:(s)=>Ic([['rect',{x:4,y:11,width:16,height:10,rx:2}],'M8 11V7a4 4 0 0 1 8 0v4'],s),
+  shuffle:(s)=>Ic(['M18 4l3 3-3 3','M3 7h5l8 10h5','M18 20l3-3-3-3','M3 17h5l2.5-3'],s),
+  layers:(s)=>Ic(['M12 2 2 7l10 5 10-5z','M2 12l10 5 10-5','M2 17l10 5 10-5'],s),
+  sliders:(s)=>Ic([['line',{x1:4,y1:21,x2:4,y2:14}],['line',{x1:4,y1:10,x2:4,y2:3}],['line',{x1:12,y1:21,x2:12,y2:12}],['line',{x1:12,y1:8,x2:12,y2:3}],['line',{x1:20,y1:21,x2:20,y2:16}],['line',{x1:20,y1:12,x2:20,y2:3}],['line',{x1:1,y1:14,x2:7,y2:14}],['line',{x1:9,y1:8,x2:15,y2:8}],['line',{x1:17,y1:16,x2:23,y2:16}]],s),
+  grid:(s)=>Ic([['rect',{x:3,y:3,width:7,height:7,rx:1}],['rect',{x:14,y:3,width:7,height:7,rx:1}],['rect',{x:3,y:14,width:7,height:7,rx:1}],['rect',{x:14,y:14,width:7,height:7,rx:1}]],s),
+  coin:(s)=>Ic([['circle',{cx:12,cy:12,r:9}],'M9.5 9.5h4a1.5 1.5 0 0 1 0 3h-3a1.5 1.5 0 0 0 0 3h4','M12 7v10'],s),
+  shield:(s)=>Ic(['M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z'],s),
+  eye:(s)=>Ic(['M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z',['circle',{cx:12,cy:12,r:3}]],s),
+  eyeOff:(s)=>Ic(['M9.9 5.1A9.8 9.8 0 0 1 12 5c7 0 11 7 11 7a13 13 0 0 1-2.2 2.9M6.1 6.1A13 13 0 0 0 1 12s4 7 11 7a9.8 9.8 0 0 0 4-.8','M9.5 9.5a3 3 0 0 0 4.2 4.2','M1 1l22 22'],s),
+  users:(s)=>Ic(['M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2',['circle',{cx:9,cy:7,r:4}],'M22 21v-2a4 4 0 0 0-3-3.9','M16 3.1a4 4 0 0 1 0 7.8'],s),
+  server:(s)=>Ic([['rect',{x:3,y:4,width:18,height:7,rx:2}],['rect',{x:3,y:13,width:18,height:7,rx:2}],['line',{x1:7,y1:7.5,x2:7.01,y2:7.5}],['line',{x1:7,y1:16.5,x2:7.01,y2:16.5}]],s),
+  alert:(s)=>Ic([['circle',{cx:12,cy:12,r:9}],['line',{x1:12,y1:8,x2:12,y2:13}],['line',{x1:12,y1:16.5,x2:12.01,y2:16.5}]],s),
+  forum:(s)=>Ic(['M17 8V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v9l3-3h3','M21 10a2 2 0 0 0-2-2h-8a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h6l3 3z'],s),
+  code:(s)=>Ic([['polyline',{points:'16 18 22 12 16 6'}],['polyline',{points:'8 6 2 12 8 18'}]],s),
+  up:(s)=>Ic(['M12 19V5','M5 12l7-7 7 7'],s),
+};
+
+const CHARS = [
+  { id:'aria', name:'Aria Vance', mono:'A', mode:'character', tagline:'A rogue archivist who knows far more than she lets on.', author:'lorekeeper', chats:'1.2k', tags:['Fantasy','Mystery'], greeting:"The archive door groans shut behind you. *She doesn't look up from the ledger.* \u201CYou're late. The moon's already over the west spire.\u201D", lore:24, images:12, hue:38 },
+  { id:'gm-thornreach', name:'The Warden of Thornreach', mono:'\u265C', mode:'rpg', tagline:'A grimdark survival campaign in a keep the forest is reclaiming.', author:'dungeon_smith', chats:'860', tags:['RPG','Grimdark'], greeting:"**Thornreach Keep \u2014 dusk.** The portcullis is rusted half-open. Somewhere beyond the treeline, something large shifts its weight. *What do you do?*", lore:41, images:6, hue:150 },
+  { id:'juniper', name:'Juniper', mono:'J', mode:'character', tagline:'Your impossibly cheerful next-door barista with a secret.', author:'sootandsugar', chats:'3.4k', tags:['Slice of life','Cozy'], greeting:"*Juniper slides a mug across the counter, foam art shaped like a tiny fox.* \u201COne \u2018the usual.\u2019 On the house \u2014 you looked like you needed it today.\u201D", lore:9, images:20, hue:18 },
+  { id:'vega', name:'Captain Vega', mono:'V', mode:'character', tagline:'Salvage captain, sharp tongue, sharper debts.', author:'orbitaldrift', chats:'540', tags:['Sci-fi','Adventure'], greeting:"*The airlock hisses.* \u201CDon't touch anything that blinks. Especially the red ones \u2014 those bite.\u201D", lore:33, images:8, hue:200 },
+  { id:'mothwright', name:'Professor Mothwright', mono:'M', mode:'rpg', tagline:'A gaslamp mystery of letters, ciphers, and a missing heir.', author:'inkwell', chats:'410', tags:['RPG','Mystery'], greeting:"**Mothwright & Sons, Antiquarians.** Rain streaks the window. A sealed letter waits on the desk, addressed to you in a hand you almost recognize.", lore:52, images:4, hue:280 },
+  { id:'sable', name:'Sable', mono:'S', mode:'character', tagline:'A guarded court sorcerer testing whether you can be trusted.', author:'lorekeeper', chats:'2.1k', tags:['Fantasy','Slow-burn'], greeting:"*Sable regards you over steepled fingers.* \u201CSpeak plainly. I have neither the patience nor the wine for riddles tonight.\u201D", lore:28, images:15, hue:265 },
+];
+const RECENTS = [
+  { id:'aria', last:"Couldn't be helped \u2014 the road was watched.", time:'2m', you:true },
+  { id:'juniper', last:'See you tomorrow, then! \u2615', time:'1h', you:false },
+  { id:'gm-thornreach', last:'The portcullis groans as you approach\u2026', time:'3h', you:false },
+  { id:'sable', last:'Very well. But choose your words with care.', time:'1d', you:false },
+];
+const CREATIONS = [
+  { id:'aria', name:'Aria Vance', mono:'A', mode:'character', chats:'1.2k', likes:'340', status:'Public', hue:38 },
+  { id:'sable', name:'Sable', mono:'S', mode:'character', chats:'2.1k', likes:'890', status:'Public', hue:265 },
+  { id:'draft-lys', name:'Lysandra (draft)', mono:'L', mode:'rpg', chats:'\u2014', likes:'\u2014', status:'Draft', hue:330 },
+];
+const PERSONAS = [
+  { id:'kael', name:'Kael', mono:'K', desc:'Wry, quick to bargain. Travels light, trusts slowly.', active:true },
+  { id:'wren', name:'Wren', mono:'W', desc:'Warm and earnest. Asks a lot of questions.', active:false },
+  { id:'noir', name:'The Stranger', mono:'?', desc:'Speaks little. Watches everything.', active:false },
+];
+
+const MODES=[
+  {id:'txt2img',label:'Text \u2192 Image',video:false,src:false},
+  {id:'img2img',label:'Image \u2192 Image',video:false,src:true},
+  {id:'inpaint',label:'Inpaint',video:false,src:true,mask:true},
+  {id:'txt2vid',label:'Text \u2192 Video',video:true,src:false},
+  {id:'img2vid',label:'Image \u2192 Video',video:true,src:true},
+];
+const GEN_HUES=[38,265,200,330,150,18,290,110];
+const GEN_MODELS=['Reverie XL','Candlelight v3','Thornreach-diffusion','Ink & Ash SDXL'];
+const ASPECTS=['1:1','3:4','2:3','16:9'];
+const NSFW=new Set(['sable','vega']);
+const SH_LOGO='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%"><g><circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"></circle><circle cx="250" cy="250" r="210" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="6 12" opacity="0.6"></circle><path d="M 250 40 L 420 138 L 420 362 L 250 460 L 80 362 L 80 138 Z" fill="none" stroke="currentColor" stroke-width="12" stroke-linejoin="round"></path><path d="M 250 75 L 385 153 L 385 347 L 250 425 L 115 347 L 115 153 Z" fill="none" stroke="currentColor" stroke-width="4" opacity="0.4"></path><circle cx="250" cy="180" r="40" fill="none" stroke="currentColor" stroke-width="10"></circle><circle cx="250" cy="180" r="18" fill="currentColor" opacity="0.9"></circle><path d="M 210 180 H 150 V 280 H 210 M 290 180 H 350 V 280 H 290" fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="round"></path><path d="M 250 220 V 265" fill="none" stroke="currentColor" stroke-width="10"></path><path d="M 120 350 C 160 380, 220 370, 250 320 C 280 370, 340 380, 380 350 V 280 C 340 310, 280 300, 250 250 C 220 300, 160 310, 120 280 Z" fill="none" stroke="currentColor" stroke-width="14" stroke-linejoin="round"></path><path d="M 150 330 C 180 350, 220 345, 250 305 C 280 345, 320 350, 350 330 V 275 C 320 295, 280 290, 250 250 C 220 290, 180 295, 150 275 Z" fill="none" stroke="currentColor" stroke-width="6" opacity="0.7"></path><path d="M 180 310 C 200 325, 230 320, 250 290 C 270 320, 300 325, 320 310 V 270 C 300 285, 270 280, 250 250 C 230 280, 200 285, 180 270 Z" fill="none" stroke="currentColor" stroke-width="3" opacity="0.35"></path><line x1="250" y1="250" x2="250" y2="430" stroke="currentColor" stroke-width="12" stroke-linecap="round"></line><circle cx="250" cy="40" r="8" fill="currentColor"></circle><circle cx="420" cy="138" r="8" fill="currentColor"></circle><circle cx="420" cy="362" r="8" fill="currentColor"></circle><circle cx="250" cy="460" r="8" fill="currentColor"></circle><circle cx="80" cy="362" r="8" fill="currentColor"></circle><circle cx="80" cy="138" r="8" fill="currentColor"></circle></g></svg>';
+const THEMES={sable:{accent:'#c79bff',font:'Georgia, "Times New Roman", serif',bg:'radial-gradient(120% 90% at 70% 0%, hsl(265 48% 24%), hsl(265 45% 8%))'}};
+
+function md(text){
+  const out=[]; const re=/\*\*([^*]+)\*\*|\*([^*]+)\*|\u201C([^\u201D]+)\u201D/g;
+  let last=0,m,k=0;
+  while((m=re.exec(text))){
+    if(m.index>last) out.push(text.slice(last,m.index));
+    if(m[1]!==undefined) out.push(h('strong',{key:k++,style:{color:A.ink,fontWeight:700}},m[1]));
+    else if(m[2]!==undefined) out.push(h('em',{key:k++,style:{color:A.sec,fontStyle:'italic'}},m[2]));
+    else out.push(h('span',{key:k++,style:{color:A.ink}},'\u201C'+m[3]+'\u201D'));
+    last=re.lastIndex;
+  }
+  if(last<text.length) out.push(text.slice(last));
+  return out;
+}
+
+class Component extends DCLogic {
+  state = { screen:'login', authView:'signin', totp:['','','','','',''], totpErr:false, showSecret:false, acctName:'', acctEmail:'', focusKey:'', sealPress:false, activeId:'aria', drawerOpen:false, sheetOpen:false, libTab:'For you', turns:[], thinking:false, sent:false,
+    genMode:'txt2img', genBusy:false, genProgress:0, genPrompt:'', genNeg:false, genNegText:'',
+    genModel:'Reverie XL', genAspect:'1:1', genSteps:30, genCfg:6, genCount:1, genStrength:0.65, genDur:3, genFps:16, genSeed:'',
+    genHasSrc:false, genNode:'', genSeedLock:false, genPreset:'Cinematic', genBrush:64, genErase:false, genLast:null, genReturn:null, galFilter:'All', genModeMenu:false, genSettingsOpen:false, saveGallery:true, settingsOpen:false, matureEnabled:false, privacyMode:true, creatorThemes:true,
+    genLoras:[{name:'Aria Vance \u00b7 character',on:true,w:0.85},{name:'Gaslamp Ink \u00b7 style',on:false,w:0.5},{name:'Thornreach world',on:false,w:0.6}],
+    genResults:[
+      {id:'seed1',mode:'txt2img',video:false,hue:38,dur:null,prompt:'archivist in a candlelit library',aspect:'2:3',seed:'119482'},
+      {id:'seed2',mode:'img2vid',video:true,nsfw:true,hue:150,dur:'4s',prompt:'sable turns to face you, slow push-in',aspect:'9:16',seed:'773051'},
+      {id:'seed3',mode:'txt2img',video:false,hue:200,dur:null,prompt:'salvage captain on a wrecked bridge',aspect:'1:1',seed:'204889'},
+      {id:'seed4',mode:'txt2vid',video:true,hue:18,dur:'6s',prompt:'cozy cafe, steam rising from a mug',aspect:'16:9',seed:'661027'},
+    ] };
+
+  go(screen){ this.setState({screen, drawerOpen:false, settingsOpen:false, sheetOpen:false, genReturn:null}); this.scrollTop(); }
+  scrollTop(){ setTimeout(()=>{ const el=document.querySelector('[data-scroll]'); if(el) el.scrollTop=0; },0); }
+  openChar(id){ this.setState({screen:'dossier', activeId:id, drawerOpen:false, settingsOpen:false}); this.scrollTop(); }
+  startChat(id){ const c=CHARS.find(x=>x.id===id)||CHARS[0]; this.setState({screen:'chat', activeId:id, drawerOpen:false, settingsOpen:false, sheetOpen:false, turns:[{role:'ai',name:c.name,text:c.greeting}], thinking:false}); }
+  send(text){ if(!text||!text.trim())return; const c=this.active();
+    this.setState(s=>({turns:[...s.turns,{role:'you',name:'Kael',text}], thinking:true}));
+    setTimeout(()=>this.threadScroll(),0);
+    setTimeout(()=>{ this.setState(s=>({thinking:false, turns:[...s.turns,{role:'ai',name:c.name,text:this.reply(c,text)}]})); setTimeout(()=>this.threadScroll(),0); },1050);
+  }
+  threadScroll(){ const el=document.querySelector('[data-thread]'); if(el) el.scrollTop=el.scrollHeight; }
+  reply(c,t){ if(t.trim().startsWith('/roll')){ const n=1+Math.floor(Math.random()*20); return '\uD83C\uDFB2 '+(t.replace('/roll','').trim()||'d20')+' \u2192 **'+n+'**. *The dice settle.* The scene shifts with the result.'; }
+    if(c.mode==='rpg') return '*The narrator considers your move.* The forest answers first \u2014 a branch snaps, closer than before. **Roll for perception.**';
+    return '*She sets the ledger down at last, studying you.* \u201CThen you\u2019ll want to hear what the archive turned up. Sit \u2014 this part matters.\u201D';
+  }
+  active(){ return CHARS.find(c=>c.id===this.state.activeId)||CHARS[0]; }
+
+  avatar(mono,hue,size,radius){ return h('div',{style:{width:size,height:size,borderRadius:radius||Math.round(size*0.28),flex:'none',display:'grid',placeItems:'center',fontFamily:A.display,fontSize:size*0.42,color:'#fff',background:'linear-gradient(150deg, hsl('+hue+' 42% 32%), hsl('+hue+' 45% 16%))',boxShadow:'inset 0 0 0 1px rgba(255,255,255,.08)'}}, mono); }
+  modeBadge(mode){ const rpg=mode==='rpg'; return h('span',{style:{fontFamily:A.mono,fontSize:9.5,letterSpacing:'.1em',textTransform:'uppercase',padding:'3px 7px',borderRadius:6,border:'1px solid '+(rpg?'#7bd88f44':A.accentSoft),color:rpg?'#7bd88f':A.accent,background:rpg?'#7bd88f10':A.accentTint}}, rpg?'RPG':'Chat'); }
+  chip(label,active,on){ return h('button',{onClick:on,style:{fontFamily:A.sans,fontSize:12.5,fontWeight:active?600:500,padding:'7px 13px',borderRadius:20,cursor:'pointer',whiteSpace:'nowrap',border:'1px solid '+(active?'transparent':A.line2),color:active?A.goldInk:A.sec,background:active?'linear-gradient(150deg,var(--violet),var(--violet-deep))':'transparent'}}, label); }
+
+  // ---------- logo lockup ----------
+  logoLockup(){ return h('div',{style:{display:'flex',alignItems:'center',gap:8}},
+    h('div',{style:{width:26,height:26,flex:'none',borderRadius:7,background:'linear-gradient(150deg,var(--violet),var(--violet-deep))',display:'grid',placeItems:'center',color:A.goldInk,fontFamily:A.display,fontWeight:700,fontSize:15}},'S'),
+    h('span',{style:{fontFamily:A.display,fontWeight:600,fontSize:16,color:A.ink,letterSpacing:'-.01em'}},'StoryHaven')); }
+  hAct(icon,on,title,active){ return h('button',{key:title,onClick:on,title:title,style:{width:38,height:38,flex:'none',borderRadius:11,border:'1px solid '+(active?A.accentSoft:A.line),background:active?A.accentTint:A.surface,color:active?A.accent:A.sec,display:'grid',placeItems:'center',cursor:'pointer'}},icon); }
+  privacyChip(){ const s=this.state; if(!s.matureEnabled) return null; const on=s.privacyMode;
+    return h('button',{key:'priv',onClick:()=>this.setState({privacyMode:!on}),title:'Privacy blur',style:{display:'flex',alignItems:'center',gap:6,height:38,padding:'0 12px',flex:'none',borderRadius:11,cursor:'pointer',border:'1px solid '+(on?A.accentSoft:A.line2),background:on?A.accentTint:A.surface,color:on?A.accent:A.sec}},
+      on?ICON.eyeOff(16):ICON.eye(16), h('span',{style:{fontFamily:A.mono,fontSize:10,letterSpacing:'.08em',fontWeight:600}}, on?'SFW':'18+')); }
+
+  // ---------- header ----------
+  header(title, opts){ opts=opts||{}; const acts=(opts.actions||[]).map((a,i)=>this.hAct(a.icon,a.on,a.title||('a'+i)));
+    const brandRight = [this.privacyChip()].concat(acts, [this.hAct(ICON.gear(18),()=>this.setState({settingsOpen:true}),'Settings')]);
+    return h('div',{style:{position:'absolute',top:0,left:0,right:0,zIndex:20,paddingTop:46,background:opts.trans?'transparent':'linear-gradient(to bottom, var(--surface-2) 66%, transparent)'}},
+      opts.brand? h('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'6px 16px 2px'}}, this.logoLockup(), h('div',{style:{flex:1}}), h('div',{style:{display:'flex',alignItems:'center',gap:8}}, brandRight)) : null,
+      h('div',{style:{display:'flex',alignItems:'center',gap:12,padding: opts.brand?'2px 16px 12px':'8px 16px 12px'}},
+        opts.back? h('button',{onClick:()=>this.go(opts.back),style:{width:38,height:38,flex:'none',borderRadius:11,border:'1px solid '+A.line,background:opts.trans?'rgba(12,12,14,.55)':A.surface,color:A.ink,display:'grid',placeItems:'center',cursor:'pointer',backdropFilter:'blur(6px)'}}, ICON.back(18)) : null,
+        h('div',{style:{flex:1,minWidth:0}},
+          opts.eyebrow? h('div',{style:{fontFamily:A.mono,fontSize:9.5,letterSpacing:'.2em',textTransform:'uppercase',color:A.muted,marginBottom:2}}, opts.eyebrow):null,
+          h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:opts.big?26:19,color:A.ink,lineHeight:1.05,letterSpacing:'-.01em'}}, title)),
+        opts.brand? null : acts)
+    ); }
+
+  screenWrap(children, pad){ return h('div',{key:this.state.screen,'data-scroll':'',className:'noscroll sh-in',style:{position:'absolute',inset:0,overflowY:'auto',background:'var(--paper)',paddingBottom:pad===false?0:104}}, children); }
+
+  // ---------- AUTH ----------
+  authSecret(){ return 'JBSW Y3DP EHPK 3PXP'; }
+  setAuthView(v){ this.setState({authView:v, totp:['','','','','',''], totpErr:false}); }
+  setTotp(i,val){ val=val.replace(/\D/g,'').slice(-1); this.setState(s=>{ const t=s.totp.slice(); t[i]=val; return {totp:t, totpErr:false}; });
+    if(val){ const n=document.querySelector('[data-totp="'+(i+1)+'"]'); if(n) n.focus(); } }
+  totpKey(i,e){ if(e.key==='Backspace' && !this.state.totp[i]){ const p=document.querySelector('[data-totp="'+(i-1)+'"]'); if(p){ p.focus(); } } }
+  totpPaste(e){ const d=(e.clipboardData.getData('text')||'').replace(/\D/g,'').slice(0,6).split(''); if(d.length){ e.preventDefault(); const t=['','','','','','']; d.forEach((x,i)=>t[i]=x); this.setState({totp:t, totpErr:false}); const last=document.querySelector('[data-totp="'+Math.min(d.length,5)+'"]'); if(last) last.focus(); } }
+  verifyTotp(next){ const code=this.state.totp.join(''); if(code.length<6){ this.setState({totpErr:true}); return; } if(next==='library'){ this.go('library'); } else { this.setAuthView(next); } }
+  authField(label,val,key,opts){ opts=opts||{}; const foc=this.state.focusKey===key; return h('div',{key:label,style:{marginBottom:16}},
+    h('label',{style:{display:'block',fontFamily:A.mono,fontSize:9,letterSpacing:'.18em',textTransform:'uppercase',color:foc?A.accent:A.muted,marginBottom:5,transition:'color .15s'}},label),
+    h('input',{type:opts.type||'text',value:val,placeholder:opts.ph||'',autoComplete:'off',onFocus:()=>this.setState({focusKey:key}),onBlur:()=>this.setState({focusKey:''}),onChange:(e)=>this.setState({[key]:e.target.value}),style:{width:'100%',padding:'6px 2px 9px',borderRadius:0,border:'none',borderBottom:'1.5px solid '+(foc?A.accent:A.line2),background:'transparent',color:A.ink,fontFamily:A.sans,fontSize:16,outline:'none',transition:'border-color .15s'}})); }
+  authPrimary(label,on){ return h('button',{onClick:on,style:{width:'100%',padding:'15px',borderRadius:13,border:'none',cursor:'pointer',fontFamily:A.sans,fontWeight:600,fontSize:15.5,color:A.goldInk,background:'linear-gradient(150deg,var(--violet),var(--violet-deep))',boxShadow:'0 10px 26px -12px hsl(40 60% 40%)'}},label); }
+  totpBoxes(){ const s=this.state; return h('div',{style:{marginBottom:6}},
+    h('div',{style:{display:'flex',gap:8,justifyContent:'space-between',marginBottom:s.totpErr?8:0}}, s.totp.map((d,i)=>h('input',{key:i,'data-totp':i,inputMode:'numeric',maxLength:1,value:d,onChange:(e)=>this.setTotp(i,e.target.value),onKeyDown:(e)=>this.totpKey(i,e),onPaste:(e)=>this.totpPaste(e),style:{width:'100%',aspectRatio:'3 / 4',minWidth:0,textAlign:'center',borderRadius:10,border:'1px solid '+(s.totpErr?'var(--warn-soft)':(d?A.accentSoft:A.line2)),background:d?A.accentTint:'rgba(12,12,14,.5)',color:A.ink,fontFamily:A.display,fontWeight:600,fontSize:24,outline:'none',animation:(!d&&i===s.totp.findIndex(x=>!x))?'sh-caret 1.1s infinite':'none'}}))),
+    s.totpErr? h('div',{style:{fontFamily:A.mono,fontSize:11,color:A.warn}},'Enter all 6 digits from your authenticator.') : null); }
+  authLink(txt,on){ return h('button',{onClick:on,style:{background:'none',border:'none',padding:0,cursor:'pointer',color:A.accent,fontFamily:A.sans,fontSize:13,fontWeight:500}},txt); }
+  authTabs(){ const v=this.state.authView; return h('div',{style:{display:'flex',gap:4,background:'rgba(12,12,14,.55)',border:'1px solid '+A.line,borderRadius:13,padding:4,marginBottom:22}}, [['signin','Sign in'],['register','Create account']].map(t=>h('button',{key:t[0],onClick:()=>this.setAuthView(t[0]),style:{flex:1,padding:'10px',borderRadius:9,border:'none',cursor:'pointer',fontFamily:A.sans,fontSize:13.5,fontWeight:v===t[0]?600:500,color:v===t[0]?A.goldInk:A.sec,background:v===t[0]?'linear-gradient(150deg,var(--violet),var(--violet-deep))':'transparent',transition:'color .15s'}},t[1]))); }
+
+  authPanel(){ const s=this.state, v=s.authView;
+    let body;
+    if(v==='signin'){ body=[ this.authTabs(),
+      this.authField('Cardholder', s.acctName, 'acctName', {ph:'kael'}),
+      this.authField('Passphrase','','pw',{type:'password',ph:'\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7\u00b7'}),
+      h('div',{style:{display:'flex',justifyContent:'flex-end',margin:'-4px 0 20px'}}, this.authLink('Can\u2019t sign in?',()=>this.setAuthView('forgot'))),
+      this.authPrimary('Enter StoryHaven',()=>this.go('library')),
+      h('div',{style:{textAlign:'center',marginTop:16}}, this.authLink('Browse as guest \u2192',()=>this.go('library'))) ];
+    } else if(v==='register'){ body=[ this.authTabs(),
+      this.authField('Username', s.acctName, 'acctName', {ph:'kael'}),
+      this.authField('Password','','pw',{type:'password',ph:'At least 10 characters'}),
+      this.authField('Confirm password','','pw2',{type:'password',ph:'Type it again'}),
+      h('div',{style:{marginTop:10}}, this.authPrimary('Continue \u2192 recovery setup',()=>this.setAuthView('enroll'))),
+      h('p',{style:{fontSize:12,lineHeight:1.5,color:A.muted,textAlign:'center',margin:'12px 4px 0'}},'One quick step so you can reset your own password later \u2014 no email needed.') ];
+    } else if(v==='enroll'){ body=[
+      h('div',{style:{fontFamily:A.mono,fontSize:10,letterSpacing:'.22em',textTransform:'uppercase',color:A.accent,marginBottom:6}},'Step 2 of 2 \u00b7 Account recovery'),
+      h('h2',{style:{fontFamily:A.display,fontWeight:600,fontSize:22,color:A.ink,margin:'0 0 8px'}},'Set up password recovery'),
+      h('p',{style:{fontSize:13,lineHeight:1.55,color:A.sec,margin:'0 0 14px'}},'A free app on your phone shows a 6-digit code. If you ever forget your password, this code proves it\u2019s you \u2014 so you can reset it yourself, no email required.'),
+      h('div',{style:{display:'flex',flexDirection:'column',gap:9,marginBottom:16}}, [['1','Install Google Authenticator, Aegis, or 1Password (free).'],['2','Scan the code below with that app.'],['3','Type the 6-digit code it shows to confirm.']].map(step=>h('div',{key:step[0],style:{display:'flex',gap:10,alignItems:'flex-start'}},
+        h('span',{style:{flex:'none',width:20,height:20,borderRadius:10,background:A.accentTint,border:'1px solid '+A.accentSoft,color:A.accent,fontFamily:A.mono,fontSize:11,display:'grid',placeItems:'center',marginTop:1}},step[0]),
+        h('span',{style:{fontSize:12.5,lineHeight:1.5,color:A.sec}},step[1])))),
+      h('div',{style:{display:'flex',gap:14,alignItems:'center',marginBottom:16}},
+        this.qrPlaceholder(),
+        h('div',{style:{flex:1,minWidth:0}},
+          h('div',{style:{fontFamily:A.mono,fontSize:9,letterSpacing:'.14em',textTransform:'uppercase',color:A.muted,marginBottom:6}},'Or enter key'),
+          h('div',{style:{fontFamily:A.mono,fontSize:13.5,color:A.ink,lineHeight:1.5,letterSpacing:'.04em',wordBreak:'break-all'}}, s.showSecret? this.authSecret() : '\u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022 \u2022\u2022\u2022\u2022'),
+          h('button',{onClick:()=>this.setState({showSecret:!s.showSecret}),style:{marginTop:8,display:'inline-flex',alignItems:'center',gap:6,background:'none',border:'none',padding:0,cursor:'pointer',color:A.accent,fontFamily:A.mono,fontSize:11}}, s.showSecret?ICON.eyeOff(14):ICON.eye(14), s.showSecret?'Hide':'Reveal key'))),
+      h('div',{style:{fontFamily:A.mono,fontSize:9,letterSpacing:'.15em',textTransform:'uppercase',color:A.muted,margin:'2px 0 10px'}},'Type the 6-digit code from your app'),
+      this.totpBoxes(),
+      h('div',{style:{marginTop:14}}, this.authPrimary('Verify & finish',()=>this.verifyTotp('library'))),
+      h('div',{style:{textAlign:'center',marginTop:12}}, this.authLink('Skip for now',()=>this.go('library'))),
+      h('div',{style:{display:'flex',gap:9,alignItems:'flex-start',margin:'14px 0 0',padding:'11px 13px',borderRadius:12,border:'1px solid '+A.line,background:'rgba(12,12,14,.5)'}}, h('span',{style:{color:A.accent,flex:'none',display:'flex',marginTop:1}},ICON.shield(15)), h('span',{style:{fontSize:12,lineHeight:1.5,color:A.sec}},'Want a code every time you sign in too? Turn on ', h('b',{style:{color:A.ink,fontWeight:600}},'2-factor login'), ' anytime in Settings.')),
+      h('div',{style:{textAlign:'center',marginTop:14}}, this.authLink('\u2190 Back',()=>this.setAuthView('register'))) ];
+    } else { body=[
+      h('div',{style:{fontFamily:A.mono,fontSize:10,letterSpacing:'.22em',textTransform:'uppercase',color:A.accent,marginBottom:6}},'Recovery'),
+      h('h2',{style:{fontFamily:A.display,fontWeight:600,fontSize:22,color:A.ink,margin:'0 0 8px'}},'Verify it\u2019s you'),
+      h('p',{style:{fontSize:13,lineHeight:1.55,color:A.sec,margin:'0 0 16px'}},'Open the authenticator app you set up and type the 6-digit code it shows right now.'),
+      this.authField('Username', s.acctName, 'acctName', {ph:'kael'}),
+      h('div',{style:{fontFamily:A.mono,fontSize:9,letterSpacing:'.15em',textTransform:'uppercase',color:A.muted,margin:'2px 0 10px'}},'6-digit code from your app'),
+      this.totpBoxes(),
+      h('div',{style:{display:'flex',alignItems:'center',gap:7,margin:'12px 0 16px',color:A.muted,fontSize:12}}, ICON.memory(14), h('span',null,'The code refreshes every 30 seconds \u2014 that\u2019s normal')),
+      this.authPrimary('Verify & continue',()=>this.verifyTotp('library')),
+      h('div',{style:{display:'flex',gap:9,alignItems:'flex-start',margin:'16px 0 0',padding:'11px 13px',borderRadius:12,border:'1px solid '+A.line,background:'rgba(12,12,14,.5)'}}, h('span',{style:{color:A.accent,flex:'none',display:'flex',marginTop:1}},ICON.shield(15)), h('span',{style:{fontSize:12,lineHeight:1.5,color:A.sec}},'Lost your phone? Use a ', h('b',{style:{color:A.ink,fontWeight:600}},'backup code'), ' you saved at signup, or ask your server admin to reset it.')),
+      h('div',{style:{textAlign:'center',marginTop:14}}, this.authLink('\u2190 Back to sign in',()=>this.setAuthView('signin'))) ];
+    }
+    return h('div',{key:v,className:'sh-in',style:{position:'relative',zIndex:2,width:'100%',maxWidth:320,margin:'0 auto'}}, body);
+  }
+  qrPlaceholder(){ const cells=[]; const seed=[1,0,1,1,0,1,0,0,1,0,1,0,1,1,0,1,1,0,0,1,0,1,1,0,1,1,0,1,0,1,1,0,0,1,1,0,1,0,1,1,0,1,1,0,1,0,0,1];
+    for(let i=0;i<49;i++){ const on=seed[i%seed.length]; cells.push(h('div',{key:i,style:{width:'100%',aspectRatio:'1',background:on?A.ink:'transparent'}})); }
+    const eye=(pos)=>h('div',{style:Object.assign({position:'absolute',width:20,height:20,border:'3px solid '+A.ink,borderRadius:4},pos)}, h('div',{style:{position:'absolute',inset:4,background:A.ink,borderRadius:1}}));
+    return h('div',{style:{position:'relative',width:100,height:100,flex:'none',borderRadius:12,background:'#fff',padding:9,boxShadow:'0 8px 20px -8px rgba(0,0,0,.6)'}},
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:1.5,width:'100%',height:'100%'}}, cells),
+      eye({top:9,left:9}), eye({top:9,right:9}), eye({bottom:9,left:9})); }
+
+  errorEl(code){ const E={
+      '404':{eye:'Error 404',title:'This page slipped the archive',body:'The page you\u2019re after isn\u2019t on the shelves \u2014 moved, renamed, or never written. Let\u2019s get you back to a known chapter.',glyph:'?',primary:['Back to Library','library'],secondary:['Browse the forum','forum']},
+      '401':{eye:'Error 401',title:'You\u2019re not signed in',body:'This corner of the haven is for cardholders. Sign in to pick up your worlds and memories right where you left them.',glyph:'\u26BF',primary:['Sign in','__signin'],secondary:['Browse as guest','library']},
+      '403':{eye:'Error 403',title:'This door is locked to you',body:'Your account doesn\u2019t have permission for this page. If you think that\u2019s a mistake, your server admin can adjust your role.',glyph:'\u2298',primary:['Back to Library','library'],secondary:['Contact your admin','admin']},
+      '500':{eye:'Error 500',title:'Something broke on our end',body:'The server hit an unexpected error \u2014 not your fault. It\u2019s been logged; give it a moment and try again.',glyph:'\u26A0',primary:['Try again','library'],secondary:['Check status','admin']},
+      '503':{eye:'Error 503',title:'The haven is catching its breath',body:'The service is temporarily down \u2014 maintenance or heavy load. Your worlds and memories are safe. Try again shortly.',glyph:'\u25D0',primary:['Try again','library'],secondary:['Check status','admin']}
+    }[code];
+    const embers=[]; for(let i=0;i<8;i++){ embers.push(h('span',{key:i,style:{position:'absolute',left:(8+i*11)+'%',bottom:'16%',width:i%3?3:4,height:i%3?3:4,borderRadius:3,background:A.accent,'--dx':((i%2?-1:1)*(8+i*3))+'px',animation:'sh-ember '+(4.5+i*0.6)+'s ease-in '+(i*0.5)+'s infinite'}})); }
+    const go=(t)=>{ if(t==='__signin'){ this.setState({screen:'login'}); this.setAuthView('signin'); this.scrollTop(); } else this.go(t); };
+    return h('div',{key:'err'+code,className:'noscroll',style:{position:'absolute',inset:0,overflowY:'auto',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'56px 30px calc(env(safe-area-inset-bottom,16px) + 30px)',textAlign:'center',background:'radial-gradient(120% 60% at 50% 8%, #1a1509 0%, #0b0a0c 48%, #08080a 80%)'}},
+      h('div',{style:{position:'absolute',inset:0,zIndex:0,overflow:'hidden',pointerEvents:'none'}}, embers),
+      h('div',{style:{position:'relative',zIndex:1,width:172,height:172,display:'grid',placeItems:'center',marginBottom:6,animation:'sh-emblem .7s cubic-bezier(.2,.7,.3,1) both'}},
+        h('div',{style:{position:'absolute',width:150,height:150,borderRadius:'50%',background:'radial-gradient(circle, hsl(40 75% 50% / .22), transparent 68%)',animation:'sh-pulse 4.5s ease-in-out infinite'}}),
+        h('div',{style:{position:'absolute',inset:8,animation:'sh-spin 30s linear infinite'}}, h('div',{style:{width:'100%',height:'100%',borderRadius:'50%',border:'1px dashed '+A.accent,opacity:.22}})),
+        h('div',{style:{position:'relative',width:96,height:96,color:A.accent,opacity:.9,filter:'drop-shadow(0 4px 14px hsl(40 70% 45% / .4))',animation:'sh-float 7s ease-in-out infinite'},dangerouslySetInnerHTML:{__html:SH_LOGO}}),
+        h('div',{style:{position:'absolute',fontFamily:A.display,fontSize:34,fontWeight:600,color:A.accent}},E.glyph)),
+      h('div',{style:{position:'relative',zIndex:1,fontFamily:A.display,fontWeight:700,fontSize:76,lineHeight:1,letterSpacing:'-.02em',color:A.ink,textShadow:'0 0 40px hsl(40 70% 45% / .3)',margin:'8px 0 4px'}},code),
+      h('div',{style:{position:'relative',zIndex:1,fontFamily:A.mono,fontSize:10,letterSpacing:'.24em',textTransform:'uppercase',color:A.accent,marginBottom:16}},E.eye),
+      h('h1',{style:{position:'relative',zIndex:1,fontFamily:A.display,fontWeight:600,fontSize:26,lineHeight:1.12,letterSpacing:'-.01em',color:A.ink,margin:'0 0 12px',maxWidth:320}},E.title),
+      h('p',{style:{position:'relative',zIndex:1,fontSize:14,lineHeight:1.6,color:A.sec,margin:'0 0 26px',maxWidth:320}},E.body),
+      h('div',{style:{position:'relative',zIndex:1,display:'flex',flexDirection:'column',gap:11,width:'100%',maxWidth:300}},
+        h('button',{onClick:()=>go(E.primary[1]),style:{width:'100%',padding:'15px',borderRadius:13,border:'none',cursor:'pointer',fontFamily:A.sans,fontWeight:600,fontSize:15.5,color:A.goldInk,background:'linear-gradient(150deg,var(--violet),var(--violet-deep))',boxShadow:'0 10px 26px -12px hsl(40 60% 40%)'}}, E.primary[0]),
+        h('button',{onClick:()=>go(E.secondary[1]),style:{width:'100%',padding:'13px',borderRadius:12,border:'1px solid '+A.line2,background:'transparent',color:A.ink,fontFamily:A.sans,fontWeight:500,fontSize:14,cursor:'pointer'}}, E.secondary[0])),
+      h('div',{style:{position:'relative',zIndex:1,fontFamily:A.mono,fontSize:10.5,letterSpacing:'.1em',color:A.muted,marginTop:22}},'StoryHaven AI \u00b7 ref '+code+'-'+(1000+(+code)*7%9000)));
+  }
+
+  loginEl(){ const cover=CHARS.filter(c=>!NSFW.has(c.id)).slice(0,5);
+    const embers=[]; for(let i=0;i<10;i++){ embers.push(h('span',{key:i,style:{position:'absolute',left:(6+i*9)+'%',bottom:'20%',width:i%3?3:4,height:i%3?3:4,borderRadius:3,background:A.accent,'--dx':((i%2?-1:1)*(10+i*3))+'px',animation:'sh-ember '+(4.5+i*0.6)+'s ease-in '+(i*0.5)+'s infinite'}})); }
+    const orbit=[]; for(let i=0;i<3;i++){ orbit.push(h('span',{key:'o'+i,style:{position:'absolute',left:'50%',top:'50%',width:5,height:5,marginLeft:-2.5,marginTop:-2.5,borderRadius:3,background:A.accent,boxShadow:'0 0 8px 1px hsl(40 70% 55% / .8)','--rad':(96)+'px',animation:'sh-orbit '+(14+i*5)+'s linear '+(i*-4)+'s infinite'}})); }
+    return h('div',{key:'login',className:'noscroll',style:{position:'absolute',inset:0,overflowY:'auto',display:'flex',flexDirection:'column',background:'radial-gradient(120% 66% at 50% 4%, #1a1509 0%, #0b0a0c 46%, #08080a 78%)'}},
+      h('div',{style:{position:'absolute',inset:0,zIndex:0,overflow:'hidden',pointerEvents:'none'}}, embers),
+      h('div',{style:{position:'relative',zIndex:1,paddingTop:74,display:'flex',flexDirection:'column',alignItems:'center'}},
+        h('div',{style:{position:'relative',width:200,height:200,display:'grid',placeItems:'center',animation:'sh-emblem .8s cubic-bezier(.2,.7,.3,1) both'}},
+          h('div',{style:{position:'absolute',width:170,height:170,borderRadius:'50%',background:'radial-gradient(circle, hsl(40 75% 50% / .28), transparent 68%)',animation:'sh-pulse 4.5s ease-in-out infinite'}}),
+          h('div',{style:{position:'absolute',inset:6,animation:'sh-spin 26s linear infinite'}}, h('div',{style:{width:'100%',height:'100%',borderRadius:'50%',border:'1px dashed '+A.accent,opacity:.28}})),
+          h('div',{style:{position:'absolute',inset:26,animation:'sh-spin-rev 34s linear infinite'}}, h('div',{style:{width:'100%',height:'100%',borderRadius:'50%',border:'1px solid '+A.accent,opacity:.12}})),
+          orbit,
+          h('div',{style:{position:'relative',width:118,height:118,color:A.accent,filter:'drop-shadow(0 4px 16px hsl(40 70% 45% / .45))',animation:'sh-float 7s ease-in-out infinite'},dangerouslySetInnerHTML:{__html:SH_LOGO}})),
+        h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:24,color:A.accent,marginTop:20,letterSpacing:'-.01em'}},'StoryHaven AI'),
+        h('div',{style:{fontFamily:A.display,fontStyle:'italic',fontSize:14.5,color:A.muted,marginTop:6}},'Forge worlds. Remember everything.')),
+      h('div',{style:{position:'relative',zIndex:2,flex:1,display:'flex',alignItems:'center',padding:'30px 26px calc(env(safe-area-inset-bottom,16px) + 26px)'}}, this.authPanel())
+    );
+  }
+
+  // ---------- LIBRARY ----------
+  libTabBtn(label){ return this.chip(label, this.state.libTab===label, ()=>this.setState({libTab:label})); }
+  blurNsfw(id){ return this.state.matureEnabled && this.state.privacyMode && NSFW.has(id); }
+  nsfwOverlay(sm){ return h('div',{style:{position:'absolute',inset:0,display:'grid',placeItems:'center',color:'rgba(255,255,255,.92)'}}, h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:4}}, ICON.eyeOff(sm?15:20), h('span',{style:{fontFamily:A.mono,fontSize:8,letterSpacing:'.14em',textTransform:'uppercase'}},'18+'))); }
+  charCard(c){ const bl=this.blurNsfw(c.id); return h('button',{key:c.id,onClick:()=>this.openChar(c.id),style:{textAlign:'left',background:A.surface,border:'1px solid '+A.line,borderRadius:16,padding:0,overflow:'hidden',cursor:'pointer',display:'flex',flexDirection:'column'}},
+    h('div',{style:{position:'relative',height:112,overflow:'hidden'}},
+      h('div',{style:{position:'absolute',inset:0,background:'linear-gradient(155deg, hsl('+c.hue+' 42% 30%), hsl('+c.hue+' 48% 12%))',filter:bl?'blur(16px)':'none',transform:bl?'scale(1.15)':'none'}}),
+      h('div',{style:{position:'absolute',inset:0,display:'grid',placeItems:'center',fontFamily:A.display,fontSize:44,color:'rgba(255,255,255,.9)',filter:bl?'blur(16px)':'none'}},c.mono),
+      h('div',{style:{position:'absolute',left:8,top:8}},this.modeBadge(c.mode)),
+      bl?this.nsfwOverlay():null),
+    h('div',{style:{padding:'11px 12px 13px'}},
+      h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:14.5,color:A.ink,lineHeight:1.15}},c.name),
+      h('div',{style:{fontSize:11.8,lineHeight:1.4,color:A.sec,margin:'5px 0 9px',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}},c.tagline),
+      h('div',{style:{display:'flex',alignItems:'center',gap:5,fontFamily:A.mono,fontSize:10.5,color:A.muted}}, ICON.chats(12), c.chats, h('span',{style:{opacity:.4}},'\u00B7'), '@'+c.author))
+    ); }
+  libraryEl(){ const tabs=['For you','Fantasy','RPG','Cozy','Sci-fi','Romance'];
+    return this.screenWrap([
+      this.header('Explore', {brand:true, big:true, eyebrow:'Discover', actions:[{icon:ICON.bell(18),title:'Alerts'},{icon:ICON.search(18),title:'Search',on:()=>{}}]}),
+      h('div',{key:'b',style:{paddingTop:134}},
+        h('div',{style:{padding:'0 16px'}},
+          h('button',{onClick:()=>{},style:{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'12px 14px',borderRadius:13,border:'1px solid '+A.line,background:A.surface,color:A.muted,cursor:'text',fontFamily:A.sans,fontSize:14}}, ICON.search(17), 'Search characters, worlds, tags\u2026')),
+        h('div',{className:'noscroll',style:{display:'flex',gap:8,overflowX:'auto',padding:'14px 16px 4px'}}, tabs.map(t=>this.libTabBtn(t))),
+        h('div',{style:{padding:'14px 16px 0'}},
+          h('div',{style:{position:'relative',borderRadius:18,overflow:'hidden',padding:'20px',background:'linear-gradient(150deg, hsl(150 40% 24%), hsl(150 45% 12%))',marginBottom:20}},
+            this.modeBadge('rpg'),
+            h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:20,color:'#fff',margin:'10px 0 4px',maxWidth:220}},'The Warden of Thornreach'),
+            h('div',{style:{fontSize:12.5,color:'rgba(255,255,255,.72)',maxWidth:230,marginBottom:14}},'A grimdark survival campaign in a keep the forest is reclaiming.'),
+            h('button',{onClick:()=>this.startChat('gm-thornreach'),style:{padding:'9px 16px',borderRadius:11,border:'none',background:'rgba(255,255,255,.92)',color:'#151208',fontFamily:A.sans,fontWeight:600,fontSize:13,cursor:'pointer'}},'Begin campaign')),
+          h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',margin:'0 2px 12px'}},
+            h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:16,color:A.ink}},'Popular characters'),
+            h('span',{style:{fontFamily:A.mono,fontSize:11,color:A.accent}},'See all')),
+          h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}, CHARS.filter(c=>!NSFW.has(c.id)||this.state.matureEnabled).map(c=>this.charCard(c))))
+      )
+    ]);
+  }
+
+  // ---------- CHATS (recents) ----------
+  chatsEl(){ return this.screenWrap([
+    this.header('Chats', {brand:true, big:true, eyebrow:'Continue', actions:[{icon:ICON.search(18),title:'Search'}]}),
+    h('div',{key:'b',style:{paddingTop:132,padding:'132px 12px 0'}},
+      RECENTS.map(r=>{ const c=CHARS.find(x=>x.id===r.id);
+        return h('button',{key:r.id,onClick:()=>this.startChat(r.id),style:{width:'100%',textAlign:'left',display:'flex',alignItems:'center',gap:13,padding:'12px 12px',background:'none',border:'none',borderRadius:14,cursor:'pointer'}},
+          this.avatar(c.mono,c.hue,50,15),
+          h('div',{style:{flex:1,minWidth:0,borderBottom:'1px solid '+A.line,paddingBottom:14}},
+            h('div',{style:{display:'flex',alignItems:'center',gap:8}},
+              h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:15,color:A.ink,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},c.name),
+              h('span',{style:{fontFamily:A.mono,fontSize:10.5,color:A.muted}},r.time)),
+            h('div',{style:{fontSize:12.8,color:A.sec,marginTop:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}, (r.you?'You: ':'')+r.last)));
+      })
+    )
+  ]); }
+
+  // ---------- DOSSIER ----------
+  dossierEl(){ const c=this.active(); const bl=this.blurNsfw(c.id); const th=this.state.creatorThemes&&THEMES[c.id];
+    const code='CHA-'+c.id.slice(0,3).toUpperCase()+(c.mode==='rpg'?'-GM':'');
+    const pills=[['Lore',c.lore],['Greetings',1],['Images',c.images],['Chats',c.chats]];
+    const pfp=h('div',{style:{flex:'none',borderRadius:20,padding:3,background:A.paper}},
+      h('div',{style:{position:'relative',width:78,height:78,borderRadius:17,overflow:'hidden',border:'1px solid '+A.line2}},
+        h('div',{style:{width:'100%',height:'100%',filter:bl?'blur(14px)':'none'}}, this.avatar(c.mono,c.hue,78,0)),
+        bl?this.nsfwOverlay(true):null));
+    return this.screenWrap([
+      h('div',{key:'banner',style:{position:'relative',height:188,overflow:'hidden',background: th? th.bg : 'linear-gradient(150deg, hsl('+c.hue+' 46% 34%), hsl('+c.hue+' 48% 12%))'}},
+        this.header('', {back:'library', trans:true, actions:[{icon:ICON.share(18),title:'Share'},{icon:ICON.heart(18),title:'Favorite'}]}),
+        h('div',{style:{position:'absolute',inset:0,display:'grid',placeItems:'center',fontFamily:A.display,fontSize:150,color:'rgba(255,255,255,.22)',filter:bl?'blur(32px)':'none'}},c.mono),
+        bl?this.nsfwOverlay():null,
+        th? h('div',{style:{position:'absolute',right:16,bottom:16}}, h('span',{style:{display:'flex',alignItems:'center',gap:6,fontFamily:A.mono,fontSize:9.5,letterSpacing:'.1em',textTransform:'uppercase',padding:'5px 9px',borderRadius:7,background:'rgba(10,10,12,.5)',color:'#fff',backdropFilter:'blur(6px)'}}, ICON.code(13),'Custom theme')) : null,
+        h('div',{style:{position:'absolute',bottom:0,left:0,right:0,height:80,background:'linear-gradient(to top, var(--paper), transparent)'}})),
+      h('div',{key:'body',style:{padding:'0 20px',marginTop:-38,position:'relative'}},
+        h('div',{style:{display:'flex',alignItems:'flex-end',gap:14,marginBottom:14}},
+          pfp,
+          h('div',{style:{flex:1,minWidth:0,paddingBottom:6}},
+            h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:6}}, this.modeBadge(c.mode), h('span',{style:{fontFamily:A.mono,fontSize:10,letterSpacing:'.12em',textTransform:'uppercase',color:A.muted}},code)),
+            h('h1',{style:{fontFamily:A.display,fontWeight:600,fontSize:24,letterSpacing:'-.01em',color:A.ink,margin:0,lineHeight:1.1}},c.name))),
+        h('p',{style:{fontSize:14,lineHeight:1.55,color:A.sec,margin:'0 0 13px'}},c.tagline),
+        h('div',{style:{display:'flex',flexWrap:'wrap',gap:7,marginBottom:14}}, c.tags.concat(['@'+c.author]).map((t,i)=>h('span',{key:i,style:{fontFamily:A.mono,fontSize:10.5,padding:'5px 10px',borderRadius:999,border:'1px solid '+A.line2,color:A.sec}}, i<c.tags.length? t : t))),
+        h('div',{style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:12}}, pills.map(p=>h('span',{key:p[0],style:{display:'inline-flex',alignItems:'center',gap:6,fontFamily:A.mono,fontSize:11.5,padding:'6px 11px',borderRadius:999,border:'1px solid '+A.line,background:A.surface,color:A.sec}}, h('b',{style:{color:A.ink,fontWeight:700}},p[1]), p[0]))),
+        h('div',{style:{fontFamily:A.mono,fontSize:11,color:A.muted,marginBottom:20}},'Created Jul 3, 2026'),
+        h('div',{style:{background:A.surface,border:'1px solid '+A.line,borderRadius:15,padding:'15px 16px',marginBottom:16}},
+          h('div',{style:{fontFamily:A.mono,fontSize:9.5,letterSpacing:'.18em',textTransform:'uppercase',color:A.muted,marginBottom:9}},'Opening scene'),
+          h('div',{style:{fontSize:13.5,lineHeight:1.62}}, md(c.greeting))),
+        h('div',{style:{background:A.surface,border:'1px solid '+A.line,borderRadius:15,overflow:'hidden',marginBottom:22}},
+          h('div',{style:{padding:'13px 16px',borderBottom:'1px solid '+A.line,fontFamily:A.display,fontWeight:600,fontSize:15,color:A.ink}},'Key lore'),
+          c.lore>0? h('div',{style:{padding:'6px 16px 12px'}}, [['The Archive','A vault of forbidden ledgers beneath the west spire.'],['The Debt','A promise made in a language no one speaks anymore.'],['The Watched Road','Why she never travels the same path twice.']].map((e,i)=>h('div',{key:i,style:{padding:'11px 0',borderBottom:i<2?'1px solid '+A.line:'none'}},
+            h('div',{style:{fontFamily:A.sans,fontWeight:600,fontSize:13.5,color:A.ink,marginBottom:3}},e[0]),
+            h('div',{style:{fontSize:12.5,lineHeight:1.5,color:A.sec}},e[1]))))
+            : h('div',{style:{padding:'34px 0',textAlign:'center',fontSize:13,color:A.muted}},'No lore entries yet.'))
+      ),
+      h('div',{key:'cta',style:{position:'sticky',bottom:0,padding:'12px 20px calc(env(safe-area-inset-bottom,14px) + 14px)',background:'linear-gradient(to top, var(--paper) 72%, transparent)',display:'flex',gap:10}},
+        h('button',{onClick:()=>this.startChat(c.id),style:{flex:1,padding:'15px',borderRadius:14,border:'none',cursor:'pointer',fontFamily:A.sans,fontWeight:600,fontSize:15.5,color:A.goldInk,background:'linear-gradient(150deg,var(--violet),var(--violet-deep))',boxShadow:'0 10px 24px -12px hsl(40 60% 40%)'}}, c.mode==='rpg'?'Begin campaign':'Start chat'),
+        h('button',{style:{width:52,flex:'none',borderRadius:14,border:'1px solid '+A.line2,background:A.surface,color:A.sec,display:'grid',placeItems:'center',cursor:'pointer'}}, ICON.personas(19)))
+    ], false);
+  }
+
+  // ---------- CHAT ----------
+  chatEl(){ const c=this.active(); const rpg=c.mode==='rpg';
+    return h('div',{key:'chat',className:'sh-in',style:{position:'absolute',inset:0,display:'flex',flexDirection:'column',background:'var(--paper)'}},
+      h('div',{style:{flex:'none',paddingTop:46,background:A.s2,borderBottom:'1px solid '+A.line}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:11,padding:'8px 14px 11px'}},
+          h('button',{onClick:()=>this.go('chats'),style:{width:36,height:36,flex:'none',borderRadius:10,border:'none',background:'transparent',color:A.sec,display:'grid',placeItems:'center',cursor:'pointer'}}, ICON.back(20)),
+          this.avatar(c.mono,c.hue,38,11),
+          h('div',{style:{flex:1,minWidth:0}},
+            h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:15.5,color:A.ink,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},c.name),
+            h('div',{style:{fontSize:11,color:A.muted,display:'flex',alignItems:'center',gap:5}}, h('span',{style:{width:6,height:6,borderRadius:3,background:'#7bd88f'}}), 'memory on \u00B7 '+(rpg?'campaign':'session'))),
+          h('button',{onClick:()=>this.openGen('txt2img', this.sceneDesc(c), 'chat'),title:'Generate scene',style:{width:36,height:36,flex:'none',borderRadius:10,border:'none',background:'transparent',color:A.accent,display:'grid',placeItems:'center',cursor:'pointer'}}, ICON.sparkle(19)),
+          h('button',{style:{width:36,height:36,flex:'none',borderRadius:10,border:'none',background:'transparent',color:A.sec,display:'grid',placeItems:'center',cursor:'pointer'}}, ICON.memory(19)))),
+      h('div',{'data-thread':'',className:'noscroll',style:{flex:1,minHeight:0,overflowY:'auto',padding:'22px 16px 8px'}},
+        this.state.turns.map((t,i)=>{ const you=t.role==='you';
+          return h('div',{key:i,style:{display:'flex',flexDirection:'column',alignItems:you?'flex-end':'flex-start',marginBottom:16}},
+            h('div',{style:{fontFamily:A.mono,fontSize:9.5,letterSpacing:'.1em',textTransform:'uppercase',color:A.muted,margin:'0 4px 5px'}}, t.name),
+            h('div',{style:{maxWidth:'82%',padding:'11px 14px',borderRadius:you?'16px 16px 4px 16px':'16px 16px 16px 4px',fontSize:14,lineHeight:1.55,border:'1px solid '+(you?'transparent':A.line),color:you?A.goldInk:A.ink,background:you?'linear-gradient(150deg,var(--violet),var(--violet-deep))':A.surface}}, you? t.text : md(t.text)));
+        }),
+        this.state.thinking? h('div',{style:{display:'flex',alignItems:'center',gap:8,fontFamily:A.mono,fontSize:10.5,letterSpacing:'.08em',textTransform:'uppercase',color:A.muted}}, h('span',{style:{width:7,height:7,borderRadius:4,background:A.accent,animation:'sh-blink 1s steps(2) infinite'}}), c.name+' is writing\u2026') : null
+      ),
+      rpg? h('div',{className:'noscroll',style:{flex:'none',display:'flex',alignItems:'center',gap:7,padding:'9px 16px',borderTop:'1px solid '+A.line,background:A.s2,overflowX:'auto'}},
+        h('span',{style:{color:A.accent,display:'flex'}},ICON.dice(15)),
+        ['d4','d6','d8','d20','2d6'].map(d=>h('button',{key:d,onClick:()=>this.send('/roll '+d),style:{flex:'none',border:'1px solid '+A.line2,background:A.surface,color:A.sec,borderRadius:9,padding:'6px 12px',fontFamily:A.mono,fontSize:12.5,cursor:'pointer'}},d))) : null,
+      this.composerEl(rpg)
+    );
+  }
+  composerEl(rpg){ const self=this;
+    return h('form',{style:{flex:'none',display:'flex',alignItems:'flex-end',gap:9,padding:'10px 14px calc(env(safe-area-inset-bottom,12px) + 12px)',borderTop:'1px solid '+A.line,background:A.s2},
+      onSubmit:(e)=>{ /* submit */ e.preventDefault(); const inp=e.target.querySelector('textarea'); self.send(inp.value); inp.value=''; inp.style.height='auto'; }},
+      h('button',{type:'button',onClick:()=>this.openGen('img2img',null,'chat'),title:'Generate image',style:{width:42,height:42,flex:'none',borderRadius:12,border:'1px solid '+A.line2,background:A.surface,color:A.sec,display:'grid',placeItems:'center',cursor:'pointer'}}, ICON.image(19)),
+      h('textarea',{rows:1,placeholder:rpg?'Describe your action\u2026':'Write your reply\u2026',onInput:(e)=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px';},onKeyDown:(e)=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();e.target.form.requestSubmit();}},style:{flex:1,resize:'none',maxHeight:120,padding:'11px 14px',borderRadius:14,border:'1px solid '+A.line2,background:A.surface,color:A.ink,fontFamily:A.sans,fontSize:14.5,lineHeight:1.4,outline:'none'}}),
+      h('button',{type:'submit',style:{width:42,height:42,flex:'none',borderRadius:12,border:'none',background:'linear-gradient(150deg,var(--violet),var(--violet-deep))',color:A.goldInk,display:'grid',placeItems:'center',cursor:'pointer'}}, ICON.send(19)));
+  }
+
+  // ---------- CREATIONS ----------
+  creationsEl(){ return this.screenWrap([
+    this.header('Creations', {brand:true, big:true, eyebrow:'Your studio', actions:[{icon:ICON.gear(18),title:'Studio settings'}]}),
+    h('div',{key:'b',style:{paddingTop:132,padding:'132px 16px 0'}},
+      h('button',{onClick:()=>this.go('create'),style:{width:'100%',display:'flex',alignItems:'center',gap:13,padding:'16px',borderRadius:16,border:'1px dashed '+A.line2,background:A.accentTint,cursor:'pointer',marginBottom:20}},
+        h('div',{style:{width:44,height:44,borderRadius:12,background:'linear-gradient(150deg,var(--violet),var(--violet-deep))',color:A.goldInk,display:'grid',placeItems:'center',flex:'none'}},ICON.plus(22)),
+        h('div',{style:{textAlign:'left'}},
+          h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:15.5,color:A.ink}},'Create a character'),
+          h('div',{style:{fontSize:12.5,color:A.sec,marginTop:2}},'Design a persona or a whole campaign world'))),
+      h('div',{style:{display:'flex',gap:10,marginBottom:16}}, [['Creations','3'],['Total chats','3.3k'],['Likes','1.2k']].map(s=>h('div',{key:s[0],style:{flex:1,background:A.surface,border:'1px solid '+A.line,borderRadius:13,padding:'12px 8px',textAlign:'center'}},
+        h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:18,color:A.accent}},s[1]),
+        h('div',{style:{fontFamily:A.mono,fontSize:9,letterSpacing:'.1em',textTransform:'uppercase',color:A.muted,marginTop:3}},s[0])))),
+      h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:16,color:A.ink,margin:'4px 2px 12px'}},'Your characters'),
+      h('div',{style:{display:'flex',flexDirection:'column',gap:10}}, CREATIONS.map(c=>{ const draft=c.status==='Draft';
+        return h('div',{key:c.id,style:{display:'flex',alignItems:'center',gap:12,padding:'12px',background:A.surface,border:'1px solid '+A.line,borderRadius:15}},
+          this.avatar(c.mono,c.hue,46,13),
+          h('div',{style:{flex:1,minWidth:0}},
+            h('div',{style:{display:'flex',alignItems:'center',gap:8}},
+              h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:14.5,color:A.ink}},c.name),
+              h('span',{style:{fontFamily:A.mono,fontSize:9,letterSpacing:'.08em',textTransform:'uppercase',padding:'2px 6px',borderRadius:5,color:draft?A.warn:'#7bd88f',background:(draft?'var(--warn-bg)':'#7bd88f10'),border:'1px solid '+(draft?'var(--warn-soft)':'#7bd88f33')}},c.status)),
+            h('div',{style:{display:'flex',gap:12,fontFamily:A.mono,fontSize:11,color:A.muted,marginTop:5}}, h('span',null,c.chats+' chats'), h('span',null,c.likes+' likes'))),
+          h('button',{onClick:()=>this.go('create'),style:{width:36,height:36,flex:'none',borderRadius:10,border:'1px solid '+A.line2,background:'transparent',color:A.sec,display:'grid',placeItems:'center',cursor:'pointer'}},ICON.edit(17)));
+      }))
+    )
+  ]); }
+
+  // ---------- PERSONAS ----------
+  personasEl(){ return this.screenWrap([
+    this.header('Personas', {brand:true, big:true, eyebrow:'How you appear', actions:[{icon:ICON.plus(20),title:'New persona'}]}),
+    h('div',{key:'b',style:{paddingTop:132,padding:'132px 16px 0'}},
+      h('p',{style:{fontSize:13,lineHeight:1.55,color:A.sec,margin:'0 2px 18px'}},'Personas are the character you play as. Switch between them per chat.'),
+      h('div',{style:{display:'flex',flexDirection:'column',gap:12}}, PERSONAS.map(p=>h('div',{key:p.id,style:{display:'flex',alignItems:'flex-start',gap:13,padding:'15px',background:A.surface,border:'1px solid '+(p.active?A.accentSoft:A.line),borderRadius:16,boxShadow:p.active?'0 0 0 1px '+A.accentSoft:'none'}},
+        this.avatar(p.mono,265,48,14),
+        h('div',{style:{flex:1,minWidth:0}},
+          h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:4}},
+            h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:15.5,color:A.ink}},p.name),
+            p.active? h('span',{style:{fontFamily:A.mono,fontSize:9,letterSpacing:'.1em',textTransform:'uppercase',color:A.accent,padding:'2px 7px',borderRadius:5,background:A.accentTint,border:'1px solid '+A.accentSoft}},'Active'):null),
+          h('div',{style:{fontSize:12.8,lineHeight:1.5,color:A.sec}},p.desc)),
+        h('button',{style:{width:34,height:34,flex:'none',borderRadius:10,border:'1px solid '+A.line2,background:'transparent',color:A.sec,display:'grid',placeItems:'center',cursor:'pointer'}}, p.active?ICON.check(17):ICON.edit(16))
+      )))
+    )
+  ]); }
+
+  // ---------- CREATE ----------
+  createEl(){ const field=(label,ph,val,area)=>h('div',{key:label,style:{marginBottom:16}},
+      h('label',{style:{display:'block',fontFamily:A.mono,fontSize:9.5,letterSpacing:'.16em',textTransform:'uppercase',color:A.muted,marginBottom:7}},label),
+      area? h('textarea',{rows:3,placeholder:ph,defaultValue:val,style:{width:'100%',resize:'none',padding:'12px 14px',borderRadius:12,border:'1px solid '+A.line2,background:A.surface,color:A.ink,fontFamily:A.sans,fontSize:14,lineHeight:1.5,outline:'none'}})
+        : h('input',{placeholder:ph,defaultValue:val,style:{width:'100%',padding:'12px 14px',borderRadius:12,border:'1px solid '+A.line2,background:A.surface,color:A.ink,fontFamily:A.sans,fontSize:14,outline:'none'}}));
+    return this.screenWrap([
+      this.header('New character', {back:'creations'}),
+      h('div',{key:'b',style:{paddingTop:100,padding:'100px 20px 0'}},
+        h('div',{style:{display:'flex',alignItems:'center',gap:14,marginBottom:22}},
+          h('button',{style:{width:74,height:74,flex:'none',borderRadius:18,border:'1px dashed '+A.line2,background:A.surface,color:A.muted,display:'grid',placeItems:'center',cursor:'pointer'}}, ICON.image(24)),
+          h('div',null, h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:14.5,color:A.ink}},'Avatar'), h('div',{style:{fontSize:12,color:A.muted,marginTop:3,maxWidth:180}},'Upload art or generate one from your description'))),
+        h('div',{style:{marginBottom:16}},
+          h('label',{style:{display:'block',fontFamily:A.mono,fontSize:9.5,letterSpacing:'.16em',textTransform:'uppercase',color:A.muted,marginBottom:8}},'Mode'),
+          h('div',{style:{display:'flex',gap:10}}, [['character','Character','A single persona to chat with'],['rpg','RPG world','A narrated campaign with rolls']].map(m=>h('button',{key:m[0],onClick:()=>this.setState({newMode:m[0]}),style:{flex:1,textAlign:'left',padding:'13px',borderRadius:13,cursor:'pointer',border:'1px solid '+((this.state.newMode||'character')===m[0]?A.accentSoft:A.line2),background:(this.state.newMode||'character')===m[0]?A.accentTint:'transparent'}},
+            h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:13.5,color:A.ink}},m[1]),
+            h('div',{style:{fontSize:11,color:A.muted,marginTop:3}},m[2]))))),
+        field('Name','e.g. Aria Vance'),
+        field('Tagline','One line that hooks a reader'),
+        field('Greeting','The first thing they say to open the scene\u2026','',true),
+        field('Personality & lore','Traits, voice, backstory, secrets\u2026','',true)
+      ),
+      h('div',{key:'cta',style:{position:'sticky',bottom:0,padding:'12px 20px calc(env(safe-area-inset-bottom,14px) + 14px)',background:'linear-gradient(to top, var(--paper) 72%, transparent)',display:'flex',gap:10}},
+        h('button',{onClick:()=>this.go('creations'),style:{flex:1,padding:'15px',borderRadius:14,border:'1px solid '+A.line2,background:A.surface,color:A.ink,fontFamily:A.sans,fontWeight:500,fontSize:14.5,cursor:'pointer'}},'Save draft'),
+        h('button',{onClick:()=>this.go('creations'),style:{flex:1,padding:'15px',borderRadius:14,border:'none',cursor:'pointer',fontFamily:A.sans,fontWeight:600,fontSize:15,color:A.goldInk,background:'linear-gradient(150deg,var(--violet),var(--violet-deep))'}},'Publish'))
+    ], false);
+  }
+
+  // ---------- SETTINGS ----------
+  settingsRow(icon,label,sub,right){ return h('div',{style:{display:'flex',alignItems:'center',gap:13,padding:'14px 4px',borderBottom:'1px solid '+A.line}},
+    h('div',{style:{width:34,height:34,flex:'none',borderRadius:10,background:A.surface,border:'1px solid '+A.line,color:A.sec,display:'grid',placeItems:'center'}},icon),
+    h('div',{style:{flex:1,minWidth:0}}, h('div',{style:{fontSize:14.5,color:A.ink}},label), sub?h('div',{style:{fontSize:12,color:A.muted,marginTop:2}},sub):null),
+    right||ICON.chevron(18)); }
+  toggleSwitch(on,onClick){ return h('span',{onClick,style:{width:40,height:23,flex:'none',borderRadius:12,cursor:'pointer',padding:2,background:on?'var(--violet)':A.line2,display:'flex',justifyContent:on?'flex-end':'flex-start',transition:'all .15s'}}, h('span',{style:{width:19,height:19,borderRadius:10,background:'#fff',display:'block'}})); }
+  sEyebrow(t){ return h('div',{style:{fontFamily:A.mono,fontSize:9.5,letterSpacing:'.16em',textTransform:'uppercase',color:A.muted,margin:'20px 4px 4px'}},t); }
+  settingsCard(){ const s=this.state; const close=()=>this.setState({settingsOpen:false});
+    const nav=(scr)=>{ close(); if(scr==='gallery'){ this.setState({screen:'gallery',genReturn:'library'}); this.scrollTop(); } else this.go(scr); };
+    return h('div',{className:'noscroll sh-in',style:{width:'100%',height:'100%',overflowY:'auto',background:A.s2,border:'1px solid '+A.line,borderRadius:20,boxShadow:'0 24px 60px -20px var(--violet-soft)',padding:'16px 16px 20px'}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:14}},
+        h('div',{style:{flex:1}}, h('div',{style:{fontFamily:A.mono,fontSize:9,letterSpacing:'.2em',textTransform:'uppercase',color:A.muted}},'Account'), h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:21,color:A.ink}},'Settings')),
+        h('button',{onClick:close,style:{width:34,height:34,borderRadius:10,border:'1px solid '+A.line,background:A.surface,color:A.sec,display:'grid',placeItems:'center',cursor:'pointer'}}, h('span',{style:{transform:'rotate(45deg)',display:'flex'}},ICON.plus(18)))),
+      h('div',{style:{display:'flex',alignItems:'center',gap:14,padding:'14px',background:A.surface,border:'1px solid '+A.line,borderRadius:15,marginBottom:4}},
+        this.avatar('K',265,48,14),
+        h('div',{style:{flex:1}}, h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:15.5,color:A.ink}},'Kael'), h('div',{style:{fontSize:12,color:A.muted,marginTop:2}},'@kael \u00b7 Owner \u00b7 Free plan')),
+        h('button',{style:{padding:'8px 13px',borderRadius:10,border:'1px solid '+A.accentSoft,background:A.accentTint,color:A.accent,fontFamily:A.sans,fontWeight:600,fontSize:12,cursor:'pointer'}},'Upgrade')),
+      this.sEyebrow('Preferences'),
+      this.settingsRow(ICON.moon(18),'Appearance','Dark'),
+      this.settingsRow(ICON.brain(18),'Model & memory','Balanced'),
+      this.settingsRow(ICON.bell(18),'Notifications'),
+      this.sEyebrow('Safety & content'),
+      this.settingsRow(ICON.image(18),'Content filter','Standard'),
+      this.settingsRow(ICON.eye(18),'Enable mature content','Show 18+ characters and images', this.toggleSwitch(s.matureEnabled,()=>this.setState({matureEnabled:!s.matureEnabled}))),
+      s.matureEnabled? this.settingsRow(ICON.eyeOff(18),'Privacy blur','Auto-blur mature content \u2014 quick-toggle sits top-right', this.toggleSwitch(s.privacyMode,()=>this.setState({privacyMode:!s.privacyMode}))) : null,
+      this.settingsRow(ICON.code(18),'Creator themes','Render sandboxed creator CSS on cards & chat', this.toggleSwitch(s.creatorThemes,()=>this.setState({creatorThemes:!s.creatorThemes}))),
+      this.sEyebrow('Generation \u00b7 ComfyUI'),
+      this.settingsRow(ICON.sparkle(18),'ComfyUI backend','127.0.0.1:8188', h('span',{style:{display:'flex',alignItems:'center',gap:6,fontFamily:A.mono,fontSize:11,color:'#7bd88f'}}, h('span',{style:{width:7,height:7,borderRadius:4,background:'#7bd88f'}}),'Connected')),
+      this.settingsRow(ICON.brain(18),'Default model',s.genModel),
+      this.settingsRow(ICON.layers(18),'LoRAs & checkpoints','8 installed'),
+      this.settingsRow(ICON.coin(18),'Generation credits','48 remaining', h('span',{style:{padding:'6px 12px',borderRadius:9,border:'1px solid '+A.accentSoft,background:A.accentTint,color:A.accent,fontFamily:A.sans,fontWeight:600,fontSize:12,cursor:'pointer'}},'Top up')),
+      this.sEyebrow('Workspace'),
+      h('div',{onClick:()=>nav('personas'),style:{cursor:'pointer'}}, this.settingsRow(ICON.personas(18),'Personas','How you appear in chats')),
+      h('div',{onClick:()=>nav('gallery'),style:{cursor:'pointer'}}, this.settingsRow(ICON.grid(18),'Output gallery')),
+      h('div',{onClick:()=>nav('admin'),style:{cursor:'pointer'}}, this.settingsRow(ICON.shield(18),'Admin panel','Users, roles, server', h('span',{style:{fontFamily:A.mono,fontSize:9,letterSpacing:'.08em',textTransform:'uppercase',padding:'3px 7px',borderRadius:5,color:A.accent,background:A.accentTint,border:'1px solid '+A.accentSoft}},'Owner'))),
+      this.sEyebrow('Account'),
+      this.settingsRow(ICON.gear(18),'Account & privacy'),
+      this.settingsRow(ICON.share(18),'Invite friends'),
+      h('button',{onClick:()=>{close();this.go('login');},style:{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:9,marginTop:20,padding:'14px',borderRadius:13,border:'1px solid var(--warn-soft)',background:'var(--warn-bg)',color:A.warn,fontFamily:A.sans,fontWeight:500,fontSize:14.5,cursor:'pointer'}}, ICON.logout(18),'Sign out'));
+  }
+
+  // ---------- FORUM ----------
+  forumEl(){ const cats=['All','Lorebooks','Prompts','Bug reports','Showcase'];
+    const threads=[
+      {title:'Best settings for long-memory RPG campaigns?',author:'dungeon_smith',cat:'Prompts',replies:42,up:128,hot:true},
+      {title:'Share your Thornreach lorebook edits',author:'inkwell',cat:'Lorebooks',replies:17,up:64,hot:false},
+      {title:'img2img denoise sweet spot for character consistency',author:'orbitaldrift',cat:'Showcase',replies:29,up:91,hot:true},
+      {title:'Fernet key rotation broke my imports \u2014 fix inside',author:'lorekeeper',cat:'Bug reports',replies:8,up:23,hot:false},
+      {title:'Persona voices: how do you keep them distinct?',author:'sootandsugar',cat:'Prompts',replies:53,up:140,hot:false},
+    ];
+    return this.screenWrap([
+      this.header('Forum', {brand:true, big:true, eyebrow:'Community', actions:[{icon:ICON.search(18),title:'Search'}]}),
+      h('div',{key:'b',style:{paddingTop:132,padding:'132px 16px 0'}},
+        h('button',{onClick:()=>{},style:{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'13px 14px',borderRadius:13,border:'1px solid '+A.accentSoft,background:A.accentTint,color:A.accent,cursor:'pointer',fontFamily:A.sans,fontWeight:600,fontSize:14,marginBottom:14}}, ICON.plus(18),'Start a discussion'),
+        h('div',{className:'noscroll',style:{display:'flex',gap:8,overflowX:'auto',paddingBottom:14}}, cats.map((c,i)=>this.chip(c,i===0,()=>{}))),
+        h('div',{style:{display:'flex',flexDirection:'column',gap:10}}, threads.map((t,i)=>h('button',{key:i,onClick:()=>{},style:{width:'100%',textAlign:'left',display:'flex',gap:12,padding:'13px',background:A.surface,border:'1px solid '+A.line,borderRadius:14,cursor:'pointer'}},
+          h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',gap:2,flex:'none',width:38,padding:'4px 0',borderRadius:9,background:A.s2,border:'1px solid '+A.line}}, h('span',{style:{color:A.accent,display:'flex'}},ICON.up(14)), h('span',{style:{fontFamily:A.mono,fontSize:12,color:A.ink}},t.up)),
+          h('div',{style:{flex:1,minWidth:0}},
+            h('div',{style:{display:'flex',alignItems:'center',gap:7,marginBottom:5}}, h('span',{style:{fontFamily:A.mono,fontSize:9,letterSpacing:'.08em',textTransform:'uppercase',padding:'2px 7px',borderRadius:5,color:A.sec,border:'1px solid '+A.line2}},t.cat), t.hot? h('span',{style:{fontFamily:A.mono,fontSize:9,letterSpacing:'.08em',textTransform:'uppercase',color:A.warn}},'\u25B2 Hot'):null),
+            h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:14.5,color:A.ink,lineHeight:1.25,marginBottom:6}},t.title),
+            h('div',{style:{display:'flex',gap:12,fontFamily:A.mono,fontSize:11,color:A.muted}}, h('span',null,'@'+t.author), h('span',{style:{display:'flex',alignItems:'center',gap:4}}, ICON.forum(12), t.replies))))
+        )))
+    ]);
+  }
+
+  // ---------- ADMIN ----------
+  adminEl(){ const users=[
+      {name:'Kael',handle:'kael',role:'Owner',hue:265},
+      {name:'Mara',handle:'inkwell',role:'Admin',hue:200},
+      {name:'Soot',handle:'sootandsugar',role:'Member',hue:18},
+      {name:'Drift',handle:'orbitaldrift',role:'Member',hue:150},
+      {name:'Guest_882',handle:'guest',role:'Muted',hue:0},
+    ];
+    const roleColor=(r)=> r==='Owner'?A.accent : r==='Admin'?'#7bd88f' : r==='Muted'?A.warn : A.sec;
+    const svc=(icon,label,val,ok)=>h('div',{style:{flex:1,minWidth:0,padding:'12px',background:A.surface,border:'1px solid '+A.line,borderRadius:13}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:7,color:A.sec,marginBottom:9}}, icon, h('span',{style:{fontFamily:A.mono,fontSize:9,letterSpacing:'.1em',textTransform:'uppercase'}},label)),
+      h('div',{style:{display:'flex',alignItems:'center',gap:6}}, h('span',{style:{width:7,height:7,borderRadius:4,background:ok?'#7bd88f':A.warn}}), h('span',{style:{fontFamily:A.sans,fontSize:13,color:A.ink}},val)));
+    return this.screenWrap([
+      this.header('Admin', {back:'library', eyebrow:'You are the owner'}),
+      h('div',{key:'b',style:{paddingTop:100,padding:'100px 16px 0'}},
+        h('div',{style:{display:'flex',gap:10,marginBottom:12}}, svc(ICON.sparkle(15),'ComfyUI','Connected',true), svc(ICON.brain(15),'Model','Online',true)),
+        h('div',{style:{display:'flex',gap:10,marginBottom:20}}, svc(ICON.server(15),'pgvector','Healthy',true), svc(ICON.memory(15),'Storage','61% used',true)),
+        h('div',{style:{display:'flex',gap:10,marginBottom:20}}, [['Users','5'],['Characters','128'],['Chats today','340']].map(x=>h('div',{key:x[0],style:{flex:1,textAlign:'center',padding:'12px 6px',background:A.surface,border:'1px solid '+A.line,borderRadius:13}}, h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:19,color:A.accent}},x[1]), h('div',{style:{fontFamily:A.mono,fontSize:8.5,letterSpacing:'.1em',textTransform:'uppercase',color:A.muted,marginTop:3}},x[0])))),
+        h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',margin:'0 2px 12px'}}, h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:16,color:A.ink}},'Users & roles'), h('span',{style:{fontFamily:A.mono,fontSize:11,color:A.accent}},'Invite')),
+        h('div',{style:{display:'flex',flexDirection:'column',gap:8,marginBottom:20}}, users.map((u,i)=>h('div',{key:i,style:{display:'flex',alignItems:'center',gap:12,padding:'11px 12px',background:A.surface,border:'1px solid '+A.line,borderRadius:13}},
+          this.avatar(u.name[0],u.hue,40,12),
+          h('div',{style:{flex:1,minWidth:0}}, h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:14,color:A.ink}},u.name), h('div',{style:{fontFamily:A.mono,fontSize:11,color:A.muted,marginTop:2}},'@'+u.handle)),
+          h('span',{style:{fontFamily:A.mono,fontSize:9,letterSpacing:'.08em',textTransform:'uppercase',padding:'3px 8px',borderRadius:6,color:roleColor(u.role),border:'1px solid '+roleColor(u.role)+'55',background:roleColor(u.role)+'12'}},u.role),
+          h('button',{style:{width:32,height:32,flex:'none',borderRadius:9,border:'1px solid '+A.line2,background:'transparent',color:A.sec,display:'grid',placeItems:'center',cursor:'pointer'}},ICON.chevron(16))))),
+        h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:16,color:A.ink,margin:'0 2px 12px'}},'Moderation'),
+        h('div',{style:{display:'flex',flexDirection:'column',gap:8}},
+          h('div',{style:{display:'flex',alignItems:'center',gap:12,padding:'13px',background:'var(--warn-bg)',border:'1px solid var(--warn-soft)',borderRadius:13}}, h('span',{style:{color:A.warn,display:'flex'}},ICON.alert(18)), h('div',{style:{flex:1,fontSize:13.5,color:A.ink}},'3 reports awaiting review'), h('span',{style:{color:A.warn,display:'flex'}},ICON.chevron(16))),
+          h('div',{onClick:()=>this.setState({settingsOpen:true}),style:{cursor:'pointer'}}, this.settingsRow(ICON.shield(18),'Roles & permissions','4 roles configured')),
+          this.settingsRow(ICON.image(18),'Content policy','Default filter: Standard')))
+    ]);
+  }
+
+  // ---------- DRAWER ----------
+  drawerRender(){ const item=(icon,label,go)=>h('button',{key:label,onClick:()=>this.go(go),style:{width:'100%',display:'flex',alignItems:'center',gap:13,padding:'13px 22px',background:'none',border:'none',color:A.ink,fontFamily:A.sans,fontSize:15,cursor:'pointer',textAlign:'left'}},
+      h('span',{style:{color:A.sec,display:'flex'}},icon), label);
+    return [
+      h('div',{key:'p',style:{display:'flex',alignItems:'center',gap:12,padding:'6px 22px 20px',borderBottom:'1px solid '+A.line,marginBottom:10}},
+        this.avatar('K',265,46,13),
+        h('div',null, h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:16,color:A.ink}},'Kael'), h('div',{style:{fontSize:12,color:A.muted,marginTop:2}},'@kael'))),
+      item(ICON.explore(20),'Explore','library'),
+      item(ICON.chats(20),'Chats','chats'),
+      item(ICON.creations(20),'Creations','creations'),
+      item(ICON.personas(20),'Personas','personas'),
+      h('button',{key:'d-gen',onClick:()=>this.openGen('txt2img',null,'library'),style:{width:'100%',display:'flex',alignItems:'center',gap:13,padding:'13px 22px',background:'none',border:'none',color:A.ink,fontFamily:A.sans,fontSize:15,cursor:'pointer',textAlign:'left'}}, h('span',{style:{color:A.sec,display:'flex'}},ICON.sparkle(20)), 'Image & video studio'),
+      h('button',{key:'d-gal',onClick:()=>{this.setState({screen:'gallery',drawerOpen:false,genReturn:'library'});this.scrollTop();},style:{width:'100%',display:'flex',alignItems:'center',gap:13,padding:'13px 22px',background:'none',border:'none',color:A.ink,fontFamily:A.sans,fontSize:15,cursor:'pointer',textAlign:'left'}}, h('span',{style:{color:A.sec,display:'flex'}},ICON.grid(20)), 'Gallery'),
+      item(ICON.chats(20),'Community forum','library'),
+      h('div',{key:'d',style:{height:1,background:A.line,margin:'10px 22px'}}),
+      item(ICON.gear(20),'Settings','settings'),
+      item(ICON.logout(20),'Sign out','login')
+    ];
+  }
+
+  // ---------- TABS ----------
+  tabItem(key,label,iconFn,screen,center,onClick){ const active=this.state.screen===screen;
+    if(center) return h('button',{key:key,onClick:onClick||(()=>this.go(screen)),style:{flex:'none',marginTop:-22,width:54,height:54,borderRadius:17,border:'none',background:'linear-gradient(150deg,var(--violet),var(--violet-deep))',color:A.goldInk,display:'grid',placeItems:'center',cursor:'pointer',boxShadow:'0 8px 20px -6px hsl(40 60% 40%)'}}, iconFn(26));
+    return h('button',{key:key,onClick:onClick||(()=>this.go(screen)),style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3,padding:'4px 0',background:'none',border:'none',cursor:'pointer',color:active?A.accent:A.muted}},
+      iconFn(22), h('span',{style:{fontFamily:A.sans,fontSize:9.5,fontWeight:active?600:500}},label));
+  }
+
+  // ========== GENERATION STUDIO ==========
+  arCss(a){ return (a||'1:1').replace(':',' / '); }
+  sceneDesc(c){ return c.mode==='rpg'? 'Thornreach keep at dusk, rusted portcullis, dark encroaching forest, volumetric fog, cinematic' : (c.tagline+', character portrait, dramatic rim light, intricate detail'); }
+  setGenMode(id){ const m=MODES.find(x=>x.id===id)||MODES[0]; if(this._gt){clearInterval(this._gt);this._gt=null;} this.setState({genMode:id, genHasSrc:!!m.src, genBusy:false, genProgress:0}); }
+  openGen(mode,prompt,ret){ const m=MODES.find(x=>x.id===mode); const r=ret||(this.state.screen==='generate'?this.state.genReturn:this.state.screen)||'library';
+    if(this._gt){clearInterval(this._gt);this._gt=null;}
+    this.setState({screen:'generate', sheetOpen:false, drawerOpen:false, settingsOpen:false, genMode:mode||this.state.genMode, genPrompt: prompt!=null?prompt:this.state.genPrompt, genHasSrc: m?!!m.src:this.state.genHasSrc, genReturn:r, genBusy:false, genProgress:0}); this.scrollTop(); }
+  runGen(){ if(this.state.genBusy) return; const st=this.state;
+    const seed = st.genSeedLock && st.genSeed ? st.genSeed : String(Math.floor(Math.random()*1e6));
+    this.setState({genBusy:true, genProgress:0, genNode:'Queued in ComfyUI', genSeed:seed});
+    setTimeout(()=>{ if(!this.state.genBusy) return;
+      this._gt=setInterval(()=>{ this.setState(s=>{ let p=s.genProgress + (4+Math.random()*8);
+        if(p>=100){ clearInterval(this._gt); this._gt=null; const r=this.makeResult(seed); return {genProgress:100, genBusy:false, genNode:'Done', genResults:[r,...s.genResults].slice(0,30), genLast:r}; }
+        return {genProgress:p, genNode:this.nodeFor(p)}; }); }, 190);
+    }, 550);
+  }
+  makeResult(seed){ const s=this.state; const m=MODES.find(x=>x.id===s.genMode)||MODES[0]; return {id:'g'+Date.now(), mode:s.genMode, video:m.video, hue:GEN_HUES[Math.floor(Math.random()*GEN_HUES.length)], dur:m.video?s.genDur+'s':null, prompt:s.genPrompt||'(untitled)', aspect:s.genAspect, seed, nsfw:this.state.matureEnabled}; }
+  nodeFor(p){ if(p<16) return 'Load checkpoint + LoRAs'; if(p<40) return 'CLIP text encode'; if(p<88) return 'KSampler '+Math.round(p/100*this.state.genSteps)+'/'+this.state.genSteps; return 'VAE decode'; }
+  genVerb(){ const m=MODES.find(x=>x.id===this.state.genMode)||MODES[0]; return this.state.genMode==='upscale'?'Upscale':(m.video?'Generate video':'Generate'); }
+  genMeta(){ const s=this.state; return s.genModel+' \u00b7 '+s.genSteps+' steps \u00b7 cfg '+(+s.genCfg).toFixed(1)+' \u00b7 seed '+(s.genSeed||'random'); }
+
+  // ---- mask painting ----
+  setMask=(el)=>{ if(!el){ return; } if(this._maskEl===el) return; this._maskEl=el; this._mctx=el.getContext('2d'); this._undo=[]; }
+  _pt(e){ const el=this._maskEl; const r=el.getBoundingClientRect(); return {x:(e.clientX-r.left)*(el.width/r.width), y:(e.clientY-r.top)*(el.height/r.height)}; }
+  _stroke(a,b){ const ctx=this._mctx; if(!ctx) return; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.lineWidth=this.state.genBrush; ctx.globalCompositeOperation=this.state.genErase?'destination-out':'source-over'; ctx.strokeStyle='rgba(232,183,90,0.5)'; ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke(); }
+  mDown=(e)=>{ if(this.state.genMode!=='inpaint'||!this._mctx) return; const el=this._maskEl; try{el.setPointerCapture(e.pointerId);}catch(_){}; this._undo.push(this._mctx.getImageData(0,0,el.width,el.height)); if(this._undo.length>12) this._undo.shift(); this._painting=true; this._last=this._pt(e); this._stroke(this._last,this._last); }
+  mMove=(e)=>{ if(!this._painting) return; const p=this._pt(e); this._stroke(this._last,p); this._last=p; }
+  mUp=()=>{ this._painting=false; }
+  undoMask(){ if(!this._undo||!this._undo.length||!this._mctx) return; this._mctx.putImageData(this._undo.pop(),0,0); }
+  clearMask(){ if(!this._mctx) return; this._mctx.clearRect(0,0,this._maskEl.width,this._maskEl.height); this._undo=[]; }
+
+  // ---- small control helpers ----
+  labeled(label,node){ return h('div',{key:label,style:{marginBottom:16}}, h('div',{style:{fontFamily:A.mono,fontSize:9.5,letterSpacing:'.16em',textTransform:'uppercase',color:A.muted,marginBottom:8}},label), node); }
+  sliderRow(label,val,min,max,step,on,fmt){ return h('div',{key:label,style:{marginBottom:16}},
+    h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:8}},
+      h('span',{style:{fontFamily:A.mono,fontSize:9.5,letterSpacing:'.16em',textTransform:'uppercase',color:A.muted}},label),
+      h('span',{style:{fontFamily:A.mono,fontSize:11.5,color:A.accent}}, fmt?fmt(val):val)),
+    h('input',{type:'range',min,max,step,value:val,onChange:(e)=>on(+e.target.value),style:{width:'100%',accentColor:'var(--accent)'}})); }
+  segmented(opts,val,on){ return h('div',{style:{display:'flex',gap:5,background:A.surface,border:'1px solid '+A.line,borderRadius:12,padding:4}}, opts.map(o=>h('button',{key:o,onClick:()=>on(o),style:{flex:1,padding:'9px 4px',borderRadius:9,border:'none',cursor:'pointer',fontFamily:A.sans,fontSize:12.5,fontWeight:val===o?600:500,color:val===o?A.goldInk:A.sec,background:val===o?'linear-gradient(150deg,var(--violet),var(--violet-deep))':'transparent'}},o))); }
+  miniBtn(content,on,active){ return h('button',{onClick:on,style:{minWidth:44,height:40,padding:'0 12px',flex:'none',borderRadius:11,border:'1px solid '+(active?A.accentSoft:A.line2),background:active?A.accentTint:A.surface,color:active?A.accent:A.sec,display:'grid',placeItems:'center',cursor:'pointer',fontFamily:A.sans,fontSize:12.5,fontWeight:600}}, content); }
+  iconToggle(icon,active,on){ return h('button',{onClick:on,style:{width:38,height:30,borderRadius:8,border:'none',cursor:'pointer',display:'grid',placeItems:'center',color:active?A.goldInk:A.sec,background:active?'linear-gradient(150deg,var(--violet),var(--violet-deep))':'transparent'}},icon); }
+
+  // ---- generation screen ----
+  genEl(){ const s=this.state; const m=MODES.find(x=>x.id===s.genMode)||MODES[0];
+    return h('div',{key:'generate','data-scroll':'',className:'noscroll sh-in',style:{position:'absolute',inset:0,overflowY:'auto',background:'var(--paper)',paddingBottom:132}},
+      this.header('Generate',{back:s.genReturn||'library', eyebrow:'ComfyUI studio', actions:[{icon:ICON.grid(18),title:'Gallery',on:()=>{this.setState({screen:'gallery'});this.scrollTop();}}]}),
+      h('div',{style:{paddingTop:98}},
+        this.modeDropdown(),
+        h('div',{style:{padding:'0 16px'}},
+          this.genPreview(m),
+          (m.mask && s.genHasSrc)? this.brushBar() : null,
+          (s.genMode!=='upscale')? this.promptBlock(m.video) : this.upscaleNote(),
+          this.controls(m),
+          this.recentTray()
+        )
+      ),
+      this.genBar()
+    );
+  }
+  modeIcon(md){ return md.video?ICON.play(17):(md.mask?ICON.brush(17):(md.id==='upscale'?ICON.grid(17):ICON.sparkle(17))); }
+  modeDropdown(){ const s=this.state; const cur=MODES.find(x=>x.id===s.genMode)||MODES[0];
+    return h('div',{style:{position:'relative',padding:'2px 16px 12px',zIndex:24}},
+      h('button',{onClick:()=>this.setState({genModeMenu:!s.genModeMenu}),style:{width:'100%',display:'flex',alignItems:'center',gap:11,padding:'12px 14px',borderRadius:12,border:'1px solid '+(s.genModeMenu?A.accentSoft:A.line2),background:A.surface,color:A.ink,cursor:'pointer'}},
+        h('span',{style:{display:'flex',color:A.accent}}, this.modeIcon(cur)),
+        h('span',{style:{flex:1,textAlign:'left'}},
+          h('div',{style:{fontFamily:A.mono,fontSize:8.5,letterSpacing:'.16em',textTransform:'uppercase',color:A.muted,marginBottom:1}},'Mode'),
+          h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:15,lineHeight:1.1}},cur.label)),
+        h('span',{style:{transform:s.genModeMenu?'rotate(-90deg)':'rotate(90deg)',transition:'transform .2s',color:A.muted,display:'flex'}},ICON.chevron(16))),
+      s.genModeMenu? h('div',{className:'sh-in',style:{position:'absolute',left:16,right:16,top:'100%',marginTop:6,background:A.s2,border:'1px solid '+A.line,borderRadius:14,overflow:'hidden',boxShadow:'0 16px 34px -12px rgba(0,0,0,.6)'}},
+        MODES.map((md,i)=>h('button',{key:md.id,onClick:()=>{this.setGenMode(md.id);this.setState({genModeMenu:false});},style:{width:'100%',display:'flex',alignItems:'center',gap:11,padding:'12px 14px',background:s.genMode===md.id?A.accentTint:'transparent',border:'none',borderBottom:i<MODES.length-1?'1px solid '+A.line:'none',cursor:'pointer',textAlign:'left'}},
+          h('span',{style:{display:'flex',color:s.genMode===md.id?A.accent:A.sec}}, this.modeIcon(md)),
+          h('span',{style:{flex:1,fontFamily:A.sans,fontSize:14,fontWeight:s.genMode===md.id?600:500,color:s.genMode===md.id?A.accent:A.ink}},md.label),
+          s.genMode===md.id? h('span',{style:{color:A.accent,display:'flex'}},ICON.check(16)) : null))) : null
+    );
+  }
+  genPreview(m){ const s=this.state; const ar=m.mask?'1 / 1':this.arCss(s.genAspect); const needSrc=!!m.src;
+    const base = (needSrc && s.genHasSrc)? this.inputLayer(m)
+      : (!needSrc && s.genLast)? this.resultLayer(s.genLast)
+      : this.emptyLayer(m.video, needSrc);
+    return h('div',{style:{position:'relative',width:'100%',aspectRatio:ar,borderRadius:16,overflow:'hidden',border:'1px solid '+A.line,background:A.surface,marginBottom:14,display:'grid',placeItems:'center'}},
+      base,
+      (m.mask && s.genHasSrc)? h('canvas',{key:'mask',ref:this.setMask,width:640,height:640,onPointerDown:this.mDown,onPointerMove:this.mMove,onPointerUp:this.mUp,onPointerLeave:this.mUp,style:{position:'absolute',inset:0,width:'100%',height:'100%',touchAction:'none',cursor:'crosshair'}}) : null,
+      s.genBusy? this.progressLayer() : null
+    );
+  }
+  inputLayer(m){ const hue=265; return h('div',{key:'inp',style:{position:'absolute',inset:0,background:'linear-gradient(150deg,hsl('+hue+' 40% 30%),hsl('+hue+' 45% 12%))'}},
+    h('div',{style:{position:'absolute',inset:0,display:'grid',placeItems:'center',color:'rgba(255,255,255,.4)'}}, ICON.image(38)),
+    h('button',{onClick:()=>{},style:{position:'absolute',right:10,top:10,display:'flex',alignItems:'center',gap:6,padding:'7px 11px',borderRadius:10,border:'1px solid rgba(255,255,255,.25)',background:'rgba(10,10,12,.5)',color:'#fff',fontFamily:A.sans,fontSize:12,fontWeight:600,cursor:'pointer',backdropFilter:'blur(6px)'}}, ICON.image(14),'Replace'),
+    h('div',{style:{position:'absolute',left:10,bottom:10,fontFamily:A.mono,fontSize:10,letterSpacing:'.1em',textTransform:'uppercase',color:'rgba(255,255,255,.7)'}}, m.mask?'Paint mask over area to change':(m.id==='upscale'?'Source image':'Reference image'))); }
+  emptyLayer(isVideo,needSrc){ if(needSrc) return h('div',{key:'add',style:{textAlign:'center',color:A.muted,padding:20}},
+      h('div',{style:{width:52,height:52,margin:'0 auto 12px',borderRadius:14,border:'1px solid '+A.line2,display:'grid',placeItems:'center',color:A.accent}}, ICON.image(24)),
+      h('button',{onClick:()=>this.setState({genHasSrc:true}),style:{padding:'10px 16px',borderRadius:11,border:'1px solid '+A.accentSoft,background:A.accentTint,color:A.accent,fontFamily:A.sans,fontWeight:600,fontSize:13,cursor:'pointer'}},'Add a reference image'));
+    return h('div',{key:'empty',style:{textAlign:'center',color:A.muted,padding:20}},
+      h('div',{style:{width:52,height:52,margin:'0 auto 12px',borderRadius:14,border:'1px solid '+A.line2,display:'grid',placeItems:'center',color:A.accent}}, isVideo?ICON.play(22):ICON.sparkle(24)),
+      h('div',{style:{fontFamily:A.sans,fontSize:13.5,color:A.sec}}, (isVideo?'Your video':'Your image')+' will appear here'),
+      h('div',{style:{fontSize:11.5,marginTop:4}},'Describe it below, then tap Generate')); }
+  resultLayer(r){ return h('div',{key:'res',style:{position:'absolute',inset:0,background:'linear-gradient(150deg,hsl('+r.hue+' 55% 46%),hsl('+((r.hue+40)%360)+' 50% 22%))'}},
+    r.video? h('div',{style:{position:'absolute',inset:0,display:'grid',placeItems:'center'}}, h('div',{style:{width:56,height:56,borderRadius:30,background:'rgba(10,10,12,.5)',display:'grid',placeItems:'center',color:'#fff',backdropFilter:'blur(4px)'}}, ICON.play(24))) : null,
+    r.dur? h('div',{style:{position:'absolute',left:10,top:10,fontFamily:A.mono,fontSize:10,padding:'3px 7px',borderRadius:6,background:'rgba(10,10,12,.5)',color:'#fff',backdropFilter:'blur(4px)'}}, r.dur) : null,
+    h('div',{style:{position:'absolute',right:10,bottom:10,display:'flex',gap:8}},
+      this.imgAct(ICON.upscale?ICON.upscale(16):ICON.plus(16),()=>this.openGen('upscale')),
+      this.imgAct(ICON.share(16),()=>{}),
+      this.imgAct(ICON.sparkle(16),()=>this.runGen()))); }
+  imgAct(icon,on){ return h('button',{onClick:on,style:{width:38,height:38,borderRadius:11,border:'1px solid rgba(255,255,255,.2)',background:'rgba(10,10,12,.5)',color:'#fff',display:'grid',placeItems:'center',cursor:'pointer',backdropFilter:'blur(6px)'}}, icon); }
+  progressLayer(){ const s=this.state; const p=Math.round(s.genProgress); return h('div',{key:'prog',style:{position:'absolute',inset:0,background:'rgba(8,8,10,.74)',backdropFilter:'blur(3px)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:13,padding:24}},
+    h('div',{style:{fontFamily:A.mono,fontSize:10,letterSpacing:'.2em',textTransform:'uppercase',color:A.accent}}, p<3?'Queued':'Generating'),
+    h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:36,color:'#fff',lineHeight:1}}, p+'%'),
+    h('div',{style:{width:'82%',height:6,borderRadius:4,background:'rgba(255,255,255,.12)',overflow:'hidden'}}, h('div',{style:{width:p+'%',height:'100%',background:'linear-gradient(90deg,var(--violet),var(--violet-deep))',transition:'width .18s'}})),
+    h('div',{style:{fontFamily:A.mono,fontSize:11,color:'rgba(255,255,255,.65)'}}, s.genNode||'\u2026'),
+    h('div',{style:{fontFamily:A.mono,fontSize:9,letterSpacing:'.14em',textTransform:'uppercase',color:'rgba(255,255,255,.32)'}},'ComfyUI \u00b7 '+s.genModel)); }
+  brushBar(){ const s=this.state; return h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:14}},
+    h('div',{style:{display:'flex',gap:4,background:A.surface,border:'1px solid '+A.line,borderRadius:11,padding:4}},
+      this.iconToggle(ICON.brush(17),!s.genErase,()=>this.setState({genErase:false})),
+      this.iconToggle(ICON.eraser(17),s.genErase,()=>this.setState({genErase:true}))),
+    h('div',{style:{flex:1,display:'flex',alignItems:'center',gap:8}}, ICON.brush(13), h('input',{type:'range',min:12,max:140,value:s.genBrush,onChange:(e)=>this.setState({genBrush:+e.target.value}),style:{flex:1,accentColor:'var(--accent)'}})),
+    this.miniBtn(ICON.undo(16),()=>this.undoMask()),
+    this.miniBtn('Clear',()=>this.clearMask())); }
+  promptBlock(isVideo){ const s=this.state; return h('div',{style:{marginBottom:18}},
+    h('textarea',{value:s.genPrompt,onChange:(e)=>this.setState({genPrompt:e.target.value}),rows:3,placeholder:isVideo?'Describe the motion and scene\u2026':'Describe what to generate\u2026',style:{width:'100%',resize:'none',padding:'13px 14px',borderRadius:13,border:'1px solid '+A.line2,background:A.surface,color:A.ink,fontFamily:A.sans,fontSize:14.5,lineHeight:1.5,outline:'none'}}),
+    h('button',{onClick:()=>this.setState({genNeg:!s.genNeg}),style:{display:'flex',alignItems:'center',gap:6,marginTop:9,background:'none',border:'none',color:A.muted,fontFamily:A.mono,fontSize:10,letterSpacing:'.12em',textTransform:'uppercase',cursor:'pointer'}}, h('span',{style:{transform:s.genNeg?'rotate(90deg)':'none',transition:'transform .2s',display:'flex'}},ICON.chevron(13)), 'Negative prompt'),
+    s.genNeg? h('textarea',{value:s.genNegText,onChange:(e)=>this.setState({genNegText:e.target.value}),rows:2,placeholder:'What to avoid\u2026',style:{width:'100%',resize:'none',marginTop:9,padding:'12px 14px',borderRadius:12,border:'1px solid '+A.line2,background:A.surface,color:A.sec,fontFamily:A.sans,fontSize:13.5,lineHeight:1.5,outline:'none'}}) : null); }
+  upscaleNote(){ return h('div',{style:{padding:'13px 14px',background:A.accentTint,border:'1px solid '+A.accentSoft,borderRadius:12,marginBottom:18,fontSize:12.5,lineHeight:1.5,color:A.sec}}, h('span',{style:{color:A.accent,fontWeight:600}},'Upscale & enhance. '),'Recovers detail and sharpens the source \u2014 no prompt needed.'); }
+  controls(m){ const s=this.state; const blocks=[];
+    if(s.genMode!=='upscale') blocks.push(this.presetRow());
+    if(s.genMode!=='upscale') blocks.push(this.labeled('Aspect ratio', this.segmented(['1:1','2:3','3:4','16:9','9:16'], s.genAspect, (v)=>this.setState({genAspect:v}))));
+    if(s.genMode==='img2img'||s.genMode==='inpaint') blocks.push(this.sliderRow('Denoise strength', s.genStrength, 0.05, 1, 0.05, (v)=>this.setState({genStrength:v}), (v)=>v.toFixed(2)));
+    if(m.video){ blocks.push(this.labeled('Duration', this.segmented(['2s','3s','4s','6s'], s.genDur+'s', (v)=>this.setState({genDur:+v.replace('s','')}))));
+      blocks.push(this.sliderRow('Frame rate', s.genFps, 8, 30, 1, (v)=>this.setState({genFps:v}), (v)=>v+' fps')); }
+    if(s.genMode==='upscale') blocks.push(this.labeled('Scale factor', this.segmented(['2\u00d7','4\u00d7'], s.scale||'2\u00d7', (v)=>this.setState({scale:v}))));
+    blocks.push(this.labeled('Model', h('div',{className:'noscroll',style:{display:'flex',gap:8,overflowX:'auto'}}, GEN_MODELS.map(mm=>this.chip(mm, s.genModel===mm, ()=>this.setState({genModel:mm}))))));
+    blocks.push(this.loraSection());
+    blocks.push(this.advanced());
+    return h('div',null, blocks);
+  }
+  presetRow(){ const presets=['Cinematic','Photoreal','Anime','Oil painting','Watercolor','Concept art']; return this.labeled('Style preset', h('div',{className:'noscroll',style:{display:'flex',gap:8,overflowX:'auto'}}, presets.map(p=>this.chip(p, this.state.genPreset===p, ()=>this.setState({genPreset:p}))))); }
+  loraSection(){ const s=this.state; return h('div',{style:{marginBottom:16}},
+    h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:7,fontFamily:A.mono,fontSize:9.5,letterSpacing:'.16em',textTransform:'uppercase',color:A.muted}}, ICON.layers(13),'LoRAs'),
+      h('button',{onClick:()=>{},style:{display:'flex',alignItems:'center',gap:4,background:'none',border:'none',color:A.accent,fontFamily:A.mono,fontSize:11,cursor:'pointer'}}, ICON.plus(13),'Add')),
+    h('div',{style:{display:'flex',flexDirection:'column',gap:8}}, s.genLoras.map((l,i)=>h('div',{key:l.name,style:{padding:'11px 12px',background:A.surface,border:'1px solid '+(l.on?A.accentSoft:A.line),borderRadius:12}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:l.on?9:0}},
+        h('button',{onClick:()=>this.toggleLora(i),style:{width:34,height:20,flex:'none',borderRadius:11,border:'none',cursor:'pointer',padding:2,background:l.on?'var(--violet)':A.line2,display:'flex',justifyContent:l.on?'flex-end':'flex-start',transition:'all .15s'}}, h('span',{style:{width:16,height:16,borderRadius:8,background:'#fff',display:'block'}})),
+        h('div',{style:{flex:1,fontFamily:A.sans,fontSize:13.5,color:l.on?A.ink:A.muted}},l.name),
+        l.on? h('span',{style:{fontFamily:A.mono,fontSize:11.5,color:A.accent}}, l.w.toFixed(2)) : null),
+      l.on? h('input',{type:'range',min:0,max:1,step:0.05,value:l.w,onChange:(e)=>this.setLora(i,+e.target.value),style:{width:'100%',accentColor:'var(--accent)'}}) : null
+    )))); }
+  toggleLora(i){ this.setState(s=>({genLoras:s.genLoras.map((l,j)=>j===i?Object.assign({},l,{on:!l.on}):l)})); }
+  setLora(i,w){ this.setState(s=>({genLoras:s.genLoras.map((l,j)=>j===i?Object.assign({},l,{w}):l)})); }
+  advanced(){ const s=this.state; return h('div',{style:{marginBottom:8,border:'1px solid '+A.line,borderRadius:14,overflow:'hidden'}},
+    h('button',{onClick:()=>this.setState({advOpen:!s.advOpen}),style:{width:'100%',display:'flex',alignItems:'center',gap:9,padding:'13px 14px',background:A.surface,border:'none',cursor:'pointer',color:A.ink}},
+      h('span',{style:{color:A.sec,display:'flex'}},ICON.sliders(17)), h('span',{style:{flex:1,textAlign:'left',fontFamily:A.sans,fontSize:14,fontWeight:500}},'Advanced'),
+      h('span',{style:{transform:s.advOpen?'rotate(90deg)':'none',transition:'transform .2s',color:A.muted,display:'flex'}},ICON.chevron(16))),
+    s.advOpen? h('div',{style:{padding:'14px 14px 4px',borderTop:'1px solid '+A.line}},
+      this.sliderRow('Steps', s.genSteps, 1, 50, 1, (v)=>this.setState({genSteps:v})),
+      this.sliderRow('Guidance (CFG)', s.genCfg, 1, 15, 0.5, (v)=>this.setState({genCfg:v}), (v)=>(+v).toFixed(1)),
+      this.labeled('Sampler', h('div',{className:'noscroll',style:{display:'flex',gap:8,overflowX:'auto'}}, ['Euler a','DPM++ 2M','DDIM','UniPC'].map(sm=>this.chip(sm, s.sampler===sm, ()=>this.setState({sampler:sm}))))),
+      h('div',{style:{marginBottom:12}}, h('div',{style:{fontFamily:A.mono,fontSize:9.5,letterSpacing:'.16em',textTransform:'uppercase',color:A.muted,marginBottom:8}},'Seed'),
+        h('div',{style:{display:'flex',gap:8}},
+          h('input',{value:s.genSeed,placeholder:'random',onChange:(e)=>this.setState({genSeed:e.target.value.replace(/\D/g,'')}),style:{flex:1,padding:'11px 13px',borderRadius:11,border:'1px solid '+A.line2,background:A.surface,color:A.ink,fontFamily:A.mono,fontSize:13,outline:'none'}}),
+          this.miniBtn(ICON.lock(16), ()=>this.setState({genSeedLock:!s.genSeedLock}), s.genSeedLock),
+          this.miniBtn(ICON.shuffle(16), ()=>this.setState({genSeed:String(Math.floor(Math.random()*1e6))}))))
+    ) : null); }
+  recentTray(){ const s=this.state; if(!s.genResults.length) return null; return h('div',{style:{marginTop:6}},
+    h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',margin:'0 2px 10px'}},
+      h('div',{style:{fontFamily:A.mono,fontSize:9.5,letterSpacing:'.16em',textTransform:'uppercase',color:A.muted}},'Recent'),
+      h('button',{onClick:()=>{this.setState({screen:'gallery'});this.scrollTop();},style:{background:'none',border:'none',color:A.accent,fontFamily:A.mono,fontSize:11,cursor:'pointer'}},'Gallery \u2192')),
+    h('div',{className:'noscroll',style:{display:'flex',gap:10,overflowX:'auto',paddingBottom:4}}, s.genResults.map(r=>h('button',{key:r.id,onClick:()=>this.setState({genLast:r}),style:{flex:'none',width:84,height:84,borderRadius:12,border:'1px solid '+A.line,overflow:'hidden',position:'relative',cursor:'pointer',padding:0,background:'linear-gradient(150deg,hsl('+r.hue+' 55% 46%),hsl('+((r.hue+40)%360)+' 50% 22%))'}},
+      r.video? h('div',{style:{position:'absolute',inset:0,display:'grid',placeItems:'center',color:'#fff'}}, ICON.play(18)) : null)))); }
+  genBar(){ const s=this.state; const busy=s.genBusy; return h('div',{style:{position:'absolute',bottom:0,left:0,right:0,zIndex:25,padding:'12px 16px calc(env(safe-area-inset-bottom,12px) + 12px)',background:'linear-gradient(to top, var(--surface-2) 74%, transparent)'}},
+    h('div',{style:{display:'flex',alignItems:'center',gap:12}},
+      h('div',{style:{display:'flex',alignItems:'center',gap:5,fontFamily:A.mono,fontSize:11.5,color:A.sec,flex:'none'}}, ICON.coin(15), '48'),
+      h('button',{onClick:()=>this.runGen(),disabled:busy,style:{flex:1,padding:'15px',borderRadius:14,border:'none',cursor:busy?'default':'pointer',opacity:busy?.75:1,fontFamily:A.sans,fontWeight:600,fontSize:15.5,color:A.goldInk,background:'linear-gradient(150deg,var(--violet),var(--violet-deep))',display:'flex',alignItems:'center',justifyContent:'center',gap:8,boxShadow:'0 10px 24px -12px hsl(40 60% 40%)'}}, ICON.sparkle(18), busy? ('Generating '+Math.round(s.genProgress)+'%') : this.genVerb())),
+    h('div',{style:{textAlign:'center',fontFamily:A.mono,fontSize:9.5,color:A.muted,marginTop:8}}, this.genMeta())); }
+
+  // ---- gallery ----
+  galleryEl(){ const s=this.state; const f=s.galFilter||'All'; const items=s.genResults.filter(r=>(!r.nsfw||s.matureEnabled) && (f==='All'?true : f==='Videos'?r.video : !r.video));
+    return this.screenWrap([
+      this.header('Gallery',{back:'generate', eyebrow:'Your outputs'}),
+      h('div',{key:'b',style:{paddingTop:104,padding:'104px 16px 0'}},
+        h('div',{style:{display:'flex',gap:8,marginBottom:16}}, ['All','Images','Videos'].map(t=>this.chip(t, f===t, ()=>this.setState({galFilter:t})))),
+        items.length? h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}, items.map(r=>this.galTile(r)))
+          : h('div',{style:{textAlign:'center',color:A.muted,padding:'60px 0',fontSize:13.5}},'Nothing here yet.'))
+    ]); }
+  galTile(r){ const bl=this.state.matureEnabled&&this.state.privacyMode&&r.nsfw; return h('button',{key:r.id,onClick:()=>this.openGen(r.video?'txt2vid':'txt2img', r.prompt, 'gallery'),style:{position:'relative',aspectRatio:this.arCss(r.aspect||'1:1'),borderRadius:14,overflow:'hidden',border:'1px solid '+A.line,cursor:'pointer',padding:0,background:A.surface}},
+    h('div',{style:{position:'absolute',inset:0,background:'linear-gradient(150deg,hsl('+r.hue+' 55% 46%),hsl('+((r.hue+40)%360)+' 50% 22%))',filter:bl?'blur(18px)':'none',transform:bl?'scale(1.15)':'none'}}),
+    h('div',{style:{position:'absolute',left:8,top:8}}, h('span',{style:{fontFamily:A.mono,fontSize:8.5,letterSpacing:'.06em',textTransform:'uppercase',padding:'3px 6px',borderRadius:5,background:'rgba(10,10,12,.5)',color:'#fff',backdropFilter:'blur(4px)'}}, r.mode)),
+    r.video? h('div',{style:{position:'absolute',inset:0,display:'grid',placeItems:'center',color:'#fff'}}, ICON.play(22)) : null,
+    bl? this.nsfwOverlay() : h('div',{style:{position:'absolute',left:0,right:0,bottom:0,padding:'20px 8px 8px',background:'linear-gradient(to top,rgba(8,8,10,.82),transparent)',fontSize:10.5,color:'rgba(255,255,255,.85)',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}, r.prompt)); }
+
+  // ---- create sheet ----
+  sheetEl(){ const opt=(icon,title,sub,on,hue)=>h('button',{key:title,onClick:on,style:{width:'100%',display:'flex',alignItems:'center',gap:14,padding:'13px 14px',background:A.surface,border:'1px solid '+A.line,borderRadius:15,cursor:'pointer',textAlign:'left',marginBottom:10}},
+      h('div',{style:{width:44,height:44,flex:'none',borderRadius:12,display:'grid',placeItems:'center',color:A.goldInk,background:'linear-gradient(150deg,hsl('+hue+' 55% 42%),hsl('+hue+' 50% 22%))'}}, icon),
+      h('div',{style:{flex:1}}, h('div',{style:{fontFamily:A.display,fontWeight:600,fontSize:15,color:A.ink}},title), h('div',{style:{fontSize:12.5,color:A.muted,marginTop:2}},sub)),
+      h('span',{style:{color:A.muted,display:'flex'}},ICON.chevron(18)));
+    return h('div',null,
+      h('div',{style:{width:38,height:4,borderRadius:2,background:A.line2,margin:'2px auto 16px'}}),
+      h('div',{style:{fontFamily:A.mono,fontSize:9.5,letterSpacing:'.2em',textTransform:'uppercase',color:A.muted,margin:'0 2px 12px'}},'Create'),
+      opt(ICON.sparkle(22),'Generate image','txt2img \u00b7 img2img \u00b7 inpaint',()=>this.openGen('txt2img'),38),
+      opt(ICON.play(22),'Generate video','txt2vid \u00b7 img2vid',()=>this.openGen('txt2vid'),265),
+      opt(ICON.personas(22),'New character','Design a persona or a world',()=>{this.setState({sheetOpen:false});this.go('create');},150));
+  }
+
+  renderVals(){
+    const s=this.state.screen;
+    const top=['library','chats','creations','personas','forum'];
+    const screenMap={ login:()=>this.loginEl(), library:()=>this.libraryEl(), chats:()=>this.chatsEl(), chat:()=>this.chatEl(), dossier:()=>this.dossierEl(), creations:()=>this.creationsEl(), personas:()=>this.personasEl(), create:()=>this.createEl(), generate:()=>this.genEl(), gallery:()=>this.galleryEl(), forum:()=>this.forumEl(), admin:()=>this.adminEl(), e404:()=>this.errorEl('404'), e401:()=>this.errorEl('401'), e403:()=>this.errorEl('403'), e500:()=>this.errorEl('500'), e503:()=>this.errorEl('503') };
+    const jump=[['01','Sign in','__signin'],['02','Register','__register'],['03','TOTP enroll','__enroll'],['04','Forgot · TOTP','__forgot'],['05','Library','library'],['06','Character dossier','dossier'],['07','Chat thread','chat'],['08','RPG campaign','__rpg'],['09','Image studio','__gen_img'],['10','Inpaint \u00b7 mask paint','__gen_inpaint'],['11','Video generation','__gen_vid'],['12','Output gallery','gallery'],['13','Chats (recents)','chats'],['14','Creations','creations'],['15','New character','create'],['16','Personas','personas'],['17','Community forum','forum'],['18','Admin panel','admin'],['19','Settings (modal)','__settings'],['20','404 not found','e404'],['21','401 unauthorized','e401'],['22','403 forbidden','e403'],['23','500 server error','e500'],['24','503 unavailable','e503']];
+    return {
+      screen:s,
+      screenEl:(screenMap[s]||screenMap.library)(),
+      showTabs: top.indexOf(s)>=0,
+      settingsOpen:this.state.settingsOpen,
+      closeSettings:()=>this.setState({settingsOpen:false}),
+      settingsCardEl:this.settingsCard(),
+      sheetOpen:this.state.sheetOpen,
+      closeSheet:()=>this.setState({sheetOpen:false}),
+      sheetEl:this.sheetEl(),
+      tabs:[
+        {el:this.tabItem('t1','Explore',ICON.explore,'library')},
+        {el:this.tabItem('t2','Chats',ICON.chats,'chats')},
+        {el:h('button',{key:'t3',onClick:()=>this.setState({sheetOpen:true}),style:{flex:'none',marginTop:-22,width:54,height:54,borderRadius:17,border:'none',background:'linear-gradient(150deg,var(--violet),var(--violet-deep))',color:A.goldInk,display:'grid',placeItems:'center',cursor:'pointer',boxShadow:'0 8px 20px -6px hsl(40 60% 40%)'}}, ICON.plus(26))},
+        {el:this.tabItem('t4','Forum',ICON.forum,'forum')},
+        {el:this.tabItem('t5','Studio',ICON.creations,'creations')},
+      ],
+      jumpItems: jump.map(j=>{ const cur=this.state.screen, gm=this.state.genMode, av=this.state.authView; const authMap={__signin:'signin',__register:'register',__enroll:'enroll',__forgot:'forgot'};
+        const act = cur===j[2] || (j[2]==='__gen_img'&&cur==='generate'&&(gm==='txt2img'||gm==='img2img')) || (j[2]==='__gen_inpaint'&&cur==='generate'&&gm==='inpaint') || (j[2]==='__gen_vid'&&cur==='generate'&&(gm==='txt2vid'||gm==='img2vid')) || (authMap[j[2]]&&cur==='login'&&av===authMap[j[2]]);
+        return {num:j[0],label:j[1],
+          style:'display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:9px;cursor:pointer;font-size:13px;font-family:var(--sans);text-decoration:none;'+(act?'color:var(--accent);background:var(--accent-tint);':'color:var(--sec);background:transparent;'),
+          go:()=>{ const authMap={__signin:'signin',__register:'register',__enroll:'enroll',__forgot:'forgot'}; if(authMap[j[2]]){ this.setState({screen:'login',settingsOpen:false,drawerOpen:false}); this.setAuthView(authMap[j[2]]); this.scrollTop(); } else if(j[2]==='__rpg'){ this.startChat('gm-thornreach'); } else if(j[2]==='dossier'){ this.openChar('aria'); } else if(j[2]==='chat'){ this.startChat('aria'); } else if(j[2]==='__gen_img'){ this.openGen('txt2img',null,'library'); } else if(j[2]==='__gen_inpaint'){ this.openGen('inpaint',null,'library'); } else if(j[2]==='__gen_vid'){ this.openGen('txt2vid',null,'library'); } else if(j[2]==='gallery'){ this.setState({screen:'gallery',genReturn:'library'}); this.scrollTop(); } else if(j[2]==='__settings'){ this.setState({settingsOpen:true}); } else { this.go(j[2]); } }
+        };
+      })
+    };
+  }
+}
+
+</script>
+</body>
+</html>
