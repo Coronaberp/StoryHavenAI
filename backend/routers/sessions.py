@@ -1,7 +1,3 @@
-"""Session CRUD, message edit/delete, char-state, and public-session milestone
-notifications. Chat/regenerate/roll/continue and memory retrieval live in
-chat.py; in-chat and standalone image generation live in imagegen.py; model
-preview/metadata administration lives in model_previews.py."""
 import re
 import json
 
@@ -16,7 +12,6 @@ from backend.repositories import session_characters as session_char_repo
 from backend.repositories import groups as groups_repo
 from backend.repositories import notifications as notification_repo
 from backend.repositories import memory_facts
-from backend import vectors
 from backend import live_broadcast
 from backend.state import api, log
 from backend.auth import get_current_user
@@ -28,6 +23,7 @@ from backend.dice import resolve_inline_rolls, roll_dice, format_roll
 from backend.sampling import RESPONSE_LENGTH_PRESETS
 from backend.state import CFG
 from backend.routers.misc import translate_text_live
+from backend.routers.multiplayer import _require_host
 from backend.schemas import (SessionIn, RenameIn, StyleIn, LengthIn, ExplicitModeIn, GlossaryIn,
                      LanguageIn, AuthorNoteIn, MessageEdit, PersonaSwitchIn, GroupCreateIn, MuteIn)
 
@@ -35,8 +31,6 @@ MILESTONES = [10, 50, 100, 500, 1000]
 
 
 async def _maybe_notify_milestone(char: dict):
-    """First public session-count crossing of each threshold notifies the owner
-    exactly once (deduped by a related_id of '{cid}:{threshold}')."""
     owner_id = char.get("owner_id")
     if not owner_id or not char.get("is_public"):
         return
@@ -138,10 +132,6 @@ async def new_session(cid: str, body: SessionIn,
     if greeting:
         user_overrides = await db.get_user_settings(current_user["id"])
         if body.language:
-            # The caller explicitly picked a reply language for this session up
-            # front, so the greeting needs a real live translation, not just a
-            # cache lookup that silently no-ops on a miss (_localize_texts never
-            # calls the LLM — it only serves what /api/localize has pre-warmed).
             language = body.language
             eff = _eff_cfg(user_overrides)
             ep = await _endpoints(user_overrides, current_user["id"], current_user["is_admin"])
@@ -154,11 +144,6 @@ async def new_session(cid: str, body: SessionIn,
                 log.warning("greeting live translation failed: session=%s", sid)
                 greeting_disp = greeting
         else:
-            # No explicit language chosen: falls back to the user's interface
-            # language (or the instance default). The greeting is character-authored
-            # text, localized for display via the same persistent cache as
-            # scenarios/personas (see /api/localize) — a pure cache lookup, not a
-            # live LLM call.
             language = _ui_language(user_overrides)
             try:
                 [greeting_disp] = await _localize_texts([greeting], language)
@@ -172,11 +157,6 @@ async def new_session(cid: str, body: SessionIn,
 
 @api.post("/sessions/{sid}/greeting/{direction}")
 async def swap_greeting(sid: str, direction: str, current_user: dict = Depends(get_current_user)):
-    """Cycles the session's opening greeting between the character's authored
-    variants (greeting + alt_greetings). Only valid while the greeting is
-    still the session's only message — once the conversation has moved on,
-    swapping it out from under the model's own history would desync what the
-    model has already seen from what's displayed."""
     if direction not in ("next", "prev"):
         raise HTTPException(400, "direction must be next or prev")
     s = await _own_session(sid, current_user)
@@ -326,10 +306,6 @@ async def set_session_persona(sid: str, body: PersonaSwitchIn,
 @api.put("/sessions/{sid}/glossary")
 async def set_session_glossary(sid: str, body: GlossaryIn,
                                current_user: dict = Depends(get_current_user)):
-    """Per-session terminology pins: {source term: exact rendering}. Injected into
-    every translation prompt for this session so class names, spells, ranks etc.
-    are always rendered exactly as the player wants — the vocabulary counterpart
-    of known_names."""
     await _own_session(sid, current_user)
     gl = {k.strip(): v.strip() for k, v in (body.glossary or {}).items()
           if k.strip() and v.strip()}
@@ -351,9 +327,6 @@ async def set_session_language(sid: str, body: LanguageIn,
 @api.put("/sessions/{sid}/note")
 async def set_session_author_note(sid: str, body: AuthorNoteIn,
                                   current_user: dict = Depends(get_current_user)):
-    """Persistent Author's Note: re-injected as the last message before every
-    generation (see the author_note block in _run) so it survives long
-    conversations instead of scrolling out of the history window."""
     await _own_session(sid, current_user)
     note = (body.note or "").strip() or None
     await chat_sessions.set_author_note(sid, note)
@@ -382,9 +355,11 @@ async def get_char_state(sid: str, current_user: dict = Depends(get_current_user
 
 @api.delete("/sessions/{sid}")
 async def delete_session(sid: str, current_user: dict = Depends(get_current_user)):
-    await _own_session(sid, current_user)
+    session = await _own_session(sid, current_user)
+    await _require_host(session, current_user)
     await chat_sessions.delete(sid)
     await memory_facts.purge_session(sid)
+    log.info("sessions: deleted id=%s by=%s", sid, current_user["username"])
     return {"deleted": True}
 
 
@@ -411,12 +386,23 @@ def _reparse_user_edit(content: str) -> str:
     return apply_inline_directives(resolve_inline_rolls(content))
 
 
+async def _require_message_author_or_host(session: dict, message: dict | None,
+                                          current_user: dict) -> None:
+    if not message:
+        return
+    sender_id = message.get("sender_user_id")
+    if sender_id is None or sender_id == current_user["id"]:
+        return
+    await _require_host(session, current_user)
+
+
 @api.patch("/sessions/{sid}/messages/{mid}")
 async def edit_message(sid: str, mid: str, body: MessageEdit,
                        current_user: dict = Depends(get_current_user)):
     s = await _own_session(sid, current_user)
     msgs = await chat_sessions.list_messages(sid)
     target = next((m for m in msgs if m["id"] == mid), None)
+    await _require_message_author_or_host(s, target, current_user)
     if target and target["role"] == "user" and s.get("is_group"):
         content = await group_narrate_edit(s, body.content, current_user)
     elif target and target["role"] == "user":
@@ -424,6 +410,7 @@ async def edit_message(sid: str, mid: str, body: MessageEdit,
     else:
         content = body.content
     await chat_sessions.edit_message(sid, mid, content)
+    log.info("sessions: message edited session=%s message=%s by=%s", sid, mid, current_user["username"])
     return {"ok": True}
 
 
@@ -454,22 +441,16 @@ async def swipe_message(sid: str, mid: str, direction: str,
 
 @api.delete("/sessions/{sid}/messages/{mid}")
 async def delete_message(sid: str, mid: str, current_user: dict = Depends(get_current_user)):
-    await _own_session(sid, current_user)
+    s = await _own_session(sid, current_user)
     msgs = await chat_sessions.list_messages(sid)
     idx = next((i for i, m in enumerate(msgs) if m["id"] == mid), None)
     if idx == 0 and msgs[0]["role"] == "assistant":
         raise HTTPException(400, "the opening greeting can't be deleted — edit it, or start a new chat instead")
-    if idx is not None:
-        _delete_media_file(msgs[idx].get("image"))
+    target = msgs[idx] if idx is not None else None
+    await _require_message_author_or_host(s, target, current_user)
+    if target:
+        _delete_media_file(target.get("image"))
     await chat_sessions.delete_message(sid, mid)
-    if idx is not None:
-        if msgs[idx]["role"] == "user":
-            # memory is keyed by the triggering user message id
-            await vectors.delete_memory(mid)
-        else:
-            # assistant reply — its memory (if any) is keyed by the user turn before it
-            prev_user = next((m for m in reversed(msgs[:idx]) if m["role"] == "user"), None)
-            if prev_user:
-                await vectors.delete_memory(prev_user["id"])
+    log.info("sessions: message deleted session=%s message=%s by=%s", sid, mid, current_user["username"])
     live_broadcast.broadcast(sid, "session_updated", {})
     return {"ok": True}

@@ -3,7 +3,7 @@
 function _esc(s) {
   const d = document.createElement("div");
   d.textContent = String(s == null ? "" : s);
-  return d.innerHTML;
+  return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 function _attr(s) {

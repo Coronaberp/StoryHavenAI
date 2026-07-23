@@ -1,10 +1,3 @@
-"""Chat generation service: config/endpoint resolution, session ownership,
-the SSE generation machinery (GenHandle/_start_gen), and the _run loop that
-drives /chat, /regenerate, /roll, /continue.
-
-Lore/memory retrieval and the per-turn memory extraction live in
-backend/retrieval.py; NSFW image classification lives in backend/classify.py;
-character/persona/image-prompt side-call generators live in backend/ai_helpers.py."""
 import re
 import json
 import hashlib
@@ -37,7 +30,6 @@ from backend.sampling import build_sampling_params, RESPONSE_LENGTH_PRESETS
 from backend.mood import character_moods, parse_mood
 
 def _eff_cfg(user_overrides: dict) -> dict:
-    """Merge global CFG with user overrides (user wins, None values skipped)."""
     return {**CFG, **{k: v for k, v in user_overrides.items()
                       if k in USER_CFG_KEYS and v is not None}}
 
@@ -60,26 +52,6 @@ def _persona_switch_note(msgs: list[dict], char_name: str) -> str | None:
 
 async def _endpoints(user_overrides: dict, user_id: str | None = None,
                      is_admin: bool = False) -> dict:
-    """Resolve the effective chat + embed endpoints for one user.
-
-    Chat is the only bring-your-own-endpoint surface: a user's own base_url (+
-    its optional API key) overrides the global one, but only ever after it's
-    passed _validate_chat_endpoint (see PUT /me/settings) — a raw stored value
-    can't reach here unverified. Embeddings are never user-overridable at all:
-    the vector index is shared across every user, so one user pointing it at a
-    different model/dimension would corrupt search results for everyone, and
-    there's no per-turn user-facing reason to need a different embed backend
-    the way there is for chat. `None` values mean "use the module-level global
-    config" in llm.py.
-
-    Beyond the save-time check, every actual use re-runs the cheap IP-only
-    half of that guard (_resolve_host_ip_issue) — a host that validated fine
-    when saved (or was explicitly admin-approved) can still start resolving
-    to a private address later via DNS rebinding or simply changing hands.
-    If that happens, the request falls back to the global endpoint instead
-    of silently using the now-suspicious one, and it's flagged again for
-    admin review regardless of its prior approval status.
-    """
     chat_base = (user_overrides.get("base_url") or "").strip() or None
     chat_key = user_overrides.get("api_key") if chat_base else None
     if chat_base:
@@ -100,16 +72,11 @@ async def _endpoints(user_overrides: dict, user_id: str | None = None,
 
 
 def _ui_language(user_overrides: dict) -> str:
-    """Language of everything read *outside* the story flow (UI chrome, memory
-    panel, character status): the user's interface language, else the admin's
-    instance default."""
     return (user_overrides.get("interface_language") or "").strip() \
         or (CFG.get("default_language") or "").strip() or "English"
 
 
 def _chat_language(session: dict, user_overrides: dict) -> str:
-    """Language of the story itself (replies and thinking): the session's own
-    talk language (the chat's 🌐 button) wins; falls back to the UI language."""
     return (session.get("language") or "").strip() or _ui_language(user_overrides)
 
 
@@ -142,14 +109,6 @@ async def _resolve_sender_persona(s: dict, current_user: dict | None) -> tuple[d
 
 
 class GenHandle:
-    """
-    One per active generation (keyed by session id).
-
-    The background asyncio.Task calls emit() for each raw SSE string and
-    finish() when done.  Any number of HTTP clients can subscribe(); each gets
-    a personal asyncio.Queue.  Reconnecting clients replay the buffer first,
-    then receive live events exactly once.
-    """
     def __init__(self, sid: str):
         self.sid  = sid
         self._buf: list[str] = []
@@ -172,14 +131,13 @@ class GenHandle:
     def finish(self):
         self.done = True
         for q in self._subs:
-            q.put_nowait(None)          # sentinel — stream() exits its loop
+            q.put_nowait(None)
         if _active_gen.get(self.sid) is self:
             _active_gen.pop(self.sid, None)
         live_broadcast.broadcast(self.sid, "done", {})
 
     async def stream(self):
-        """Async generator consumed by StreamingResponse."""
-        for item in self._buf:         # replay what already arrived
+        for item in self._buf:
             yield item
         if self.done:
             return
@@ -188,16 +146,10 @@ class GenHandle:
         try:
             while True:
                 item = await asyncio.wait_for(q.get(), timeout=600)
-                if item is None:       # finish() sentinel
+                if item is None:
                     break
                 yield item
         except asyncio.TimeoutError:
-            # 10 minutes with no event at all — the generation is stuck (or
-            # the underlying task died without calling finish()). Emitting an
-            # explicit error here matters: without it, this generator just
-            # returns and the HTTP connection closes with zero terminal SSE
-            # event, leaving the client's stream parser with no signal that
-            # anything happened at all.
             log.warning("generation stalled with no event after 600s: sid=%s", self.sid)
             yield "data: " + json.dumps({"type": "error",
                                          "message": "generation stalled — no response after 10 minutes"}) + "\n\n"
@@ -221,10 +173,6 @@ def _extract_memory_in_background(sid: str, coro) -> None:
 
 
 def _start_gen(sid: str, coro_fn, *args, **kwargs):
-    """
-    Cancel any existing generation for sid, create a new GenHandle, launch a
-    background task, and return the handle so the caller can stream from it.
-    """
     old = _active_gen.pop(sid, None)
     if old and old.task and not old.task.done():
         old.task.cancel()
@@ -261,9 +209,6 @@ def _src_hash(text: str) -> str:
 
 
 async def _localize_texts(texts: list[str], target_language: str) -> list[str]:
-    """Read-through cache lookup against the persistent `localization` table — never
-    calls the LLM. Anything not already cached (e.g. by the on-demand /api/translate
-    button) is returned as source text unchanged."""
     lang = target_language.strip().lower()
     hashes = [_src_hash(t) for t in texts]
     cached = await db.get_localizations(list(set(hashes)), lang)
@@ -362,9 +307,6 @@ def _assemble_system(char, s, persona, user_name, mode, language, do_think, eff,
     if length_preset["instruction"]:
         system += "\n\n# Response Length\n" + length_preset["instruction"]
     if eff.get("scene_style"):
-        # Opt-in per user: janitor-style scene presentation. The DATE/TIME/LOCATION
-        # tokens stay literal English inside code spans (they're UI chrome); the
-        # values follow the story's language like the rest of the reply.
         system += ("\n\n# Scene format\n"
                    "Begin every reply with a scene header of three separate lines, each inside "
                    "backticks exactly like this:\n"
@@ -621,7 +563,6 @@ async def _run_group(s, eff, ep, chat_model, user_content, current_user, think, 
 
     if user_content is not None:
         if chat_mode:
-            # dialogue only — the player's actions are ignored in chat mode
             stored_user = re.sub(r"\*[^*]*\*", " ", user_content)
             stored_user = re.sub(r"\s+", " ", stored_user).strip() or user_content
         else:
@@ -639,7 +580,6 @@ async def _run_group(s, eff, ep, chat_model, user_content, current_user, think, 
     user_turn = next((m for m in reversed(msgs) if m["role"] == "user"), None)
     query = user_turn["content"] if user_turn else ""
     user_mid = user_turn["id"] if user_turn else None
-    # route on the raw submission so @mentions inside the action still count
     route_text = user_content if user_content is not None else query
 
     cast = [{**row, "name": (chars_by_id.get(row["char_id"]) or {}).get("name")} for row in cast_rows]
@@ -674,16 +614,23 @@ async def _run_group(s, eff, ep, chat_model, user_content, current_user, think, 
     return StreamingResponse(handle.stream(), media_type="text/event-stream")
 
 
+async def _regenerate_group(s, eff, ep, chat_model, current_user, think, user_overrides):
+    msgs = await chat_sessions.list_messages(s["id"])
+    target = next((m for m in reversed(msgs) if m["role"] == "assistant" and m.get("char_id")), None)
+    if not target:
+        raise HTTPException(400, "nothing to regenerate")
+    return await _group_single(s, eff, ep, chat_model, target["char_id"], current_user, think,
+                               user_overrides, replace_mid=target["id"])
+
+
 async def _run(sid, user_content=None, regenerate=False, continue_mode=False,
                direction=None, think=None, current_user=None):
-    # Build effective config: global CFG merged with this user's overrides
     user_overrides = {}
     if current_user:
         user_overrides = await user_repo.get_user_settings(current_user["id"])
     eff = _eff_cfg(user_overrides)
     ep = await _endpoints(user_overrides, current_user["id"] if current_user else None,
                           bool(current_user and current_user.get("is_admin")))
-    eff_chat_base, eff_api_key = ep["chat_base"], ep["chat_key"]
     chat_model = eff.get("chat_model") or CFG["chat_model"]
 
     s = await chat_sessions.get(sid)
@@ -691,10 +638,26 @@ async def _run(sid, user_content=None, regenerate=False, continue_mode=False,
         raise HTTPException(404, "session not found")
     participant_rows = await session_participants.list_for_session(sid)
     is_multiplayer = bool(participant_rows)
+    placeholder = None
     if is_multiplayer:
         existing = _active_gen.get(sid)
         if existing and not existing.done:
             raise HTTPException(409, "Someone else is currently acting — wait for the reply to finish")
+        placeholder = GenHandle(sid)
+        _active_gen[sid] = placeholder
+    try:
+        return await _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, user_overrides,
+                               user_content, regenerate, continue_mode, direction, think, current_user)
+    except BaseException:
+        if placeholder is not None and _active_gen.get(sid) is placeholder:
+            _active_gen.pop(sid, None)
+        raise
+
+
+async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, user_overrides,
+                    user_content, regenerate, continue_mode, direction, think, current_user):
+    sid = s["id"]
+    eff_chat_base, eff_api_key = ep["chat_base"], ep["chat_key"]
     other_player_names = []
     if is_multiplayer:
         for row in participant_rows:
@@ -710,15 +673,16 @@ async def _run(sid, user_content=None, regenerate=False, continue_mode=False,
         generating_payload["user_name"] = user_name
         generating_payload["persona_avatar"] = (persona or {}).get("avatar") or None
     live_broadcast.broadcast(sid, "generating", generating_payload)
-    if s.get("is_group") and not regenerate and not continue_mode:
+    if s.get("is_group"):
+        if continue_mode:
+            raise HTTPException(400, "continue is not supported in group chats")
+        if regenerate:
+            return await _regenerate_group(s, eff, ep, chat_model, current_user, think, user_overrides)
         return await _run_group(s, eff, ep, chat_model, user_content, current_user, think, user_overrides)
     char = await characters.get(s["char_id"])
     if not char:
         raise HTTPException(404, "character not found")
     mode = char.get("mode") or "character"
-    # Story language: replies and thinking follow the chat's own selected language
-    # (the 🌐 button) first — the UI chrome around them follows the interface
-    # language separately (see _ui_language's callers: memory, char-state, UI i18n).
     language = _chat_language(s, user_overrides)
     do_think = eff["enable_thinking"] if think is None else bool(think)
 
@@ -789,11 +753,6 @@ async def _run(sid, user_content=None, regenerate=False, continue_mode=False,
     if eff.get("post_history"):
         oai_messages.append({"role": "system",
                              "content": macro(eff["post_history"], char["name"], user_name)})
-    # Placed last so it's the most recent instruction the model reads before generating —
-    # the DM-perspective rule in the system prompt gets diluted by the lore/memory/persona/
-    # history text injected after it, and the model drifts into narrating from the player's
-    # own perspective instead of the DM's/character's on the condensed (non-full_system)
-    # turns where the detailed reasoning rules aren't resent.
     reminder = (f"Reminder: regardless of what language the conversation above is written in, "
                 f"you must think and write only in {language} — reasoning and reply alike. "
                 f"Keep proper names (people, places) in their original script.")
@@ -804,11 +763,6 @@ async def _run(sid, user_content=None, regenerate=False, continue_mode=False,
         reminder += (f" In <think>, reason only as {char['name']} — never as {user_name}, "
                      f"never in {user_name}'s voice or thoughts.")
     if eff.get("scene_style"):
-        # Re-stated here, not just once earlier in the system prompt: this is the
-        # strongest steering position (closest to generation), and formatting
-        # instructions buried before a long block of lore/memory/history are the
-        # first thing models drop — confirmed by live testing where the header
-        # was reliably skipped when only stated once, earlier in the prompt.
         reminder += (" Every reply must begin with exactly these three lines in backticks, "
                      "before any narration: `DATE: <in-story date>` / `TIME: <in-story time>` / "
                      "`LOCATION: <current place>` — this is mandatory, never omit it.")
@@ -816,11 +770,6 @@ async def _run(sid, user_content=None, regenerate=False, continue_mode=False,
 
     author_note = strip_sigil(s.get("author_note") or "").strip()
     if author_note:
-        # Author's Note (SillyTavern-style): pinned instructions re-sent as the very last
-        # message on every turn, not just once in the system prompt at position 0. Long chats
-        # push the original system prompt far from the point of generation, and models drift —
-        # e.g. narrating in the wrong POV or forgetting the GM/character framing after enough
-        # turns. Re-injecting here, closest to generation, keeps it from being diluted.
         oai_messages.append({"role": "system", "content":
             f"# Author's Note — pinned reminder, re-sent every turn\n{macro(author_note, char['name'], user_name)}"})
 
@@ -833,8 +782,6 @@ async def _run(sid, user_content=None, regenerate=False, continue_mode=False,
         log.warning("explicit injection suppressed: user not nsfw_allowed session=%s", sid)
         await chat_sessions.set_explicit_mode(sid, False)
 
-    # Continuation priming: re-feed the popped turn as the model's own last message,
-    # then instruct it to pick up exactly where that text stops.
     prev_disp = prev_think = ""
     if prev:
         _m = re.match(r"<think>(.*?)</think>\s*(.*)$", prev["content"] or "", re.S)
@@ -876,10 +823,6 @@ async def _run(sid, user_content=None, regenerate=False, continue_mode=False,
                     thought.append(text)
                     yield "data: " + json.dumps({"type": "thinking", "content": text}) + "\n\n"
                 else:
-                    # Buffered rather than streamed raw: a configured character's mood
-                    # tag lands at the very end of the reply and must never reach the
-                    # client visibly, so the whole answer is parsed for it before any
-                    # of it is shown.
                     ans.append(text)
         except Exception as e:
             log.error("chat generation failed: session=%s char=%s model=%s custom_endpoint=%s detail=%s",
@@ -904,26 +847,26 @@ async def _run(sid, user_content=None, regenerate=False, continue_mode=False,
         if reply and reply.lstrip().startswith("(OOC") and not sanctioned_ooc:
             log.warning("immersion break: unsanctioned OOC reply: session=%s char=%s", sid, char["id"])
         if reply and "enc:" in reply:
-            # SSE replies bypass the JSON ciphertext-leak-guard middleware (it only
-            # scans buffered JSON bodies) — apply the same check here so a raw
-            # at-rest-encrypted value can never reach the client over the stream.
             log.warning("ciphertext-leak-guard: blanked 'enc:' value leaking from chat stream session=%s", sid)
             reply = reply.replace("enc:", "")
-        if reply and eff.get("scene_style"):
+        if reply and not prev and eff.get("scene_style"):
             prior_replies = [strip_think(m["content"]) for m in msgs if m["role"] == "assistant"]
             reply = ensure_scene_header(reply, prior_replies)
         if reply:
             yield "data: " + json.dumps({"type": "delta", "content": reply}) + "\n\n"
         thinking_disp = "".join(thought).strip()
         if moods:
-            # this is the line to check if you're debugging why the stage/sprite/music
-            # isn't switching: a configured character with no mood tag in the reply
-            # means the model didn't emit `[mood: X]` this turn, not a bug in parsing
             log.info("mood tag: session=%s char=%s -> %s", sid, char["id"],
                      mood if mood else "none (model did not emit a [mood: X] tag)")
 
         stored = (f"<think>{thinking_disp}</think>\n\n{reply}" if thinking_disp else reply)
-        if regen_target:
+        if prev:
+            merged_reply = (f"{prev_disp}\n\n{reply}" if reply else prev_disp)
+            merged_think = "\n\n".join(part for part in (prev_think, thinking_disp) if part)
+            stored = (f"<think>{merged_think}</think>\n\n{merged_reply}" if merged_think else merged_reply)
+            await chat_sessions.edit_message(sid, prev["id"], stored)
+            amsg = {**prev, "content": stored, "lang": language, "mood": mood or None}
+        elif regen_target:
             swipe_info = await chat_sessions.add_swipe(sid, regen_target["id"], stored)
             amsg = {**regen_target, "content": stored, "lang": language, "mood": mood or None,
                    "swipe_index": swipe_info["index"], "swipe_count": swipe_info["count"]}
