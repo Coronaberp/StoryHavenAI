@@ -39,7 +39,7 @@ current turn, instead of being all-or-nothing.
 
 ## 1. Threshold and trigger
 
-New constant `LORE_CHUNK_THRESHOLD_TOKENS = 500` in `backend/retrieval.py`.
+New constant `LORE_CHUNK_THRESHOLD_TOKENS = 450` in `backend/retrieval.py`.
 Chunking only activates when an entry's content exceeds this. The vast
 majority of lore entries are short and stay completely untouched — one
 embedding, one candidate, identical to today's behavior. Only entries over
@@ -89,11 +89,17 @@ cutoffs — rather than a naive fixed-character slice.
 
 ## 4. Retrieval
 
-**Semantic search** (`backend/vectors.py`'s `search_lore_ids`, called from
-`backend/lore_memory.py`'s `fetch_lore_candidates`): needs no logic change.
-Each chunk already has its own embedding row, so KNN search naturally
-operates at chunk granularity for oversized entries and at whole-entry
-granularity for everything else — this falls out of the schema change alone.
+**Semantic search** (`backend/lore_memory.py`'s `fetch_lore_candidates`):
+this DOES need a logic change — do not skip it. KNN must return `part_id`
+alongside `lore_id` (a dedicated `backend/vectors.py:search_lore_chunks`,
+kept separate from the whole-entry `search_lore_ids` used elsewhere), and
+each hit must be resolved to its specific chunk's content via
+`lore_chunks.chunks_for()`, NOT back to the whole entry through
+`db.lore_by_ids`. Resolving a chunk hit to the whole entry would drag the
+entire oversized entry back into the prompt and defeat chunking entirely —
+the exact failure this whole design exists to fix. A `part_id == 0` hit on
+an entry with no `lore_chunks` rows is the legacy single-vector case and
+resolves to the whole (short) entry as before.
 
 **Keyword/`always` matching** (`backend/retrieval.py`'s `retrieve`):
 currently returns whole `lore` rows. For an entry with `lore_chunks` rows,

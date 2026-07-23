@@ -41,6 +41,43 @@ async def _expand_entry_candidates(entry: dict, overrides: dict, current_turn: i
             for chunk in chunks]
 
 
+async def _resolve_hit_candidate(hit: dict, entry: dict, overrides: dict,
+                                 current_turn: int) -> dict | None:
+    lore_id = hit["lore_id"]
+    if lore_id in overrides:
+        return lore_candidate(entry, current_turn, hit["distance"], content=overrides[lore_id])
+    chunks = await lore_chunks.chunks_for(lore_id)
+    if not chunks:
+        return lore_candidate(entry, current_turn, hit["distance"]) if hit["part_id"] == 0 else None
+    if hit["part_id"] == 0:
+        return lore_candidate(entry, current_turn, hit["distance"],
+                              candidate_id=f"{lore_id}#0", content=chunks[0]["content"])
+    chunk = next((c for c in chunks if c["part_id"] == hit["part_id"]), None)
+    if not chunk:
+        return None
+    return lore_candidate(entry, current_turn, hit["distance"],
+                          candidate_id=f"{lore_id}#{hit['part_id']}", content=chunk["content"])
+
+
+async def _append_semantic_hits(candidates: list[dict], seen_ids: set[str], char_id: str,
+                                query_vec, overrides: dict, cfg: dict, current_turn: int) -> None:
+    chunk_hits = await vectors.search_lore_chunks(
+        char_id, query_vec, LORE_CANDIDATE_K, cfg.get("lore_max_dist", CFG["lore_max_dist"]))
+    new_hits = [h for h in chunk_hits if h["lore_id"] not in seen_ids]
+    hit_lore_ids = {h["lore_id"] for h in new_hits}
+    if not hit_lore_ids:
+        return
+    knn_entries = {e["id"]: e for e in await db.lore_by_ids(list(hit_lore_ids))}
+    for hit in new_hits:
+        entry = knn_entries.get(hit["lore_id"])
+        if not entry:
+            continue
+        candidate = await _resolve_hit_candidate(hit, entry, overrides, current_turn)
+        if candidate:
+            candidates.append(candidate)
+        seen_ids.add(hit["lore_id"])
+
+
 async def fetch_lore_candidates(char_id: str, session_id: str, keyword_entries: list[dict],
                                 query_vec, cfg: dict, current_turn: int) -> list[dict]:
     overrides = await session_lore_state.get_all_overrides_for_session(session_id)
@@ -53,36 +90,7 @@ async def fetch_lore_candidates(char_id: str, session_id: str, keyword_entries: 
     demoted_pinned = [dict(c, pinned=False) for c in pinned_candidates[MAX_PINNED_LORE_CHUNKS:]]
     candidates = list(active_pinned)
     if query_vec is not None:
-        chunk_hits = await vectors.search_lore_chunks(
-            char_id, query_vec, LORE_CANDIDATE_K, cfg.get("lore_max_dist", CFG["lore_max_dist"]))
-        new_hits = [h for h in chunk_hits if h["lore_id"] not in seen_ids]
-        hit_lore_ids = {h["lore_id"] for h in new_hits}
-        if hit_lore_ids:
-            knn_entries = {e["id"]: e for e in await db.lore_by_ids(list(hit_lore_ids))}
-            for hit in new_hits:
-                entry = knn_entries.get(hit["lore_id"])
-                if not entry:
-                    continue
-                if hit["lore_id"] in overrides:
-                    candidates.append(lore_candidate(entry, current_turn, hit["distance"],
-                                                      content=overrides[hit["lore_id"]]))
-                elif hit["part_id"] == 0:
-                    chunks = await lore_chunks.chunks_for(hit["lore_id"])
-                    if not chunks:
-                        candidates.append(lore_candidate(entry, current_turn, hit["distance"]))
-                    else:
-                        candidates.append(lore_candidate(
-                            entry, current_turn, hit["distance"],
-                            candidate_id=f"{hit['lore_id']}#0", content=chunks[0]["content"]))
-                else:
-                    chunks = await lore_chunks.chunks_for(hit["lore_id"])
-                    chunk = next((c for c in chunks if c["part_id"] == hit["part_id"]), None)
-                    if chunk:
-                        candidates.append(lore_candidate(
-                            entry, current_turn, hit["distance"],
-                            candidate_id=f"{hit['lore_id']}#{hit['part_id']}",
-                            content=chunk["content"]))
-                seen_ids.add(hit["lore_id"])
+        await _append_semantic_hits(candidates, seen_ids, char_id, query_vec, overrides, cfg, current_turn)
     candidates.extend(demoted_pinned)
     expand_ids = [c["id"].split("#")[0] for c in candidates]
     if expand_ids:
@@ -100,6 +108,8 @@ async def fetch_lore_candidates(char_id: str, session_id: str, keyword_entries: 
         if neighbor_labels:
             neighbor_entries = await db.lore_by_ids(list(neighbor_labels))
             for e in neighbor_entries:
+                if e.get("char_id") and e["char_id"] != char_id:
+                    continue
                 candidates.append(lore_candidate(
                     {**e, "content": overrides.get(e["id"], e["content"])},
                     current_turn, link_label=neighbor_labels[e["id"]] or None))

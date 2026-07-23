@@ -7,7 +7,7 @@ def test_short_content_is_a_single_chunk():
 
 
 def test_content_exactly_at_threshold_is_a_single_chunk():
-    content = "word " * (LORE_CHUNK_THRESHOLD_TOKENS - 1)
+    content = "a" * ((LORE_CHUNK_THRESHOLD_TOKENS - 1) * 4)
     chunks = chunk_lore_content(content)
     assert len(chunks) == 1
 
@@ -44,6 +44,29 @@ def test_single_oversized_paragraph_preserves_content_through_sentence_fallback(
     rejoined_words = " ".join(chunks).split()
     original_words = content.split()
     assert rejoined_words == original_words
+
+
+def test_punctuation_free_blob_still_produces_bounded_chunks():
+    blob = "word " * (LORE_CHUNK_THRESHOLD_TOKENS * 9)
+    content = blob.strip()
+    chunks = chunk_lore_content(content)
+    assert len(chunks) > 1
+    for chunk in chunks:
+        from backend.retrieval import _estimate_tokens
+        assert _estimate_tokens(chunk) <= LORE_CHUNK_THRESHOLD_TOKENS + 5
+    rejoined_words = " ".join(chunks).split()
+    original_words = content.split()
+    assert rejoined_words == original_words
+
+
+def test_single_unbroken_run_with_no_spaces_or_punctuation_is_hard_sliced():
+    content = "a" * (LORE_CHUNK_THRESHOLD_TOKENS * 4 * 6)
+    chunks = chunk_lore_content(content)
+    assert len(chunks) > 1
+    from backend.retrieval import _estimate_tokens
+    for chunk in chunks:
+        assert _estimate_tokens(chunk) <= LORE_CHUNK_THRESHOLD_TOKENS + 5
+    assert "".join(chunks) == content
 
 
 def test_no_chunk_starts_or_ends_mid_word():

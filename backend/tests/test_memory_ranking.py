@@ -142,3 +142,53 @@ def test_rank_passes_current_location_through_to_score():
     ranked = memory_ranking.rank(facts, present=["Alice"], current_turn=1,
                                  current_location="the abandoned mill")
     assert ranked[0]["id"] == "mf-b"
+
+
+def test_absent_participant_fact_now_kept_by_rank():
+    facts = [_memory_fact(id="mf-absent", participants=["Diane"], last_turn=1)]
+    ranked = memory_ranking.rank(facts, present=["Alice"], current_turn=2)
+    assert [f["id"] for f in ranked] == ["mf-absent"]
+
+
+def test_present_participant_outranks_identical_absent():
+    present = _memory_fact(id="present", participants=["Alice"], last_turn=1)
+    absent = _memory_fact(id="absent", participants=["Diane"], last_turn=1)
+    ranked = memory_ranking.rank([absent, present], present=["Alice"], current_turn=1)
+    assert ranked[0]["id"] == "present"
+
+
+def test_more_relevant_absent_fact_outranks_less_relevant_absent():
+    close = _memory_fact(id="close", participants=["Diane"], distance=0.0, last_turn=1)
+    far = _memory_fact(id="far", participants=["Fenn"], distance=0.8, last_turn=1)
+    ranked = memory_ranking.rank([far, close], present=["Alice"], current_turn=1)
+    assert ranked[0]["id"] == "close"
+
+
+def test_absence_penalty_not_applied_without_present_lower():
+    fact = _memory_fact(participants=["Diane"], last_turn=1)
+    assert (memory_ranking.score(fact, current_turn=1)
+            == memory_ranking.score(fact, current_turn=1, present_lower=None))
+
+
+def test_absence_penalty_not_applied_to_lore():
+    fact = _lore_fact(participants=["Diane"], last_turn=1)
+    assert (memory_ranking.score(fact, current_turn=1, present_lower={"alice"})
+            == memory_ranking.score(fact, current_turn=1, present_lower={"diane"}))
+
+
+def test_absence_penalty_not_applied_to_no_participant_fact():
+    fact = _memory_fact(participants=[], last_turn=1)
+    assert (memory_ranking.score(fact, current_turn=1, present_lower={"alice"})
+            == memory_ranking.score(fact, current_turn=1))
+
+
+def test_passes_filters_no_longer_excludes_absent_participant():
+    fact = _memory_fact(participants=["Diane"], last_turn=1)
+    assert memory_ranking.passes_filters(fact, present_lower={"alice"}, current_turn=2) is True
+
+
+def test_absent_participant_penalized_exactly_by_constant():
+    fact = _memory_fact(participants=["Diane"], last_turn=1)
+    full = memory_ranking.score(fact, current_turn=1)
+    penalized = memory_ranking.score(fact, current_turn=1, present_lower={"alice"})
+    assert penalized == full * memory_ranking.PARTICIPANT_ABSENCE_PENALTY

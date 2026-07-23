@@ -477,20 +477,34 @@ class ChatView {
     this._openMultiplayerLive();
   }
 
+  _watchLiveUnmount() {
+    const parent = this.main?.parentNode;
+    if (!parent || typeof MutationObserver === "undefined") return;
+    this._liveObserver = new MutationObserver(() => {
+      if (document.contains(this.main)) return;
+      this._liveObserver.disconnect();
+      this._liveAbort?.abort();
+    });
+    this._liveObserver.observe(parent, { childList: true });
+  }
+
   async _openMultiplayerLive() {
     if (this._liveStarted) return;
     this._liveStarted = true;
-    while (this.multiplayer && window._activeChatView === this) {
+    this._liveAbort = new AbortController();
+    this._watchLiveUnmount();
+    while (this.multiplayer && window._activeChatView === this && !this._liveAbort.signal.aborted) {
       try {
-        const res = await fetch(`/api/sessions/${encodeURIComponent(this.sid)}/multiplayer/live`, { credentials: "include" });
+        const res = await fetch(`/api/sessions/${encodeURIComponent(this.sid)}/multiplayer/live`, { credentials: "include", signal: this._liveAbort.signal });
         if (!res.ok || !res.body) break;
         await sseEvents(res, async (ev) => this._handleMultiplayerEvent(ev));
       } catch {
-        // connection dropped, loop retries below
+        if (this._liveAbort.signal.aborted) break;
       }
-      if (window._activeChatView !== this) break;
+      if (window._activeChatView !== this || this._liveAbort.signal.aborted) break;
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
+    this._liveObserver?.disconnect();
   }
 
   async _handleMultiplayerEvent(ev) {
@@ -725,7 +739,7 @@ class ChatView {
 
   _lockedByLabel() {
     const uid = this.multiplayerLockedBy;
-    const generic = t("chat_multiplayer_locked_label_generic", "Someone's acting — the composer opens back up once the reply lands.");
+    const generic = t("chat_multiplayer_locked_label_generic", "Someone's acting. The composer opens back up once the reply lands.");
     if (!uid) return generic;
     const isMe = uid === ME?.id;
     const p = this.multiplayer?.participants?.find((row) => row.user_id === uid);
@@ -733,7 +747,7 @@ class ChatView {
     if (!name) return generic;
     const persona = p?.persona_name || null;
     const who = persona ? `${name} (${persona})` : name;
-    return t("chat_multiplayer_locked_label", "{who} is acting — the composer opens back up once the reply lands.").replace("{who}", who);
+    return t("chat_multiplayer_locked_label", "{who} is acting. The composer opens back up once the reply lands.").replace("{who}", who);
   }
 
   participantStripHtml() {
@@ -1301,7 +1315,7 @@ class ChatView {
       });
     } catch (err) {
       toast(err.message || t("chat_that_turn_failed"));
-      try { this.session = await api(`/api/sessions/${encodeURIComponent(this.sid)}`); } catch (e) { /* keep local */ }
+      try { this.session = await api(`/api/sessions/${encodeURIComponent(this.sid)}`); } catch (e) {}
     } finally {
       this.streaming = false; this.render(); this.scrollToBottom();
     }
@@ -1674,7 +1688,7 @@ class ChatView {
           <div class="chat-composer">
             <div class="chat-composer-card">
               <div style="position:relative">
-                <textarea id="chatInput" rows="2" class="${rpg ? "chat-input-has-dice" : ""}" placeholder="${this.multiplayerLocked ? t("chat_multiplayer_locked_placeholder", "Someone's acting — hang tight.") : (rpg ? t("chat_composer_placeholder_rpg") : t("chat_composer_placeholder_normal"))}" ${this.streaming || this.multiplayerLocked ? "disabled" : ""}></textarea>
+                <textarea id="chatInput" rows="2" class="${rpg ? "chat-input-has-dice" : ""}" placeholder="${this.multiplayerLocked ? t("chat_multiplayer_locked_placeholder", "Someone's acting. Hang tight.") : (rpg ? t("chat_composer_placeholder_rpg") : t("chat_composer_placeholder_normal"))}" ${this.streaming || this.multiplayerLocked ? "disabled" : ""}></textarea>
                 ${rpg ? `
                   <button type="button" id="chatDiceBtn" class="chat-dice-emoji-btn" aria-label="${t("chat_roll_dice")}" data-tooltip="${t("chat_roll_dice")}" ${this.diceRolledThisTurn || this.streaming ? "disabled" : ""}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>

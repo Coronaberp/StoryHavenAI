@@ -67,6 +67,17 @@ def test_build_reconcile_prompt_prefers_supersede_for_recurring_pattern():
     assert "recurring pattern" in prompt
 
 
+def test_build_reconcile_prompt_guards_distinct_commitments_same_person():
+    drafts = [FactDraft(text="Tarion cursed Maeve to silence", fact_type="state",
+                        participants=["Maeve"], importance=4, valence=-2)]
+    neighbors = [[{"id": "mf_xyz", "text": "Tarion threatened to make Maeve's life hell "
+                                            "if she crossed him"}]]
+    prompt = build_reconcile_prompt(drafts, neighbors)
+    assert "do NOT supersede" in prompt
+    assert "even about the same person" in prompt
+    assert "different targets" not in prompt
+
+
 def test_parse_lore_updates_valid_decision():
     raw = '[{"index": 0, "lore_id": "l-abc", "new_content": "The government was overthrown."}]'
     decisions = parse_lore_updates(raw, fact_count=1, valid_lore_ids={"l-abc"})

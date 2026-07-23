@@ -1,5 +1,3 @@
-"""Chat session and message repositories — encapsulates CRUD for the
-`sessions` and `messages` tables."""
 from __future__ import annotations
 import json
 import time
@@ -11,11 +9,11 @@ from backend.db import (
     nid, _q, _q1, _w, _preview, _encrypt_secret, _decrypt_secret, engine,
     _encrypt_json_list, _decrypt_json_list,
 )
+from backend.repositories import session_characters as session_char_repo
 from backend.state import log
 
 
 async def _with_preview(rows) -> list[dict]:
-    """Attach a plain-text preview of the last message to each session row."""
     out = [dict(row) for row in rows]
     if not out:
         return out
@@ -207,8 +205,7 @@ async def branch(sid: str, mid: str, user_id: str | None) -> str | None:
     idx = next((i for i, m in enumerate(src["messages"]) if m["id"] == mid), None)
     if idx is None:
         return None
-    new_sid = await create(src["char_id"], src["persona_id"], f'{src["title"]} (branch)',
-                           src["user_name"], user_id)
+    new_sid = await _branch_destination(src, user_id)
     await set_glossary(new_sid, src["glossary"])
     if src["author_note"]:
         await set_author_note(new_sid, src["author_note"])
@@ -222,8 +219,25 @@ async def branch(sid: str, mid: str, user_id: str | None) -> str | None:
                          json.loads(src["known_names"] or "[]"))
     for m in src["messages"][:idx + 1]:
         await add_message(new_sid, m["role"], m["content"], lang=m.get("lang"), mood=m.get("mood"),
-                          user_name=m.get("user_name"), persona_avatar=m.get("persona_avatar"))
+                          user_name=m.get("user_name"), persona_avatar=m.get("persona_avatar"),
+                          char_id=m.get("char_id"), turn_group=m.get("turn_group"))
     log.info("chat_sessions: branched id=%s from=%s at=%s", new_sid, sid, mid)
+    return new_sid
+
+
+async def _branch_destination(src: dict, user_id: str | None) -> str:
+    title = f'{src["title"]} (branch)'
+    if not src.get("is_group"):
+        return await create(src["char_id"], src["persona_id"], title, src["user_name"], user_id)
+    cast = await session_char_repo.list_cast(src["id"])
+    char_ids = [member["char_id"] for member in cast]
+    mode = "chat" if src.get("group_mode") == "chat" else "roleplay"
+    new_sid = await create_group(user_id, title, char_ids, persona_id=src["persona_id"],
+                                 user_name=src["user_name"], mode=mode)
+    await session_char_repo.set_cast(new_sid, [
+        {"char_id": member["char_id"], "muted": member.get("muted"),
+         "is_narrator": member.get("is_narrator")}
+        for member in cast])
     return new_sid
 
 

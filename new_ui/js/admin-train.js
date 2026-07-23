@@ -9,6 +9,10 @@ const ADMIN_TRAIN_TABS = [
 
 class AdminTrainView {
   async mount(main) {
+    if (AdminTrainView._activeWatcher) {
+      AdminTrainView._activeWatcher.stop();
+      AdminTrainView._activeWatcher = null;
+    }
     this.main = main;
     this.tab = "train";
     this.checkpoints = [];
@@ -16,6 +20,7 @@ class AdminTrainView {
     this.animaNames = new Set();
     this.jobs = [];
     this.watcher = new TrainingJobWatcher();
+    AdminTrainView._activeWatcher = this.watcher;
     this.form = {
       name: "", trigger_word: "sks", checkpoint: "",
       resolution: 512, batch_size: 1, rank: 16, alpha: 16,

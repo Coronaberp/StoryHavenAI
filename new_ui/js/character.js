@@ -480,7 +480,7 @@ class CharacterView {
                 </div>
               </div>
               <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
-                ${(c.tags || []).map((tg) => `<span class="sym-tag" onclick="searchByTag('${_jsEsc(tg)}')" style="cursor:pointer">${_esc(tg)}</span>`).join("")}
+                ${(c.tags || []).map((tg) => `<span class="sym-tag" data-tag="${_attr(tg)}" style="cursor:pointer">${_esc(tg)}</span>`).join("")}
               </div>
               ${c.owner_username ? `
                 <div style="display:flex;align-items:center;gap:8px;margin-top:12px;cursor:pointer" data-owner="${encodeURIComponent(c.owner_username)}">
@@ -550,6 +550,9 @@ class CharacterView {
       const btn = document.getElementById("charDescToggle");
       const expanded = desc.classList.toggle("char-desc-clamped") === false;
       btn.textContent = expanded ? t("char_collapse") : t("char_expand");
+    });
+    this.main.querySelectorAll("[data-tag]").forEach((el) => {
+      el.onclick = () => searchByTag(el.dataset.tag);
     });
     document.getElementById("charComments").onclick = () => openCommentsModal("character", c.id);
     document.getElementById("charShare").onclick = () => copyShareUrl(`${location.origin}/c/${encodeURIComponent(c.id)}`);

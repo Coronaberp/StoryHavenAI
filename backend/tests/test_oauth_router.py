@@ -3,7 +3,9 @@ import types
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import delete as sa_delete
 
+from backend import db
 from backend.routers import oauth as oauth_router
 from backend.repositories import oauth_providers as provider_repo
 from backend.repositories import oauth_pending as pending_repo
@@ -12,6 +14,10 @@ from backend.repositories import users as user_repo
 from backend.schemas import OauthProvidersPutIn, OauthProviderConfigIn
 
 pytestmark = pytest.mark.asyncio
+
+
+async def _clear_providers():
+    await db._w(sa_delete(db.oauth_providers))
 
 
 def _request(host="storyhavenai.example", scheme="https"):
@@ -38,6 +44,7 @@ async def test_admin_list_providers_reports_configured_state(db_conn):
 
 
 async def test_admin_list_providers_unconfigured_shows_defaults(db_conn):
+    await _clear_providers()
     result = await oauth_router.admin_list_oauth_providers({"id": "admin-1"})
     github = next(p for p in result["providers"] if p["provider"] == "github")
     assert github["client_id"] == ""
@@ -63,6 +70,7 @@ async def test_admin_put_providers_rejects_unknown_provider(db_conn):
 
 
 async def test_public_providers_list_only_shows_enabled(db_conn):
+    await _clear_providers()
     await provider_repo.upsert("google", "id", "secret", True)
     await provider_repo.upsert("github", "id", "secret", False)
     result = await oauth_router.list_public_oauth_providers()
@@ -78,6 +86,7 @@ async def test_start_login_unknown_provider_404(db_conn):
 
 
 async def test_start_login_disabled_provider_404(db_conn):
+    await _clear_providers()
     with pytest.raises(HTTPException) as exc_info:
         await oauth_router._start_oauth_flow(_request(), "google", "login", None)
     assert exc_info.value.status_code == 404

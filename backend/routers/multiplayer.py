@@ -5,8 +5,22 @@ from backend.state import api, log
 from backend.auth import get_experimental_user, get_current_user
 from backend.chat_service import _own_session
 from backend.repositories import chat_sessions, characters, session_participants, session_invites, notifications, party_chat
+from backend.repositories import emojis as custom_emoji_repo
+from backend.routers.comments import _COMMENT_IMAGE_RE, _COMMENT_STICKER_RE
 from backend.schemas import MultiplayerJoinIn, MultiplayerAcceptIn, PartyChatIn
 from backend import live_broadcast
+
+
+async def _validated_persona_id(persona_id: str | None, current_user: dict) -> str | None:
+    if not persona_id:
+        return None
+    from backend.repositories import personas
+    persona = await personas.get(persona_id)
+    if not persona or persona.get("owner_id") != current_user["id"]:
+        log.warning("multiplayer: persona ownership check failed persona=%s user=%s",
+                    persona_id, current_user["id"])
+        raise HTTPException(404, "persona not found")
+    return persona_id
 
 
 async def _require_rpg_mode(session: dict) -> None:
@@ -54,8 +68,9 @@ async def join_via_link(sid: str, body: MultiplayerJoinIn,
     invite = await session_invites.resolve(body.token)
     if not invite or invite["session_id"] != sid:
         raise HTTPException(404, "invite link not found or revoked")
+    persona_id = await _validated_persona_id(body.persona_id, current_user)
     try:
-        await session_participants.add(sid, current_user["id"], body.persona_id, "member")
+        await session_participants.add(sid, current_user["id"], persona_id, "member")
     except ValueError:
         raise HTTPException(409, "This session is full")
     log.info("multiplayer: user=%s joined session=%s via link", current_user["id"], sid)
@@ -89,8 +104,13 @@ async def accept_invite(sid: str, body: MultiplayerAcceptIn,
     session = await chat_sessions.get(sid)
     if not session:
         raise HTTPException(404, "session not found")
+    if not await notifications.exists(current_user["id"], "multiplayer_invite", sid):
+        log.warning("multiplayer: accept without invite blocked session=%s user=%s",
+                    sid, current_user["id"])
+        raise HTTPException(403, "You were not invited to this session")
+    persona_id = await _validated_persona_id(body.persona_id, current_user)
     try:
-        await session_participants.add(sid, current_user["id"], body.persona_id, "member")
+        await session_participants.add(sid, current_user["id"], persona_id, "member")
     except ValueError:
         raise HTTPException(409, "This session is full")
     log.info("multiplayer: user=%s accepted invite to session=%s", current_user["id"], sid)
@@ -150,6 +170,7 @@ async def remove_participant(sid: str, user_id: str,
     await session_participants.remove(sid, user_id)
     log.info("multiplayer: user=%s removed from session=%s by=%s", user_id, sid, current_user["id"])
     live_broadcast.broadcast(sid, "participant_left", {"user_id": user_id})
+    live_broadcast.disconnect_user(sid, user_id)
     return {"ok": True}
 
 
@@ -164,7 +185,7 @@ async def typing_ping(sid: str, current_user: dict = Depends(get_current_user)):
 async def live(sid: str, current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     return StreamingResponse(
-        live_broadcast.stream(sid),
+        live_broadcast.stream(sid, current_user["id"]),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache, no-transform",
@@ -180,14 +201,31 @@ async def get_party_chat(sid: str, current_user: dict = Depends(get_current_user
     return await party_chat.list_recent(sid)
 
 
+async def _validated_party_chat_image(body: PartyChatIn, current_user: dict) -> str | None:
+    image = (body.image or "").strip()
+    if not image:
+        return None
+    if body.attachment_kind != "image":
+        log.warning("multiplayer: party chat attachment rejected kind=%s user=%s",
+                    body.attachment_kind, current_user["id"])
+        raise HTTPException(400, "invalid attachment reference")
+    if _COMMENT_IMAGE_RE.match(image):
+        return image
+    if _COMMENT_STICKER_RE.match(image) and await custom_emoji_repo.get_sticker_by_image(image):
+        return image
+    log.warning("multiplayer: party chat attachment rejected user=%s", current_user["id"])
+    raise HTTPException(400, "invalid attachment reference")
+
+
 @api.post("/sessions/{sid}/multiplayer/party-chat")
 async def post_party_chat(sid: str, body: PartyChatIn,
                           current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     content = body.content.strip()
-    if not content and not body.image:
+    image = await _validated_party_chat_image(body, current_user)
+    if not content and not image:
         raise HTTPException(400, "Message cannot be empty")
     message = await party_chat.add(sid, current_user["id"], content,
-                                   image=body.image, attachment_kind=body.attachment_kind)
+                                   image=image, attachment_kind="image" if image else None)
     live_broadcast.broadcast(sid, "party_chat", message)
     return message

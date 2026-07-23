@@ -35,6 +35,10 @@ class ModelSettingsView {
     const o = this.settings.overrides || {};
     const d = this.settings.defaults || {};
     const useOwn = !!o.base_url;
+    this.hadThinkingOverride = o.enable_thinking !== undefined;
+    this.initialThinking = !!(this.hadThinkingOverride ? o.enable_thinking : d.enable_thinking);
+    this.hadSceneOverride = o.scene_style !== undefined;
+    this.initialScene = !!(this.hadSceneOverride ? o.scene_style : d.scene_style);
     const sliderRows = SAMPLING_FIELDS.map((f) => {
       const raw = this.fieldValue(f.id);
       const rangeVal = raw === "" ? (d[f.id] ?? f.fallback) : raw;
@@ -93,11 +97,11 @@ class ModelSettingsView {
         </div>
       </div>
       <label class="flex items-center gap-2.5 mb-2 text-sm text-ink">
-        <input type="checkbox" id="model_thinking" ${(o.enable_thinking !== undefined ? o.enable_thinking : d.enable_thinking) ? "checked" : ""}>
+        <input type="checkbox" id="model_thinking" ${this.initialThinking ? "checked" : ""}>
         ${t("model_settings_enable_thinking_by_default")}
       </label>
       <label class="flex items-center gap-2.5 mb-4 text-sm text-ink">
-        <input type="checkbox" id="model_scene" ${(o.scene_style !== undefined ? o.scene_style : d.scene_style) ? "checked" : ""}>
+        <input type="checkbox" id="model_scene" ${this.initialScene ? "checked" : ""}>
         ${t("model_settings_visual_novel_scene_style")} <span class="text-muted text-xs">${t("model_settings_mood_tags_sprites")}</span>
       </label>
 
@@ -168,12 +172,18 @@ class ModelSettingsView {
     return v;
   }
 
+  checkboxOverride(id, initial, hadOverride) {
+    const checked = !!document.getElementById(id)?.checked;
+    if (checked !== initial) return checked;
+    return hadOverride ? checked : null;
+  }
+
   async save() {
     const body = {
       history_turns: this.intOrNull("model_history_turns"),
       max_tokens: this.intOrNull("model_max_tokens"),
-      enable_thinking: !!document.getElementById("model_thinking")?.checked,
-      scene_style: !!document.getElementById("model_scene")?.checked,
+      enable_thinking: this.checkboxOverride("model_thinking", this.initialThinking, this.hadThinkingOverride),
+      scene_style: this.checkboxOverride("model_scene", this.initialScene, this.hadSceneOverride),
       temperature: this.numOrNull("model_temperature"),
       top_p: this.numOrNull("model_top_p"),
       top_k: this.intOrNull("model_top_k"),

@@ -163,7 +163,8 @@ class DocsSettingsView {
       ["d_groups", DIA_GROUPS],
     ];
     try {
-      mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "strict" });
+      const isLight = document.documentElement.getAttribute("data-theme") === "light";
+      mermaid.initialize({ startOnLoad: false, theme: isLight ? "default" : "dark", securityLevel: "strict" });
       for (const [elId, def] of diagrams) {
         const host = this.main.querySelector("#" + elId);
         if (!host) continue;

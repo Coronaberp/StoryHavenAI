@@ -13,6 +13,7 @@ IMPORTANCE_WEIGHT = 0.4
 LOCATION_MATCH_WEIGHT = 0.5
 ACTIVE_STATE_IMPORTANCE_FLOOR = 3
 MAX_ACTIVE_RESERVED_FACTS = 12
+PARTICIPANT_ABSENCE_PENALTY = 0.5
 
 
 def location_matches(fact: dict, current_location: str | None) -> bool:
@@ -51,12 +52,11 @@ def participants_present(fact: dict, present_lower: set[str]) -> bool:
 
 def passes_filters(fact: dict, present_lower: set[str], current_turn: int,
                     current_location: str | None = None) -> bool:
-    if retention(fact, current_turn, current_location) < RETENTION_FLOOR:
-        return False
-    return participants_present(fact, present_lower)
+    return retention(fact, current_turn, current_location) >= RETENTION_FLOOR
 
 
-def score(fact: dict, current_turn: int, current_location: str | None = None) -> float:
+def score(fact: dict, current_turn: int, current_location: str | None = None,
+          present_lower: set[str] | None = None) -> float:
     relevance = max(0.0, 1.0 - fact["distance"])
     recency = math.exp(-max(0, current_turn - fact["last_turn"]) / RECENCY_SCALE_TURNS)
     location_bonus = (LOCATION_MATCH_WEIGHT
@@ -67,11 +67,15 @@ def score(fact: dict, current_turn: int, current_location: str | None = None) ->
               + RECENCY_WEIGHT * recency
               + IMPORTANCE_WEIGHT * fact["importance"] / 5.0
               + location_bonus)
-    return weight * retention(fact, current_turn, current_location)
+    base = weight * retention(fact, current_turn, current_location)
+    if present_lower is not None and not participants_present(fact, present_lower):
+        return base * PARTICIPANT_ABSENCE_PENALTY
+    return base
 
 
 def rank(candidates: list[dict], present: list[str], current_turn: int,
          current_location: str | None = None) -> list[dict]:
     present_lower = {p.lower() for p in present}
     kept = [c for c in candidates if passes_filters(c, present_lower, current_turn, current_location)]
-    return sorted(kept, key=lambda c: score(c, current_turn, current_location), reverse=True)
+    return sorted(kept, key=lambda c: score(c, current_turn, current_location, present_lower=present_lower),
+                  reverse=True)

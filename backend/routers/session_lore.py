@@ -31,6 +31,19 @@ async def _translate_for_session(text: str, session: dict, current_user: dict) -
         return text
 
 
+async def _session_scoped_entry(session: dict, lid: str, current_user: dict) -> dict:
+    entry = await lore.get(lid)
+    if not entry:
+        raise HTTPException(404, "lore entry not found")
+    belongs_to_character = entry["char_id"] == session["char_id"]
+    own_global = entry["char_id"] is None and entry.get("owner_id") == current_user["id"]
+    if not belongs_to_character and not own_global:
+        log.warning("session_lore: out-of-scope lore access blocked session=%s lore=%s by=%s",
+                    session["id"], lid, current_user["id"])
+        raise HTTPException(404, "lore entry not found")
+    return entry
+
+
 async def _ensure_secrets(entry: dict) -> list[dict]:
     existing = await ls.secrets_for(entry["id"])
     if existing:
@@ -110,9 +123,7 @@ async def list_hidden_session_lore(sid: str, current_user: dict = Depends(get_cu
 @api.get("/sessions/{sid}/lore/{lid}/secrets")
 async def get_lore_secrets(sid: str, lid: str, current_user: dict = Depends(get_current_user)):
     session = await _own_session(sid, current_user)
-    entry = await lore.get(lid)
-    if not entry:
-        raise HTTPException(404, "lore entry not found")
+    entry = await _session_scoped_entry(session, lid, current_user)
     secrets = await _ensure_secrets(entry)
     revealed = await ls.revealed_ids(sid, [s["id"] for s in secrets])
     result = []
@@ -128,9 +139,7 @@ async def get_lore_secrets(sid: str, lid: str, current_user: dict = Depends(get_
 async def reveal_lore_secret(sid: str, lid: str, secret_id: str,
                              current_user: dict = Depends(get_current_user)):
     session = await _own_session(sid, current_user)
-    entry = await lore.get(lid)
-    if not entry:
-        raise HTTPException(404, "lore entry not found")
+    await _session_scoped_entry(session, lid, current_user)
     secrets = await ls.secrets_for(lid)
     match = next((s for s in secrets if s["id"] == secret_id), None)
     if not match:
@@ -146,9 +155,7 @@ async def reveal_lore_secret(sid: str, lid: str, secret_id: str,
 async def set_session_lore_override(sid: str, lid: str, body: SessionLoreOverrideIn,
                                     current_user: dict = Depends(get_current_user)):
     session = await _own_session(sid, current_user)
-    entry = await lore.get(lid)
-    if not entry:
-        raise HTTPException(404, "lore entry not found")
+    await _session_scoped_entry(session, lid, current_user)
     if body.content is None:
         fact_id = await sls.clear_override(sid, lid)
         if fact_id:

@@ -1,5 +1,4 @@
 import time
-import heapq
 import asyncio
 import itertools
 from pathlib import Path
@@ -9,6 +8,7 @@ from backend.state import CFG, log
 TEMP_FILE = Path("storyhavenai.gputemp")
 TEMP_STALE_SECONDS = 30
 COOLING_POLL_SECONDS = 5
+PRIORITY_AGING_SECONDS = 60
 
 TIER_PRIORITIES = {"dev": 0, "admin": 1, "full": 2, "guest": 3}
 
@@ -34,7 +34,7 @@ def read_gpu_temp() -> int | None:
 
 class GpuQueue:
     def __init__(self):
-        self._waiters: list[tuple[int, int, asyncio.Future]] = []
+        self._waiters: list[tuple[int, int, float, asyncio.Future]] = []
         self._seq = itertools.count()
         self._busy = False
         self._cooling = False
@@ -59,6 +59,10 @@ class GpuQueue:
                         temp, limit, resume)
         return self._cooling, temp
 
+    def _aged_rank(self, waiter: tuple[int, int, float, asyncio.Future], now: float) -> tuple[int, int]:
+        priority, seq, enqueued, _ = waiter
+        return priority - int((now - enqueued) / PRIORITY_AGING_SECONDS), seq
+
     def _pump(self):
         if self._busy or not self._waiters:
             return
@@ -67,13 +71,14 @@ class GpuQueue:
             if not self._pump_task or self._pump_task.done():
                 self._pump_task = asyncio.create_task(self._pump_later())
             return
-        while self._waiters:
-            _, _, fut = heapq.heappop(self._waiters)
-            if fut.done():
-                continue
-            self._busy = True
-            fut.set_result(None)
+        self._waiters = [waiter for waiter in self._waiters if not waiter[3].done()]
+        if not self._waiters:
             return
+        now = time.monotonic()
+        next_waiter = min(self._waiters, key=lambda waiter: self._aged_rank(waiter, now))
+        self._waiters.remove(next_waiter)
+        self._busy = True
+        next_waiter[3].set_result(None)
 
     async def _pump_later(self):
         await asyncio.sleep(COOLING_POLL_SECONDS)
@@ -82,15 +87,16 @@ class GpuQueue:
 
     async def acquire(self, user: dict):
         fut = asyncio.get_running_loop().create_future()
-        heapq.heappush(self._waiters, (priority_for(user), next(self._seq), fut))
+        self._waiters.append((priority_for(user), next(self._seq), time.monotonic(), fut))
         self._pump()
         try:
             await fut
         except asyncio.CancelledError:
-            if not fut.done():
-                fut.cancel()
-            else:
+            if fut.done() and not fut.cancelled():
+                log.info("gpu_queue: granted slot released after cancellation user=%s", user.get("username"))
                 self.release()
+            else:
+                fut.cancel()
             raise
         log.info("gpu_queue: slot granted user=%s queued=%s", user.get("username"), len(self._waiters))
 
@@ -100,7 +106,7 @@ class GpuQueue:
 
     def status(self) -> dict:
         cooling, temp = self._cooling, read_gpu_temp()
-        return {"queued": sum(1 for _, _, f in self._waiters if not f.done()),
+        return {"queued": sum(1 for _, _, _, fut in self._waiters if not fut.done()),
                 "busy": self._busy, "gpu_temp": temp, "cooling": cooling}
 
 

@@ -1,10 +1,14 @@
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, delete as sa_delete
 
 from backend import db
 from backend.repositories import oauth_providers as provider_repo
 
 pytestmark = pytest.mark.asyncio
+
+
+async def _clear_providers():
+    await db._w(sa_delete(db.oauth_providers))
 
 
 async def test_oauth_providers_table_exists(db_conn):
@@ -52,6 +56,7 @@ async def test_get_missing_returns_none(db_conn):
 
 
 async def test_list_all(db_conn):
+    await _clear_providers()
     await provider_repo.upsert("google", "id", "secret", True)
     await provider_repo.upsert("github", "id", "secret", False)
     rows = await provider_repo.list_all()
@@ -60,6 +65,7 @@ async def test_list_all(db_conn):
 
 
 async def test_list_enabled_excludes_disabled(db_conn):
+    await _clear_providers()
     await provider_repo.upsert("google", "id", "secret", True)
     await provider_repo.upsert("github", "id", "secret", False)
     rows = await provider_repo.list_enabled()
@@ -67,12 +73,14 @@ async def test_list_enabled_excludes_disabled(db_conn):
 
 
 async def test_list_enabled_excludes_missing_client_id(db_conn):
+    await _clear_providers()
     await provider_repo.upsert("google", "", "secret", True)
     rows = await provider_repo.list_enabled()
     assert rows == []
 
 
 async def test_list_enabled_excludes_missing_secret(db_conn):
+    await _clear_providers()
     await provider_repo.upsert("google", "client-id", None, True)
     rows = await provider_repo.list_enabled()
     assert rows == []

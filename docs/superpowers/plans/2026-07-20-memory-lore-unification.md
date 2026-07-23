@@ -750,6 +750,87 @@ git commit -m "Wire lore candidates into memory_service.retrieve_block"
 
 ---
 
+### Task 6b: Widen the lore KNN candidate fetch — stop capping it at `top_k_lore` (default 6)
+
+**Added mid-execution, by explicit instruction:** in the legacy design, `top_k_lore` (default 6) directly *was* the number of lore entries injected into the prompt. Task 6 kept using it as the width of the raw KNN pull inside `lore_memory.fetch_lore_candidates` — but now that inclusion is governed by `memory_block.build_block`'s token budget (not a fixed count), capping the *candidate* pool at 6 before ranking even happens means the budget-aware packing introduced in Tasks 4/6 can never actually consider more than 6 semantically-matched lore entries, regardless of how much budget is available. This silently defeats the whole point of moving to budget-based packing for the lore half specifically (memory facts already avoid this — they use `CANDIDATE_K = 32` as a generous pre-ranking pool, per `backend/memory_service.py`'s existing constant).
+
+**Files:**
+- Modify: `backend/lore_memory.py`
+- Test: `backend/tests/test_lore_memory.py` (extend)
+
+**Interfaces:**
+- Produces: `fetch_lore_candidates`'s KNN step now pulls a wide candidate pool (matching `memory_service.CANDIDATE_K`'s philosophy) instead of `cfg["top_k_lore"]`. `cfg["top_k_lore"]`/`cfg["lore_max_dist"]` remain read (the distance threshold still matters, and `top_k_lore` stays meaningful for the *keyword-match* path's semantics if ever reused elsewhere — but the semantic KNN pull no longer treats it as its own hard ceiling).
+
+- [ ] **Step 1: Write the failing test**
+
+Add to `backend/tests/test_lore_memory.py` (following the same real-`db_conn` pattern the file's existing KNN test uses — insert more than 6 lore entries with distinct-enough embeddings that a `top_k_lore=6`-style cap would previously have excluded some, and confirm more than 6 come back as candidates when `query_vec` is provided):
+
+```python
+async def test_fetch_lore_candidates_knn_pool_not_capped_at_top_k_lore(db_conn, monkeypatch):
+    from backend.repositories import lore as lore_repo
+    from backend import vectors
+    async def fake_embed(*args, **kwargs):
+        return [0.1] * 768
+    monkeypatch.setattr("backend.llm.embed", fake_embed)
+    vectors.ensure_indexes(768)
+    entries = []
+    for i in range(10):
+        eid = await lore_repo.create(
+            "char-wide-1", [], f"Entry number {i} about the wide pool test.",
+            False, False, "", "", owner_id="user-1")
+        entry = await lore_repo.get(eid)
+        entries.append(entry)
+        await vectors.store_lore_vector(eid, "char-wide-1", [0.1] * 768)
+    candidates = await lore_memory.fetch_lore_candidates(
+        char_id="char-wide-1", session_id="sess-wide-1",
+        keyword_entries=[], query_vec=[0.1] * 768,
+        cfg={"top_k_lore": 6, "lore_max_dist": 0.8}, current_turn=1)
+    assert len(candidates) > 6
+```
+
+Adapt the `lore_repo.create(...)` call's exact positional argument order to match whatever Task 5's implementer already established as the real signature (check the existing tests in this same file for the confirmed working call shape — do not guess a new one).
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `python3 -m pytest backend/tests/test_lore_memory.py -v -k knn_pool_not_capped`
+Expected: FAIL — `len(candidates)` is at most 6 against the current `top_k_lore`-limited fetch.
+
+- [ ] **Step 3: Implement**
+
+In `backend/memory_service.py`, `CANDIDATE_K = 32` already exists as a module-level constant. Import it into `lore_memory.py` rather than duplicating the number: add `from backend.memory_service import CANDIDATE_K` — **check this doesn't create a circular import** (`memory_service.py` imports `lore_memory` per Task 6/9's wiring), since Python will fail loudly and immediately if it does. If it does circular-import, define `LORE_CANDIDATE_K = 32` as its own constant directly in `lore_memory.py` instead (duplication of the value, not a big deal for one integer, and it decouples the two modules' internal tuning knobs, which is arguably more correct anyway — lore and memory candidate pool widths are independent tuning decisions that happen to share a value today, not the same concept).
+
+In `fetch_lore_candidates`, change:
+
+```python
+    if query_vec is not None:
+        knn_ids = await vectors.search_lore_ids(
+            char_id, query_vec, cfg["top_k_lore"], cfg["lore_max_dist"])
+```
+
+to:
+
+```python
+    if query_vec is not None:
+        knn_ids = await vectors.search_lore_ids(
+            char_id, query_vec, LORE_CANDIDATE_K, cfg["lore_max_dist"])
+```
+
+(or `CANDIDATE_K` if the import worked without a cycle — use whichever you resolved on in Step 3's first paragraph, consistently).
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `python3 -m pytest backend/tests/test_lore_memory.py -v`
+Expected: all PASS, including the pre-existing tests from Task 5/5-fix (confirm nothing regressed).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add backend/lore_memory.py backend/tests/test_lore_memory.py
+git commit -m "Widen lore KNN candidate pool — stop capping at top_k_lore before ranking"
+```
+
+---
+
 ### Task 7: Char-state extraction folds into the batch call
 
 **Files:**
@@ -1724,6 +1805,69 @@ The `meta` event's `memory` field description and the `done` event's `memory_err
 git add CLAUDE.md
 git commit -m "Update CLAUDE.md: memory_v2+lore unification, v1 memory removed"
 ```
+
+---
+
+---
+
+### Task 15: Real stress test — 1700-turn memory probe against live endpoints
+
+**Added mid-execution, by explicit instruction:** measure how the finished unified memory_v2+lore system actually performs at scale, against the real LLM/embed endpoints (no mocking) — every other task's tests mock or stub the model; this one deliberately doesn't, because the entire point is to gauge real model memory over a long conversation, not verify code paths. Depends on Tasks 1-14 being complete (a partial system would give a meaningless signal about "actual model memory").
+
+**Files:**
+- Modify: `modules/py/memory_probe_replay.py` (pre-existing standalone script, not part of the app's import graph — it drives `memory_service.extract_batch`/`retrieve_block` directly against real config-resolved LLM/embed endpoints and a real Postgres session)
+- Create: `modules/py/memory_probe_scripts/stress_1700.json` (the 1700-turn synthetic script + probe queries)
+- Create: `modules/py/memory_probe_replay_report.md` (the run's output, committed as the evidence artifact)
+
+**Interfaces:**
+- Consumes: `memory_service.extract_batch`, `memory_service.retrieve_block` (current signatures, post-Task-14), `memory_service.BATCH_SIZE`.
+- Produces: no new importable interface — this is a standalone CLI script and its output artifact.
+
+- [ ] **Step 1: Fix the script's stale call sites**
+
+`memory_probe_replay.py` predates this whole plan and calls `extract_batch`/`retrieve_block` with pre-Task-6/7 signatures. Read the current `backend/memory_service.py` (post-Task-14) and update:
+- The `extract_batch(...)` call (line 52-53 currently) to match the current signature — it now requires a `prev_session` argument (Task 7) positioned before `chat_base`/`chat_key`. Build a minimal session dict for this: `{"id": sid, "known_names": "[]", "char_doing": None, "char_location": None}`, threading it through and updating it after each batch from the returned char-state if the script wants doing/location visibility in its printed output (optional — `known_names` continuity is the one that matters for probe accuracy, since later probes reference NPCs introduced earlier).
+- The `retrieve_block(...)` call (line 61-63) to pass `keyword_lore_entries` (empty list `[]` — this stress test is about memory-fact retention specifically, not lore; a lore-inclusive variant is a reasonable future follow-up but out of scope here per the user's own framing, "gauge actual model memory") and unpack the new 4-tuple return (`block, used, meta_lore_lines, meta_memory_lines = await memory_service.retrieve_block(...)`, using `block`/`used` where the old code used `block`/`used`; note the old code already named its variables `block, used`, so only the unpacking arity changes).
+
+- [ ] **Step 2: Generate the 1700-turn stress script**
+
+Write `modules/py/memory_probe_scripts/stress_1700.json` as a JSON object with `"turns"` (a list of 1700 `{"user": "...", "assistant": "..."}` objects) and `"probes"` (a list of `{"query": "...", "expect": [...], "reject": [...], "present": [...]}` objects, matching the shape `_run()` already reads — check the existing `_batches()`/probe-loop code in the script for the exact expected shape before writing).
+
+Do not hand-write 1700 turns of dialogue. Instead, write a small Python generator (a separate throwaway script, not committed, or a `if __name__ == "__main__"` block temporarily added to build the JSON) that constructs a long-running story with clearly trackable facts planted at known turn offsets, so the probes have unambiguous ground truth:
+- Plant roughly 10-15 distinct "state" or "world" facts at turns spread across the full range (e.g. turn 50, 200, 500, 900, 1200, 1650) — things like an injury, a named ally introduced, a location established, a promise made — each with clear, greppable keywords.
+- Fill the turns between plants with plausible but generic filler dialogue (varied enough to produce real, distinct embeddings — not literally repeated text, which would trivially collide) so the candidate pool genuinely grows to stress `CANDIDATE_K=32`/the token budget, not just pad turn count.
+- Write probes querying for each planted fact from *after* its plant turn (some immediately after, some hundreds of turns later — the whole point is measuring retention across turn distance) with `expect` listing keywords that must appear and `reject` listing keywords from *other* planted facts that shouldn't leak in for an unrelated query (tests the ranking's relevance, not just retention).
+
+This turn/probe generation logic itself needs no test — it's test-data generation, not production code — but the resulting JSON file should be committed so the run is reproducible.
+
+- [ ] **Step 3: Run it against the live endpoints**
+
+This repo's LLM/embed endpoints are the `llamacpp-chat`/`llamacpp-embed` containers on the same `sillystavern_net` bridge network (see CLAUDE.md's "Running the server" section) — run the script from inside the `story-game` container so it can resolve those hostnames, the same way the live app does:
+
+```bash
+podman exec -w /app/ai-frontend story-game venv/bin/python3 modules/py/memory_probe_replay.py modules/py/memory_probe_scripts/stress_1700.json --keep
+```
+
+`--keep` preserves the probe session in Postgres after the run (useful for manual inspection if something looks wrong) — the script already supports purging via omitting that flag; use `--keep` for this run since 1700 turns of real LLM calls take real wall-clock time and money, worth being able to re-inspect without re-running.
+
+This will take a long time (1700 turns ÷ `BATCH_SIZE=5` = 340 extraction batches, each a real LLM call plus embedding calls, plus one retrieval call per probe) — expect this to run for an extended period. Do not run it inline and block; dispatch it as a background task and poll, or accept a long foreground wait if that's the only option available, but do not time out prematurely and report a false failure.
+
+- [ ] **Step 4: Capture and commit the results**
+
+Redirect the run's full stdout into `modules/py/memory_probe_replay_report.md` (wrap it in a fenced code block, with a one-paragraph prose summary above it: probes passed/failed out of total, and specifically — this is the number the whole exercise exists to produce — at what turn distance (if any) probes started failing, i.e. the empirically measured answer to "how many turns before retrieval degrades," replacing the earlier report's reasoned-from-code estimate with a real one).
+
+If any probes fail, do not treat that as this task failing — a failing probe is itself the valuable output (evidence of where the system's real limits are). Report the failures plainly in the committed artifact rather than tuning the script until everything passes, which would defeat the purpose.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add modules/py/memory_probe_replay.py modules/py/memory_probe_scripts/stress_1700.json modules/py/memory_probe_replay_report.md
+git commit -m "Add 1700-turn live stress test for the unified memory_v2+lore system"
+```
+
+- [ ] **Step 6: Update report_today.md with the real numbers**
+
+Replace the earlier "Effectiveness of memory_v2 specifically" section's reasoned-from-code turn estimate with this task's actual measured results, keeping the reasoning as supporting explanation for *why* the measured numbers land where they do, not as a replacement for having measured them.
 
 ---
 

@@ -8,13 +8,19 @@ from backend.repositories import users as user_repo
 pytestmark = pytest.mark.asyncio
 
 CLAUDE_ID = "u016863391b2a"
-TEST_ID = "ucb203e5d3fe9"
 
 
 @pytest_asyncio.fixture(autouse=True)
 async def _ensure_fernet():
     if db._fernet is None:
         await db.init()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _test_id(db_conn):
+    global TEST_ID
+    user = await user_repo.create_user(f"repo_test_notify_user_{db.nid()}", "s3cret-password")
+    TEST_ID = user["id"]
 
 
 async def test_create_and_list(db_conn):

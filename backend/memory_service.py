@@ -112,7 +112,7 @@ async def extract_batch(sid: str, char_id: str, char_name: str, user_name: str,
         draft, vec = drafts[decision.index], vecs[decision.index]
         fact = draft.model_dump()
         if fact["fact_type"] != "world" and not fact["participants"]:
-            fact["participants"] = [user_name, char_name]
+            fact["participants"] = [user_name] + (cast_names or [char_name])
         fact.update(session_id=sid, char_id=char_id, turn=turn, location=resolved_location,
                    batch_id=batch_id)
         if decision.action == "add":
@@ -221,7 +221,11 @@ async def retrieve_block(session: dict, char: dict, user_name: str, query: str,
         fact["demoted"] = True
     merged_candidates = {f["id"]: f for f in candidates if f["id"] not in excluded_ids}
     for fact in demoted:
-        merged_candidates.setdefault(fact["id"], fact)
+        already_merged = merged_candidates.get(fact["id"])
+        if already_merged is None:
+            merged_candidates[fact["id"]] = fact
+        else:
+            already_merged["demoted"] = True
     ranked_memory = memory_ranking.rank(list(merged_candidates.values()), present, turn, current_location)
     lore_pinned = [c for c in lore_candidates if c["pinned"]]
     lore_scored = memory_ranking.rank(

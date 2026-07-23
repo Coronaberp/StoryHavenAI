@@ -2,7 +2,7 @@ import time
 import uuid
 import secrets
 
-from sqlalchemy import select, insert, update as sa_update, delete as sa_delete, and_
+from sqlalchemy import select, insert, update as sa_update, delete as sa_delete, and_, or_
 
 from backend import db
 from backend.db import invite_codes, users, nid, _q, _q1, _w
@@ -52,6 +52,8 @@ async def redeem(code: str) -> dict | None:
     async with db.engine().begin() as conn:
         claimed = await conn.execute(sa_update(invite_codes).where(and_(
             invite_codes.c.id == entry["id"], invite_codes.c.uses < invite_codes.c.max_uses,
+            invite_codes.c.disabled == 0,
+            or_(invite_codes.c.expires.is_(None), invite_codes.c.expires > time.time()),
         )).values(uses=invite_codes.c.uses + 1))
     if not claimed.rowcount:
         log.warning("invite_codes: redeem race lost id=%s", entry["id"])
