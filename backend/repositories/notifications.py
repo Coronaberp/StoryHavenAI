@@ -46,6 +46,17 @@ async def notify_admins(type: str, title: str, body: str = "",
     return sent
 
 
+async def notify_all_users(type: str, title: str, body: str = "",
+                           link: str = "", related_id: str | None = None) -> int:
+    user_ids = await user_repo.list_active_non_dev_user_ids()
+    sent = 0
+    for uid in user_ids:
+        await create(uid, type, title, body, link, related_id=related_id)
+        sent += 1
+    log.info("notifications: notify_all_users type=%s sent=%d", type, sent)
+    return sent
+
+
 async def list_for_user(user_id: str, unread_only: bool = False,
                         limit: int = 50) -> list[dict]:
     conds = [notifications.c.user_id == user_id]

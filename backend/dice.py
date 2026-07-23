@@ -36,13 +36,19 @@ def format_roll(r, label=""):
     return f"🎲 {lbl}{r['detail']} = **{r['total']}**"
 
 
-ROLL_INLINE = re.compile(r'/r(?:oll)?\s+(\d*d\d+(?:\s*[+-]\s*\d*d?\d+)*)', re.I)
+ROLL_INLINE = re.compile(
+    r'/r(?:oll)?\s+(\d*d\d+(?:\s*[+-]\s*\d*d?\d+)*)'
+    r'|\{roll:\s*(\d*d\d+(?:\s*[+-]\s*\d*d?\d+)*)\s*([^}]*?)\s*\}', re.I)
 
 
 def resolve_inline_rolls(text):
     def repl(m):
+        if m.group(1):
+            expr, label = m.group(1), ""
+        else:
+            expr, label = m.group(2), (m.group(3) or "").strip()
         try:
-            return format_roll(roll_dice(m.group(1)))
+            return format_roll(roll_dice(expr), label)
         except ValueError:
             return m.group(0)
     return ROLL_INLINE.sub(repl, text or "")

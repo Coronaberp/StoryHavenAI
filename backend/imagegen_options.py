@@ -48,15 +48,45 @@ async def list_checkpoints(base_url: str) -> list[str]:
 
 
 async def list_anima_unets(base_url: str) -> list[str]:
-    return await list_object_options(base_url, "UNETLoader", "unet_name")
+    names = await list_object_options(base_url, "UNETLoader", "unet_name")
+    return [n for n in names if not _is_wan_named(n)]
 
 
 async def list_clip_models(base_url: str) -> list[str]:
-    return await list_object_options(base_url, "CLIPLoader", "clip_name")
+    names = await list_object_options(base_url, "CLIPLoader", "clip_name")
+    return [n for n in names if not _is_wan_named(n)]
 
 
 async def list_vaes(base_url: str) -> list[str]:
     return await list_object_options(base_url, "VAELoader", "vae_name")
+
+
+# Wan and Anima both load through the same generic UNETLoader/CLIPLoader
+# nodes, so ComfyUI's /object_info reports every file from both architectures
+# in one shared list — without filtering, an Anima checkpoint/CLIP file shows
+# up under "Vidgen" (and vice versa) with nothing distinguishing them. Matched
+# case-insensitively against the bare filename, same heuristic already used by
+# LORA_NAME_BLACKLIST_PREFIXES below for the equivalent Anima/SDXL LoRA mixup.
+# "umt5"/"t5xxl"/"t5-xxl" are needed alongside "wan" itself because ComfyUI's
+# own repackaged Wan text encoder (Comfy-Org/Wan_2.1_ComfyUI_repackaged) is
+# named "umt5_xxl_fp8_e4m3fn_scaled.safetensors" — no "wan" substring at all —
+# so a "wan"-only filter would hide the exact file this app recommends using.
+WAN_NAME_HINTS = ("wan", "umt5", "t5xxl", "t5-xxl")
+
+
+def _is_wan_named(path: str) -> bool:
+    name = path.rsplit("/", 1)[-1].lower()
+    return any(hint in name for hint in WAN_NAME_HINTS)
+
+
+async def list_wan_unets(base_url: str) -> list[str]:
+    names = await list_object_options(base_url, "UNETLoader", "unet_name")
+    return [n for n in names if _is_wan_named(n)]
+
+
+async def list_wan_clip_models(base_url: str) -> list[str]:
+    names = await list_object_options(base_url, "CLIPLoader", "clip_name")
+    return [n for n in names if _is_wan_named(n)]
 
 
 # LoRAs whose filename starts with any of these prefixes are trained for a

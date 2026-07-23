@@ -19,7 +19,7 @@ from backend import modal_provision
 from backend.repositories import health as health_repo
 from backend.repositories import lora_training as lora_training_repo
 from backend.state import api, CFG, VISION_CLASSIFY, log, PROCESS_START_TIME
-from backend.auth import get_admin
+from backend.auth import get_admin, get_current_user
 
 SERVICES = ("database", "chat_llm", "embed_llm", "comfyui", "image_classify_llm", "modal")
 
@@ -112,15 +112,35 @@ _CHECKS = {
 }
 
 
+_CHECK_TIMEOUT_SECONDS = 5.0
+
+
+async def _run_check_bounded(name: str, fn) -> tuple[bool, float | None, str]:
+    try:
+        return await asyncio.wait_for(fn(), timeout=_CHECK_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        return False, None, f"timed out after {_CHECK_TIMEOUT_SECONDS:.0f}s"
+
+
 async def run_all_checks_and_record() -> dict[str, tuple[bool, float | None, str]]:
-    out = {}
-    for name, fn in _CHECKS.items():
-        ok, latency_ms, error = await fn()
-        out[name] = (ok, latency_ms, error)
+    # Each check is an independent I/O-bound network/DB call — running them
+    # concurrently turns total wall time into max(latencies) instead of
+    # sum(latencies), which is what made every admin page touching this
+    # (Overview, Health) block for 5+ seconds on a single slow dependency.
+    # A per-check timeout caps the worst case further: an unresolvable host
+    # or a hung dependency would otherwise block on llm.py's own generous
+    # 15-60s timeouts (sized for real generation calls, not a health probe).
+    names = list(_CHECKS.keys())
+    results = await asyncio.gather(*(_run_check_bounded(name, _CHECKS[name]) for name in names))
+    out = {name: result for name, result in zip(names, results)}
+
+    async def _record(name, ok, latency_ms, error):
         try:
             await health_repo.record_ping(name, ok, latency_ms, error)
         except Exception:
             log.exception("service-health: failed to record ping for %s", name)
+
+    await asyncio.gather(*(_record(name, *out[name]) for name in names))
     return out
 
 
@@ -134,6 +154,13 @@ async def health_ping_loop():
         await asyncio.sleep(5 * 60)
 
 
+@api.get("/media-gen-status")
+async def media_gen_status(_: dict = Depends(get_current_user)):
+    ping = await health_repo.latest_ping("comfyui")
+    available = True if ping is None else bool(ping["ok"])
+    return {"available": available}
+
+
 @api.get("/admin/service-health")
 async def admin_service_health(hours: float = 24, _: dict = Depends(get_admin)):
     # Ping cadence is one per 5 minutes (see the background loop below), so
@@ -142,11 +169,13 @@ async def admin_service_health(hours: float = 24, _: dict = Depends(get_admin)):
     limit = min(int(hours * 60 / 5) + 5, 3000)
     since = time.time() - hours * 3600
     live = await run_all_checks_and_record()
+    history_results, uptime_results = await asyncio.gather(
+        asyncio.gather(*(health_repo.history(name, limit=limit, since=since) for name in SERVICES)),
+        asyncio.gather(*(health_repo.uptime_pct(name, hours=24) for name in SERVICES)),
+    )
     services = []
-    for name in SERVICES:
+    for name, history, uptime_24h in zip(SERVICES, history_results, uptime_results):
         ok, latency_ms, error = live[name]
-        history = await health_repo.history(name, limit=limit, since=since)
-        uptime_24h = await health_repo.uptime_pct(name, hours=24)
         latencies = [h["latency_ms"] for h in history if h["latency_ms"] is not None]
         avg_latency_ms = round(sum(latencies) / len(latencies), 1) if latencies else None
         services.append({

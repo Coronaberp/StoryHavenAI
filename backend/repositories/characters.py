@@ -25,6 +25,8 @@ def _char_row(row) -> dict:
     d["dialogue"] = _decrypt_secret(d.get("dialogue") or "")
     d["system_prompt"] = _decrypt_secret(d.get("system_prompt") or "")
     d["description"] = _decrypt_secret(d.get("description") or "")
+    d["appearance_tags"] = _decrypt_secret(d.get("appearance_tags") or "")
+    d["appearance_tags_negative"] = _decrypt_secret(d.get("appearance_tags_negative") or "")
     d["alt_greetings"] = _decrypt_json_list(d.get("alt_greetings"))
     d["assets"] = _loads(d.get("assets"), {})
     d["is_public"] = bool(d.get("is_public"))
@@ -62,6 +64,8 @@ async def create(data: dict) -> dict:
         description=_encrypt_secret(data.get("description") or ""),
         is_explicit=int(bool(data.get("is_explicit", False))),
         is_draft=int(bool(data.get("is_draft", False))),
+        appearance_tags=_encrypt_secret(data.get("appearance_tags") or ""),
+        appearance_tags_negative=_encrypt_secret(data.get("appearance_tags_negative") or ""),
         created=time.time()))
     log.info("characters: created id=%s owner=%s mode=%s draft=%s",
               cid, data.get("owner_id"), mode, bool(data.get("is_draft")))
@@ -182,7 +186,10 @@ async def list_all(q: str | None = None, user_id: str | None = None,
     if q:
         ql = q.lower()
         rows = [r for r in rows if ql in r["name"].lower()
-                or ql in r["persona"].lower() or ql in json.dumps(r["tags"]).lower()]
+                or ql in r["persona"].lower() or ql in json.dumps(r["tags"]).lower()
+                or ql in (r.get("description") or "").lower()
+                or ql in (r.get("greeting") or "").lower()
+                or any(ql in (g or "").lower() for g in (r.get("alt_greetings") or []))]
     if tags:
         want = {tg.strip().lower() for tg in tags if tg.strip()}
         if want:
@@ -230,7 +237,9 @@ async def update(cid: str, data: dict) -> dict | None:
         allow_download=int(bool(data.get("allow_download", c.get("allow_download", False)))),
         description=_encrypt_secret(data.get("description", c.get("description", "")) or ""),
         is_explicit=int(bool(data.get("is_explicit", c.get("is_explicit", False)))),
-        is_draft=int(bool(data.get("is_draft", c.get("is_draft", False))))))
+        is_draft=int(bool(data.get("is_draft", c.get("is_draft", False)))),
+        appearance_tags=_encrypt_secret(data.get("appearance_tags", c.get("appearance_tags", "")) or ""),
+        appearance_tags_negative=_encrypt_secret(data.get("appearance_tags_negative", c.get("appearance_tags_negative", "")) or "")))
     log.info("characters: updated id=%s", cid)
     return await get(cid)
 

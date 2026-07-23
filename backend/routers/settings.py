@@ -11,7 +11,8 @@ from backend.ssrf import _validate_chat_endpoint, _resolve_host_ip_issue
 from backend.repositories import flagged_endpoints as flagged_endpoint_repo
 from backend.repositories import users as user_repo
 from backend.repositories import settings as global_settings_repo
-from backend.schemas import UserSettingsIn, SettingsIn, NsfwAllowedIn
+from backend.schemas import UserSettingsIn, SettingsIn, NsfwAllowedIn, ExperimentalFeaturesIn
+from backend.prompt import DIRECTIVE_COMMANDS
 
 def _scrub_api_key(overrides: dict) -> dict:
     """api_key is write-only by design — never echo the plaintext value back
@@ -26,7 +27,7 @@ def _scrub_api_key(overrides: dict) -> dict:
 @api.get("/me/settings")
 async def get_my_settings(current_user: dict = Depends(get_current_user)):
     overrides = _scrub_api_key(await user_repo.get_user_settings(current_user["id"]))
-    defaults = {k: CFG[k] for k in USER_CFG_KEYS if k in CFG}
+    defaults = _scrub_api_key({k: CFG[k] for k in USER_CFG_KEYS if k in CFG})
     return {"overrides": overrides, "defaults": defaults, "has_override": bool(overrides)}
 
 
@@ -78,6 +79,15 @@ async def put_my_nsfw(body: NsfwAllowedIn,
     return {"nsfw_allowed": bool(user["nsfw_allowed"])}
 
 
+@api.put("/me/experimental-features")
+async def put_my_experimental_features(body: ExperimentalFeaturesIn,
+                                       current_user: dict = Depends(get_current_user)):
+    user = await user_repo.set_user_experimental_features_enabled(current_user["id"], body.enabled)
+    log.info("experimental features preference set: username=%s enabled=%s",
+             current_user["username"], bool(user["experimental_features_enabled"]))
+    return {"experimental_features_enabled": bool(user["experimental_features_enabled"])}
+
+
 # ----------------------------------------------------------------------------
 # Global settings (admin only)
 # ----------------------------------------------------------------------------
@@ -86,7 +96,9 @@ async def config(_: dict = Depends(get_current_user)):
     return {"chat_model": CFG["chat_model"], "embed_model": CFG["embed_model"],
             "embed_dim": CFG["embed_dim"], "base_url": CFG["base_url"],
             "enable_thinking": CFG["enable_thinking"],
-            "default_language": CFG.get("default_language") or "English"}
+            "default_language": CFG.get("default_language") or "English",
+            "directives": sorted(DIRECTIVE_COMMANDS - {"roll"}),
+            "legacy_text_commands_supported": False}
 
 
 def _scrub_model_request_hosts(hosts: list) -> list[dict]:
@@ -100,6 +112,7 @@ async def get_settings(_: dict = Depends(get_current_user)):
     out["has_api_key"] = bool(CFG.get("api_key"))
     out["has_embed_api_key"] = bool(CFG.get("embed_api_key"))
     out["has_modal_shared_secret"] = bool(CFG.get("modal_shared_secret"))
+    out["has_giphy_api_key"] = bool(CFG.get("giphy_api_key"))
     return out
 
 
@@ -109,7 +122,7 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
     changed_dim = "embed_dim" in data and data["embed_dim"] != CFG["embed_dim"]
     persist = {}
     _str_keys = {"chat_model", "embed_model", "base_url", "api_key", "embed_api_key", "embed_base_url",
-                "modal_train_url", "modal_shared_secret", "modal_checkpoint_url"}
+                "modal_train_url", "modal_shared_secret", "modal_checkpoint_url", "giphy_api_key"}
     if "model_request_hosts" in data:
         existing_by_host = {e.get("host"): e.get("api_key", "")
                             for e in CFG.get("model_request_hosts", [])}
@@ -158,7 +171,8 @@ async def models(base_url: str | None = None, api_key: str | None = None,
         if issue:
             raise HTTPException(400, f"refusing to query that endpoint: {issue}")
     try:
-        return {"models": await llm.list_models(base_url=base_url, api_key=api_key)}
+        return {"models": await llm.list_models(base_url=base_url, api_key=api_key, pin_host=bool(base_url),
+                                                is_admin=current_user.get("is_admin", False))}
     except Exception as e:
         raise HTTPException(502, f"could not reach model server: {e}")
 

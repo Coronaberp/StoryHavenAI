@@ -10,6 +10,8 @@ from backend.schemas import PersonaIn, ExpandPersonaIn
 from backend.chat_service import _endpoints, _eff_cfg
 from backend.ai_helpers import expand_persona_description
 from backend.ratelimit import SlidingWindow
+from backend.feature_flags import require_feature_enabled
+from backend.routers.characters import _decode_lore_image
 
 _EXPAND_LIMIT = SlidingWindow(
     10, 60, "Too many generations — please wait a moment and try again")
@@ -54,10 +56,23 @@ async def become_persona(cid: str, current_user: dict = Depends(get_current_user
     return await personas.get_or_create_from_character(char, current_user["id"])
 
 
+def _persona_avatar(body: PersonaIn) -> str:
+    if body.avatar_data:
+        return _decode_lore_image(body.avatar_data) or body.avatar
+    return body.avatar
+
+
 @api.post("/personas")
-async def create_persona(body: PersonaIn, current_user: dict = Depends(get_current_user)):
-    p = await personas.create(body.model_dump(), current_user["id"])
-    log.info("persona: created id=%s by=%s", p["id"], current_user["username"])
+async def create_persona(body: PersonaIn, current_user: dict = Depends(get_current_user),
+                          _feature_ok: None = Depends(require_feature_enabled("personas"))):
+    data = body.model_dump()
+    data["avatar"] = _persona_avatar(body)
+    if data.get("session_id"):
+        from backend.repositories import session_participants
+        if not await session_participants.is_participant(data["session_id"], current_user["id"]):
+            raise HTTPException(403, "You're not a participant in that session")
+    p = await personas.create(data, current_user["id"])
+    log.info("persona: created id=%s by=%s session=%s", p["id"], current_user["username"], data.get("session_id"))
     return p
 
 
@@ -68,7 +83,9 @@ async def update_persona(pid: str, body: PersonaIn, current_user: dict = Depends
         raise HTTPException(404, "persona not found")
     if p.get("owner_id") != current_user["id"]:
         raise HTTPException(403, "not your persona")
-    p = await personas.update(pid, body.model_dump(), current_user["id"])
+    data = body.model_dump()
+    data["avatar"] = _persona_avatar(body)
+    p = await personas.update(pid, data, current_user["id"])
     log.info("persona: updated id=%s by=%s", pid, current_user["username"])
     return p
 

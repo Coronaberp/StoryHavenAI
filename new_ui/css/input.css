@@ -3,6 +3,8 @@
 @import "./login.css";
 @import "./overlay.css";
 @import "./cards.css";
+@import "./settings.css";
+@import "./tutorial.css";
 
 @theme {
   --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -50,6 +52,14 @@
     width: 0;
     height: 0;
     display: none;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
   }
   @media (prefers-reduced-motion: no-preference) {
     .wax-seal-idle {

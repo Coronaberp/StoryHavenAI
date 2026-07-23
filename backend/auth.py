@@ -17,6 +17,7 @@ from backend.schemas import (
 )
 from backend.ratelimit import SlidingWindow
 from backend.repositories import users as user_repo
+from backend.repositories import invite_codes as invite_code_repo
 
 TOTP_ISSUER = "StoryHaven AI"
 JWT_ALG = "HS256"
@@ -139,6 +140,12 @@ async def get_dev(current_user: dict = Depends(get_admin)) -> dict:
     return current_user
 
 
+async def get_experimental_user(current_user: dict = Depends(get_current_user)) -> dict:
+    if not current_user.get("experimental_features_enabled"):
+        raise HTTPException(status_code=404, detail="Not found")
+    return current_user
+
+
 # Simple dependency-free login throttle: failed attempts per (client_ip, username)
 # with timestamps, rejected after _LOGIN_MAX_ATTEMPTS within _LOGIN_WINDOW seconds.
 # Cleared on a successful login; stale entries pruned by the session-cleanup loop.
@@ -224,41 +231,75 @@ async def totp_provision(body: TotpProvisionIn, request: Request):
     return {"secret": secret, "otpauth_uri": uri}
 
 
+_GUEST_NAME_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
+_GUEST_NAME_LEN = 16
+
+
+async def _free_guest_username() -> str:
+    for _ in range(20):
+        candidate = "".join(secrets.choice(_GUEST_NAME_ALPHABET) for _ in range(_GUEST_NAME_LEN))
+        if not await user_repo.get_user_by_username(candidate):
+            return candidate
+    raise HTTPException(500, "Couldn't allocate a guest username - try again")
+
+
 @auth_router.post("/register")
 async def register(body: RegisterIn, request: Request):
     ip = _client_ip(request)
     _REGISTRATIONS.check(ip)
     _REGISTRATIONS.record(ip)
-    username = normalize_username(body.username)
+    if body.guest:
+        username = await _free_guest_username()
+    else:
+        username = normalize_username(body.username)
     _login_rate_check(ip, username)
     if len(username) < 2:
         raise HTTPException(400, "Username must be at least 2 characters")
     if len(body.password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters")
-    _TOTP_ATTEMPTS.check(f"{ip}:{username}")
-    try:
-        totp_ok = pyotp.TOTP(body.totp_secret).verify(body.totp_code, valid_window=1)
-    except Exception:
-        log.warning("registration failed: username=%s reason=malformed_totp_secret", username)
-        raise HTTPException(400, "Authenticator setup expired — restart the onboarding flow")
-    if not totp_ok:
-        _TOTP_ATTEMPTS.record(f"{ip}:{username}")
-        log.warning("registration failed: username=%s reason=invalid_totp", username)
-        raise HTTPException(400, "Invalid verification code — check your authenticator app and try again")
+    with_totp = bool(body.totp_secret)
+    if with_totp:
+        _TOTP_ATTEMPTS.check(f"{ip}:{username}")
+        try:
+            totp_ok = pyotp.TOTP(body.totp_secret).verify(body.totp_code or "", valid_window=1)
+        except Exception:
+            log.warning("registration failed: username=%s reason=malformed_totp_secret", username)
+            raise HTTPException(400, "Authenticator setup expired — restart the onboarding flow")
+        if not totp_ok:
+            _TOTP_ATTEMPTS.record(f"{ip}:{username}")
+            log.warning("registration failed: username=%s reason=invalid_totp", username)
+            raise HTTPException(400, "Invalid verification code — check your authenticator app and try again")
     existing = await user_repo.get_user_by_username(username)
     if existing:
         _login_record_failure(ip, username)
         raise HTTPException(400, "Username already taken")
-    backup_codes = _generate_backup_codes()
+    invite = None
+    if body.invite_code:
+        invite = await invite_code_repo.redeem(body.invite_code)
+        if not invite:
+            log.warning("registration failed: username=%s reason=invalid_invite_code", username)
+            raise HTTPException(400, "That invite code is invalid, used up, or expired")
+    status = "active" if (invite or body.guest) else "pending"
+    tier = invite["tier"] if invite else ("guest" if body.guest else "full")
+    backup_codes = _generate_backup_codes() if with_totp else []
     await user_repo.create_user(
-        username, body.password, status="pending",
-        totp_secret=body.totp_secret, totp_backup_codes=backup_codes,
-        totp_enabled=True, totp_login_required=True)
-    await notification_repo.notify_admins(
-        "admin_signup", f"New signup: {username}",
-        f"{username} registered and is awaiting approval.", "/admin")
-    log.info("registration: username=%s status=pending totp_enabled=True", username)
-    return {"ok": True, "pending": True, "backup_codes": backup_codes}
+        username, body.password, status=status, tier=tier,
+        totp_secret=body.totp_secret if with_totp else None,
+        totp_backup_codes=backup_codes if with_totp else None,
+        totp_enabled=with_totp, totp_login_required=with_totp,
+        invite_code_id=invite["id"] if invite else None)
+    if invite:
+        await notification_repo.notify_admins(
+            "admin_signup", f"Invite signup: {username}",
+            f"{username} joined with an invite code and is already active.", "/admin")
+    else:
+        await notification_repo.notify_admins(
+            "admin_signup", f"New signup: {username}",
+            f"{username} registered and is awaiting approval.", "/admin")
+    log.info("registration: username=%s status=%s tier=%s totp_enabled=%s invite=%s",
+             username, status, tier, with_totp, bool(invite))
+    return {"ok": True, "pending": status == "pending", "backup_codes": backup_codes,
+            "username": username}
 
 
 _RESET_REQUESTS: dict[str, list[float]] = {}
@@ -354,6 +395,9 @@ async def login(body: LoginIn, request: Request, response: Response):
             _TOTP_ATTEMPTS.record(f"{ip}:{username}")
             log.warning("login failed: username=%s reason=invalid_totp", username)
             raise HTTPException(status_code=401, detail={"code": "totp_invalid"})
+    if user_row.get("passkey_required"):
+        log.info("login: username=%s requires passkey step", username)
+        raise HTTPException(status_code=401, detail={"code": "passkey_required"})
     status = user_row.get("status", "active")
     if status == "pending":
         log.warning("login failed: username=%s reason=pending_approval", username)
@@ -446,7 +490,8 @@ async def logout(request: Request, response: Response):
 
 @auth_router.get("/me")
 async def me(current_user: dict = Depends(get_current_user)):
-    return current_user
+    user_overrides = await user_repo.get_user_settings(current_user["id"])
+    return {**current_user, "interface_language": user_overrides.get("interface_language")}
 
 
 @auth_router.put("/password")

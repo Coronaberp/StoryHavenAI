@@ -16,6 +16,7 @@ def _persona_row(row) -> dict:
     d = dict(row)
     d["name"] = _decrypt_secret(d.get("name") or "")
     d["description"] = _decrypt_secret(d.get("description") or "")
+    d["gender"] = _decrypt_secret(d.get("gender") or "")
     d["is_draft"] = bool(d.get("is_draft"))
     return d
 
@@ -30,11 +31,14 @@ async def create(data: dict, user_id: str = None) -> dict:
         await conn.execute(insert(personas).values(
             id=pid, name=_encrypt_secret(data.get("name") or "You"),
             description=_encrypt_secret(data.get("description") or ""),
+            gender=_encrypt_secret(data.get("gender") or ""),
+            avatar=data.get("avatar") or "",
             is_default=1 if data.get("is_default") else 0,
             is_draft=1 if data.get("is_draft") else 0,
+            session_id=data.get("session_id") or None,
             owner_id=user_id, created=time.time()))
-    log.info("personas: created id=%s owner=%s draft=%s",
-              pid, user_id, bool(data.get("is_draft")))
+    log.info("personas: created id=%s owner=%s draft=%s session=%s",
+              pid, user_id, bool(data.get("is_draft")), data.get("session_id"))
     return await get(pid)
 
 
@@ -50,12 +54,30 @@ async def list_all(user_id: str = None) -> list[dict]:
 
 
 async def list_own(user_id: str = None) -> list[dict]:
-    """Personas the user created directly — excludes ones auto-linked to a
-    can_be_persona character, so those don't clutter the Personas library."""
+    """All of a user's usable personas — both ones they made directly and
+    ones added via a character's "let others play as this character" button
+    (source_char_id set). Both need to show up in My Masks, since that's the
+    only place a user manages/selects a persona. Excludes personas created as
+    session-exclusive (session_id set) from a multiplayer chat — those only
+    ever show up in that one session's own persona picker."""
     stmt = (select(personas)
             .where(and_(personas.c.owner_id == user_id,
-                        personas.c.source_char_id.is_(None),
-                        personas.c.is_draft == 0))
+                        personas.c.is_draft == 0,
+                        personas.c.session_id.is_(None)))
+            .order_by(personas.c.is_default.desc(), personas.c.created.desc()))
+    return [_persona_row(r) for r in await _q(stmt)]
+
+
+async def list_own_for_session(user_id: str, session_id: str) -> list[dict]:
+    """A user's normal personas plus any personas created exclusively for
+    this particular multiplayer session — used by the in-chat persona
+    picker so session-exclusive personas are selectable there but nowhere
+    else."""
+    stmt = (select(personas)
+            .where(and_(personas.c.owner_id == user_id,
+                        personas.c.is_draft == 0,
+                        or_(personas.c.session_id.is_(None),
+                            personas.c.session_id == session_id)))
             .order_by(personas.c.is_default.desc(), personas.c.created.desc()))
     return [_persona_row(r) for r in await _q(stmt)]
 
@@ -93,9 +115,26 @@ async def get_or_create_from_character(char: dict, user_id: str = None) -> dict:
     await _w(insert(personas).values(
         id=pid, name=_encrypt_secret(char["name"]),
         description=_encrypt_secret(char.get("persona") or ""),
+        avatar=char.get("avatar") or "",
         is_default=0, owner_id=user_id, source_char_id=char["id"],
         created=time.time()))
     log.info("personas: created id=%s from character char=%s owner=%s", pid, char["id"], user_id)
+    return await get(pid)
+
+
+async def get_or_create_from_lore(entry: dict, user_id: str = None) -> dict:
+    row = await _q1(select(personas).where(and_(
+        personas.c.source_lore_id == entry["id"], personas.c.owner_id == user_id)))
+    if row:
+        return _persona_row(row)
+    pid = nid("p")
+    await _w(insert(personas).values(
+        id=pid, name=_encrypt_secret(entry.get("name") or "Unnamed"),
+        description=_encrypt_secret(entry.get("content") or ""),
+        avatar=entry.get("image") or "",
+        is_default=0, owner_id=user_id, source_lore_id=entry["id"],
+        created=time.time()))
+    log.info("personas: created id=%s from lore entry=%s owner=%s", pid, entry["id"], user_id)
     return await get(pid)
 
 
@@ -118,6 +157,8 @@ async def update(pid: str, data: dict, user_id: str = None) -> dict | None:
         vals = dict(
             name=_encrypt_secret(data.get("name", p["name"])),
             description=_encrypt_secret(data.get("description", p["description"]) or ""),
+            gender=_encrypt_secret(data.get("gender", p["gender"]) or ""),
+            avatar=data.get("avatar", p["avatar"]) or "",
             is_default=1 if data.get("is_default") else p["is_default"])
         if "is_draft" in data:
             vals["is_draft"] = 1 if data.get("is_draft") else 0

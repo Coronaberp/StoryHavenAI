@@ -12,6 +12,7 @@ from backend.state import log, _sanitize_exc
 
 
 _DEFAULT_NEGATIVE_TAGS = "worst quality, low quality, blurry, watermark, signature, bad anatomy, extra limbs, deformed"
+_QUALITY_PREFIX_TAGS = "masterpiece, best quality, absurdres, highly detailed"
 
 
 async def _generate_image_prompt(scene_text: str, char_name: str, chat_model: str,
@@ -52,8 +53,13 @@ async def _generate_image_prompt(scene_text: str, char_name: str, chat_model: st
         "\"looking at viewer\", \"outdoors\", \"dramatic lighting\"). If a named character or "
         "place below has established appearance details, translate those specifically into "
         "tags rather than generic ones.\n"
+        "Depict the single most visually striking moment of the scene as one coherent shot: "
+        "pick the person or action the scene is actually about right now, name the shot "
+        "framing (e.g. \"upper body\", \"wide shot\", \"from side\"), and describe only what "
+        "fits in that one frame - no montages, no split panels, no characters the moment "
+        "doesn't need. Crowds only as background if the scene demands them.\n"
         f"{context_block}\n"
-        f"Scene, centered on {char_name}:\n{scene_text}"
+        f"Scene (from a story involving {char_name}):\n{scene_text}"
     )
     out = []
     async for channel, chunk in llm.chat_stream(
@@ -69,13 +75,37 @@ async def _generate_image_prompt(scene_text: str, char_name: str, chat_model: st
         positive, negative = "", ""
     if not positive:
         positive = scene_text[:300]
-    if not negative:
-        negative = _DEFAULT_NEGATIVE_TAGS
+    positive = f"{_QUALITY_PREFIX_TAGS}, {positive}"
+    missing_defaults = [t for t in _DEFAULT_NEGATIVE_TAGS.split(", ") if t not in negative]
+    negative = ", ".join(missing_defaults + ([negative] if negative else []))
     if direct_tags:
         positive = ", ".join(direct_tags) + (", " + positive if positive else "")
     if direct_negative_tags:
         negative = ", ".join(direct_negative_tags) + (", " + negative if negative else "")
     return positive, negative
+
+
+async def generate_image_prompt_and_params(description: str, chat_model: str,
+                                           samplers: list[str], schedulers: list[str],
+                                           chat_base: str | None = None,
+                                           chat_key: str | None = None) -> dict:
+    """Simple-mode image generation: expands a plain-English description into
+    Danbooru-style prompt tags (same side-call as _generate_image_prompt) plus a
+    sensible sampler/scheduler/cfg/steps combo, so Simple mode only needs a
+    checkpoint, LoRAs, and a description field from the caller."""
+    positive, negative = await _generate_image_prompt(
+        description, "the subject", chat_model, chat_base=chat_base, chat_key=chat_key)
+    sampler = "dpmpp_2m_sde_gpu" if "dpmpp_2m_sde_gpu" in samplers else (samplers[0] if samplers else "")
+    scheduler = "karras" if "karras" in schedulers else (schedulers[0] if schedulers else "")
+    log.info("ai_helpers: generated image prompt+params sampler=%s scheduler=%s", sampler, scheduler)
+    return {
+        "positive": positive,
+        "negative": negative,
+        "sampler": sampler,
+        "scheduler": scheduler,
+        "cfg": 7.0,
+        "steps": 20,
+    }
 
 
 async def generate_character_from_description(description: str, chat_model: str,
@@ -91,6 +121,9 @@ async def generate_character_from_description(description: str, chat_model: str,
         "character definition. Reply with ONLY a JSON object, no other text, "
         "in exactly this format:\n"
         '{"name": "the character\'s name", '
+        '"description": "a short 1-2 sentence public blurb shown on the '
+        'character\'s card in browsing/search — teaser copy for other users, '
+        'not part of the roleplay itself", '
         '"persona": "the character\'s core personality, background, traits, '
         'quirks, and speaking style — this is the main internal definition the '
         'model roleplays from; write it in detail as prose or bullet points", '
@@ -103,11 +136,12 @@ async def generate_character_from_description(description: str, chat_model: str,
         'Doing well, thanks for asking. — NEVER a JSON array of lines", '
         '"tags": ["short", "relevant", "tags"], '
         '"mode": "character or rpg"}\n'
-        "Field meaning: persona is the internal personality/background the "
-        "model uses to play the character; scenario is the opening "
-        "situation/setting; greeting is the literal first message; dialogue is "
-        "example speech samples. Do NOT invent a public blurb or system prompt "
-        "— only fill the fields above.\n"
+        "Field meaning: description is the short public-facing teaser shown on "
+        "the character's card, separate from persona (the internal "
+        "personality/background the model uses to play the character); "
+        "scenario is the opening situation/setting; greeting is the literal "
+        "first message; dialogue is example speech samples. Do NOT invent a "
+        "system prompt — only fill the fields above.\n"
         "Write greeting and dialogue using this app's runtime formatting "
         "convention: *italics* for actions and physical reactions, \"quotes\" "
         "for spoken dialogue.\n"
@@ -136,6 +170,7 @@ async def generate_character_from_description(description: str, chat_model: str,
     mode = data.get("mode") if data.get("mode") in ("character", "rpg") else "character"
     return {
         "name": str(data.get("name") or "").strip() or "Unnamed",
+        "description": str(data.get("description") or "").strip(),
         "persona": str(data.get("persona") or "").strip(),
         "scenario": str(data.get("scenario") or "").strip(),
         "greeting": str(data.get("greeting") or "").strip(),
@@ -206,3 +241,43 @@ async def expand_persona_description(text: str, chat_model: str,
     if not result:
         raise HTTPException(502, "The model did not return a usable persona. Try again or rephrase.")
     return result
+
+
+async def extract_lore_secrets(content: str, chat_model: str,
+                               chat_base: str | None = None,
+                               chat_key: str | None = None) -> list[str]:
+    instruct = (
+        "You decompose hidden lore entries for a roleplay platform into a "
+        "numbered list of short, independent facts, so a player can learn one "
+        "without the others being revealed or implied.\n"
+        "Rules:\n"
+        "1. Each fact must stand completely on its own — a reader who only "
+        "sees one fact must not be able to guess or infer any other fact.\n"
+        "2. Never combine two separate pieces of information into one fact, "
+        "even if they're related. Example: \"She secretly likes sweets but "
+        "hates cake\" must become TWO facts — \"She has a sweet tooth\" and "
+        "\"She dislikes cake\" — never one, since knowing the first should "
+        "never imply the second.\n"
+        "3. Paraphrase in your own words — do not quote more than a few "
+        "consecutive words of the source directly.\n"
+        "4. Reply with ONLY a numbered list (\"1. \", \"2. \", ...), one fact "
+        "per line, no preamble, no headers, no code fences.\n\n"
+        f"Input:\n{content}"
+    )
+    out = []
+    async for channel, chunk in llm.chat_stream(
+            [{"role": "user", "content": instruct}], chat_model, parse_think=True,
+            base_url=chat_base, api_key=chat_key, pin_host=True):
+        if channel == "content":
+            out.append(chunk)
+    raw = llm.strip_json_fence("".join(out)).strip()
+    facts = []
+    for line in raw.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        stripped = line.split(".", 1)[-1].strip() if line[0].isdigit() else line
+        stripped = stripped.lstrip("-").strip()
+        if stripped:
+            facts.append(stripped)
+    return facts

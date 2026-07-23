@@ -25,7 +25,7 @@ async def test_create_and_get(db_conn):
     assert thread["title"] == "Hello Thread"
     assert thread["content"] == "Body text"
     assert thread["category"] == "general"
-    assert thread["like_count"] == 0
+    assert thread["score"] == 0
     assert thread["reply_count"] == 0
 
 
@@ -53,20 +53,22 @@ async def test_list_all_excludes_hidden_authors(db_conn):
     assert hidden not in ids
 
 
-async def test_like_unlike(db_conn):
-    tid = await forum_thread_repo.create(CLAUDE_ID, "Likeable", "body")
-    await forum_thread_repo.like(tid, TEST_ID)
+async def test_vote_unvote(db_conn):
+    tid = await forum_thread_repo.create(CLAUDE_ID, "Votable", "body")
+    await forum_thread_repo.vote(tid, TEST_ID, 1)
     thread = await forum_thread_repo.get(tid, viewer_id=TEST_ID)
-    assert thread["like_count"] == 1
-    assert thread["liked_by_me"] is True
+    assert thread["score"] == 1
+    assert thread["my_vote"] == 1
 
-    await forum_thread_repo.like(tid, TEST_ID)  # idempotent
-    thread = await forum_thread_repo.get(tid)
-    assert thread["like_count"] == 1
+    await forum_thread_repo.vote(tid, TEST_ID, -1)  # changes the same vote, doesn't stack
+    thread = await forum_thread_repo.get(tid, viewer_id=TEST_ID)
+    assert thread["score"] == -1
+    assert thread["my_vote"] == -1
 
-    await forum_thread_repo.unlike(tid, TEST_ID)
-    thread = await forum_thread_repo.get(tid)
-    assert thread["like_count"] == 0
+    await forum_thread_repo.unvote(tid, TEST_ID)
+    thread = await forum_thread_repo.get(tid, viewer_id=TEST_ID)
+    assert thread["score"] == 0
+    assert thread["my_vote"] == 0
 
 
 async def test_reply_count_via_comments(db_conn):
@@ -79,7 +81,7 @@ async def test_reply_count_via_comments(db_conn):
 async def test_delete_cascades_replies_and_likes(db_conn):
     tid = await forum_thread_repo.create(CLAUDE_ID, "To delete", "body")
     cid = await comment_repo.create("thread", tid, TEST_ID, None, "reply")
-    await forum_thread_repo.like(tid, TEST_ID)
+    await forum_thread_repo.vote(tid, TEST_ID, 1)
 
     await forum_thread_repo.delete(tid)
     assert await forum_thread_repo.get(tid) is None

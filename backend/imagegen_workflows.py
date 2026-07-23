@@ -248,6 +248,67 @@ def _splice_reference_image(wf: dict, image_name: str, denoise: float):
     ks["inputs"]["denoise"] = denoise
 
 
+def _build_inpaint_workflow(positive: str, negative: str, checkpoint: str,
+                            image_name: str, mask_name: str, denoise: float = 1.0,
+                            sampler: str = "euler", scheduler: str = "normal",
+                            steps: int = 20, cfg: float = 7.0) -> dict:
+    if checkpoint in CHECKPOINT_NAME_BLACKLIST_EXACT:
+        raise ValueError(f"Checkpoint '{checkpoint}' is not available for generation")
+    seed = random.randint(0, 2**32 - 1)
+    return {
+        "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": checkpoint}},
+        "2": {"class_type": "LoadImage", "inputs": {"image": image_name}},
+        "3": {"class_type": "LoadImageMask", "inputs": {"image": mask_name, "channel": "red"}},
+        "4": {"class_type": "VAEEncodeForInpaint",
+              "inputs": {"pixels": ["2", 0], "mask": ["3", 0], "vae": ["1", 2], "grow_mask_by": 6}},
+        "5": {"class_type": "CLIPTextEncode", "inputs": {"text": positive, "clip": ["1", 1]}},
+        "6": {"class_type": "CLIPTextEncode", "inputs": {"text": negative, "clip": ["1", 1]}},
+        "7": {"class_type": "KSampler", "inputs": {
+            "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler,
+            "scheduler": scheduler, "denoise": denoise,
+            "model": ["1", 0], "positive": ["5", 0], "negative": ["6", 0],
+            "latent_image": ["4", 0],
+        }},
+        "8": {"class_type": "VAEDecode", "inputs": {"samples": ["7", 0], "vae": ["1", 2]}},
+        "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "storyhavenai_inpaint", "images": ["8", 0]}},
+    }
+
+
+def _build_anima_inpaint_workflow(positive: str, negative: str, unet_name: str,
+                                  image_name: str, mask_name: str, denoise: float = 1.0,
+                                  sampler: str = ANIMA_DEFAULT_SAMPLER, scheduler: str = ANIMA_DEFAULT_SCHEDULER,
+                                  steps: int = 30, cfg: float = ANIMA_DEFAULT_CFG,
+                                  clip_name: str | None = None, vae_name: str | None = None) -> dict:
+    """Anima equivalent of _build_inpaint_workflow — same UNETLoader/CLIPLoader/
+    VAELoader graph as _build_anima_workflow, with VAEEncodeForInpaint (fed by
+    the standalone VAELoader's single output, slot 0) replacing EmptyLatentImage
+    as the KSampler's latent source. This didn't exist before — an Anima
+    checkpoint picked on the Masks/Inpaint page previously reached ComfyUI as a
+    CheckpointLoaderSimple ckpt_name, which ComfyUI rejects outright since an
+    Anima UNET-only file was never a valid checkpoint value in the first place."""
+    seed = random.randint(0, 2**32 - 1)
+    return {
+        "44": {"class_type": "UNETLoader", "inputs": {"unet_name": unet_name, "weight_dtype": "default"}},
+        "45": {"class_type": "CLIPLoader",
+              "inputs": {"clip_name": clip_name or ANIMA_CLIP_NAME, "type": "qwen_image"}},
+        "15": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name or ANIMA_VAE_NAME}},
+        "2": {"class_type": "LoadImage", "inputs": {"image": image_name}},
+        "3": {"class_type": "LoadImageMask", "inputs": {"image": mask_name, "channel": "red"}},
+        "4": {"class_type": "VAEEncodeForInpaint",
+              "inputs": {"pixels": ["2", 0], "mask": ["3", 0], "vae": ["15", 0], "grow_mask_by": 6}},
+        "11": {"class_type": "CLIPTextEncode", "inputs": {"text": positive, "clip": ["45", 0]}},
+        "12": {"class_type": "CLIPTextEncode", "inputs": {"text": negative, "clip": ["45", 0]}},
+        "19": {"class_type": "KSampler", "inputs": {
+            "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": sampler,
+            "scheduler": scheduler, "denoise": denoise,
+            "model": ["44", 0], "positive": ["11", 0], "negative": ["12", 0],
+            "latent_image": ["4", 0],
+        }},
+        "8": {"class_type": "VAEDecode", "inputs": {"samples": ["19", 0], "vae": ["15", 0]}},
+        "9": {"class_type": "SaveImage", "inputs": {"filename_prefix": "storyhavenai_inpaint", "images": ["8", 0]}},
+    }
+
+
 def _splice_loras_anima(wf: dict, loras: list[dict]):
     """Same chaining approach as _splice_loras (each LoRA stacks on the
     previous one's output, same as ComfyUI's own UI), adapted for Anima's
@@ -321,3 +382,32 @@ def _build_upscale_workflow(image_name: str, upscaler_name: str) -> dict:
         "3": {"class_type": "ImageUpscaleWithModel", "inputs": {"upscale_model": ["2", 0], "image": ["1", 0]}},
         "4": {"class_type": "SaveImage", "inputs": {"filename_prefix": "storyhavenai_upscale", "images": ["3", 0]}},
     }
+
+
+def _build_wan_video_workflow(positive: str, negative: str, unet_name: str, clip_name: str,
+                              vae_name: str, fps: int = 16, num_frames: int = 33,
+                              width: int = 832, height: int = 480,
+                              steps: int = 20, cfg: float = 6.0) -> dict:
+    seed = random.randint(0, 2**32 - 1)
+    wf = {
+        "1": {"class_type": "UNETLoader", "inputs": {"unet_name": unet_name, "weight_dtype": "default"}},
+        "2": {"class_type": "CLIPLoader", "inputs": {"clip_name": clip_name, "type": "wan"}},
+        "3": {"class_type": "VAELoader", "inputs": {"vae_name": vae_name}},
+        "4": {"class_type": "CLIPTextEncode", "inputs": {"text": positive, "clip": ["2", 0]}},
+        "5": {"class_type": "CLIPTextEncode", "inputs": {"text": negative, "clip": ["2", 0]}},
+        "7": {"class_type": "EmptyHunyuanLatentVideo", "inputs": {
+            "width": width, "height": height, "length": num_frames, "batch_size": 1}},
+    }
+    positive_out, negative_out, latent_out = ["4", 0], ["5", 0], ["7", 0]
+    wf["8"] = {"class_type": "KSampler", "inputs": {
+        "seed": seed, "steps": steps, "cfg": cfg, "sampler_name": "euler",
+        "scheduler": "simple", "denoise": 1.0,
+        "model": ["1", 0], "positive": positive_out, "negative": negative_out,
+        "latent_image": latent_out,
+    }}
+    wf["9"] = {"class_type": "VAEDecode", "inputs": {"samples": ["8", 0], "vae": ["3", 0]}}
+    wf["10"] = {"class_type": "CreateVideo", "inputs": {"images": ["9", 0], "fps": fps}}
+    wf["11"] = {"class_type": "SaveVideo", "inputs": {
+        "video": ["10", 0], "filename_prefix": "storyhavenai_video",
+        "format": "mp4", "codec": "h264"}}
+    return wf

@@ -3,6 +3,7 @@ import pytest_asyncio
 
 from backend import db
 from backend.repositories import notifications as notification_repo
+from backend.repositories import users as user_repo
 
 pytestmark = pytest.mark.asyncio
 
@@ -92,3 +93,27 @@ async def test_notify_admins_excludes_user(db_conn):
         "admin_test2", "Excluded test", "details", exclude_user_id=CLAUDE_ID)
     notes = await notification_repo.list_for_user(CLAUDE_ID)
     assert not any(n["title"] == "Excluded test" for n in notes)
+
+
+async def test_notify_all_users_sends_to_active_non_dev(db_conn):
+    notifs_before = await notification_repo.list_for_user(TEST_ID)
+    sent = await notification_repo.notify_all_users(
+        "feature_disabled", "Chat is down", "back soon", related_id="chat")
+    assert sent >= 1
+    notifs_after = await notification_repo.list_for_user(TEST_ID)
+    assert len(notifs_after) == len(notifs_before) + 1
+
+
+async def test_notify_all_users_excludes_dev(db_conn):
+    dev_user = await user_repo.create_user("repo_test_notify_dev_1", "s3cret-password", is_admin=True)
+    await user_repo.set_dev_role(dev_user["id"], True)
+
+    sent = await notification_repo.notify_all_users(
+        "feature_disabled", "Dev exclusion test", "back soon", related_id="chat-dev-exclusion")
+
+    dev_notes = await notification_repo.list_for_user(dev_user["id"])
+    assert not any(n["title"] == "Dev exclusion test" for n in dev_notes)
+
+    test_notes = await notification_repo.list_for_user(TEST_ID)
+    assert any(n["title"] == "Dev exclusion test" for n in test_notes)
+    assert sent >= 1

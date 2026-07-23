@@ -9,6 +9,7 @@ from sqlalchemy import select, insert, update as sa_update, delete as sa_delete,
 from backend.db import (
     sessions, messages,
     nid, _q, _q1, _w, _preview, _encrypt_secret, _decrypt_secret, engine,
+    _encrypt_json_list, _decrypt_json_list,
 )
 from backend.state import log
 
@@ -60,6 +61,22 @@ async def create(char_id, persona_id, title, user_name, user_id=None) -> str:
         user_name=_encrypt_secret(user_name or "You"), user_id=user_id,
         created=now, updated=now))
     log.info("chat_sessions: created id=%s char=%s user=%s", sid, char_id, user_id)
+    return sid
+
+
+async def create_group(user_id, name, char_ids, persona_id=None, user_name="You", mode="roleplay",
+                       source_group_id=None) -> str:
+    sid = nid("s")
+    now = time.time()
+    primary = char_ids[0] if char_ids else None
+    await _w(insert(sessions).values(
+        id=sid, char_id=primary, persona_id=persona_id,
+        title=_encrypt_secret(name or "Group"),
+        user_name=_encrypt_secret(user_name or "You"), user_id=user_id,
+        created=now, updated=now, is_group=1,
+        group_mode=("chat" if mode == "chat" else "roleplay"),
+        source_group_id=source_group_id))
+    log.info("chat_sessions: created GROUP id=%s chars=%d mode=%s user=%s", sid, len(char_ids), mode, user_id)
     return sid
 
 
@@ -115,9 +132,25 @@ async def set_style(sid: str, key: str, prompt: str | None):
     log.info("chat_sessions: style set id=%s key=%s", sid, key)
 
 
+async def set_length(sid: str, key: str):
+    await _w(sa_update(sessions).where(sessions.c.id == sid).values(length_key=key))
+    log.info("chat_sessions: length set id=%s key=%s", sid, key)
+
+
+async def set_explicit_mode(sid: str, enabled: bool):
+    await _w(sa_update(sessions).where(sessions.c.id == sid).values(explicit_mode=1 if enabled else 0))
+    log.info("chat_sessions: explicit_mode set id=%s enabled=%s", sid, enabled)
+
+
 async def set_language(sid: str, language: str | None):
     await _w(sa_update(sessions).where(sessions.c.id == sid).values(language=language))
     log.info("chat_sessions: language set id=%s language=%s", sid, language)
+
+
+async def set_persona(sid: str, persona_id: str | None, user_name: str):
+    await _w(sa_update(sessions).where(sessions.c.id == sid).values(
+        persona_id=persona_id, user_name=_encrypt_secret(user_name)))
+    log.info("chat_sessions: persona switched id=%s persona=%s", sid, persona_id)
 
 
 async def set_glossary(sid: str, glossary: str):
@@ -148,25 +181,65 @@ async def delete(sid: str):
     log.info("chat_sessions: deleted id=%s", sid)
 
 
-async def add_message(sid: str, role: str, content: str, lang: str | None = None) -> dict:
+async def add_message(sid: str, role: str, content: str, lang: str | None = None,
+                      mood: str | None = None, user_name: str | None = None,
+                      persona_avatar: str | None = None, char_id: str | None = None,
+                      turn_group: str | None = None, sender_user_id: str | None = None) -> dict:
     mid = nid("m")
     ts = int(time.time())
     async with engine().begin() as conn:
         await conn.execute(insert(messages).values(
             id=mid, session_id=sid, role=role,
-            content=_encrypt_secret(content or ""), ts=ts, lang=lang))
+            content=_encrypt_secret(content or ""), ts=ts, lang=lang, mood=mood,
+            user_name=user_name, persona_avatar=persona_avatar,
+            char_id=char_id, turn_group=turn_group, sender_user_id=sender_user_id))
         await conn.execute(sa_update(sessions).where(sessions.c.id == sid)
                            .values(updated=time.time()))
-    return {"id": mid, "role": role, "content": content, "ts": ts, "lang": lang}
+    return {"id": mid, "role": role, "content": content, "ts": ts, "lang": lang, "mood": mood,
+            "user_name": user_name, "persona_avatar": persona_avatar,
+            "char_id": char_id, "turn_group": turn_group, "sender_user_id": sender_user_id}
+
+
+async def branch(sid: str, mid: str, user_id: str | None) -> str | None:
+    src = await get(sid)
+    if not src:
+        return None
+    idx = next((i for i, m in enumerate(src["messages"]) if m["id"] == mid), None)
+    if idx is None:
+        return None
+    new_sid = await create(src["char_id"], src["persona_id"], f'{src["title"]} (branch)',
+                           src["user_name"], user_id)
+    await set_glossary(new_sid, src["glossary"])
+    if src["author_note"]:
+        await set_author_note(new_sid, src["author_note"])
+    if src["style_key"]:
+        await set_style(new_sid, src["style_key"], src["style_prompt"])
+    if src.get("length_key"):
+        await set_length(new_sid, src["length_key"])
+    if src["language"]:
+        await set_language(new_sid, src["language"])
+    await set_char_state(new_sid, src["char_doing"], src["char_location"],
+                         json.loads(src["known_names"] or "[]"))
+    for m in src["messages"][:idx + 1]:
+        await add_message(new_sid, m["role"], m["content"], lang=m.get("lang"), mood=m.get("mood"),
+                          user_name=m.get("user_name"), persona_avatar=m.get("persona_avatar"))
+    log.info("chat_sessions: branched id=%s from=%s at=%s", new_sid, sid, mid)
+    return new_sid
 
 
 async def list_messages(sid: str) -> list[dict]:
     stmt = (select(messages.c.id, messages.c.role, messages.c.content,
-                   messages.c.ts, messages.c.image, messages.c.lang)
+                   messages.c.ts, messages.c.image, messages.c.lang, messages.c.mood,
+                   messages.c.user_name, messages.c.persona_avatar, messages.c.swipes,
+                   messages.c.char_id, messages.c.turn_group, messages.c.sender_user_id)
             .where(messages.c.session_id == sid).order_by(messages.c.seq.asc()))
     rows = await _q(stmt)
     for r in rows:
         r["content"] = _decrypt_secret(r.get("content") or "")
+        swipes = _decrypt_json_list(r.get("swipes"))
+        r["swipe_count"] = len(swipes) if swipes else 1
+        r["swipe_index"] = swipes.index(r["content"]) if r["content"] in swipes else 0
+        del r["swipes"]
     return rows
 
 
@@ -199,19 +272,44 @@ async def delete_message(sid: str, mid: str):
     log.info("chat_sessions: message deleted session=%s message=%s", sid, mid)
 
 
-async def pop_trailing_assistant(sid: str):
-    async with engine().begin() as conn:
-        popped = 0
-        while True:
-            res = await conn.execute(
-                select(messages.c.seq, messages.c.role)
-                .where(messages.c.session_id == sid)
-                .order_by(messages.c.seq.desc()).limit(1))
-            row = res.fetchone()
-            if not row or row._mapping["role"] != "assistant":
-                break
-            await conn.execute(sa_delete(messages).where(
-                messages.c.seq == row._mapping["seq"]))
-            popped += 1
-    if popped:
-        log.info("chat_sessions: popped %d trailing assistant message(s) session=%s", popped, sid)
+async def add_swipe(sid: str, mid: str, new_content: str) -> dict:
+    row = await _q1(select(messages.c.content, messages.c.swipes).where(and_(
+        messages.c.session_id == sid, messages.c.id == mid)))
+    if not row:
+        raise ValueError(f"message {mid} not found in session {sid}")
+    swipes = _decrypt_json_list(row.get("swipes")) or [_decrypt_secret(row.get("content") or "")]
+    swipes.append(new_content)
+    await _w(sa_update(messages).where(and_(
+        messages.c.session_id == sid, messages.c.id == mid)).values(
+        content=_encrypt_secret(new_content), swipes=_encrypt_json_list(swipes)))
+    log.info("chat_sessions: swipe added session=%s message=%s count=%d", sid, mid, len(swipes))
+    return {"index": len(swipes) - 1, "count": len(swipes)}
+
+
+async def swipe(sid: str, mid: str, direction: str) -> dict:
+    row = await _q1(select(messages.c.content, messages.c.swipes).where(and_(
+        messages.c.session_id == sid, messages.c.id == mid)))
+    if not row:
+        raise ValueError(f"message {mid} not found in session {sid}")
+    current = _decrypt_secret(row.get("content") or "")
+    swipes = _decrypt_json_list(row.get("swipes")) or [current]
+    if len(swipes) < 2:
+        raise ValueError("this message has no alternate swipes")
+    cur_idx = swipes.index(current) if current in swipes else 0
+    new_idx = (cur_idx + (1 if direction == "next" else -1)) % len(swipes)
+    await edit_message(sid, mid, swipes[new_idx])
+    log.info("chat_sessions: swiped session=%s message=%s index=%d", sid, mid, new_idx)
+    return {"index": new_idx, "count": len(swipes)}
+
+
+async def prune_last_swipes(sid: str) -> None:
+    row = await _q1(select(messages.c.seq, messages.c.id, messages.c.swipes)
+                    .where(messages.c.session_id == sid)
+                    .order_by(messages.c.seq.desc()).limit(1))
+    if not row or not row.get("swipes"):
+        return
+    await _w(sa_update(messages).where(and_(
+        messages.c.session_id == sid, messages.c.id == row["id"])).values(swipes=None))
+    log.info("chat_sessions: swipes pruned session=%s message=%s", sid, row["id"])
+
+

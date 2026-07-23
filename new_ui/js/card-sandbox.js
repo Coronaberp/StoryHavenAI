@@ -69,7 +69,7 @@ function mountSandboxedHTML(container, html, { autoHeight = true, onReady } = {}
 
 function wireCardInternalLinks(doc) {
   doc.querySelectorAll("a[href]").forEach((a) => {
-    if (a.classList.contains("gl-share")) return;
+    if (a.classList.contains("gl-share") || a.classList.contains("gl-edit")) return;
     const href = a.getAttribute("href") || "";
     if (!href || href.startsWith("#") || href.startsWith("javascript:")) return;
     const isSpaRoute = href.startsWith("/") && !href.startsWith("/api/") && !href.startsWith("/media/");

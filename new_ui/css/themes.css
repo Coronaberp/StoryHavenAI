@@ -15,6 +15,9 @@
   --color-line: #2A2A2E;
   --color-line-2: #3A3A40;
   --color-warn: #F0788F;
+  --color-success: #7BD88F;
+  --color-cmd-purple: #C4A0FF;
+  --color-cmd-yellow: #F5D76E;
 
   --color-accent: var(--color-accent-base);
   --color-accent-deep: var(--color-accent-deep-base);
@@ -47,6 +50,9 @@
   --color-line: #EAE3D2;
   --color-line-2: #D9D0B8;
   --color-warn: #B23B58;
+  --color-success: #2E8B4F;
+  --color-cmd-purple: #6E3FCF;
+  --color-cmd-yellow: #8A6D00;
 
   --color-accent: var(--color-accent-base);
   --color-accent-deep: var(--color-accent-deep-base);

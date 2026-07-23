@@ -82,10 +82,27 @@ def _headers_embed(api_key=None) -> dict:
     return {"Authorization": f"Bearer {k}"} if k else {}
 
 
-async def list_models(base_url: str = None, api_key: str = None) -> list[str]:
+async def list_models(base_url: str = None, api_key: str = None, pin_host: bool = False,
+                      is_admin: bool = False) -> list[str]:
+    """pin_host=True closes the same DNS-rebinding TOCTOU window described on
+    chat_stream — the caller must have already validated base_url via the SSRF
+    guard; this pins the actual connection to the exact address that was
+    checked instead of letting httpx re-resolve DNS itself."""
     url = (_mk_root(base_url) if base_url else _root()) + "/models"
+    headers = _headers(api_key)
+    extensions = {}
+    if pin_host and base_url:
+        from backend import ssrf
+        try:
+            url, original_host = await ssrf.resolve_pinned_host(url, is_admin)
+        except ValueError as e:
+            raise RuntimeError(f"chat endpoint became unsafe: {e}") from e
+        if original_host:
+            headers["Host"] = original_host
+            extensions["sni_hostname"] = original_host
     async with httpx.AsyncClient(timeout=15) as client:
-        resp = await client.get(url, headers=_headers(api_key))
+        req = client.build_request("GET", url, headers=headers, extensions=extensions)
+        resp = await client.send(req)
         resp.raise_for_status()
         data = resp.json().get("data", [])
     return [m.get("id") for m in data if m.get("id")]

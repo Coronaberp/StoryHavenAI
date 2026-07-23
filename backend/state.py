@@ -11,7 +11,7 @@ from backend import llm
 from fastapi import APIRouter
 
 PROCESS_START_TIME = time.time()
-APP_VERSION = "1.2.1"
+APP_VERSION = "2.0.0"
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
@@ -127,14 +127,18 @@ CFG = {
     "embed_model":    os.environ.get("EMBED_MODEL", "nomic-embed-text"),
     "embed_dim":      int(os.environ.get("EMBED_DIM", "768")),
     "history_turns":  int(os.environ.get("HISTORY_TURNS", "16")),
-    "top_k_memory":   int(os.environ.get("TOP_K_MEMORY", "4")),
     "top_k_lore":     int(os.environ.get("TOP_K_LORE", "6")),
-    "mem_max_dist":   float(os.environ.get("MEM_MAX_DIST", "0.80")),
     "lore_max_dist":  float(os.environ.get("LORE_MAX_DIST", "0.80")),
     "temperature":    float(os.environ.get("GEN_TEMP", "0.85")),
     "top_p":          float(os.environ.get("GEN_TOP_P", "0.9")),
     "max_tokens":     int(os.environ.get("GEN_MAX_TOKENS", "4096")),
     "enable_thinking": os.environ.get("ENABLE_THINKING", "true").lower() in ("1", "true", "yes", "on"),
+    "memory_v2": os.environ.get("MEMORY_V2", "false").lower() in ("1", "true", "yes", "on"),
+    "memory_v2_budget_tokens": int(os.environ.get("MEMORY_V2_BUDGET_TOKENS", "1000")),
+    "webauthn_rp_id": os.environ.get("WEBAUTHN_RP_ID", ""),
+    "webauthn_origin": os.environ.get("WEBAUTHN_ORIGIN", ""),
+    "gpu_temp_limit": int(os.environ.get("GPU_TEMP_LIMIT", "83")),
+    "gpu_temp_resume": int(os.environ.get("GPU_TEMP_RESUME", "75")),
     "scene_style": False,
     "top_k": 0, "min_p": 0.0, "top_a": 0.0, "typical_p": 1.0, "tfs": 1.0,
     "repetition_penalty": 1.0, "repetition_penalty_range": 0,
@@ -196,6 +200,21 @@ CFG = {
     # see modal_client.download_output and modal_app/lora_train.py's
     # download_output/_publish_output.
     "modal_download_output_url": os.environ.get("MODAL_LORA_DOWNLOAD_OUTPUT_URL", ""),
+    # Server-side key for Giphy's search API (comments' GIF picker) — search
+    # requests are proxied through the backend so this key never reaches the
+    # browser; the GIF a user actually picks is then downloaded and re-hosted
+    # under /media/ like any other comment attachment (see routers/comments.py).
+    "giphy_api_key": os.environ.get("GIPHY_API_KEY", ""),
+    # Pins which installed UNETLoader/CLIPLoader/VAELoader file Wan2.1 video
+    # generation uses. Left blank, /imagegen/video only auto-picks a file when
+    # ComfyUI reports exactly one Wan-capable candidate — with any other
+    # UNETLoader-loaded architecture installed alongside it (e.g. Anima), the
+    # unfiltered ComfyUI option list mixes them together and blind index-0
+    # selection silently loads the wrong file, producing incompatible tensor
+    # shapes at sample time instead of a clear error.
+    "wan_unet_name": os.environ.get("WAN_UNET_NAME", ""),
+    "wan_clip_name": os.environ.get("WAN_CLIP_NAME", ""),
+    "wan_vae_name": os.environ.get("WAN_VAE_NAME", ""),
 }
 
 # ComfyUI's whole models volume, bind-mounted read-write into this container
@@ -238,6 +257,9 @@ VISION_CLASSIFY = {
 PUBLIC_CFG_KEYS = [
     "base_url", "embed_base_url", "chat_model", "embed_model", "embed_dim",
     "history_turns", "temperature", "top_p", "max_tokens", "enable_thinking",
+    "memory_v2", "memory_v2_budget_tokens",
+    "webauthn_rp_id", "webauthn_origin",
+    "gpu_temp_limit", "gpu_temp_resume",
     "top_k", "min_p", "top_a", "typical_p", "tfs",
     "repetition_penalty", "repetition_penalty_range",
     "frequency_penalty", "presence_penalty",
@@ -250,8 +272,9 @@ PUBLIC_CFG_KEYS = [
     "model_request_hosts", "embed_link_hosts",
     "modal_train_url", "modal_checkpoint_url", "modal_check_cached_url", "modal_upload_model_url",
     "modal_download_output_url",
-    # modal_shared_secret deliberately excluded — write-only, same treatment as
-    # api_key (see _scrub_modal_secret in routers/settings.py)
+    "wan_unet_name", "wan_clip_name", "wan_vae_name",
+    # modal_shared_secret, giphy_api_key deliberately excluded — write-only,
+    # same treatment as api_key (see _scrub_api_key in routers/settings.py)
 ]
 
 # Keys that a regular user can override per-session (NOT embed_dim, embed_model,
@@ -288,6 +311,9 @@ COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
 # Uploads
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+
+ACCESS_COOKIE_NAME = "sh_access"
+REFRESH_COOKIE_NAME = "sh_refresh"
 
 # Routers — auth_router is public, api requires authentication. Route modules
 # import and decorate these; server.py includes them in section order.

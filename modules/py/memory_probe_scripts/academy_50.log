@@ -1,0 +1,444 @@
+2026-07-20 01:04:32 INFO     storyhavenai: chat_sessions: created id=s0dad446565d9 char=cf19fbf4f821f user=ube2b2b900c5f
+created session=s0dad446565d9 char=cf19fbf4f821f owner=zukaarimoto
+posted real character greeting as message 1
+2026-07-20 01:04:32 INFO     storyhavenai: memory extract start: session=s0dad446565d9 turn=5 batch=5 exchanges
+2026-07-20 01:04:32 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:04:59 INFO     storyhavenai: chat_sessions: char state set id=s0dad446565d9
+2026-07-20 01:04:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:04:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:04:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:04:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:04:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:00 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:05:02 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf3fc453c47112 type=world importance=5 pinned=False
+2026-07-20 01:05:02 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf86f53fdfd01f type=state importance=4 pinned=False
+2026-07-20 01:05:02 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf93da0905d723 type=state importance=3 pinned=False
+2026-07-20 01:05:02 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfa3406ce2ae9c type=state importance=4 pinned=False
+2026-07-20 01:05:02 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf5b0e2a050bf6 type=event importance=3 pinned=False
+2026-07-20 01:05:02 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:02 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:02 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:02 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:02 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:02 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:05:06 INFO     storyhavenai: memory extract done: session=s0dad446565d9 turn=5 facts=5 added=5 reinforced=0 superseded=0 lore_updates=0
+turn 5: {'facts': 5, 'added': 5, 'reinforced': 0, 'superseded': 0, 'lore_updates_applied': 0}
+2026-07-20 01:05:06 INFO     storyhavenai: memory extract start: session=s0dad446565d9 turn=10 batch=5 exchanges
+2026-07-20 01:05:06 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:05:33 INFO     storyhavenai: chat_sessions: char state set id=s0dad446565d9
+2026-07-20 01:05:33 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:33 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:33 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:33 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:33 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:33 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:33 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:33 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:33 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:33 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:33 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:05:49 INFO     storyhavenai: memory fact reinforced: id=mf3fc453c47112 turn=10
+2026-07-20 01:05:49 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfb0a81e07b5e0 type=event importance=5 pinned=False
+2026-07-20 01:05:49 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf8611e0f8d2cf type=world importance=5 pinned=False
+2026-07-20 01:05:49 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfd121c0a41b5e type=world importance=5 pinned=False
+2026-07-20 01:05:49 INFO     storyhavenai: memory fact superseded: old=mf5b0e2a050bf6 new=mfd121c0a41b5e turn=10
+2026-07-20 01:05:49 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfa116955ed19e type=event importance=4 pinned=False
+2026-07-20 01:05:49 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfc2646548a73d type=profile importance=2 pinned=False
+2026-07-20 01:05:49 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfc0241e7931c4 type=state importance=2 pinned=False
+2026-07-20 01:05:49 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfe5e5a6728297 type=world importance=3 pinned=False
+2026-07-20 01:05:49 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfac8474bb38d7 type=state importance=2 pinned=False
+2026-07-20 01:05:49 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf3d1eff88e601 type=state importance=3 pinned=False
+2026-07-20 01:05:49 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:49 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:49 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:49 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:49 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:49 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:49 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:49 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:49 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:49 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:05:50 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:06:05 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:05 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf09ab336afb1f type=state importance=5 pinned=True
+2026-07-20 01:06:05 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=l488a4b2f8a49 fact=mf09ab336afb1f
+2026-07-20 01:06:05 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=l488a4b2f8a49
+2026-07-20 01:06:05 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:05 INFO     storyhavenai: memory fact text updated: id=mf09ab336afb1f
+2026-07-20 01:06:05 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=l488a4b2f8a49 fact=mf09ab336afb1f
+2026-07-20 01:06:05 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=l488a4b2f8a49
+2026-07-20 01:06:05 INFO     storyhavenai: memory extract done: session=s0dad446565d9 turn=10 facts=10 added=8 reinforced=1 superseded=1 lore_updates=2
+turn 10: {'facts': 10, 'added': 8, 'reinforced': 1, 'superseded': 1, 'lore_updates_applied': 2}
+2026-07-20 01:06:05 INFO     storyhavenai: memory extract start: session=s0dad446565d9 turn=15 batch=5 exchanges
+2026-07-20 01:06:05 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:06:45 INFO     storyhavenai: chat_sessions: char state set id=s0dad446565d9
+2026-07-20 01:06:45 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:45 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:45 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:45 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:45 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:45 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:45 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:45 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:45 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:45 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:45 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:06:59 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf1d36c4e074dd type=world importance=4 pinned=False
+2026-07-20 01:06:59 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf5d21059ca005 type=world importance=4 pinned=False
+2026-07-20 01:06:59 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf2f30dc377d93 type=world importance=4 pinned=False
+2026-07-20 01:06:59 INFO     storyhavenai: memory fact reinforced: id=mfe5e5a6728297 turn=15
+2026-07-20 01:06:59 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfde729e5a4142 type=state importance=5 pinned=False
+2026-07-20 01:06:59 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf76f96c08a1d9 type=world importance=4 pinned=False
+2026-07-20 01:06:59 INFO     storyhavenai: memory fact reinforced: id=mf3d1eff88e601 turn=15
+2026-07-20 01:06:59 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfaecb7709ac5d type=state importance=3 pinned=False
+2026-07-20 01:06:59 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf4a302a5dc536 type=relationship importance=2 pinned=False
+2026-07-20 01:06:59 INFO     storyhavenai: memory fact reinforced: id=mfc0241e7931c4 turn=15
+2026-07-20 01:06:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:59 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:06:59 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:07:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:06 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf51137c1e5146 type=state importance=5 pinned=True
+2026-07-20 01:07:06 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=l1af7a9c21996 fact=mf51137c1e5146
+2026-07-20 01:07:06 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=l1af7a9c21996
+2026-07-20 01:07:06 INFO     storyhavenai: memory extract done: session=s0dad446565d9 turn=15 facts=10 added=7 reinforced=3 superseded=0 lore_updates=1
+turn 15: {'facts': 10, 'added': 7, 'reinforced': 3, 'superseded': 0, 'lore_updates_applied': 1}
+2026-07-20 01:07:06 INFO     storyhavenai: memory extract start: session=s0dad446565d9 turn=20 batch=5 exchanges
+2026-07-20 01:07:06 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:07:29 INFO     storyhavenai: chat_sessions: char state set id=s0dad446565d9
+2026-07-20 01:07:29 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:29 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:29 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:29 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:29 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:29 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:29 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:29 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:29 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:30 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:07:51 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf6dd3efb48ded type=state importance=5 pinned=False
+2026-07-20 01:07:51 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf3cb7525ae7fe type=event importance=4 pinned=False
+2026-07-20 01:07:51 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfe7ac1958e3c7 type=world importance=4 pinned=False
+2026-07-20 01:07:51 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfd8b8f04c270f type=state importance=3 pinned=False
+2026-07-20 01:07:51 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf96e6d138eba6 type=relationship importance=3 pinned=False
+2026-07-20 01:07:51 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfa0e69aff7824 type=state importance=3 pinned=False
+2026-07-20 01:07:51 INFO     storyhavenai: memory fact superseded: old=mfc0241e7931c4 new=mfa0e69aff7824 turn=20
+2026-07-20 01:07:51 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf5896b50a07aa type=event importance=3 pinned=False
+2026-07-20 01:07:51 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf4dcff8bcc08e type=world importance=3 pinned=False
+2026-07-20 01:07:51 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf5488e5c09299 type=state importance=2 pinned=False
+2026-07-20 01:07:51 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:51 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:51 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:51 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:51 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:51 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:51 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:51 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:51 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:07:52 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:08:07 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:08:07 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mffa7540618a24 type=state importance=5 pinned=True
+2026-07-20 01:08:07 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=lebe31ed34f14 fact=mffa7540618a24
+2026-07-20 01:08:07 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=lebe31ed34f14
+2026-07-20 01:08:07 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:08:07 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf1eb50e132022 type=state importance=5 pinned=True
+2026-07-20 01:08:07 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=l5721d42917a6 fact=mf1eb50e132022
+2026-07-20 01:08:07 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=l5721d42917a6
+2026-07-20 01:08:07 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:08:07 INFO     storyhavenai: memory fact text updated: id=mf09ab336afb1f
+2026-07-20 01:08:07 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=l488a4b2f8a49 fact=mf09ab336afb1f
+2026-07-20 01:08:07 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=l488a4b2f8a49
+2026-07-20 01:08:07 INFO     storyhavenai: memory extract done: session=s0dad446565d9 turn=20 facts=9 added=8 reinforced=0 superseded=1 lore_updates=3
+turn 20: {'facts': 9, 'added': 8, 'reinforced': 0, 'superseded': 1, 'lore_updates_applied': 3}
+2026-07-20 01:08:07 INFO     storyhavenai: memory extract start: session=s0dad446565d9 turn=25 batch=5 exchanges
+2026-07-20 01:08:08 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:08:53 INFO     storyhavenai: chat_sessions: char state set id=s0dad446565d9
+2026-07-20 01:08:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:08:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:08:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:08:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:08:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:08:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:08:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:08:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:08:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:08:53 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:10:05 INFO     storyhavenai: memory fact reinforced: id=mfd8b8f04c270f turn=25
+2026-07-20 01:10:05 INFO     storyhavenai: memory fact reinforced: id=mf96e6d138eba6 turn=25
+2026-07-20 01:10:05 INFO     storyhavenai: memory fact reinforced: id=mfe7ac1958e3c7 turn=25
+2026-07-20 01:10:05 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf04d2eace8b6c type=state importance=3 pinned=False
+2026-07-20 01:10:05 INFO     storyhavenai: memory fact superseded: old=mfc0241e7931c4 new=mf04d2eace8b6c turn=25
+2026-07-20 01:10:05 INFO     storyhavenai: memory fact reinforced: id=mf5896b50a07aa turn=25
+2026-07-20 01:10:05 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf3b9f53d0521c type=state importance=3 pinned=False
+2026-07-20 01:10:05 INFO     storyhavenai: memory fact reinforced: id=mf4dcff8bcc08e turn=25
+2026-07-20 01:10:05 INFO     storyhavenai: memory fact reinforced: id=mf5488e5c09299 turn=25
+2026-07-20 01:10:05 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfbca2c6339dcc type=state importance=3 pinned=False
+2026-07-20 01:10:05 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:10:05 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:10:05 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:10:05 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:10:05 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:10:05 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:10:05 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:10:05 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:10:05 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:10:05 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:10:24 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:10:24 INFO     storyhavenai: memory fact text updated: id=mf09ab336afb1f
+2026-07-20 01:10:24 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=l488a4b2f8a49 fact=mf09ab336afb1f
+2026-07-20 01:10:24 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=l488a4b2f8a49
+2026-07-20 01:10:24 INFO     storyhavenai: memory extract done: session=s0dad446565d9 turn=25 facts=9 added=2 reinforced=6 superseded=1 lore_updates=1
+turn 25: {'facts': 9, 'added': 2, 'reinforced': 6, 'superseded': 1, 'lore_updates_applied': 1}
+2026-07-20 01:10:24 INFO     storyhavenai: memory extract start: session=s0dad446565d9 turn=30 batch=5 exchanges
+2026-07-20 01:10:24 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:11:50 INFO     storyhavenai: chat_sessions: char state set id=s0dad446565d9
+2026-07-20 01:11:50 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:11:50 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:11:50 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:11:50 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:11:50 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:11:51 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:11:51 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:11:51 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:11:51 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:12:03 INFO     storyhavenai: memory fact reinforced: id=mfe7ac1958e3c7 turn=30
+2026-07-20 01:12:03 INFO     storyhavenai: memory fact reinforced: id=mfe7ac1958e3c7 turn=30
+2026-07-20 01:12:03 INFO     storyhavenai: memory fact reinforced: id=mf4dcff8bcc08e turn=30
+2026-07-20 01:12:03 INFO     storyhavenai: memory fact reinforced: id=mf5488e5c09299 turn=30
+2026-07-20 01:12:03 INFO     storyhavenai: memory fact reinforced: id=mfd8b8f04c270f turn=30
+2026-07-20 01:12:03 INFO     storyhavenai: memory fact reinforced: id=mf04d2eace8b6c turn=30
+2026-07-20 01:12:03 INFO     storyhavenai: memory fact reinforced: id=mf5896b50a07aa turn=30
+2026-07-20 01:12:03 INFO     storyhavenai: memory fact reinforced: id=mf3b9f53d0521c turn=30
+2026-07-20 01:12:03 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:03 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:03 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:03 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:03 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:04 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:04 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:04 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:04 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:12:29 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:29 INFO     storyhavenai: memory fact text updated: id=mf1eb50e132022
+2026-07-20 01:12:29 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=l5721d42917a6 fact=mf1eb50e132022
+2026-07-20 01:12:29 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=l5721d42917a6
+2026-07-20 01:12:29 INFO     storyhavenai: memory extract done: session=s0dad446565d9 turn=30 facts=8 added=0 reinforced=8 superseded=0 lore_updates=1
+turn 30: {'facts': 8, 'added': 0, 'reinforced': 8, 'superseded': 0, 'lore_updates_applied': 1}
+2026-07-20 01:12:29 INFO     storyhavenai: memory extract start: session=s0dad446565d9 turn=35 batch=5 exchanges
+2026-07-20 01:12:29 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:12:53 INFO     storyhavenai: chat_sessions: char state set id=s0dad446565d9
+2026-07-20 01:12:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:53 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:12:53 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:13:06 INFO     storyhavenai: memory fact reinforced: id=mfe7ac1958e3c7 turn=35
+2026-07-20 01:13:06 INFO     storyhavenai: memory fact reinforced: id=mfe7ac1958e3c7 turn=35
+2026-07-20 01:13:06 INFO     storyhavenai: memory fact reinforced: id=mf4dcff8bcc08e turn=35
+2026-07-20 01:13:06 INFO     storyhavenai: memory fact reinforced: id=mfd8b8f04c270f turn=35
+2026-07-20 01:13:06 INFO     storyhavenai: memory fact reinforced: id=mf1eb50e132022 turn=35
+2026-07-20 01:13:06 INFO     storyhavenai: memory fact reinforced: id=mf96e6d138eba6 turn=35
+2026-07-20 01:13:06 INFO     storyhavenai: memory fact reinforced: id=mf04d2eace8b6c turn=35
+2026-07-20 01:13:06 INFO     storyhavenai: memory fact reinforced: id=mf5896b50a07aa turn=35
+2026-07-20 01:13:06 INFO     storyhavenai: memory fact reinforced: id=mf3b9f53d0521c turn=35
+2026-07-20 01:13:06 INFO     storyhavenai: memory fact reinforced: id=mfbca2c6339dcc turn=35
+2026-07-20 01:13:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:13:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:13:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:13:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:13:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:13:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:13:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:13:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:13:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:13:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:13:06 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:14:21 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:14:21 INFO     storyhavenai: memory fact text updated: id=mf09ab336afb1f
+2026-07-20 01:14:21 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=l488a4b2f8a49 fact=mf09ab336afb1f
+2026-07-20 01:14:21 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=l488a4b2f8a49
+2026-07-20 01:14:21 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:14:21 INFO     storyhavenai: memory fact text updated: id=mf1eb50e132022
+2026-07-20 01:14:21 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=l5721d42917a6 fact=mf1eb50e132022
+2026-07-20 01:14:21 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=l5721d42917a6
+2026-07-20 01:14:21 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:14:21 INFO     storyhavenai: memory fact text updated: id=mffa7540618a24
+2026-07-20 01:14:21 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=lebe31ed34f14 fact=mffa7540618a24
+2026-07-20 01:14:21 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=lebe31ed34f14
+2026-07-20 01:14:21 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:14:21 INFO     storyhavenai: memory fact text updated: id=mf1eb50e132022
+2026-07-20 01:14:21 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=l5721d42917a6 fact=mf1eb50e132022
+2026-07-20 01:14:21 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=l5721d42917a6
+2026-07-20 01:14:21 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:14:21 INFO     storyhavenai: memory fact text updated: id=mffa7540618a24
+2026-07-20 01:14:21 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=lebe31ed34f14 fact=mffa7540618a24
+2026-07-20 01:14:21 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=lebe31ed34f14
+2026-07-20 01:14:21 INFO     storyhavenai: memory extract done: session=s0dad446565d9 turn=35 facts=10 added=0 reinforced=10 superseded=0 lore_updates=5
+turn 35: {'facts': 10, 'added': 0, 'reinforced': 10, 'superseded': 0, 'lore_updates_applied': 5}
+2026-07-20 01:14:21 INFO     storyhavenai: memory extract start: session=s0dad446565d9 turn=40 batch=5 exchanges
+2026-07-20 01:14:21 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:15:06 INFO     storyhavenai: chat_sessions: char state set id=s0dad446565d9
+2026-07-20 01:15:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:06 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:06 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:15:43 INFO     storyhavenai: memory fact reinforced: id=mfd8b8f04c270f turn=40
+2026-07-20 01:15:43 INFO     storyhavenai: memory fact reinforced: id=mf96e6d138eba6 turn=40
+2026-07-20 01:15:43 INFO     storyhavenai: memory fact reinforced: id=mf09ab336afb1f turn=40
+2026-07-20 01:15:43 INFO     storyhavenai: memory fact reinforced: id=mfe7ac1958e3c7 turn=40
+2026-07-20 01:15:43 INFO     storyhavenai: memory fact reinforced: id=mf04d2eace8b6c turn=40
+2026-07-20 01:15:43 INFO     storyhavenai: memory fact reinforced: id=mf5896b50a07aa turn=40
+2026-07-20 01:15:43 INFO     storyhavenai: memory fact reinforced: id=mf3b9f53d0521c turn=40
+2026-07-20 01:15:43 INFO     storyhavenai: memory fact reinforced: id=mf4dcff8bcc08e turn=40
+2026-07-20 01:15:43 INFO     storyhavenai: memory fact reinforced: id=mf1eb50e132022 turn=40
+2026-07-20 01:15:43 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:43 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:43 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:43 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:43 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:43 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:43 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:43 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:43 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:15:43 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:15:54 INFO     storyhavenai: memory extract done: session=s0dad446565d9 turn=40 facts=9 added=0 reinforced=9 superseded=0 lore_updates=0
+turn 40: {'facts': 9, 'added': 0, 'reinforced': 9, 'superseded': 0, 'lore_updates_applied': 0}
+2026-07-20 01:15:54 INFO     storyhavenai: memory extract start: session=s0dad446565d9 turn=45 batch=5 exchanges
+2026-07-20 01:15:54 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:16:09 INFO     storyhavenai: chat_sessions: char state set id=s0dad446565d9
+2026-07-20 01:16:09 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:09 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:09 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:09 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:09 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:09 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:09 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:09 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:09 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:09 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:09 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:16:27 INFO     storyhavenai: memory fact reinforced: id=mfd8b8f04c270f turn=45
+2026-07-20 01:16:27 INFO     storyhavenai: memory fact reinforced: id=mf96e6d138eba6 turn=45
+2026-07-20 01:16:27 INFO     storyhavenai: memory fact reinforced: id=mf09ab336afb1f turn=45
+2026-07-20 01:16:27 INFO     storyhavenai: memory fact reinforced: id=mfe7ac1958e3c7 turn=45
+2026-07-20 01:16:27 INFO     storyhavenai: memory fact reinforced: id=mf04d2eace8b6c turn=45
+2026-07-20 01:16:27 INFO     storyhavenai: memory fact reinforced: id=mf5896b50a07aa turn=45
+2026-07-20 01:16:27 INFO     storyhavenai: memory fact reinforced: id=mf5896b50a07aa turn=45
+2026-07-20 01:16:27 INFO     storyhavenai: memory fact reinforced: id=mf3b9f53d0521c turn=45
+2026-07-20 01:16:27 INFO     storyhavenai: memory fact reinforced: id=mf4dcff8bcc08e turn=45
+2026-07-20 01:16:27 INFO     storyhavenai: memory fact reinforced: id=mf5488e5c09299 turn=45
+2026-07-20 01:16:27 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:27 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:27 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:27 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:27 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:27 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:27 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:27 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:27 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:27 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:27 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:16:37 INFO     storyhavenai: memory extract done: session=s0dad446565d9 turn=45 facts=10 added=0 reinforced=10 superseded=0 lore_updates=0
+turn 45: {'facts': 10, 'added': 0, 'reinforced': 10, 'superseded': 0, 'lore_updates_applied': 0}
+2026-07-20 01:16:37 INFO     storyhavenai: memory extract start: session=s0dad446565d9 turn=50 batch=5 exchanges
+2026-07-20 01:16:37 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:16:57 INFO     storyhavenai: chat_sessions: char state set id=s0dad446565d9
+2026-07-20 01:16:57 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:57 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:57 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:57 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:57 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:57 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:57 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:57 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:57 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:57 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:16:57 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:17:16 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf2900de54caa2 type=profile importance=5 pinned=False
+2026-07-20 01:17:16 INFO     storyhavenai: memory fact reinforced: id=mf09ab336afb1f turn=50
+2026-07-20 01:17:16 INFO     storyhavenai: memory fact reinforced: id=mfe7ac1958e3c7 turn=50
+2026-07-20 01:17:16 INFO     storyhavenai: memory fact reinforced: id=mf96e6d138eba6 turn=50
+2026-07-20 01:17:16 INFO     storyhavenai: memory fact reinforced: id=mf04d2eace8b6c turn=50
+2026-07-20 01:17:16 INFO     storyhavenai: memory fact reinforced: id=mf5896b50a07aa turn=50
+2026-07-20 01:17:16 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfce6c0c27077e type=world importance=3 pinned=False
+2026-07-20 01:17:16 INFO     storyhavenai: memory fact reinforced: id=mf4dcff8bcc08e turn=50
+2026-07-20 01:17:16 INFO     storyhavenai: memory fact reinforced: id=mf5488e5c09299 turn=50
+2026-07-20 01:17:16 INFO     storyhavenai: memory fact reinforced: id=mf09ab336afb1f turn=50
+2026-07-20 01:17:16 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:16 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:16 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:16 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:16 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:16 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:16 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:16 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:16 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:16 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:16 INFO     httpx: HTTP Request: POST https://api.deepseek.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-07-20 01:17:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:47 INFO     storyhavenai: memory fact text updated: id=mffa7540618a24
+2026-07-20 01:17:47 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=lebe31ed34f14 fact=mffa7540618a24
+2026-07-20 01:17:47 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=lebe31ed34f14
+2026-07-20 01:17:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:47 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mf87f762b873da type=state importance=5 pinned=True
+2026-07-20 01:17:47 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=lbec2b5c151fe fact=mf87f762b873da
+2026-07-20 01:17:47 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=lbec2b5c151fe
+2026-07-20 01:17:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:47 INFO     storyhavenai: memory fact text updated: id=mf1eb50e132022
+2026-07-20 01:17:47 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=l5721d42917a6 fact=mf1eb50e132022
+2026-07-20 01:17:47 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=l5721d42917a6
+2026-07-20 01:17:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:47 INFO     storyhavenai: memory fact text updated: id=mf09ab336afb1f
+2026-07-20 01:17:47 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=l488a4b2f8a49 fact=mf09ab336afb1f
+2026-07-20 01:17:47 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=l488a4b2f8a49
+2026-07-20 01:17:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:47 INFO     storyhavenai: memory fact added: session=s0dad446565d9 id=mfaded5f6fd8c2 type=state importance=5 pinned=True
+2026-07-20 01:17:47 INFO     storyhavenai: session_lore_state: override set session=s0dad446565d9 lore=l1dd8376a5b83 fact=mfaded5f6fd8c2
+2026-07-20 01:17:47 INFO     storyhavenai: lore_memory: session-scoped override applied session=s0dad446565d9 lore=l1dd8376a5b83
+2026-07-20 01:17:47 INFO     storyhavenai: memory extract done: session=s0dad446565d9 turn=50 facts=10 added=2 reinforced=8 superseded=0 lore_updates=5
+turn 50: {'facts': 10, 'added': 2, 'reinforced': 8, 'superseded': 0, 'lore_updates_applied': 5}
+2026-07-20 01:17:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:47 INFO     storyhavenai: memory block overflow: session=s0dad446565d9 dropped_reserved=4
+2026-07-20 01:17:47 INFO     storyhavenai: memory v2 retrieve: session=s0dad446565d9 turn=50 memory_candidates=21 lore_candidates=32 used=13
+PASS: 'Is there still peace between the Human Kingdom and the Demon Kingdom?'
+2026-07-20 01:17:47 INFO     httpx: HTTP Request: POST http://llamacpp-embed:5002/v1/embeddings "HTTP/1.1 200 OK"
+2026-07-20 01:17:47 INFO     storyhavenai: memory block overflow: session=s0dad446565d9 dropped_reserved=4
+2026-07-20 01:17:47 INFO     storyhavenai: memory v2 retrieve: session=s0dad446565d9 turn=50 memory_candidates=19 lore_candidates=32 used=12
+FAIL: 'Is Diane still a princess of the Human Kingdom?' missing=['stripped']
+  block was:
+## Ongoing & pinned
+- The Order of the Silver Blade is an elite knightly order dedicated to hunting high-rank monsters and demons. They now operate under direct orders from the crown for the first time in a generation, having previously been semi-independent from the Adventurers Guild and maintaining close ties with the Church. (ongoing)
+- House Bluerose is the ruling royal family of the Human Kingdom. Known for political marriages, strict expectations, and ice magic affinity. Diane, formerly the second princess, has lost her royal title and now trains as an ordinary battle-mage student. (ongoing)
+- Diane Bluerose, formerly second princess of Human Kingdom, has lost her royal title and now trains as an ordinary battle-mage student at Sunspire Academy. She is a C-rank student. Her personality, skills, appearance, and other traits remain, but her occupation and royal status are changed. She no longer holds the title of princess. (ongoing)
+- A fragile peace existed between the Human Kingdom, the Demon Kingdom, and various demi-human realms. However, Demon Kingdom forces have pushed past the old border markers, effectively breaking the peace. Tensions have escalated to open war. (ongoing)
+- A third-year student has been missing for four days, and the Shadow Veil is rumored to be recruiting. (ongoing)
+- The academy has become unusually quiet and tense since the patrol sighting. (ongoing)
+
+## Recalled from earlier
+- Ice Affinity is a specialized and potent sub-affinity of Water. It excels at freezing, area control, and elegant combat. House Bluerose has a hereditary talent for it. Diane, formerly a princess, trains rigorously to master this affinity alongside rapier techniques, now as a common battle-mage student. (ongoing)
+- The Demon Kingdom rules the harsher eastern regions of Vaeldrath. Demons are masters of dark, blood, and chaos magic. The fragile peace with the Human Kingdom has been broken as Demon forces have pushed past the border markers, leading to open conflict. (ongoing)
+- Demon Kingdom forces pushed past old border markers, prompting the Adventurers Guild's first S-Rank bounty in years.
+- Urabel's workshop runs day and night producing healing draughts for the crown.
+- The Church of the Radiant Pantheon escalates anti-demon sermons and recruits Holy Magic students before final exams.
+- Alice feels growing unease about the anti-demon sermons. (ongoing)
+
+totals: {'facts': 90, 'added': 32, 'reinforced': 55, 'superseded': 3, 'lore_updates_applied': 18} probes_failed=1 session=s0dad446565d9

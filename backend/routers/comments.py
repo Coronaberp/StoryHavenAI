@@ -3,6 +3,7 @@ import os
 import re
 import uuid
 
+import httpx
 from fastapi import HTTPException, Depends, UploadFile, File
 from fastapi.responses import PlainTextResponse
 
@@ -12,9 +13,10 @@ from backend.repositories import comments as comment_repo
 from backend.repositories import emojis as custom_emoji_repo
 from backend.repositories import forum as forum_thread_repo
 from backend.repositories import notifications as notification_repo
-from backend.state import api, log, IMG_EXTS, MEDIA_DIR
+from backend.state import api, log, IMG_EXTS, MEDIA_DIR, CFG
 from backend.auth import get_current_user, get_current_user_optional
-from backend.schemas import CommentIn, CommentEditIn, CommentReactIn
+from backend.feature_flags import require_feature_enabled
+from backend.schemas import CommentIn, CommentEditIn, CommentReactIn, GiphySendIn
 from backend.ratelimit import SlidingWindow
 from backend.media import _save_uploaded_image, _write_file, _check_upload_size
 from backend.classify import classify_image_background
@@ -29,6 +31,8 @@ _COMMENT_LIMIT = SlidingWindow(
 # encode/decode/classify round-trip, not just a text insert.
 _COMMENT_IMAGE_LIMIT = SlidingWindow(
     10, 300, "You're uploading too fast — please wait a moment and try again")
+_GIPHY_SEARCH_LIMIT = SlidingWindow(
+    30, 60, "You're searching too fast — please wait a moment and try again")
 # Likes/reactions are cheap single-row writes but still scriptable spam —
 # a generous but real ceiling, separate from _COMMENT_LIMIT (composing a
 # comment) and _SUPER_REACTION_LIMIT (the scarcer highlighted reaction).
@@ -149,6 +153,91 @@ async def get_comment_attachment_text(fname: str):
     return PlainTextResponse(data.decode("utf-8", errors="replace"))
 
 
+_GIPHY_BASE = "https://api.giphy.com/v1/gifs"
+_GIPHY_RATING = "pg-13"
+_GIPHY_CLEARED_MEDIA: set[str] = set()
+
+
+def _giphy_gif_summary(g: dict) -> dict:
+    images = g.get("images", {})
+    preview = images.get("fixed_width_small", {}) or images.get("fixed_width", {})
+    return {
+        "id": g.get("id", ""),
+        "title": g.get("title", ""),
+        "preview_url": preview.get("url", ""),
+        "width": preview.get("width", ""),
+        "height": preview.get("height", ""),
+    }
+
+
+async def _giphy_get(path: str, params: dict) -> dict:
+    if not CFG.get("giphy_api_key"):
+        raise HTTPException(503, "GIF search isn't configured on this server yet.")
+    params = {**params, "api_key": CFG["giphy_api_key"], "rating": _GIPHY_RATING}
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            res = await client.get(f"{_GIPHY_BASE}/{path}", params=params)
+        except httpx.HTTPError as e:
+            log.warning("comments: giphy %s request failed: %s: %s", path, type(e).__name__, e)
+            raise HTTPException(502, "Couldn't reach Giphy right now.")
+    if res.status_code != 200:
+        log.warning("comments: giphy %s returned %s", path, res.status_code)
+        raise HTTPException(502, "Couldn't reach Giphy right now.")
+    return res.json()
+
+
+@api.get("/comments/giphy/trending")
+async def giphy_trending(limit: int = 24, current_user: dict = Depends(get_current_user)):
+    _GIPHY_SEARCH_LIMIT.check_and_record(current_user["id"])
+    data = await _giphy_get("trending", {"limit": min(max(limit, 1), 48)})
+    return {"results": [_giphy_gif_summary(g) for g in data.get("data", [])]}
+
+
+@api.get("/comments/giphy/search")
+async def giphy_search(q: str, limit: int = 24, current_user: dict = Depends(get_current_user)):
+    _GIPHY_SEARCH_LIMIT.check_and_record(current_user["id"])
+    q = q.strip()
+    if not q:
+        return {"results": []}
+    data = await _giphy_get("search", {"q": q, "limit": min(max(limit, 1), 48)})
+    return {"results": [_giphy_gif_summary(g) for g in data.get("data", [])]}
+
+
+@api.post("/comments/giphy/send")
+async def giphy_send(body: GiphySendIn, current_user: dict = Depends(get_current_user)):
+    """Re-hosts a picked Giphy GIF under /media/ so it can be attached to a
+    comment through the same validated-attachment pipeline as any other
+    upload — the backend never accepts a raw external URL as a comment
+    attachment (see the note in post_comment below), and a client-supplied
+    Giphy URL isn't trusted either: the gif id is re-resolved against Giphy's
+    own API server-side so the download target is always something Giphy
+    itself just returned, not whatever the client claims it is."""
+    _COMMENT_IMAGE_LIMIT.check_and_record(current_user["id"])
+    gif_id = re.sub(r"[^a-zA-Z0-9]", "", body.id)[:64]
+    if not gif_id:
+        raise HTTPException(400, "invalid gif id")
+    data = await _giphy_get(f"{gif_id}", {})
+    images = data.get("data", {}).get("images", {})
+    original = images.get("original", {})
+    url = original.get("url", "")
+    if not url or not url.startswith("https://media"):
+        raise HTTPException(502, "That GIF isn't available right now.")
+    async with httpx.AsyncClient(timeout=20) as client:
+        try:
+            res = await client.get(url)
+        except httpx.HTTPError as e:
+            log.warning("comments: giphy download failed id=%s: %s: %s", gif_id, type(e).__name__, e)
+            raise HTTPException(502, "Couldn't download that GIF.")
+    if res.status_code != 200:
+        raise HTTPException(502, "Couldn't download that GIF.")
+    basename = f"cmt_{uuid.uuid4().hex[:12]}"
+    ext = await _save_uploaded_image(res.content, basename, ".gif", allow_animated=True)
+    url = f"/media/{basename}{ext}"
+    _GIPHY_CLEARED_MEDIA.add(url)
+    log.info("comment gif sent by=%s giphy_id=%s url=%s", current_user["username"], gif_id, url)
+    return {"image": url, "attachment_kind": "image"}
+
+
 async def _resolve_target_owner(target_type: str, target_id: str) -> str | None:
     """Owner id of the commented-on subject, or None if it doesn't exist."""
     if target_type == "character":
@@ -188,7 +277,8 @@ _ATTACHMENT_RE_BY_KIND = {"image": _COMMENT_IMAGE_RE, "video": _COMMENT_VIDEO_RE
 
 
 @api.post("/comments")
-async def post_comment(body: CommentIn, current_user: dict = Depends(get_current_user)):
+async def post_comment(body: CommentIn, current_user: dict = Depends(get_current_user),
+                       _feature_ok: None = Depends(require_feature_enabled("comments"))):
     if body.target_type not in ALLOWED_TARGETS:
         raise HTTPException(400, "invalid target_type")
     _COMMENT_LIMIT.check_and_record(current_user["id"])
@@ -216,6 +306,7 @@ async def post_comment(body: CommentIn, current_user: dict = Depends(get_current
     if owner_id != current_user["id"] and await db.is_block_between(owner_id, current_user["id"]):
         raise HTTPException(403, "You cannot comment here.")
     parent_id = body.parent_id or None
+    parent = None
     if parent_id:
         parent = await comment_repo.get(parent_id)
         if (not parent or parent["target_type"] != body.target_type
@@ -230,6 +321,9 @@ async def post_comment(body: CommentIn, current_user: dict = Depends(get_current
             # instead of re-running the whole classification pass again.
             if sticker.get("is_explicit"):
                 await comment_repo.set_explicit(cid)
+        elif image in _GIPHY_CLEARED_MEDIA:
+            _GIPHY_CLEARED_MEDIA.discard(image)
+            log.info("comment gif from giphy (rating-capped) skips review: comment=%s", cid)
         else:
             path = os.path.join(MEDIA_DIR, os.path.basename(image))
             if os.path.exists(path):
@@ -242,8 +336,11 @@ async def post_comment(body: CommentIn, current_user: dict = Depends(get_current
                                           review_context="a comment attachment")
     await _notify_comment_owner(body.target_type, body.target_id, owner_id,
                                 current_user, content, cid)
-    await _notify_mentioned_users(body.target_type, body.target_id, owner_id,
-                                  current_user, content, cid)
+    mentioned = await _notify_mentioned_users(body.target_type, body.target_id, owner_id,
+                                             current_user, content, cid)
+    if parent:
+        await _notify_reply_parent_author(body.target_type, body.target_id, parent,
+                                          owner_id, current_user, content, cid, mentioned)
     log.info("comment created: id=%s by=%s target=%s:%s", cid, current_user["username"],
              body.target_type, body.target_id)
     return await comment_repo.get_view(cid, current_user["id"])
@@ -283,18 +380,21 @@ async def _notify_comment_owner(target_type: str, target_id: str, owner_id: str,
 
 
 async def _notify_mentioned_users(target_type: str, target_id: str, owner_id: str,
-                                  author: dict, content: str, comment_id: str):
+                                  author: dict, content: str, comment_id: str) -> set[str]:
     """@username in a comment notifies that user directly, wherever the
     comment was posted — separate from the "comment on your stuff" alert the
     subject's owner gets, since being tagged is its own kind of ping even if
-    you don't own the thing being commented on."""
+    you don't own the thing being commented on. Returns the set of notified
+    user ids so a reply-notification pass (below) can skip anyone already
+    pinged this way, rather than double-notifying the same person twice for
+    one comment."""
     usernames = {m.group(1).lower() for m in _MENTION_RE.finditer(content)}
+    notified = set()
     if not usernames:
-        return
+        return notified
     extra = await _comment_target_extra(target_type, target_id)
     name, link = _comment_title_link(target_type, target_id, extra)
     excerpt = content[:140]
-    notified = set()
     for uname in usernames:
         u = await db.get_user_by_username(_MENTION_ALIASES.get(uname, uname))
         if not u or u.get("status") != "active":
@@ -305,6 +405,27 @@ async def _notify_mentioned_users(target_type: str, target_id: str, owner_id: st
         await notification_repo.create(
             u["id"], "mention", f"{author['username']} mentioned you",
             excerpt, link, related_id=comment_id)
+    return notified
+
+
+async def _notify_reply_parent_author(target_type: str, target_id: str, parent: dict,
+                                      owner_id: str, author: dict, content: str,
+                                      comment_id: str, already_notified: set[str]):
+    """Pings whoever wrote the specific comment being replied to — distinct
+    from _notify_comment_owner (the subject's owner) since a reply's most
+    relevant audience is the person being answered, not just whoever owns
+    the character/image/thread it's attached to. Skips them if they'd
+    already get a notification some other way (they're the subject owner,
+    they're the replier themselves, or they were just @mentioned)."""
+    parent_author_id = parent["author_id"]
+    if parent_author_id == author["id"] or parent_author_id == owner_id or parent_author_id in already_notified:
+        return
+    extra = await _comment_target_extra(target_type, target_id)
+    name, link = _comment_title_link(target_type, target_id, extra)
+    excerpt = content[:140]
+    await notification_repo.create(
+        parent_author_id, "comment_reply", f"{author['username']} replied to your comment",
+        excerpt, link, related_id=comment_id)
 
 
 @api.delete("/comments/{cid}")

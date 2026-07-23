@@ -1,0 +1,8 @@
+/* StoryHaven AI — design system entry point.
+   Consumers link ONLY this file. It is a manifest of @imports; every token,
+   font, and base rule ships through here. Keep it as @import lines only. */
+@import url('tokens/fonts.css');
+@import url('tokens/colors.css');
+@import url('tokens/typography.css');
+@import url('tokens/spacing.css');
+@import url('tokens/base.css');

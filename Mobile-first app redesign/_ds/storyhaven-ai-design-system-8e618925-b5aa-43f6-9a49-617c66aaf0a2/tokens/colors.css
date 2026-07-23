@@ -1,0 +1,76 @@
+/* StoryHaven AI — color tokens
+   Dark theme is the default (:root) so surfaces paint before JS runs — no
+   default-theme flash. Light theme is a warm-ivory counterpart under
+   [data-theme="light"]. Values lifted verbatim from static/css/base.css.
+
+   Note on --violet*: the product keeps these variable *names* (historical) but
+   repoints them to gold for the black/gold theme — the "primary" gradient is
+   built from --violet → --violet-deep, which are gold here. */
+:root {
+  /* base surfaces — near-black, warm */
+  --paper-base: #0C0C0E;
+  --paper: var(--paper-base);
+  --surface: #141416;
+  --surface-2: #1A1A1D;
+
+  /* ink / text ramp — warm champagne-tinted neutrals */
+  --ink-base: #F3EFE4;
+  --ink: var(--ink-base);
+  --sec: #C9C0AC;      /* secondary text */
+  --muted: #8E876F;    /* muted / captions */
+
+  /* hairlines */
+  --line: #2A2A2E;
+  --line-2: #3A3A40;
+
+  /* accent — champagne gold */
+  --accent-base: #E3BD6C;
+  --accent: var(--accent-base);
+  --accent-deep: #F2CE87;
+  --accent-soft: #e3bd6c22;   /* ~13% — soft fills, focus rings */
+  --accent-tint: #e3bd6c12;   /* ~7%  — hover washes */
+
+  /* gradient/"primary" pair (named violet, valued gold) */
+  --violet: #E3BD6C;
+  --violet-deep: #B8892B;
+  --violet-soft: #d4a94e24;
+
+  --gold-ink: #1A1508;  /* dark text on gold buttons — dark in BOTH themes */
+
+  /* warning / destructive — dusty rose */
+  --warn: #F0788F;
+  --warn-soft: #f0788f22;
+  --warn-bg: #f0788f12;
+}
+
+:root[data-theme="light"] {
+  /* warm ivory paper, deep goldenrod accent, near-black for brand moments */
+  --paper-base: #FAF7F0;
+  --paper: var(--paper-base);
+  --surface: #FBF8F2;
+  --surface-2: #F5F1E6;
+
+  --ink-base: #1C1B17;
+  --ink: var(--ink-base);
+  --sec: #5C574A;
+  --muted: #948D79;
+
+  --line: #EAE3D2;
+  --line-2: #D9D0B8;
+
+  --accent-base: #A8791C;
+  --accent: var(--accent-base);
+  --accent-deep: #7C5A14;
+  --accent-soft: #a8791c17;
+  --accent-tint: #a8791c0c;
+
+  --violet: #D9B25A;
+  --violet-deep: #A8791C;
+  --violet-soft: #8a6a1e14;
+
+  --gold-ink: #241C08;
+
+  --warn: #B23B58;
+  --warn-soft: #b23b5814;
+  --warn-bg: #b23b580a;
+}

@@ -1,5 +1,7 @@
 """Pydantic models for request bodies. Keeps validation out of the route bodies."""
-from pydantic import BaseModel, Field
+from typing import Literal
+
+from pydantic import BaseModel, Field, model_validator
 
 
 class CharacterIn(BaseModel):
@@ -24,6 +26,18 @@ class CharacterIn(BaseModel):
                                     # (anon or logged-in) who hasn't opted into mature content
     is_draft: bool = False   # autosaved, unfinished — hidden from Library/Community, shown
                              # only under the owner's own "Pending" tab until they finish it
+    appearance_tags: str = ""            # optional — pre-written Danbooru tags used verbatim
+                                          # for image generation instead of the AI deliberating
+    appearance_tags_negative: str = ""   # optional — Danbooru tags to avoid, used verbatim
+
+    @model_validator(mode="after")
+    def check_prompt_fields_combined_length(self):
+        combined = len(self.system_prompt) + len(self.persona) + len(self.scenario) + len(self.dialogue)
+        if combined > 40000:
+            raise ValueError(
+                f"system_prompt, persona, scenario, and dialogue combined must be 40000 "
+                f"characters or fewer (currently {combined})")
+        return self
 
 
 class GenerateCharacterIn(BaseModel):
@@ -37,13 +51,19 @@ class ExpandPersonaIn(BaseModel):
 class PersonaIn(BaseModel):
     name: str = "You"
     description: str = ""
+    gender: str = ""
+    avatar: str = ""
+    avatar_data: str | None = None   # data:image/...;base64,... — decoded server-side to a /media path
     is_default: bool = False
     is_draft: bool = False
+    session_id: str | None = None
 
 
 class LoreIn(BaseModel):
     content: str
     keys: list[str] | str = []
+    require_keys: list[str] | str = []
+    exclude_keys: list[str] | str = []
     always: bool = False
     is_global: bool = Field(False, alias="global")
     image: str = ""
@@ -58,13 +78,38 @@ class LoreIn(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class LoreChunkPreviewIn(BaseModel):
+    content: str = ""
+
+
+class LorePersonaToggleIn(BaseModel):
+    value: bool
+
+
+class LoreLinkIn(BaseModel):
+    target_id: str
+    label: str = Field("", max_length=60)
+
+
+class LoreLinksIn(BaseModel):
+    links: list[LoreLinkIn] = []
+
+
+class SessionLoreOverrideIn(BaseModel):
+    content: str | None = None
+
+
 class SessionIn(BaseModel):
     persona_id: str | None = None
+    greeting_index: int = 0
+    language: str | None = None
 
 
 class ChatIn(BaseModel):
     content: str = ""
     think: bool | None = None
+    directive: Literal["ooc", "scene", "note", "time", "as"] | None = None
+    directive_arg: str | None = None
 
 
 class RollIn(BaseModel):
@@ -78,6 +123,16 @@ class ModelRequestHostIn(BaseModel):
     api_key: str = ""
 
 
+class OauthProviderConfigIn(BaseModel):
+    client_id: str = ""
+    client_secret: str | None = None
+    enabled: bool = False
+
+
+class OauthProvidersPutIn(BaseModel):
+    providers: dict[str, OauthProviderConfigIn]
+
+
 class SettingsIn(BaseModel):
     base_url: str | None = None
     embed_base_url: str | None = None
@@ -88,6 +143,8 @@ class SettingsIn(BaseModel):
     embed_dim: int | None = None
     history_turns: int | None = None
     enable_thinking: bool | None = None
+    memory_v2: bool | None = None
+    memory_v2_budget_tokens: int | None = None
     scene_style: bool | None = None
     temperature: float | None = None
     top_p: float | None = None
@@ -128,6 +185,12 @@ class SettingsIn(BaseModel):
     modal_train_url: str | None = None
     modal_shared_secret: str | None = None
     modal_checkpoint_url: str | None = None
+    giphy_api_key: str | None = None
+    gpu_temp_limit: int | None = None
+    gpu_temp_resume: int | None = None
+    wan_unet_name: str | None = None
+    wan_clip_name: str | None = None
+    wan_vae_name: str | None = None
 
 
 # Per-user overrides: same sampling/endpoint fields as SettingsIn but no embed_dim
@@ -170,20 +233,26 @@ class UserSettingsIn(BaseModel):
     interface_language: str | None = None
 
 
-class TranslateIn(BaseModel):
-    text: str
-    target: str | None = None
-    sid: str | None = None   # optional session id — lets the translator localize proper
-                              # names to their established spelling instead of a bare transliteration
-
 
 class StyleIn(BaseModel):
     key: str = "unspecified"
     prompt: str | None = None
 
 
+class LengthIn(BaseModel):
+    key: str = "epic"
+
+
+class ExplicitModeIn(BaseModel):
+    enabled: bool
+
+
 class LanguageIn(BaseModel):
     language: str | None = None
+
+
+class PersonaSwitchIn(BaseModel):
+    persona_id: str | None = None
 
 
 class AuthorNoteIn(BaseModel):
@@ -201,13 +270,19 @@ class ProfileIn(BaseModel):
     accent_color: str | None = None
     avatar: str | None = None
     banner_img: str | None = None
+    chat_background_img: str | None = None
     social_links: dict[str, str] | None = None
     profile_html: str | None = None
+    card_html: str | None = None
     title: str | None = None
 
 
 class UiTranslateIn(BaseModel):
     lang: str
+    strings: dict[str, str]
+
+
+class ResyncUiTranslationsIn(BaseModel):
     strings: dict[str, str]
 
 
@@ -232,6 +307,17 @@ class ImageGenIn(BaseModel):
     negative: str | None = None
     reference_image: str | None = None   # data:image/...;base64,... — switches to img2img
     denoise: float = 0.6   # img2img strength: lower = closer to the reference image
+    architecture: str = "sdxl"   # "anima" switches checkpoint to mean a UNet filename
+    width: int = 1024
+    height: int = 1024
+    sampler: str | None = None
+    scheduler: str | None = None
+    steps: int = 20
+    cfg: float = 7.0
+
+
+class ImagePromptFromDescriptionIn(BaseModel):
+    description: str
 
 
 class ImageGenStandaloneIn(BaseModel):
@@ -267,6 +353,35 @@ class ImageGenSaveIn(BaseModel):
     is_img2img: bool = False
     cfg: float = 7.0
     upscaler: str = ""
+    source_image_id: str | None = None
+
+
+class ImageGenInpaintIn(BaseModel):
+    image: str   # data:image/...;base64,... — the source image to inpaint
+    mask: str   # data:image/...;base64,... — the painted-region mask
+    positive: str = ""
+    negative: str = ""
+    checkpoint: str | None = None
+    denoise: float = 1.0   # 1.0 = fully regenerate masked region from prompt
+    sampler: str | None = None
+    scheduler: str | None = None
+    steps: int = 20
+    cfg: float = 7.0
+    architecture: str = "sdxl"   # "anima" switches checkpoint to mean a UNet filename
+
+
+class ImageGenVideoIn(BaseModel):
+    positive: str = ""
+    negative: str = ""
+    unet_name: str | None = None
+    clip_name: str | None = None
+    vae_name: str | None = None
+    fps: int = 16
+    num_frames: int = 33
+    width: int = 832
+    height: int = 480
+    steps: int = 20
+    cfg: float = 6.0
 
 
 class ImageShareIn(BaseModel):
@@ -337,11 +452,40 @@ class LoginIn(BaseModel):
     totp_code: str | None = Field(default=None, min_length=6, max_length=10)
 
 
+class WebauthnRegisterVerifyIn(BaseModel):
+    challenge_id: str = Field(min_length=1, max_length=64)
+    credential: dict
+    nickname: str | None = Field(default=None, max_length=60)
+    transports: list[str] | None = None
+
+
+class WebauthnLoginVerifyIn(BaseModel):
+    challenge_id: str = Field(min_length=1, max_length=64)
+    credential: dict
+
+
+class PasskeyRequiredIn(BaseModel):
+    value: bool
+
+
 class RegisterIn(BaseModel):
     username: str = Field(min_length=1, max_length=32)
     password: str = Field(min_length=8, max_length=128)
-    totp_secret: str = Field(min_length=1)
-    totp_code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+    totp_secret: str | None = Field(default=None, min_length=1)
+    totp_code: str | None = Field(default=None, min_length=6, max_length=6, pattern=r"^\d{6}$")
+    invite_code: str | None = Field(default=None, min_length=1, max_length=64)
+    guest: bool = False
+
+
+class InviteCodeIn(BaseModel):
+    max_uses: int = Field(default=1, ge=1, le=100)
+    expires_days: float | None = Field(default=None, gt=0, le=365)
+    note: str | None = Field(default=None, max_length=120)
+    tier: Literal["full", "guest"] = "full"
+
+
+class UserTierIn(BaseModel):
+    tier: Literal["full", "guest"]
 
 
 class TotpProvisionIn(BaseModel):
@@ -385,6 +529,25 @@ class PasswordResetRequestIn(BaseModel):
 
 class NsfwAllowedIn(BaseModel):
     allowed: bool
+
+
+class ExperimentalFeaturesIn(BaseModel):
+    enabled: bool
+
+
+class MultiplayerJoinIn(BaseModel):
+    token: str
+    persona_id: str | None = None
+
+
+class MultiplayerAcceptIn(BaseModel):
+    persona_id: str | None = None
+
+
+class PartyChatIn(BaseModel):
+    content: str = ""
+    image: str | None = None
+    attachment_kind: str | None = None
 
 
 class SuspendUserIn(BaseModel):
@@ -440,10 +603,19 @@ class CommentReactIn(BaseModel):
     super: bool = False
 
 
+class GiphySendIn(BaseModel):
+    id: str   # a Giphy gif id from a prior /comments/giphy/search or /trending
+             # response — re-resolved server-side, never a client-supplied URL
+
+
 class ForumThreadIn(BaseModel):
     title: str
     content: str
     category: str = ""
+
+
+class ForumVoteIn(BaseModel):
+    value: int
 
 
 class CustomEmojiIn(BaseModel):
@@ -453,3 +625,25 @@ class CustomEmojiIn(BaseModel):
 
 class BlockIn(BaseModel):
     reason: str = ""
+
+
+class GroupCreateIn(BaseModel):
+    name: str = "Group"
+    opening: str = ""
+    char_ids: list[str] = []
+    mode: str = "roleplay"
+
+
+class GroupPublishIn(BaseModel):
+    session_id: str
+
+
+class GroupEditIn(BaseModel):
+    name: str = "Group"
+    opening: str = ""
+    char_ids: list[str] = []
+    mode: str = "roleplay"
+
+
+class MuteIn(BaseModel):
+    muted: bool = True

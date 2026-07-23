@@ -10,9 +10,10 @@ from fastapi import HTTPException, Depends, UploadFile, File
 
 from backend.repositories import checkpoints, loras, samplers, schedulers, upscalers
 from backend import imagegen
-from backend.state import api, CFG, IMG_EXTS, log, CHECKPOINTS_DIR, LORA_OUTPUT_DIR, UPSCALE_MODELS_DIR
-from backend.auth import get_current_user, get_admin
-from backend.media import _delete_media_file, _save_uploaded_image
+from backend.state import (api, CFG, IMG_EXTS, log, CHECKPOINTS_DIR, LORA_OUTPUT_DIR,
+                           UPSCALE_MODELS_DIR, MEDIA_DIR, MAX_UPLOAD_BYTES)
+from backend.auth import get_current_user, get_current_user_optional, get_admin
+from backend.media import _delete_media_file, _save_uploaded_image, _write_file
 from backend.schemas import ModelMetaIn, LoraPublishIn
 
 
@@ -32,6 +33,29 @@ async def get_imagegen_anima_unets(current_user: dict = Depends(get_current_user
     /imagegen/checkpoints and silently sent through the wrong graph."""
     try:
         return await imagegen.list_anima_unets(CFG["comfyui_url"])
+    except Exception as e:
+        raise HTTPException(502, f"Could not reach ComfyUI: {e}")
+
+
+@api.get("/imagegen/wan-unets")
+async def get_imagegen_wan_unets(current_user: dict = Depends(get_current_user)):
+    """Same raw UNETLoader listing Anima's picker uses — Wan and Anima both
+    load through UNETLoader, so this is not filtered to Wan specifically.
+    Used to populate the wan_unet_name pin in Settings (see CFG's comment on
+    why blind index-0 selection at generation time is unsafe once more than
+    one UNETLoader-visible file is installed)."""
+    try:
+        return await imagegen.list_wan_unets(CFG["comfyui_url"])
+    except Exception as e:
+        raise HTTPException(502, f"Could not reach ComfyUI: {e}")
+
+
+@api.get("/imagegen/wan-clip-models")
+async def get_imagegen_wan_clip_models(current_user: dict = Depends(get_current_user)):
+    """Same raw CLIPLoader listing as /imagegen/clip-models — used to
+    populate the wan_clip_name pin in Settings."""
+    try:
+        return await imagegen.list_wan_clip_models(CFG["comfyui_url"])
     except Exception as e:
         raise HTTPException(502, f"Could not reach ComfyUI: {e}")
 
@@ -57,7 +81,7 @@ async def get_imagegen_vaes(current_user: dict = Depends(get_current_user)):
 
 
 @api.get("/imagegen/checkpoint-previews")
-async def get_checkpoint_previews(current_user: dict = Depends(get_current_user)):
+async def get_checkpoint_previews(current_user: dict | None = Depends(get_current_user_optional)):
     """{checkpoint_name: {image, display_name, description}} — admin-curated
     metadata used by the Images page model grid in place of the raw filename
     and the letter-avatar fallback."""
@@ -103,6 +127,33 @@ async def set_checkpoint_meta_route(name: str, body: ModelMetaIn,
     return {"checkpoint_name": name, "display_name": body.display_name,
             "description": body.description, "model_type": body.model_type,
             "anima_clip_name": body.anima_clip_name, "anima_vae_name": body.anima_vae_name}
+
+
+@api.put("/admin/checkpoint-previews/{name:path}/video")
+async def set_checkpoint_preview_video(name: str, file: UploadFile = File(...),
+                                       current_user: dict = Depends(get_admin)):
+    """Vidgen (Wan) preview thumbnails are the actual generated .mp4, not a
+    still frame — the card grid renders <video autoplay loop muted> for these
+    instead of <img>. Bypasses _set_preview_image/_save_uploaded_image (image
+    validation/optimization) since the file is already a valid mp4 straight
+    from our own /imagegen/video pipeline, not arbitrary user upload. Must be
+    registered before the greedy {name:path} PUT below, same reason as /meta."""
+    if (file.content_type or "") not in ("video/mp4", "video/webm"):
+        raise HTTPException(400, "Preview must be an mp4 or webm video")
+    data = await file.read()
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(400, "Video too large")
+    basename = _preview_basename("ckptprevvid", name)
+    ext = ".webm" if file.content_type == "video/webm" else ".mp4"
+    old = await checkpoints.get_preview(name)
+    fname = f"{basename}{ext}"
+    await _write_file(os.path.join(MEDIA_DIR, fname), data)
+    if old and old.split("?")[0] != f"/media/{fname}":
+        _delete_media_file(old.split("?")[0])
+    url = f"/media/{fname}?v={int(time.time())}"
+    await checkpoints.set_preview(name, url)
+    log.info("admin: checkpoint video preview set by=%s checkpoint=%s", current_user["username"], name)
+    return {"checkpoint_name": name, "image": url}
 
 
 @api.put("/admin/checkpoint-previews/{name:path}")

@@ -99,3 +99,59 @@ async def test_delete_wrong_owner_returns_none(db_conn):
     img = await _make_image(db_conn, user_id="user-a")
     assert await standalone_image_repo.delete(img["id"], "user-b") is None
     assert await standalone_image_repo.get(img["id"]) is not None
+
+
+async def test_new_media_columns_default(db_conn):
+    img = await _make_image(db_conn)
+    fetched = await standalone_image_repo.get(img["id"])
+    assert fetched["media_type"] == "image"
+    assert fetched["source_image_id"] is None
+    assert fetched["fps"] == 0
+    assert fetched["frame_count"] == 0
+    assert fetched["duration_s"] == 0
+
+
+async def test_create_inpaint_variant_with_source_image(db_conn):
+    original = await _make_image(db_conn, user_id="user-a")
+    variant = await standalone_image_repo.create(
+        "user-a", "/media/inpaint.png", positive="a dog", negative="blurry",
+        media_type="image", source_image_id=original["id"], is_img2img=True)
+    assert variant["media_type"] == "image"
+    assert variant["source_image_id"] == original["id"]
+
+    fetched = await standalone_image_repo.get(variant["id"])
+    assert fetched["source_image_id"] == original["id"]
+
+
+async def test_create_video(db_conn):
+    video = await standalone_image_repo.create(
+        "user-a", "/media/clip.mp4", positive="a dog running", negative="",
+        media_type="video", is_explicit=True, fps=16, frame_count=48, duration_s=3.0)
+    assert video["media_type"] == "video"
+    assert video["fps"] == 16
+    assert video["frame_count"] == 48
+    assert video["duration_s"] == 3.0
+    assert video["is_explicit"] is True
+
+    fetched = await standalone_image_repo.get(video["id"])
+    assert fetched["media_type"] == "video"
+    assert fetched["fps"] == 16
+
+
+async def test_create_defaults_classified_false(db_conn):
+    img = await _make_image(db_conn)
+    assert img["classified"] is False
+
+    fetched = await standalone_image_repo.get(img["id"])
+    assert fetched["classified"] is False
+
+
+async def test_create_video_with_classified_true(db_conn):
+    video = await standalone_image_repo.create(
+        "user-a", "/media/clip.mp4", positive="a dog running", negative="",
+        media_type="video", is_explicit=True, fps=16, frame_count=48,
+        duration_s=3.0, classified=True)
+    assert video["classified"] is True
+
+    fetched = await standalone_image_repo.get(video["id"])
+    assert fetched["classified"] is True

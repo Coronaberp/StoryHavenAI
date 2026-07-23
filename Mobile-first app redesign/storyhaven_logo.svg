@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500" width="100%" height="100%">
+  
+  <g>
+    
+    
+    <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"></circle>
+    <circle cx="250" cy="250" r="210" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="6 12" opacity="0.6"></circle>
+    
+    
+    <path d="M 250 40 L 420 138 L 420 362 L 250 460 L 80 362 L 80 138 Z" fill="none" stroke="currentColor" stroke-width="12" stroke-linejoin="round"></path>
+    <path d="M 250 75 L 385 153 L 385 347 L 250 425 L 115 347 L 115 153 Z" fill="none" stroke="currentColor" stroke-width="4" opacity="0.4"></path>
+    
+    
+    <circle cx="250" cy="180" r="40" fill="none" stroke="currentColor" stroke-width="10"></circle>
+    <circle cx="250" cy="180" r="18" fill="currentColor" opacity="0.9"></circle>
+    
+    
+    <path d="M 210 180 H 150 V 280 H 210 M 290 180 H 350 V 280 H 290" fill="none" stroke="currentColor" stroke-width="6" stroke-linejoin="round"></path>
+    <path d="M 250 220 V 265" fill="none" stroke="currentColor" stroke-width="10"></path>
+
+    
+    
+    <path d="M 120 350 C 160 380, 220 370, 250 320 C 280 370, 340 380, 380 350 V 280 C 340 310, 280 300, 250 250 C 220 300, 160 310, 120 280 Z" fill="none" stroke="currentColor" stroke-width="14" stroke-linejoin="round"></path>
+    
+    
+    <path d="M 150 330 C 180 350, 220 345, 250 305 C 280 345, 320 350, 350 330 V 275 C 320 295, 280 290, 250 250 C 220 290, 180 295, 150 275 Z" fill="none" stroke="currentColor" stroke-width="6" opacity="0.7"></path>
+    
+    
+    <path d="M 180 310 C 200 325, 230 320, 250 290 C 270 320, 300 325, 320 310 V 270 C 300 285, 270 280, 250 250 C 230 280, 200 285, 180 270 Z" fill="none" stroke="currentColor" stroke-width="3" opacity="0.35"></path>
+    
+    
+    <line x1="250" y1="250" x2="250" y2="430" stroke="currentColor" stroke-width="12" stroke-linecap="round"></line>
+    
+    
+    <circle cx="250" cy="40" r="8" fill="currentColor"></circle>
+    <circle cx="420" cy="138" r="8" fill="currentColor"></circle>
+    <circle cx="420" cy="362" r="8" fill="currentColor"></circle>
+    <circle cx="250" cy="460" r="8" fill="currentColor"></circle>
+    <circle cx="80" cy="362" r="8" fill="currentColor"></circle>
+    <circle cx="80" cy="138" r="8" fill="currentColor"></circle>
+  </g>
+</svg>
