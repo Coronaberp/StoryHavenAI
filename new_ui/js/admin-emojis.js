@@ -43,6 +43,7 @@ class AdminEmojisView {
     const approved = this.emojis.filter((e) => !e.is_explicit);
     this.main.innerHTML = `
       <div class="content-col">
+      ${adminScreenSwitcherHtml("admin-emojis", window._adminSwitcherBadges || {})}
       ${backLinkHtml("Admin")}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_emojis_title"), `${this.emojis.length} ${t("admin_emojis_total")}`)}
       <div class="mb-5 p-3.5 rounded-[13px] border border-line bg-surface">
@@ -61,6 +62,7 @@ class AdminEmojisView {
       ${approved.length ? approved.map(adminEmojiCardHtml).join("") : `<p class="text-sm text-muted">${t("admin_emojis_none_yet")}</p>`}
       </div>
     `;
+    adminAttachScreenSwitcher(this.main);
   }
 
   async addEmoji() {
