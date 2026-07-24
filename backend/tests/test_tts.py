@@ -81,3 +81,24 @@ def test_speech_cache_key_sensitivity():
 def test_endpoint_cache_host_includes_port():
     assert endpoint_cache_host("http://kokoro:8880/v1") != endpoint_cache_host("http://kokoro:9000/v1")
     assert endpoint_cache_host("not a url") == "not a url"
+
+@pytest.mark.asyncio
+async def test_voice_overrides_roundtrip(db_conn):
+    from backend.repositories import chat_sessions
+    sid = await chat_sessions.create("char-1", None, "Chat", "You", user_id=None)
+    session = await chat_sessions.get(sid)
+    assert session["voice_overrides"] == {}
+    await chat_sessions.set_voice_overrides(sid, {"character_voice": "af_bella", "narrator_voice": None})
+    session = await chat_sessions.get(sid)
+    assert session["voice_overrides"]["character_voice"] == "af_bella"
+    assert session["voice_overrides"]["narrator_voice"] is None
+
+@pytest.mark.asyncio
+async def test_character_voice_roundtrip(db_conn):
+    from backend.repositories import characters
+    c = await characters.create({"name": "Voice Test", "persona": "a persona", "voice": "af_heart"})
+    assert c["voice"] == "af_heart"
+    fetched = await characters.get(c["id"])
+    assert fetched["voice"] == "af_heart"
+    updated = await characters.update(c["id"], {"name": "Voice Test", "persona": "a persona", "voice": None})
+    assert updated["voice"] is None

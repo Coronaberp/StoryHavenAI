@@ -101,6 +101,7 @@ async def create_character(body: CharacterIn, current_user: dict = Depends(get_c
     if not (data.get("creator") or "").strip() or data.get("creator") == "you":
         data["creator"] = current_user["username"]
     data["assets"] = _decode_media_paths(data.get("assets") or {})
+    data["voice"] = (data.get("voice") or "").strip()[:64] or None
 
     c = await characters.create(data)
     log.info("character created: id=%s owner=%s public=%s", c["id"], current_user["id"], data.get("is_public"))
@@ -119,6 +120,7 @@ async def update_character(cid: str, body: CharacterIn,
     data.pop("is_private", None)
     data["owner_id"] = c["owner_id"]
     data["assets"] = _decode_media_paths(data.get("assets") or {})
+    data["voice"] = (data.get("voice") or "").strip()[:64] or None
     c = await characters.update(cid, data)
     log.info("character updated: id=%s by=%s", cid, current_user["id"])
     return c
