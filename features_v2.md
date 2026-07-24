@@ -7,7 +7,8 @@ Everything new since V1.2, in plain language. V2 is a complete UI rebuild (`new_
 ## What's new in V2
 
 - **The entire app was rebuilt from scratch** — Tailwind CSS, mobile-first, four responsive tiers (mobile/tablet/desktop/ultrawide), every screen redesigned: Explore, Chats, Workshop, character creation, Forge (image/video generation), Grimoire (lore), Masks (personas), full Admin panel, Settings. The old SPA lives on in `legacy_ui/` for reference only — nothing there is served.
-- **A second-generation memory system** — typed, bi-temporal facts extracted from settled turns (not just embedding similarity over raw messages), with participant/retention scoring, a fixed token budget, and a reserved-slot mechanism so pinned/critical facts survive ranking. Ships behind a config flag alongside the original memory system.
+- **Characters truly remember, always** — the new memory system is now on for everyone, no setting to enable. Your character remembers what happened, who was there, and what changed, keeps the important things pinned, and forgets a reply cleanly if you regenerate it — no ghost memories of scenes that never happened.
+- **Memory works in your language** — remembering and recalling now work just as well in Japanese, Arabic, Russian, or any other supported language as they do in English.
 - **Session-scoped lore secrets** — lore entries can hold hidden content that's discovered and revealed per-session (not globally), with per-secret reveal tracking and an admin/session override mechanism, surfaced in a new Session Lore panel in the chat header.
 - **JWT-based auth** — replaced opaque HttpOnly session cookies with signed access/refresh JWTs (6h/3d), with a full whitelist/rotate/revoke repository layer so a single token can be individually invalidated without logging out every session.
 - **Passkey (WebAuthn) sign-in** — fingerprint/face sign-in via the device's own OS-level authenticator, no extra app required. Guided first-time setup, one-tap autofill on the login screen, and a "require passkey to sign in" strict mode as an alternative to a password.
@@ -24,6 +25,12 @@ Everything new since V1.2, in plain language. V2 is a complete UI rebuild (`new_
 - **Autosave everywhere that matters** — character creation, persona drafts, lore entries, and Forge's prompt/settings all autosave every few seconds and restore on reload, so a crashed tab or accidental navigation doesn't lose work.
 - **A large security hardening pass** — 6 stored-XSS bugs found and fixed across character/comment/forum/lore rendering, an SSRF DNS-rebinding TOCTOU gap closed, a leaked API key in a settings response fixed, a global-lore admin-bypass fixed, shell-injection in the model-request curl builder fixed, and every plaintext-at-rest secret (lore secrets, memory content, session overrides, the translation cache, admin API keys) now encrypted.
 - **A styled confirm dialog everywhere** — every native browser `confirm()`/`prompt()` in the app (delete, sign-out, discard changes, destructive admin actions) replaced with the app's own themed modal, consistently.
+- **One-click install on any computer** — Linux, Mac, or Windows: run one installer, click through, and StoryHaven sets everything up by itself, including the things it runs on. It explains in plain words the one moment it needs your permission, and why that's safe. It figures out your graphics card on its own, whatever brand, and re-running it later is always safe.
+- **The models install themselves too** — during setup you can download everything StoryHaven needs to generate images and chat, straight from where each model officially lives. A small recommended starter set is preselected, so images look great from the very first try.
+- **You don't start with an empty app** — a fresh install comes with a ready-made persona, a character to talk to (Luna), and a full RPG adventure (Magic Academy) so you can start playing immediately.
+- **Choose where images come from** — keep generating images on your own machine, or connect an online image service instead if your computer isn't up to it.
+- **Site-wide announcements** — the site owner can send everyone a heads-up (something's slow, maintenance tonight, all fixed now) straight to the notification bell, and can temporarily switch off a feature with an automatic "it's back" message when it returns.
+- **Content filtering is a choice** — the automatic image content filter can be switched off entirely for private setups that don't want it, and the privacy eye button tidies itself away when it's off.
 - **Performance and correctness fixes from a live-app profiling pass** — admin health's charts/service cards now update in place instead of destroying and rebuilding on every click; the LoRA training progress panel no longer silently freezes when you switch tabs and back during an active run; `GET /api/auth/me` now actually carries a user's saved interface language (previously the whole translation pipeline was wired but never triggered for any real user).
 
 ---
@@ -56,7 +63,7 @@ Everything new since V1.2, in plain language. V2 is a complete UI rebuild (`new_
 ### Chat
 - Full chat interface rebuild — streaming replies, message actions (copy, inline edit, delete, regenerate, continue)
 - Session-scoped lore secrets — discovered and revealed per conversation, with a dedicated reveal panel
-- A second-generation typed-fact memory system (behind a config flag) alongside the original
+- Characters remember everything that matters, in any supported language, on for everyone
 - Reply language per session — pick once at the start of a new chat, locks in, with a script-mismatch safety net
 - Dice roll quick-bar for RPG mode
 - Inline `/` command suggestions and `{directive}` syntax hints in the composer
@@ -64,6 +71,8 @@ Everything new since V1.2, in plain language. V2 is a complete UI rebuild (`new_
 
 ### Images & video (Forge)
 - Text-to-image and image-to-image generation with a live SSE preview
+- Images can be generated on your own machine (the default, with every feature) or by a connected online service
+- The automatic content filter is optional, and the privacy eye button hides itself when it's off
 - Image-to-video generation (Wan2.1), including first/last-frame video
 - Inpainting with mask painting
 - Standalone Upscale tab with before/after comparison
@@ -89,6 +98,8 @@ Everything new since V1.2, in plain language. V2 is a complete UI rebuild (`new_
 - Server Configuration — chat/embed endpoints, sampling defaults, host allowlists, resync UI translations on demand
 - Model Preview curation — checkpoints/LoRAs/samplers/schedulers/upscalers, per-category search and refresh
 - Emoji/sticker moderation
+- Announcements — send everyone a heads-up about slowdowns, maintenance, or fixes without turning anything off
+- Feature switches — temporarily turn off one feature for everyone, with an automatic message now and another when it's back
 - Live Health dashboard — up/down status and latency-history charts per service, server log viewer with level filter
 - LoRA training — full Train/Progress/Test/Jobs workflow, live loss chart, cost estimate, resume-from-checkpoint
 

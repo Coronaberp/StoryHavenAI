@@ -8,9 +8,12 @@ param(
 $ErrorActionPreference = 'Stop'
 if ($CheckOnly) { $DryRun = $true }
 
-$RepoDir     = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ComposeFile = Join-Path $RepoDir 'docker-compose.yml'
-$EnvFile     = Join-Path $RepoDir '.env'
+$RepoDir      = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ComposeFile  = Join-Path $RepoDir 'docker-compose.yml'
+$EnvFile      = Join-Path $RepoDir '.env'
+$ManifestFile = Join-Path $RepoDir 'installer\models.manifest.tsv'
+$NativeDir    = Join-Path $RepoDir 'native'
+$ServicesTaskName = 'StoryHaven Model Services'
 
 function Write-Info  { param($m) Write-Host "==> $m"       -ForegroundColor Cyan }
 function Write-Ok    { param($m) Write-Host "  ok $m"      -ForegroundColor Green }
@@ -41,6 +44,232 @@ function Get-EnvValue {
     $line = Select-String -Path $EnvFile -Pattern "^$Key=" | Select-Object -First 1
     if ($null -eq $line) { return '' }
     return ($line.Line -replace "^$Key=", '')
+}
+
+function Read-ModelManifest {
+    if (-not (Test-Path $ManifestFile)) { return @() }
+    $rows = Get-Content $ManifestFile | Where-Object { $_ } | ForEach-Object {
+        $parts = $_ -split "`t"
+        [pscustomobject]@{ Category = $parts[0]; File = $parts[1]; Url = $parts[2]; Default = $parts[3] -eq '1' }
+    }
+    return @($rows)
+}
+
+function Select-ManifestRows {
+    param($Rows)
+    $defaultCount = @($Rows | Where-Object Default).Count
+    Write-Host ''
+    Write-Host 'Model downloads' -ForegroundColor White
+    Write-Host "  Image generation needs model files, downloaded from each model's own"
+    Write-Host "  source site. The default set ($defaultCount files, the RealSkin image model and"
+    Write-Host '  the Zoda detailer) is enough to generate good images out of the box.'
+    Write-Host '  Some Civitai downloads need a free API token, set CIVITAI_TOKEN to use one.'
+    $selection = @()
+    if (Confirm2 'Download the default model set now?') { $selection = @($Rows | Where-Object Default) }
+    if (Confirm2 'Also download the full model catalog? (tens of GB)') { $selection = @($Rows) }
+    return ,$selection
+}
+
+function Get-CivitaiHeaders {
+    if ($env:CIVITAI_TOKEN) { return @{ Authorization = "Bearer $($env:CIVITAI_TOKEN)" } }
+    return @{}
+}
+
+function Save-ModelFileNative {
+    param($Row)
+    if ($Row.Category -eq 'gguf') { $dir = Join-Path $NativeDir 'llama\models' }
+    else { $dir = Join-Path $NativeDir "comfyui\models\$($Row.Category)" }
+    New-Item -ItemType Directory -Force -Path $dir *> $null
+    $dest = Join-Path $dir $Row.File
+    if (Test-Path $dest) { Write-Ok "already present: $($Row.Category)/$($Row.File)"; return }
+    Write-Info "Downloading $($Row.Category)/$($Row.File)"
+    try {
+        Invoke-WebRequest -Uri $Row.Url -OutFile $dest -UseBasicParsing -Headers (Get-CivitaiHeaders)
+        Write-Ok "downloaded: $($Row.Category)/$($Row.File)"
+    } catch {
+        Write-Warn2 "download failed: $($Row.File) ($($_.Exception.Message))"
+        if (Test-Path $dest) { Remove-Item $dest -Force -ErrorAction SilentlyContinue }
+    }
+}
+
+function Save-ModelFileContainer {
+    param($Row)
+    $authArgs = @()
+    if ($env:CIVITAI_TOKEN) { $authArgs = @('-H', "Authorization: Bearer $($env:CIVITAI_TOKEN)") }
+    if ($Row.Category -eq 'gguf') {
+        $vol = (& $Engine volume ls --format '{{.Name}}' | Where-Object { $_ -match 'kcpp-data$' } | Select-Object -First 1)
+        if (-not $vol) { Write-Warn2 "kcpp-data volume not found, skipping $($Row.File)"; return }
+        & $Engine exec llamacpp-chat test -f "/models/$($Row.File)" *> $null
+        if ($LASTEXITCODE -eq 0) { Write-Ok "already present: gguf/$($Row.File)"; return }
+        Write-Info "Downloading gguf/$($Row.File)"
+        & $Engine run --rm -v "${vol}:/dest" docker.io/curlimages/curl:latest -fL --retry 3 @authArgs -o "/dest/$($Row.File)" $Row.Url
+    } else {
+        $target = "/opt/comfyui/app/models/$($Row.Category)/$($Row.File)"
+        & $Engine exec comfyui test -f $target *> $null
+        if ($LASTEXITCODE -eq 0) { Write-Ok "already present: $($Row.Category)/$($Row.File)"; return }
+        Write-Info "Downloading $($Row.Category)/$($Row.File)"
+        & $Engine run --rm --volumes-from comfyui docker.io/curlimages/curl:latest -fL --retry 3 @authArgs -o $target $Row.Url
+    }
+    if ($LASTEXITCODE -ne 0) { Write-Warn2 "download failed: $($Row.File)" }
+}
+
+function Invoke-ModelDownloads {
+    param([switch]$Native)
+    $rows = Read-ModelManifest
+    if ($rows.Count -eq 0) { Write-Warn2 'models.manifest.tsv not found, skipping model downloads'; return }
+    $selection = Select-ManifestRows $rows
+    foreach ($row in $selection) {
+        if (-not $row.Url) { continue }
+        if ($Native) { Save-ModelFileNative $row } else { Save-ModelFileContainer $row }
+    }
+    if (-not $Native -and $selection.Count -gt 0) {
+        Write-Info 'Restarting model services to pick up new files'
+        & $cmd @pre -f $ComposeFile --env-file $EnvFile restart llamacpp-chat llamacpp-embed comfyui
+    }
+}
+
+function Install-LlamaVulkan {
+    $llamaDir = Join-Path $NativeDir 'llama'
+    New-Item -ItemType Directory -Force -Path $llamaDir *> $null
+    if (Test-Path (Join-Path $llamaDir 'llama-server.exe')) { Write-Ok 'llama.cpp Vulkan build already present'; return }
+    Write-Info 'Querying the latest llama.cpp release for the Windows Vulkan build'
+    try {
+        $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest' -UseBasicParsing
+    } catch {
+        Write-Warn2 "could not reach the GitHub releases API ($($_.Exception.Message)), skipping llama.cpp install"
+        return
+    }
+    $asset = $release.assets | Where-Object { $_.name -match 'bin-win-vulkan-x64\.zip' } | Select-Object -First 1
+    if (-not $asset) { $asset = $release.assets | Where-Object { $_.name -match 'win-vulkan' } | Select-Object -First 1 }
+    if (-not $asset) { Write-Warn2 'no Windows Vulkan asset found in the latest llama.cpp release'; return }
+    $zip = Join-Path $env:TEMP $asset.name
+    Write-Info "Downloading $($asset.name)"
+    try {
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zip -UseBasicParsing
+    } catch {
+        Write-Warn2 "llama.cpp download failed ($($_.Exception.Message))"
+        return
+    }
+    Write-Info "Extracting llama.cpp into $llamaDir"
+    Expand-Archive -Path $zip -DestinationPath $llamaDir -Force
+    Remove-Item $zip -Force -ErrorAction SilentlyContinue
+    if (Test-Path (Join-Path $llamaDir 'llama-server.exe')) { Write-Ok 'llama.cpp Vulkan build installed' }
+    else { Write-Warn2 "llama-server.exe not found after extraction, inspect $llamaDir" }
+}
+
+function Install-ComfyUIZluda {
+    $comfyDir = Join-Path $NativeDir 'comfyui'
+    if (Test-Path (Join-Path $comfyDir '.git')) {
+        Write-Ok 'ComfyUI-Zluda already cloned'
+    } else {
+        $git = Get-Command git -ErrorAction SilentlyContinue
+        if (-not $git) {
+            $winget = Get-Command winget -ErrorAction SilentlyContinue
+            if (-not $winget) { Write-Warn2 'git is missing and winget is unavailable, skipping ComfyUI-Zluda install'; return }
+            if (-not (Test-IsAdmin)) { Write-Warn2 'git is missing and this session is not elevated, install Git for Windows and re-run setup'; return }
+            Write-Info 'Installing Git via winget'
+            winget install --id Git.Git -e --accept-source-agreements --accept-package-agreements
+            if ($LASTEXITCODE -ne 0) { Write-Warn2 'Git install via winget failed, skipping ComfyUI-Zluda install'; return }
+            $env:Path = [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path', 'User')
+            $git = Get-Command git -ErrorAction SilentlyContinue
+            if (-not $git) { Write-Warn2 'git still not found after install, open a new window and re-run setup'; return }
+        }
+        Write-Info "Cloning ComfyUI-Zluda into $comfyDir"
+        git clone https://github.com/patientx/ComfyUI-Zluda $comfyDir
+        if ($LASTEXITCODE -ne 0) { Write-Warn2 'ComfyUI-Zluda clone failed'; return }
+        Write-Ok 'ComfyUI-Zluda cloned'
+    }
+    $installBat = Join-Path $comfyDir 'install.bat'
+    if (-not (Test-Path $installBat)) { Write-Warn2 "install.bat not found in $comfyDir, run its installer manually"; return }
+    Write-Info 'Running ComfyUI-Zluda install.bat (installs ZLUDA and Python deps, this takes a while)'
+    Start-Process -FilePath $installBat -WorkingDirectory $comfyDir -Wait
+    Write-Ok 'ComfyUI-Zluda install script finished'
+}
+
+function Write-StartServicesScript {
+    $comfyDir = Join-Path $NativeDir 'comfyui'
+    $comfyStart = ''
+    foreach ($candidate in @('comfyui.bat', 'start.bat')) {
+        if (Test-Path (Join-Path $comfyDir $candidate)) { $comfyStart = $candidate; break }
+    }
+    if (-not $comfyStart) { Write-Warn2 'no comfyui.bat or start.bat found in the ComfyUI-Zluda clone, the start script will skip ComfyUI' }
+    $scriptPath = Join-Path $NativeDir 'start-services.ps1'
+    $comfyBlock = ''
+    if ($comfyStart) {
+        $comfyBlock = @"
+
+`$comfyDir = Join-Path `$Root 'comfyui'
+if (-not (Test-PortListening 8188)) {
+    `$env:COMMANDLINE_ARGS = '--listen 0.0.0.0'
+    Start-Process -FilePath (Join-Path `$comfyDir '$comfyStart') -WorkingDirectory `$comfyDir -WindowStyle Minimized
+}
+"@
+    }
+    $content = @"
+`$Root = Split-Path -Parent `$MyInvocation.MyCommand.Path
+function Test-PortListening {
+    param([int]`$Port)
+    `$probe = New-Object System.Net.Sockets.TcpClient
+    try { `$probe.Connect('127.0.0.1', `$Port); `$probe.Close(); return `$true } catch { return `$false }
+}
+`$llamaDir = Join-Path `$Root 'llama'
+`$llamaServer = Join-Path `$llamaDir 'llama-server.exe'
+if ((Test-Path `$llamaServer) -and -not (Test-PortListening 5001)) {
+    Start-Process -FilePath `$llamaServer -ArgumentList '-m', 'models\$ChatGguf', '--host', '0.0.0.0', '--port', '5001', '-ngl', '999', '-c', '$ChatCtx' -WorkingDirectory `$llamaDir -WindowStyle Hidden
+}
+if ((Test-Path `$llamaServer) -and -not (Test-PortListening 5002)) {
+    Start-Process -FilePath `$llamaServer -ArgumentList '-m', 'models\$EmbedGguf', '--embeddings', '--host', '0.0.0.0', '--port', '5002', '-ngl', '999' -WorkingDirectory `$llamaDir -WindowStyle Hidden
+}
+$comfyBlock
+"@
+    Set-Content -Path $scriptPath -Value $content -Encoding ASCII
+    Write-Ok "wrote $scriptPath"
+    return $scriptPath
+}
+
+function Register-ModelServicesTask {
+    param([string]$ScriptPath)
+    $taskCommand = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`""
+    schtasks /create /tn $ServicesTaskName /sc onlogon /tr $taskCommand /f *> $null
+    if ($LASTEXITCODE -eq 0) { Write-Ok "scheduled task '$ServicesTaskName' registered to run at logon" }
+    else { Write-Warn2 "could not register the '$ServicesTaskName' scheduled task, run native\start-services.ps1 manually after each reboot" }
+}
+
+function Wait-NativeServices {
+    Write-Info 'Waiting up to 180s for the chat model on http://127.0.0.1:5001/health'
+    $deadline = (Get-Date).AddSeconds(180)
+    $chatUp = $false
+    while ((Get-Date) -lt $deadline) {
+        try {
+            $resp = Invoke-WebRequest -Uri 'http://127.0.0.1:5001/health' -UseBasicParsing -TimeoutSec 5
+            if ([int]$resp.StatusCode -eq 200) { $chatUp = $true; break }
+        } catch {}
+        Start-Sleep -Seconds 5
+    }
+    if ($chatUp) { Write-Ok 'chat model service answering on port 5001' }
+    else { Write-Warn2 'chat model service did not answer on port 5001 within 180s, check native\llama' }
+    foreach ($svc in @(@{ Port = 5002; Name = 'embedding service' }, @{ Port = 8188; Name = 'ComfyUI' })) {
+        $probe = New-Object System.Net.Sockets.TcpClient
+        try {
+            $probe.Connect('127.0.0.1', $svc.Port); $probe.Close()
+            Write-Ok "$($svc.Name) listening on port $($svc.Port)"
+        } catch {
+            Write-Warn2 "$($svc.Name) not listening on port $($svc.Port) yet, it may still be starting"
+        }
+    }
+}
+
+function Install-NativeAmdServices {
+    Write-Info "Setting up native AMD model services under $NativeDir"
+    New-Item -ItemType Directory -Force -Path $NativeDir *> $null
+    Install-LlamaVulkan
+    Install-ComfyUIZluda
+    Invoke-ModelDownloads -Native
+    $startScript = Write-StartServicesScript
+    Register-ModelServicesTask $startScript
+    Write-Info 'Starting native model services now'
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $startScript
+    Wait-NativeServices
 }
 
 Write-Host ''
@@ -165,16 +394,15 @@ if ($Gpu -ne 'nvidia' -and ($vids | Where-Object { $_.Name -match 'AMD|Radeon' }
 if ($Gpu -eq 'nvidia') {
     Write-Ok 'NVIDIA GPU detected - GPU acceleration available'
 } elseif ($Gpu -eq 'amd-zluda') {
-    Write-Ok 'AMD GPU detected - the ZLUDA path applies on Windows'
+    Write-Ok 'AMD GPU detected - the native ZLUDA path applies on Windows'
     Write-Warn2 'Windows containers cannot access AMD GPUs, so llama.cpp and ComfyUI will NOT run in the stack.'
-    Write-Host '  The stack will contain only the app and its database, with the chat,'
-    Write-Host '  embedding, and image endpoints pointed at services you run natively'
-    Write-Host '  on this machine with ZLUDA:'
-    Write-Host '    ZLUDA:                 https://github.com/vosen/ZLUDA'
-    Write-Host '    ComfyUI with ZLUDA:    https://github.com/patientx/ComfyUI-Zluda   (serve on port 8188)'
-    Write-Host '    llama.cpp with ZLUDA:  run llama-server.exe under ZLUDA, chat on port 5001,'
-    Write-Host '                           a second instance with --embeddings on port 5002'
-    Write-Host '  Ports expected by the generated config: 5001 (chat), 5002 (embeddings), 8188 (ComfyUI).'
+    Write-Host '  The stack will contain only the app and its database. This installer'
+    Write-Host '  will set the model services up natively on this machine itself:'
+    Write-Host '    ComfyUI on ZLUDA (https://github.com/patientx/ComfyUI-Zluda), port 8188'
+    Write-Host '    llama.cpp official Vulkan build for chat on port 5001'
+    Write-Host '    a second llama.cpp Vulkan instance for embeddings on port 5002'
+    Write-Host '  Both are AMD-accelerated, installed under native\ in this folder, and'
+    Write-Host '  started automatically at logon. No manual service setup is needed.'
 } else {
     Write-Warn2 'No GPU detected (no NVIDIA or AMD adapter found).'
     Write-Host '  The chat model, embeddings and image generation will run CPU-bound'
@@ -226,9 +454,11 @@ if ($Gpu -eq 'nvidia') {
 if ($Gpu -eq 'amd-zluda') {
     $LlmBaseUrl   = 'http://host.docker.internal:5001/v1'
     $EmbedBaseUrl = 'http://host.docker.internal:5002/v1'
+    $ComfyUrl     = 'http://host.docker.internal:8188'
 } else {
     $LlmBaseUrl   = 'http://llamacpp-chat:5001/v1'
     $EmbedBaseUrl = 'http://llamacpp-embed:5002/v1'
+    $ComfyUrl     = 'http://comfyui:8188'
 }
 
 if (-not $Fernet) {
@@ -264,6 +494,7 @@ POSTGRES_DB=$PgDb
 DATABASE_URL=$DatabaseUrl
 LLM_BASE_URL=$LlmBaseUrl
 EMBED_BASE_URL=$EmbedBaseUrl
+COMFYUI_URL=$ComfyUrl
 LLM_API_KEY=
 CHAT_MODEL=$ChatModel
 EMBED_MODEL=$EmbedModel
@@ -310,6 +541,7 @@ services:
       - DATABASE_URL=`${DATABASE_URL}
       - LLM_BASE_URL=`${LLM_BASE_URL}
       - EMBED_BASE_URL=`${EMBED_BASE_URL}
+      - COMFYUI_URL=`${COMFYUI_URL}
       - LLM_API_KEY=`${LLM_API_KEY}
       - CHAT_MODEL=`${CHAT_MODEL}
       - EMBED_MODEL=`${EMBED_MODEL}
@@ -456,6 +688,7 @@ if ($DryRun) {
     Write-Ok 'Dry run complete. Generated:'
     Write-Host "    $ComposeFile"
     Write-Host "    $EnvFile"
+    if ($Gpu -eq 'amd-zluda') { Write-Info 'Dry run: skipping the native AMD service install (llama.cpp Vulkan + ComfyUI-Zluda)' }
     Write-Host '  Review them, then run .\setup.ps1 (without -DryRun) to start the stack.'
     exit 0
 }
@@ -499,52 +732,10 @@ if ($healthy) {
     Write-Host "  Check logs: $Engine logs story-game"
 }
 
-$ManifestFile = Join-Path $RepoDir 'installer\models.manifest.tsv'
-if ($Gpu -eq 'amd-zluda' -and (Test-Path $ManifestFile)) {
-    Write-Host ''
-    Write-Host 'Model downloads' -ForegroundColor White
-    Write-Host '  On the ZLUDA path the model services run natively, so download the'
-    Write-Host '  model files listed in installer\models.manifest.tsv into your native'
-    Write-Host '  llama.cpp and ComfyUI folders yourself.'
+if ($Gpu -eq 'amd-zluda') {
+    Install-NativeAmdServices
 } elseif (Test-Path $ManifestFile) {
-    $manifestRows = Get-Content $ManifestFile | Where-Object { $_ } | ForEach-Object {
-        $parts = $_ -split "`t"
-        [pscustomobject]@{ Category = $parts[0]; File = $parts[1]; Url = $parts[2]; Default = $parts[3] -eq '1' }
-    }
-    $defaultCount = ($manifestRows | Where-Object Default).Count
-    Write-Host ''
-    Write-Host 'Model downloads' -ForegroundColor White
-    Write-Host "  Image generation needs model files, downloaded from each model's own"
-    Write-Host "  source site. The default set ($defaultCount files, the RealSkin image model and"
-    Write-Host '  the Zoda detailer) is enough to generate good images out of the box.'
-    Write-Host '  Some Civitai downloads need a free API token, set CIVITAI_TOKEN to use one.'
-    $selection = @()
-    if (Confirm2 'Download the default model set now?') { $selection = $manifestRows | Where-Object Default }
-    if (Confirm2 'Also download the full model catalog? (tens of GB)') { $selection = $manifestRows }
-    foreach ($row in $selection) {
-        if (-not $row.Url) { continue }
-        $authArgs = @()
-        if ($env:CIVITAI_TOKEN) { $authArgs = @('-H', "Authorization: Bearer $($env:CIVITAI_TOKEN)") }
-        if ($row.Category -eq 'gguf') {
-            $vol = (& $Engine volume ls --format '{{.Name}}' | Where-Object { $_ -match 'kcpp-data$' } | Select-Object -First 1)
-            if (-not $vol) { Write-Warn2 "kcpp-data volume not found, skipping $($row.File)"; continue }
-            & $Engine exec llamacpp-chat test -f "/models/$($row.File)" *> $null
-            if ($LASTEXITCODE -eq 0) { Write-Ok "already present: gguf/$($row.File)"; continue }
-            Write-Info "Downloading gguf/$($row.File)"
-            & $Engine run --rm -v "${vol}:/dest" docker.io/curlimages/curl:latest -fL --retry 3 @authArgs -o "/dest/$($row.File)" $row.Url
-        } else {
-            $target = "/opt/comfyui/app/models/$($row.Category)/$($row.File)"
-            & $Engine exec comfyui test -f $target *> $null
-            if ($LASTEXITCODE -eq 0) { Write-Ok "already present: $($row.Category)/$($row.File)"; continue }
-            Write-Info "Downloading $($row.Category)/$($row.File)"
-            & $Engine run --rm --volumes-from comfyui docker.io/curlimages/curl:latest -fL --retry 3 @authArgs -o $target $row.Url
-        }
-        if ($LASTEXITCODE -ne 0) { Write-Warn2 "download failed: $($row.File)" }
-    }
-    if ($selection.Count -gt 0) {
-        Write-Info 'Restarting model services to pick up new files'
-        & $cmd @pre -f $ComposeFile --env-file $EnvFile restart llamacpp-chat llamacpp-embed comfyui
-    }
+    Invoke-ModelDownloads
 }
 
 Write-Host ''
@@ -555,9 +746,13 @@ Write-Host "    $Engine logs story-game | Select-String -Pattern 'admin' -Contex
 Write-Host ''
 Write-Host 'Open the app: http://localhost:3000' -ForegroundColor White
 if ($Gpu -eq 'amd-zluda') {
-    Write-Host '  Chat, embeddings, and ComfyUI are expected as native ZLUDA services on'
-    Write-Host '  this machine: ports 5001 (chat), 5002 (embeddings), 8188 (ComfyUI).'
-    Write-Host '  The app reaches them via host.docker.internal, start them before chatting.'
+    Write-Host '  Installed local model services (started now, and at every logon by the'
+    Write-Host "  '$ServicesTaskName' scheduled task):"
+    Write-Host '  ComfyUI (ZLUDA):         http://127.0.0.1:8188'
+    Write-Host '  Chat API (Vulkan):       http://127.0.0.1:5001/v1'
+    Write-Host '  Embed API (Vulkan):      http://127.0.0.1:5002/v1'
+    Write-Host '  The app reaches them via host.docker.internal. Re-running setup repairs'
+    Write-Host '  or resumes this install if anything is missing.'
 } else {
     Write-Host '  ComfyUI:        http://localhost:8188'
     Write-Host '  Chat model API: http://localhost:5001/v1'
