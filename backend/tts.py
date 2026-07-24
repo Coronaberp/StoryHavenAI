@@ -68,6 +68,10 @@ def concat_wavs(blobs: list[bytes]) -> bytes:
             writer.writeframes(frame)
     return out.getvalue()
 
+def endpoint_cache_host(base_url: str) -> str:
+    parsed = httpx.URL(base_url)
+    return f"{parsed.host}:{parsed.port}" if parsed.host else base_url
+
 def speech_cache_key(content: str, char_voice: str, narrator_voice: str, endpoint_host: str) -> str:
     material = "\x00".join([content, char_voice, narrator_voice, endpoint_host])
     return hashlib.sha256(material.encode()).hexdigest()
@@ -93,7 +97,7 @@ async def synthesize_message(content: str, char_voice: str, narrator_voice: str,
     base_url, api_key = await resolve_endpoint(user_id)
     if not base_url:
         raise TTSUnavailable("no tts endpoint configured")
-    host = httpx.URL(base_url).host or base_url
+    host = endpoint_cache_host(base_url)
     key = speech_cache_key(content, char_voice, narrator_voice, host)
     rel_path = f"tts/{key}.wav"
     abs_path = os.path.join(MEDIA_DIR, rel_path)
