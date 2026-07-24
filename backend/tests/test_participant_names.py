@@ -69,3 +69,18 @@ async def test_solo_session_still_you(db_conn):
     current_user = {"id": "solo-1", "username": "dana1", "display_name": "Dana"}
     persona, name = await _resolve_sender_persona(session, current_user)
     assert name == "You"
+
+
+from backend.chat_service import _other_player_names
+from backend.repositories import users as user_repo
+
+
+async def test_other_player_names_includes_personaless(db_conn):
+    await user_repo.create_user("mira", "pw12345678")
+    mira = await user_repo.get_user_by_username("mira")
+    rows = [
+        {"user_id": "sender-1", "persona_id": None},
+        {"user_id": mira["id"], "persona_id": None},
+    ]
+    names = await _other_player_names(rows, "sender-1")
+    assert names == ["mira"]
