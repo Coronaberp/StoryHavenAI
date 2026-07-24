@@ -365,6 +365,14 @@ function clientMacro(text, charName, userName) {
     .replace(/\{\{user\}\}|<USER>/gi, userName);
 }
 
+async function voiceOptionsHtml(selected) {
+  let voices = [];
+  try { voices = (await api("/api/tts/voices")).voices || []; } catch {}
+  if (!voices.length) return null;
+  const opts = voices.map((v) => `<option value="${_attr(v)}"${v === selected ? " selected" : ""}>${_esc(v)}</option>`).join("");
+  return `<option value="">${t("tts_voice_default", "Default")}</option>${opts}`;
+}
+
 class ChatView {
   constructor(sid, draftCharId) {
     this.sid = sid;
@@ -673,6 +681,12 @@ class ChatView {
                   <button type="button" class="dropdown-item" data-menu="language" style="display:flex;align-items:center;gap:9px">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="3" y1="12" x2="21" y2="12"/><path d="M12 3a13 13 0 0 1 0 18M12 3a13 13 0 0 0 0 18"/></svg>
                     ${t("chat_reply_language")}
+                  </button>
+                ` : ""}
+                ${this.ttsEnabled ? `
+                  <button type="button" class="dropdown-item" data-menu="voice" style="display:flex;align-items:center;gap:9px">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+                    ${t("tts_voice_heading", "Voice")}
                   </button>
                 ` : ""}
                 <button type="button" class="dropdown-item" data-menu="hideooc" style="display:flex;align-items:center;gap:9px">
@@ -1215,6 +1229,16 @@ class ChatView {
               </span>
               <span class="flex-1 min-w-0 text-left">
                 <span class="block text-[14.5px] text-ink">${t("chat_reply_language")}</span>
+              </span>
+            </button>
+          ` : ""}
+          ${this.ttsEnabled ? `
+            <button type="button" id="chatRailVoice" data-menu="voice" class="settings-row" style="cursor:pointer;width:100%">
+              <span class="flex-none w-[34px] h-[34px] rounded-[10px] bg-surface border border-line grid place-items-center text-sec">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+              </span>
+              <span class="flex-1 min-w-0 text-left">
+                <span class="block text-[14.5px] text-ink">${t("tts_voice_heading", "Voice")}</span>
               </span>
             </button>
           ` : ""}
@@ -1844,6 +1868,7 @@ class ChatView {
         else if (which === "language") this.openLanguageModal();
         else if (which === "glossary") this.openGlossaryModal();
         else if (which === "note") this.openAuthorNoteModal();
+        else if (which === "voice") this.openVoiceModal();
         else if (which === "language") this.openLanguageModal();
         else if (which === "hideooc") this.toggleHideOoc();
         else if (which === "export") exportChat(this.char, this.session);
@@ -2626,6 +2651,49 @@ class ChatView {
     };
     layer.querySelector("#noteClear").onclick = () => apply("");
     layer.querySelector("#noteSave").onclick = () => apply(input.value.trim());
+  }
+
+  async openVoiceModal() {
+    const overrides = this.session.voice_overrides || {};
+    const charSelected = overrides.character_voice || "";
+    const narrSelected = overrides.narrator_voice || "";
+    const [charOptions, narrOptions] = await Promise.all([
+      voiceOptionsHtml(charSelected),
+      voiceOptionsHtml(narrSelected),
+    ]);
+    const fieldHtml = (id, label, options, selected) => `
+      <div style="margin-bottom:14px">
+        <label style="font-size:11.5px;color:var(--color-muted);display:block;margin-bottom:4px">${label}</label>
+        ${options
+          ? `<select id="${id}" style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--color-line-2);background:var(--color-surface-2);color:var(--color-ink);font-size:13.5px">${options}</select>`
+          : `<input id="${id}" type="text" maxlength="64" value="${_attr(selected)}" placeholder="${t("tts_voice_default", "Default")}" style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--color-line-2);background:var(--color-surface-2);color:var(--color-ink);font-size:13.5px">`}
+      </div>`;
+    openModal(`
+      <h3>${t("tts_voice_heading", "Voice")}</h3>
+      ${fieldHtml("voiceCharSelect", t("tts_character_voice", "Character voice"), charOptions, charSelected)}
+      ${fieldHtml("voiceNarrSelect", t("tts_narrator_voice", "Narrator voice"), narrOptions, narrSelected)}
+      <div style="display:flex;gap:8px">
+        <button type="button" id="voiceCancel" class="dropdown-item" style="flex:1">${t("chat_cancel")}</button>
+        <button type="button" id="voiceSave" class="dropdown-item" style="flex:1;border-color:var(--color-accent);color:var(--color-accent)">${t("chat_save")}</button>
+      </div>
+    `);
+    const layer = document.querySelector(".modal-layer:last-child");
+    layer.querySelector("#voiceCancel").onclick = closeTopModal;
+    layer.querySelector("#voiceSave").onclick = async () => {
+      const characterVoice = layer.querySelector("#voiceCharSelect").value.trim() || null;
+      const narratorVoice = layer.querySelector("#voiceNarrSelect").value.trim() || null;
+      try {
+        await api(`/api/sessions/${encodeURIComponent(this.sid)}/voices`, {
+          method: "PUT",
+          body: JSON.stringify({ character_voice: characterVoice, narrator_voice: narratorVoice }),
+        });
+        this.session.voice_overrides = { character_voice: characterVoice, narrator_voice: narratorVoice };
+        closeTopModal();
+        toast(t("tts_voice_saved", "Voice saved."));
+      } catch (err) {
+        errorToast(err.message || t("tts_voice_save_failed", "Couldn't save the voice settings."));
+      }
+    };
   }
 
   wireScrollFab() {

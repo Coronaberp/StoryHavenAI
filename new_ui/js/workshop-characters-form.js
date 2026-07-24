@@ -330,6 +330,9 @@ class WorkshopCharactersFormView {
     this.stageMusic = "";
     this.stageSprite = "";
     this.moods = [];
+    this.voice = "";
+    this.ttsEnabled = false;
+    this.ttsVoices = [];
     this.stageOpen = false;
     this.presOpen = false;
     this.loreViewMode = "list";
@@ -348,6 +351,7 @@ class WorkshopCharactersFormView {
   async mount(main) {
     this.main = main;
     window._activeCreateView = this;
+    this.loadTtsAvailability();
     if (this.isEdit) {
       await this.loadForEdit();
       this.render();
@@ -360,6 +364,18 @@ class WorkshopCharactersFormView {
     await this.offerDraftResume();
     this.render();
     this.startAutosave();
+  }
+
+  async loadTtsAvailability() {
+    try {
+      const settings = await api("/api/settings");
+      this.ttsEnabled = !!(settings.tts_base_url || "").trim();
+      this.ttsVoices = this.ttsEnabled ? (await api("/api/tts/voices")).voices || [] : [];
+    } catch {
+      this.ttsEnabled = false;
+      this.ttsVoices = [];
+    }
+    this.render();
   }
 
   async loadForEdit() {
@@ -397,6 +413,7 @@ class WorkshopCharactersFormView {
     this.stageMusic = assets.music?.default || "";
     this.stageSprite = assets.sprites?.default || "";
     this.moods = assets.moods || [];
+    this.voice = c.voice || "";
   }
 
   async offerDraftResume() {
@@ -437,6 +454,7 @@ class WorkshopCharactersFormView {
     this.stageMusic = assets.music?.default || "";
     this.stageSprite = assets.sprites?.default || "";
     this.moods = assets.moods || [];
+    this.voice = draft.voice || "";
   }
 
   startAutosave() {
@@ -640,8 +658,26 @@ class WorkshopCharactersFormView {
               `).join("")}
             </div>
             <button type="button" class="filter-chip" id="cAddMood">${t("create_add_mood_button")}</button>
+            ${this.ttsEnabled ? this.voiceFieldHtml() : ""}
           </div>
         ` : ""}
+      </div>
+    `;
+  }
+
+  voiceFieldHtml() {
+    const optionsHtml = this.ttsVoices.length
+      ? `<option value="">${t("tts_voice_default", "Default")}</option>${this.ttsVoices.map((v) => `<option value="${_attr(v)}"${v === this.voice ? " selected" : ""}>${_esc(v)}</option>`).join("")}`
+      : null;
+    return `
+      <div style="margin-top:14px">
+        ${this.fieldLabel(t("tts_voice_heading", "Voice"))}
+        <div style="display:flex;gap:8px">
+          ${optionsHtml
+            ? `<select id="cf_voice" class="grimoire-field-input" style="flex:1">${optionsHtml}</select>`
+            : `<input type="text" id="cf_voice" class="grimoire-field-input" maxlength="64" value="${_attr(this.voice)}" placeholder="${t("tts_voice_default", "Default")}" style="flex:1">`}
+          <button type="button" class="pe-gen-btn" data-act="voice-preview">${t("tts_preview", "Preview")}</button>
+        </div>
       </div>
     `;
   }
@@ -898,7 +934,18 @@ class WorkshopCharactersFormView {
       allow_download: this.allowDownload,
       is_explicit: this.isExplicit,
       avatar: this.avatar && !this.avatar.startsWith("data:") ? this.avatar : "",
+      voice: this.voice.trim() || null,
     };
+  }
+
+  async previewVoice(voice) {
+    if (!voice) return;
+    try {
+      const res = await api("/api/tts/preview", { method: "POST", body: JSON.stringify({ voice }) });
+      new Audio(res.url).play();
+    } catch (err) {
+      errorToast(err.message || t("tts_failed", "Couldn't play the voice right now."));
+    }
   }
 
   async save() {
@@ -1079,8 +1126,12 @@ class WorkshopCharactersFormView {
     bind("#cf_stageBg", "stageBg");
     bind("#cf_stageMusic", "stageMusic");
     bind("#cf_stageSprite", "stageSprite");
+    bind("#cf_voice", "voice");
     bind("#cf_presentationHtml", "presentationHtmlValue");
     bind("#cf_genDescription", "genDescription");
+
+    const voicePreviewBtn = m.querySelector('[data-act="voice-preview"]');
+    if (voicePreviewBtn) voicePreviewBtn.onclick = () => this.previewVoice(this.voice.trim());
 
     const genBtn = m.querySelector("#cgGoBtn");
     if (genBtn) genBtn.onclick = () => this.runGenerate();
