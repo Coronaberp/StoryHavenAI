@@ -194,10 +194,15 @@ class SettingsIn(BaseModel):
     wan_unet_name: str | None = None
     wan_clip_name: str | None = None
     wan_vae_name: str | None = None
+    tts_base_url: str | None = None
+    tts_api_key: str | None = None
+    tts_narrator_voice: str | None = None
 
 class UserSettingsIn(BaseModel):
     base_url: str | None = None
     api_key: str | None = None
+    tts_base_url: str | None = None
+    tts_api_key: str | None = None
     chat_model: str | None = None
     history_turns: int | None = None
     enable_thinking: bool | None = None

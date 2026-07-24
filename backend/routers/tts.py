@@ -100,7 +100,7 @@ async def preview_voice(body: PreviewIn, current_user: dict = Depends(get_curren
         raise HTTPException(502, "The voice engine is not responding right now.")
     return {"url": url}
 
-@api.get("/tts/voices")
+@api.get("/tts/voices", dependencies=[Depends(require_feature_enabled("tts"))])
 async def list_voices(current_user: dict = Depends(get_current_user)):
     base_url, api_key = await tts.resolve_endpoint(current_user["id"])
     if not base_url:

@@ -1,4 +1,5 @@
 import io
+import os
 import wave
 
 import pytest
@@ -336,3 +337,74 @@ def test_normalize_voice_entries_drops_non_string_values():
     from backend.routers.tts import normalize_voice_entries
     result = normalize_voice_entries([{"id": 123}, {"id": None}, 42])
     assert result == []
+
+def test_scrub_api_key_masks_tts_api_key():
+    from backend.routers.settings import _scrub_api_key
+
+    scrubbed = _scrub_api_key({"tts_api_key": "sek", "tts_base_url": "http://kokoro:8880/v1"})
+    assert "tts_api_key" not in scrubbed
+    assert scrubbed["has_tts_api_key"] is True
+    assert scrubbed["tts_base_url"] == "http://kokoro:8880/v1"
+
+def test_scrub_api_key_masks_absent_tts_api_key():
+    from backend.routers.settings import _scrub_api_key
+
+    scrubbed = _scrub_api_key({"tts_api_key": ""})
+    assert "tts_api_key" not in scrubbed
+    assert scrubbed["has_tts_api_key"] is False
+
+@pytest.mark.asyncio
+async def test_set_user_settings_encrypts_tts_api_key(db_conn):
+    from backend import db
+    from backend.repositories import users as user_repo
+    from sqlalchemy import select
+
+    user = await user_repo.create_user("repo_test_tts_key_user", "s3cret-password")
+    await user_repo.set_user_settings(user["id"], {
+        "tts_base_url": "http://kokoro:8880/v1",
+        "tts_api_key": "sk-tts-secret",
+    })
+
+    row = await db._q1(select(db.user_settings.c.value).where(
+        (db.user_settings.c.user_id == user["id"]) & (db.user_settings.c.key == "tts_api_key")))
+    assert "sk-tts-secret" not in row["value"]
+
+    settings = await user_repo.get_user_settings(user["id"])
+    assert settings["tts_base_url"] == "http://kokoro:8880/v1"
+    assert settings["tts_api_key"] == "sk-tts-secret"
+
+@pytest.mark.asyncio
+async def test_synthesize_message_leaves_no_tmp_files(db_conn, monkeypatch, tmp_path):
+    from backend import tts as tts_module
+    from backend.state import CFG
+
+    monkeypatch.setattr(tts_module, "MEDIA_DIR", str(tmp_path))
+    CFG["tts_base_url"] = "http://kokoro:8880/v1"
+    CFG["tts_api_key"] = ""
+
+    wav_bytes = _make_wav(b"\x01\x02" * 10)
+
+    class FakeResponse:
+        status_code = 200
+        content = wav_bytes
+
+    class FakeAsyncClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def post(self, *args, **kwargs):
+            return FakeResponse()
+
+    monkeypatch.setattr(tts_module.httpx, "AsyncClient", lambda **kwargs: FakeAsyncClient())
+
+    url, cached = await tts_module.synthesize_message('She smiles. "Hi."', "af_bella", "af_heart", None)
+    assert cached is False
+    assert url.startswith("/media/tts/")
+
+    tts_dir = os.path.join(str(tmp_path), "tts")
+    files = os.listdir(tts_dir)
+    assert all(not name.endswith(".tmp") for name in files)
+    assert any(name.endswith(".wav") for name in files)

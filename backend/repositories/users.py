@@ -311,6 +311,8 @@ async def get_user_settings(user_id: str) -> dict:
             out[r["key"]] = r["value"]
     if out.get("api_key"):
         out["api_key"] = _decrypt_secret(out["api_key"])
+    if out.get("tts_api_key"):
+        out["tts_api_key"] = _decrypt_secret(out["tts_api_key"])
     return out
 
 async def set_user_settings(user_id: str, items: dict):
@@ -320,7 +322,7 @@ async def set_user_settings(user_id: str, items: dict):
                 await conn.execute(delete(user_settings).where(and_(
                     user_settings.c.user_id == user_id, user_settings.c.key == k)))
                 continue
-            if k == "api_key" and isinstance(v, str) and v:
+            if k in ("api_key", "tts_api_key") and isinstance(v, str) and v:
                 v = _encrypt_secret(v)
             stmt = pg_insert(user_settings).values(
                 user_id=user_id, key=k, value=json.dumps(v))
