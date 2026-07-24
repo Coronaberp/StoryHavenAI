@@ -192,6 +192,19 @@ async def translate_text_live(text: str, target: str, chat_model: str, ep: dict,
     await localization_repo.set([(cache_key, text, result)], lang, kind="translate")
     return result
 
+def _summary_transcript(msgs: list[dict], char_name: str, fallback_user_name: str) -> str:
+    lines = []
+    for m in msgs:
+        if m["role"] == "assistant":
+            who = char_name
+        else:
+            who = m.get("user_name") or fallback_user_name
+        body = strip_think(m["content"]).strip()
+        if body:
+            lines.append(f"{who}: {body}")
+    return "\n".join(lines)
+
+
 @api.post("/sessions/{sid}/summarize")
 async def summarize_session(sid: str, current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
@@ -215,13 +228,7 @@ async def summarize_session(sid: str, current_user: dict = Depends(get_current_u
     if not msgs:
         return {"summary": "Nothing has happened yet — the story hasn't started."}
 
-    lines = []
-    for m in msgs[-80:]:
-        who = char["name"] if m["role"] == "assistant" else user_name
-        body = strip_think(m["content"]).strip()
-        if body:
-            lines.append(f"{who}: {body}")
-    transcript = "\n".join(lines)
+    transcript = _summary_transcript(msgs[-80:], char["name"], user_name)
 
     system = (f"You are summarizing a roleplay story between {user_name} and {char['name']}. "
               "Read the transcript and write a brief recap in 2-3 short paragraphs covering "
