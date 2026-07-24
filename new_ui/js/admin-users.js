@@ -46,6 +46,71 @@ class AdminUsersView {
     `;
   }
 
+  userSheetActionsFor(u) {
+    const actions = [
+      { id: "reset_password", label: t("admin_users_reset_password") },
+    ];
+    if (u.id !== ME.id) {
+      actions.push(u.is_admin
+        ? { id: "demote", label: t("admin_users_demote") }
+        : { id: "make_admin", label: t("admin_users_make_admin") });
+    }
+    if (ME.role === "dev" && u.is_admin && u.id !== ME.id) {
+      actions.push(u.role === "dev"
+        ? { id: "revoke_dev", label: t("admin_users_revoke_dev") }
+        : { id: "grant_dev", label: t("admin_users_grant_dev") });
+    }
+    if (u.id !== ME.id) {
+      actions.push(u.status === "suspended"
+        ? { id: "unsuspend", label: t("admin_users_unsuspend") }
+        : { id: "suspend", label: t("admin_users_suspend") });
+    }
+    if (!u.is_admin && u.role !== "admin" && u.role !== "dev") {
+      actions.push(u.tier === "guest"
+        ? { id: "upgrade_full", label: t("admin_users_upgrade_full", "Upgrade to full"), primary: true }
+        : { id: "make_guest", label: t("admin_users_make_guest", "Make guest") });
+    }
+    actions.push({ id: "notes", label: t("admin_users_notes") });
+    if (u.totp_enabled) actions.push({ id: "clear_totp", label: t("admin_users_clear_totp") });
+    actions.push({ id: "identity_label", label: t("admin_users_identity_label") });
+    if (u.id !== ME.id) actions.push({ id: "delete", label: t("admin_users_delete") });
+    return actions;
+  }
+
+  openUserSheet(uid) {
+    const u = this.users.find((x) => x.id === uid);
+    if (!u) return;
+    this.sheet = this.sheet || new AdminBottomSheet();
+    this.sheet.open({
+      title: u.display_name || u.username,
+      meta: `@${u.username} · ${u.status === "suspended" ? t("admin_users_suspended") : t("admin_users_active")}`,
+      actions: this.userSheetActionsFor(u),
+      onAction: (id) => {
+        this.sheet.close();
+        this.dispatchUserSheetAction(id, u);
+      },
+    });
+  }
+
+  dispatchUserSheetAction(id, u) {
+    switch (id) {
+      case "reset_password": return this.resetPassword(u.id);
+      case "demote": return this.setRole(u.id, false);
+      case "make_admin": return this.setRole(u.id, true);
+      case "revoke_dev": return this.setDevRole(u.id, false);
+      case "grant_dev": return this.setDevRole(u.id, true);
+      case "suspend": return this.suspend(u.id);
+      case "unsuspend": return this.unsuspend(u.id);
+      case "upgrade_full": return this.setTier(u.id, "full");
+      case "make_guest": return this.setTier(u.id, "guest");
+      case "notes": return this.manageNotes(u.id);
+      case "clear_totp": return this.clearTotp(u.id);
+      case "identity_label": return this.setIdentityLabel(u.id, u.identity_label || "");
+      case "delete": return this.deleteUser(u.id);
+      default: return undefined;
+    }
+  }
+
   userAvatarHtml(u) {
     return `
       <span class="w-9 h-9 rounded-full overflow-hidden bg-surface-2 grid place-items-center flex-none">
@@ -81,25 +146,30 @@ class AdminUsersView {
     `;
   }
 
+  userRowPillTone(u) {
+    if (u.role === "dev" || u.is_admin) return "";
+    if (u.status === "suspended") return "warn";
+    if (u.status === "pending") return "warn";
+    return "";
+  }
+
+  userRowPill(u) {
+    if (u.role === "dev") return t("admin_users_role_dev");
+    if (u.is_admin) return t("admin_users_role_admin");
+    if (u.status === "pending") return t("admin_users_status_pending", "Pending");
+    if (u.status === "suspended") return t("admin_users_role_suspended");
+    return t("admin_users_status_member", "Member");
+  }
+
   render() {
     const visible = this.users.filter((u) => this.matchesFilter(u));
-    const rows = visible.map((u) => `
-      <div class="rounded-[13px] border border-line bg-surface p-3.5 mb-2.5 lg:hidden">
-        <div class="flex items-center gap-3 mb-2.5">
-          ${this.userAvatarHtml(u)}
-          <div class="flex-1 min-w-0">
-            <div class="font-display font-semibold text-sm text-ink truncate">
-              ${_esc(u.username)}
-              ${u.identity_label ? `<span class="font-mono text-[9px] text-muted ml-1">(${_esc(u.identity_label)})</span>` : ""}
-              ${u.id === ME.id ? `<span class="font-mono text-[9px] text-muted ml-1">${t("admin_users_you")}</span>` : ""}
-            </div>
-            <div class="font-mono text-[10px] text-muted mt-0.5">${_esc(u.id.slice(0, 8))}…${u.status === "suspended" && u.suspension_reason ? ` · ${_esc(u.suspension_reason)}` : ""}</div>
-          </div>
-          ${adminRoleBadge(u)}
-        </div>
-        <div class="flex flex-wrap gap-1.5">${this.userActionsHtml(u)}</div>
-      </div>
-    `).join("");
+    const rows = `<div class="lg:hidden">${visible.map((u) => adminRowHtml({
+      id: u.id,
+      title: u.display_name || u.username,
+      pill: this.userRowPill(u),
+      pillTone: this.userRowPillTone(u),
+      meta: `@${u.username}${typeof u.chat_count === "number" ? ` · ${u.chat_count} ${t("admin_users_chats_suffix", "chats")}` : ""}`,
+    })).join("")}</div>`;
 
     const tableRows = visible.map((u) => `
       <tr class="border-b border-line align-top">
@@ -130,6 +200,7 @@ class AdminUsersView {
 
     this.main.innerHTML = `
       <div class="content-col admin-users-content">
+      ${adminScreenSwitcherHtml("admin-users", window._adminSwitcherBadges || {})}
       ${backLinkHtml("Admin")}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_users_title"), `${this.users.length} ${t("admin_users_users_count_suffix")}`)}
       <button type="button" onclick="adminUsersView.createUser()" class="w-full mb-4 py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark lg:w-auto">
@@ -152,6 +223,10 @@ class AdminUsersView {
       </div>
       </div>
     `;
+    adminAttachScreenSwitcher(this.main);
+    this.main.querySelectorAll("[data-admin-row]").forEach((el) => {
+      el.onclick = () => this.openUserSheet(el.dataset.adminRow);
+    });
   }
 
   async createUser() {
