@@ -15,6 +15,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from starlette.exceptions import HTTPException
 
 from backend import db
+from backend import seed_content
 from backend import vectors
 from backend import llm
 from backend.state import (CFG, MEDIA_DIR, STATIC_DIR, APP_VERSION,
@@ -46,7 +47,9 @@ async def lifespan(app: FastAPI):
     if not await user_repo.any_users():
         import secrets as _sec
         pwd = _sec.token_urlsafe(14)
-        await user_repo.create_user("admin", pwd, is_admin=True)
+        admin_user = await user_repo.create_user("admin", pwd, is_admin=True)
+        seeded = await seed_content.seed_default_content(admin_user["id"])
+        log.info("first run: seeded %d bundled content item(s)", seeded)
         print("\n" + "=" * 60)
         print("FIRST RUN — Admin account created automatically")
         print(f"  Username : admin")

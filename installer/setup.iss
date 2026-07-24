@@ -56,6 +56,7 @@ Name: "desktopicon"; Description: "Create a desktop shortcut to re-run setup"; G
 Source: "..\setup.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\setup.sh"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README-INSTALLER.txt"; DestDir: "{app}"; Flags: ignoreversion isreadme
+Source: "models.manifest.tsv"; DestDir: "{app}\app\installer"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
 Name: "{group}\Run StoryHaven AI setup"; Filename: "powershell.exe"; \

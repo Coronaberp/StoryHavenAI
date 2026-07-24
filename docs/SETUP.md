@@ -102,6 +102,30 @@ Output: `installer\Output\StoryHavenAI-Setup.exe`.
 > command above on Windows to produce the real installer. Adjust `RepoUrl` in
 > `setup.iss` if your app repo lives elsewhere.
 
+## Model downloads
+
+After the stack is healthy, the installers offer to download model files from
+each model's own source site (Civitai, Hugging Face, GitHub), driven by
+`installer/models.manifest.tsv`. That manifest is **gitignored** — it lists the
+operator's curated model catalog and is generated from a running deployment
+with `installer/build_models_manifest.py` (reads the app's implemented model
+requests via `DATABASE_URL`; `--default <slug>` marks default downloads,
+`--extra "category|filename|url|1"` adds models the request table doesn't
+know). The default set (the RealSkin image model and the Zoda detailer) is
+enough for good image generation out of the box; the full catalog and a
+copy-from-local-folder import are offered as follow-ups. Set `CIVITAI_TOKEN`
+for Civitai downloads that need an API token. The Windows wizard bundles the
+manifest at compile time if it exists next to `setup.iss`.
+
+## Bundled starter content
+
+A fresh install seeds three items on first startup, alongside the auto-created
+admin account: the persona **Tarion Bluerose**, the character **Luna**, and
+the RPG **Magic Academy RPG** (with its full lorebook), all owned by the admin
+and public. The seed data lives in `seed_content/` and is applied by
+`backend/seed_content.py` only when the user table is empty, so existing
+deployments never re-seed.
+
 ## What gets generated
 
 - `docker-compose.yml` — the full stack, with `story-game` bind-mounting this

@@ -499,6 +499,54 @@ if ($healthy) {
     Write-Host "  Check logs: $Engine logs story-game"
 }
 
+$ManifestFile = Join-Path $RepoDir 'installer\models.manifest.tsv'
+if ($Gpu -eq 'amd-zluda' -and (Test-Path $ManifestFile)) {
+    Write-Host ''
+    Write-Host 'Model downloads' -ForegroundColor White
+    Write-Host '  On the ZLUDA path the model services run natively, so download the'
+    Write-Host '  model files listed in installer\models.manifest.tsv into your native'
+    Write-Host '  llama.cpp and ComfyUI folders yourself.'
+} elseif (Test-Path $ManifestFile) {
+    $manifestRows = Get-Content $ManifestFile | Where-Object { $_ } | ForEach-Object {
+        $parts = $_ -split "`t"
+        [pscustomobject]@{ Category = $parts[0]; File = $parts[1]; Url = $parts[2]; Default = $parts[3] -eq '1' }
+    }
+    $defaultCount = ($manifestRows | Where-Object Default).Count
+    Write-Host ''
+    Write-Host 'Model downloads' -ForegroundColor White
+    Write-Host "  Image generation needs model files, downloaded from each model's own"
+    Write-Host "  source site. The default set ($defaultCount files, the RealSkin image model and"
+    Write-Host '  the Zoda detailer) is enough to generate good images out of the box.'
+    Write-Host '  Some Civitai downloads need a free API token, set CIVITAI_TOKEN to use one.'
+    $selection = @()
+    if (Confirm2 'Download the default model set now?') { $selection = $manifestRows | Where-Object Default }
+    if (Confirm2 'Also download the full model catalog? (tens of GB)') { $selection = $manifestRows }
+    foreach ($row in $selection) {
+        if (-not $row.Url) { continue }
+        $authArgs = @()
+        if ($env:CIVITAI_TOKEN) { $authArgs = @('-H', "Authorization: Bearer $($env:CIVITAI_TOKEN)") }
+        if ($row.Category -eq 'gguf') {
+            $vol = (& $Engine volume ls --format '{{.Name}}' | Where-Object { $_ -match 'kcpp-data$' } | Select-Object -First 1)
+            if (-not $vol) { Write-Warn2 "kcpp-data volume not found, skipping $($row.File)"; continue }
+            & $Engine exec llamacpp-chat test -f "/models/$($row.File)" *> $null
+            if ($LASTEXITCODE -eq 0) { Write-Ok "already present: gguf/$($row.File)"; continue }
+            Write-Info "Downloading gguf/$($row.File)"
+            & $Engine run --rm -v "${vol}:/dest" docker.io/curlimages/curl:latest -fL --retry 3 @authArgs -o "/dest/$($row.File)" $row.Url
+        } else {
+            $target = "/opt/comfyui/app/models/$($row.Category)/$($row.File)"
+            & $Engine exec comfyui test -f $target *> $null
+            if ($LASTEXITCODE -eq 0) { Write-Ok "already present: $($row.Category)/$($row.File)"; continue }
+            Write-Info "Downloading $($row.Category)/$($row.File)"
+            & $Engine run --rm --volumes-from comfyui docker.io/curlimages/curl:latest -fL --retry 3 @authArgs -o $target $row.Url
+        }
+        if ($LASTEXITCODE -ne 0) { Write-Warn2 "download failed: $($row.File)" }
+    }
+    if ($selection.Count -gt 0) {
+        Write-Info 'Restarting model services to pick up new files'
+        & $cmd @pre -f $ComposeFile --env-file $EnvFile restart llamacpp-chat llamacpp-embed comfyui
+    }
+}
+
 Write-Host ''
 Write-Host 'First-run admin password' -ForegroundColor White
 Write-Host "  On first startup the app auto-creates an 'admin' user and prints a random"
