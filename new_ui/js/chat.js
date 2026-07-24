@@ -743,10 +743,8 @@ class ChatView {
     if (!uid) return generic;
     const isMe = uid === ME?.id;
     const p = this.multiplayer?.participants?.find((row) => row.user_id === uid);
-    const name = isMe ? (ME?.display_name || ME?.username) : (p?.user_display_name || p?.username);
-    if (!name) return generic;
-    const persona = p?.persona_name || null;
-    const who = persona ? `${name} (${persona})` : name;
+    const who = isMe ? this._myPersonaName() : p?.name;
+    if (!who) return generic;
     return t("chat_multiplayer_locked_label", "{who} is acting. The composer opens back up once the reply lands.").replace("{who}", who);
   }
 
@@ -754,18 +752,17 @@ class ChatView {
     const colors = ["#7DBEF0", "#C4A0FF", "#7BD88F", "#F0788F", "#F2CE87", "#E3BD6C", "#B8892B", "#8B7A6E"];
     const rows = this.multiplayer.participants.map((p, i) => {
       const isMe = p.user_id === ME?.id;
-      const name = isMe ? (ME?.display_name || ME?.username || t("chat_you_fallback_name")) : (p.user_display_name || p.username || t("chat_multiplayer_unknown_participant", "Someone"));
-      const personaName = p.persona_name || null;
+      const name = isMe ? this._myPersonaName() : (p.name || t("chat_multiplayer_unknown_participant", "Someone"));
+      const hasPersona = !!p.persona_name;
       const initial = _esc((name[0] || "?").toUpperCase());
       const avatarInner = p.avatar
         ? `<img src="${_esc(p.avatar)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:999px">`
         : initial;
       return `
-        <button type="button" onclick="_activeChatView.openParticipantPersonaModal('${_esc(p.user_id)}')" ${personaName ? "" : "disabled"} style="flex:none;display:flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border-radius:999px;background:var(--color-surface-2);border:1px solid var(--color-line-2);cursor:${personaName ? "pointer" : "default"};font:inherit;text-align:left">
+        <button type="button" onclick="_activeChatView.openParticipantPersonaModal('${_esc(p.user_id)}')" ${hasPersona ? "" : "disabled"} style="flex:none;display:flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border-radius:999px;background:var(--color-surface-2);border:1px solid var(--color-line-2);cursor:${hasPersona ? "pointer" : "default"};font:inherit;text-align:left">
           <span style="width:22px;height:22px;border-radius:999px;display:grid;place-items:center;font-family:var(--font-display);font-weight:600;font-size:10.5px;color:var(--color-paper-base);background:${colors[i % colors.length]};overflow:hidden">${avatarInner}</span>
           <span style="line-height:1.25">
             <span style="display:block;font-size:12px;color:${isMe ? "var(--color-accent)" : "var(--color-ink)"}">${_esc(name)}${isMe ? ` ${t("chat_you_fallback_name_suffix", "(you)")}` : ""}</span>
-            ${personaName ? `<span style="display:block;font-size:10px;color:var(--color-muted)">${_esc(personaName)}</span>` : ""}
           </span>
         </button>
       `;
@@ -793,7 +790,7 @@ class ChatView {
 
   _typingByLabel() {
     const p = this.multiplayer?.participants?.find((row) => row.user_id === this.multiplayerTypingBy);
-    const name = p?.user_display_name || p?.username || t("chat_multiplayer_unknown_participant", "Someone");
+    const name = p?.name || t("chat_multiplayer_unknown_participant", "Someone");
     return t("chat_multiplayer_typing_label", "{who} is typing…").replace("{who}", name);
   }
 
@@ -1145,7 +1142,7 @@ class ChatView {
     list.innerHTML = this.partyChatMessages.map((m) => {
       const isMe = m.sender_user_id === ME?.id;
       const participant = this.multiplayer?.participants?.find((p) => p.user_id === m.sender_user_id);
-      const name = isMe ? (ME?.display_name || ME?.username || t("chat_you_fallback_name")) : (participant?.user_display_name || participant?.username || t("chat_multiplayer_unknown_participant", "Someone"));
+      const name = isMe ? this._myPersonaName() : (participant?.name || t("chat_multiplayer_unknown_participant", "Someone"));
       const avatar = isMe ? ME?.avatar : participant?.avatar;
       const when = m.created ? timeAgo(m.created) : "";
       return `
@@ -3382,7 +3379,7 @@ class ChatView {
 
   _myPersonaName() {
     const mine = this._myParticipant();
-    if (mine) return mine.persona_name || ME?.display_name || ME?.username || t("chat_you_fallback_name");
+    if (mine) return mine.name || t("chat_you_fallback_name");
     return this.session?.user_name || t("chat_you_fallback_name");
   }
 
