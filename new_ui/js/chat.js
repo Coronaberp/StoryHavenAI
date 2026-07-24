@@ -384,6 +384,7 @@ class ChatView {
     this.currentMood = null;
     this.muted = true;
     this.railHidden = store.get("chatRailHidden", false);
+    this.ttsEnabled = false;
     this.personaAvatar = "";
     this.selectMode = false;
     this.selectedIds = new Set();
@@ -402,6 +403,7 @@ class ChatView {
   async mount(main) {
     this.main = main;
     this.render();
+    this.loadTtsAvailability();
     if (this.sid === TUTORIAL_CHAT_SID) {
       const demo = tutorialDemoChat();
       this.char = demo.char;
@@ -1510,6 +1512,11 @@ class ChatView {
           <button type="button" class="ig-icon-btn" style="position:static;width:26px;height:26px" data-act="branch" aria-label="${t("chat_branch_chat_from_here")}" data-tooltip="${t("chat_branch_from_here")}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
           </button>
+          ${!you && this.ttsEnabled ? `
+            <button type="button" class="ig-icon-btn tts-btn" data-act="speak" data-feature="tts" style="position:static;width:26px;height:26px" aria-label="${t("tts_speak", "Play voice")}" data-tooltip="${t("tts_speak", "Play voice")}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
+            </button>
+          ` : ""}
           ${this.session?.is_group && !you && !isGreeting ? `
             <button type="button" class="ig-icon-btn" style="position:static;width:26px;height:26px" data-act="reassign" aria-label="${t("chat_group_reassign", "Reassign speaker")}" data-tooltip="${t("chat_group_reassign", "Reassign speaker")}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
@@ -2727,6 +2734,7 @@ class ChatView {
         else if (act === "delete") this.deleteMessage(msg);
         else if (act === "branch") this.branchFrom(msg);
         else if (act === "reassign") this.openReassignMenu(msg, btn);
+        else if (act === "speak") ttsPlayer.toggle(btn, this.sid, mid);
         else if (act === "image") this.openImageGenModal(msg);
         else if (act === "regenerate") {
           if (this.streaming) { toast(t("chat_still_generating_wait")); return; }
@@ -2742,6 +2750,16 @@ class ChatView {
         else if (act === "swipe-next") this.swipeMessage(mid, "next");
       });
     });
+  }
+
+  async loadTtsAvailability() {
+    try {
+      const settings = await api("/api/settings");
+      this.ttsEnabled = !!(settings.tts_base_url || "").trim();
+    } catch {
+      this.ttsEnabled = false;
+    }
+    this.render();
   }
 
   async swipeMessage(mid, direction) {
@@ -3629,6 +3647,44 @@ class ChatView {
   }
 }
 
+class TtsPlayer {
+  constructor() {
+    this.audio = new Audio();
+    this.activeButton = null;
+    this.audio.addEventListener("ended", () => this._setIdle());
+  }
+  _setIdle() {
+    if (this.activeButton) this.activeButton.classList.remove("speaking", "loading");
+    this.activeButton = null;
+  }
+  stop() {
+    this.audio.pause();
+    this._setIdle();
+  }
+  async toggle(button, sid, mid) {
+    if (this.activeButton === button && !this.audio.paused) { this.audio.pause(); button.classList.remove("speaking"); return; }
+    if (this.activeButton === button && this.audio.paused && this.audio.src) { this.audio.play(); button.classList.add("speaking"); return; }
+    this.stop();
+    this.activeButton = button;
+    button.classList.add("loading");
+    try {
+      const res = await api(`/api/sessions/${encodeURIComponent(sid)}/messages/${encodeURIComponent(mid)}/speech`, { method: "POST" });
+      button.classList.remove("loading");
+      if (this.activeButton !== button) return;
+      this.audio.src = res.url;
+      await this.audio.play();
+      button.classList.add("speaking");
+    } catch (err) {
+      button.classList.remove("loading", "speaking");
+      this.activeButton = null;
+      errorToast(err.message || t("tts_failed", "Couldn't play the voice right now."));
+    }
+  }
+}
+
+const ttsPlayer = new TtsPlayer();
+
 if (typeof window !== "undefined") {
   window.ChatView = ChatView;
+  window.ttsPlayer = ttsPlayer;
 }
