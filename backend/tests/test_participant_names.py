@@ -23,3 +23,49 @@ def test_you_when_no_user_row():
 
 def test_empty_persona_name_falls_through():
     assert participant_display_name({"name": ""}, {"display_name": "", "username": "dana1"}) == "dana1"
+
+
+from backend.chat_service import _resolve_sender_persona
+from backend.repositories import chat_sessions, characters, session_participants
+
+
+async def _multiplayer_session(host_id="host-1"):
+    char = await characters.create({"owner_id": host_id, "name": "Narrator", "mode": "rpg"})
+    sid = await chat_sessions.create(char["id"], None, "Party", "You", user_id=host_id)
+    await session_participants.add(sid, host_id, None, "host")
+    return await chat_sessions.get(sid)
+
+
+async def test_personaless_participant_uses_account_name(db_conn):
+    session = await _multiplayer_session()
+    current_user = {"id": "host-1", "username": "dana1", "display_name": "Dana"}
+    persona, name = await _resolve_sender_persona(session, current_user)
+    assert persona is None
+    assert name == "Dana"
+
+
+async def test_personaless_participant_falls_back_to_username(db_conn):
+    session = await _multiplayer_session()
+    current_user = {"id": "host-1", "username": "dana1", "display_name": ""}
+    persona, name = await _resolve_sender_persona(session, current_user)
+    assert name == "dana1"
+
+
+async def test_deleted_persona_row_falls_back_to_account_name(db_conn):
+    char = await characters.create({"owner_id": "host-1", "name": "Narrator", "mode": "rpg"})
+    sid = await chat_sessions.create(char["id"], None, "Party", "You", user_id="host-1")
+    await session_participants.add(sid, "host-1", "p-gone", "host")
+    session = await chat_sessions.get(sid)
+    current_user = {"id": "host-1", "username": "dana1", "display_name": "Dana"}
+    persona, name = await _resolve_sender_persona(session, current_user)
+    assert persona is None
+    assert name == "Dana"
+
+
+async def test_solo_session_still_you(db_conn):
+    char = await characters.create({"owner_id": "solo-1", "name": "Char", "mode": "character"})
+    sid = await chat_sessions.create(char["id"], None, "Solo", "You", user_id="solo-1")
+    session = await chat_sessions.get(sid)
+    current_user = {"id": "solo-1", "username": "dana1", "display_name": "Dana"}
+    persona, name = await _resolve_sender_persona(session, current_user)
+    assert name == "You"
