@@ -374,6 +374,28 @@ async def test_set_user_settings_encrypts_tts_api_key(db_conn):
     assert settings["tts_api_key"] == "sk-tts-secret"
 
 @pytest.mark.asyncio
+async def test_synthesize_message_blocks_on_rebind(db_conn, monkeypatch):
+    from backend import ssrf
+    from backend import tts as tts_module
+    from backend.state import CFG
+
+    CFG["tts_base_url"] = "http://kokoro:8880/v1"
+    CFG["tts_api_key"] = ""
+
+    async def fake_resolve_pinned_host(url, is_admin=False):
+        raise ValueError("kokoro resolved to a non-public address when pinning the connection")
+
+    monkeypatch.setattr(ssrf, "resolve_pinned_host", fake_resolve_pinned_host)
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("httpx.AsyncClient must not be constructed when pinning fails")
+
+    monkeypatch.setattr(tts_module.httpx, "AsyncClient", fail_if_called)
+
+    with pytest.raises(tts_module.TTSUnavailable):
+        await tts_module.synthesize_message('She smiles. "Hi."', "af_bella", "af_heart", None)
+
+@pytest.mark.asyncio
 async def test_synthesize_message_leaves_no_tmp_files(db_conn, monkeypatch, tmp_path):
     from backend import tts as tts_module
     from backend.state import CFG
@@ -395,7 +417,10 @@ async def test_synthesize_message_leaves_no_tmp_files(db_conn, monkeypatch, tmp_
         async def __aexit__(self, *args):
             return False
 
-        async def post(self, *args, **kwargs):
+        def build_request(self, *args, **kwargs):
+            return object()
+
+        async def send(self, *args, **kwargs):
             return FakeResponse()
 
     monkeypatch.setattr(tts_module.httpx, "AsyncClient", lambda **kwargs: FakeAsyncClient())
