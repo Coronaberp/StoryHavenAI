@@ -173,6 +173,54 @@ async def test_speech_happy_path(db_conn, monkeypatch):
     assert captured["user_id"] == owner["id"]
 
 @pytest.mark.asyncio
+async def test_speech_uses_character_voice_when_no_override(db_conn, monkeypatch):
+    from backend import tts as tts_module
+    from backend.routers import tts as tts_router
+
+    owner, other, character, sid, assistant_message = await _seed_user_char_session(char_voice="af_michael")
+
+    captured = {}
+
+    async def fake_synthesize_message(content, char_voice, narrator_voice, user_id):
+        captured["char_voice"] = char_voice
+        captured["narrator_voice"] = narrator_voice
+        return "/media/tts/x.wav", False
+
+    monkeypatch.setattr(tts_module, "synthesize_message", fake_synthesize_message)
+    await tts_router.speak_message(sid, assistant_message["id"],
+                                   {"id": owner["id"], "username": owner["username"]})
+    assert captured["char_voice"] == "af_michael"
+
+@pytest.mark.asyncio
+async def test_speech_uses_narrator_default_when_nothing_set(db_conn, monkeypatch):
+    from backend import tts as tts_module
+    from backend.routers import tts as tts_router
+    from backend.state import CFG
+
+    owner, other, character, sid, assistant_message = await _seed_user_char_session()
+
+    original_narrator_voice = CFG.get("tts_narrator_voice")
+    CFG["tts_narrator_voice"] = "af_default"
+    try:
+        captured = {}
+
+        async def fake_synthesize_message(content, char_voice, narrator_voice, user_id):
+            captured["char_voice"] = char_voice
+            captured["narrator_voice"] = narrator_voice
+            return "/media/tts/x.wav", False
+
+        monkeypatch.setattr(tts_module, "synthesize_message", fake_synthesize_message)
+        await tts_router.speak_message(sid, assistant_message["id"],
+                                       {"id": owner["id"], "username": owner["username"]})
+        assert captured["char_voice"] == "af_default"
+        assert captured["narrator_voice"] == "af_default"
+    finally:
+        if original_narrator_voice is None:
+            CFG.pop("tts_narrator_voice", None)
+        else:
+            CFG["tts_narrator_voice"] = original_narrator_voice
+
+@pytest.mark.asyncio
 async def test_speech_backend_down_maps_502(db_conn, monkeypatch):
     from backend import tts as tts_module
     from backend.routers import tts as tts_router
