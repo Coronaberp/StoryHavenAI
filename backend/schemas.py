@@ -37,6 +37,7 @@ class CharacterIn(BaseModel):
     is_draft: bool = False
     appearance_tags: str = ""
     appearance_tags_negative: str = ""
+    voice: str | None = None
 
     @field_validator("avatar")
     @classmethod

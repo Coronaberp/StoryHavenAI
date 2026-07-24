@@ -156,6 +156,7 @@ characters = sa.Table(
     sa.Column("alt_greetings", sa.Text, nullable=False, server_default=text("'[]'")),
     sa.Column("mode", sa.Text, nullable=False, server_default=text("'character'")),
     sa.Column("assets", sa.Text, nullable=False, server_default=text("'{}'")),
+    sa.Column("voice", sa.Text),
     sa.Column("owner_id", sa.Text),
     sa.Column("is_public", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("presentation_html", sa.Text, nullable=False, server_default=text("''")),
@@ -278,6 +279,7 @@ sessions = sa.Table(
     sa.Column("is_group", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("group_mode", sa.Text, nullable=False, server_default=text("'roleplay'")),
     sa.Column("source_group_id", sa.Text),
+    sa.Column("voice_overrides", sa.Text, nullable=False, server_default=text("'{}'")),
 )
 
 session_characters = sa.Table(
@@ -1002,6 +1004,11 @@ async def init():
         await conn.execute(text(
             "ALTER TABLE characters ADD COLUMN IF NOT EXISTS appearance_tags_negative "
             "TEXT NOT NULL DEFAULT ''"))
+        await conn.execute(text(
+            "ALTER TABLE characters ADD COLUMN IF NOT EXISTS voice TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS voice_overrides "
+            "TEXT NOT NULL DEFAULT '{}'"))
 
         await conn.execute(text(
             "UPDATE users SET role='admin' WHERE is_admin=1 AND role='user'"))

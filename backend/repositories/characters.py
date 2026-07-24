@@ -27,6 +27,7 @@ def _char_row(row) -> dict:
     d["appearance_tags_negative"] = _decrypt_secret(d.get("appearance_tags_negative") or "")
     d["alt_greetings"] = _decrypt_json_list(d.get("alt_greetings"))
     d["assets"] = _loads(d.get("assets"), {})
+    d["voice"] = d.get("voice") or None
     d["is_public"] = bool(d.get("is_public"))
     d["can_be_persona"] = bool(d.get("can_be_persona"))
     d["allow_download"] = bool(d.get("allow_download"))
@@ -53,6 +54,7 @@ async def create(data: dict) -> dict:
         alt_greetings=_encrypt_json_list(data.get("alt_greetings") or []),
         mode=mode,
         assets=json.dumps(data.get("assets") or {}),
+        voice=data.get("voice") or None,
         owner_id=data.get("owner_id"),
         is_public=int(bool(data.get("is_public", False))),
         presentation_html=data.get("presentation_html") or "",
@@ -197,6 +199,7 @@ async def update(cid: str, data: dict) -> dict | None:
         alt_greetings=_encrypt_json_list(data.get("alt_greetings", c["alt_greetings"])),
         mode=mode,
         assets=json.dumps(data.get("assets", c["assets"]) or {}),
+        voice=data.get("voice", c.get("voice")) or None,
         owner_id=owner_id,
         is_public=is_public,
         presentation_html=data.get("presentation_html", c.get("presentation_html", "")),

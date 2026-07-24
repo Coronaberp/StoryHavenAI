@@ -86,6 +86,7 @@ async def get(sid: str) -> dict | None:
     s["char_doing"] = _decrypt_secret(s.get("char_doing") or "") or None
     s["char_location"] = _decrypt_secret(s.get("char_location") or "") or None
     s["known_names"] = _decrypt_secret(s.get("known_names") or "") or "[]"
+    s["voice_overrides"] = json.loads(s.get("voice_overrides") or "{}")
     s["messages"] = await list_messages(sid)
     return s
 
@@ -154,6 +155,13 @@ async def set_char_state(sid: str, doing: str | None, location: str | None,
         char_location=_encrypt_secret(location or "") or None,
         known_names=_encrypt_secret(json.dumps(known_names))))
     log.info("chat_sessions: char state set id=%s", sid)
+
+async def set_voice_overrides(sid: str, overrides: dict) -> None:
+    allowed = {"character_voice", "narrator_voice"}
+    clean = {k: (overrides.get(k) or None) for k in allowed}
+    await _w(sa_update(sessions).where(sessions.c.id == sid)
+             .values(voice_overrides=json.dumps(clean)))
+    log.info("chat_sessions: voice overrides set id=%s", sid)
 
 async def delete(sid: str):
     async with engine().begin() as conn:
