@@ -437,6 +437,7 @@ function route() {
     mediaGen.showUnavailable();
     return;
   }
+  if (typeof window !== "undefined" && window.ttsPlayer) window.ttsPlayer.stop();
   const oldMain = document.getElementById("main");
   const main = oldMain.cloneNode(false);
   main.removeAttribute("style");

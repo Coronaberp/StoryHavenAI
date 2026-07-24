@@ -794,6 +794,8 @@ const UI_STRINGS = {
   chat_conversation_not_found: "That conversation couldn't be found.",
   chat_copied: "Copied.",
   chat_copy: "Copy",
+  tts_speak: "Play voice",
+  tts_failed: "Couldn't play the voice right now.",
   chat_couldnt_auto_generate: "Couldn't auto-generate - write your own.",
   chat_couldnt_branch_that_conversation: "Couldn't branch that conversation.",
   chat_couldnt_change_that_setting: "Couldn't change that setting.",
