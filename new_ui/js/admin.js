@@ -76,8 +76,8 @@ class AdminOverviewView {
 
     this.main.innerHTML = `
       <div class="content-col">
-      ${adminScreenSwitcherHtml("admin", window._adminSwitcherBadges || {})}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_title"), t("ph_admin_sub"))}
+      ${adminScreenSwitcherHtml("admin", window._adminSwitcherBadges || {})}
       <div class="flex gap-2.5 mb-3 flex-wrap">${this.health.map(healthTile).join("")}</div>
       <div class="flex gap-2.5 mb-3 flex-wrap">
         ${statTile(t("admin_stat_users"), this.users.length)}

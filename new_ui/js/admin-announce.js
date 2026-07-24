@@ -9,9 +9,9 @@ class AdminAnnouncePanel {
   render() {
     this.main.innerHTML = `
       <div class="content-col">
-      ${adminScreenSwitcherHtml("admin-announce", window._adminSwitcherBadges || {})}
       ${backLinkHtml("Admin")}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_announce_title", "Announcements"), t("ph_admin_announce_sub", "Send a notification to every active user."))}
+      ${adminScreenSwitcherHtml("admin-announce", window._adminSwitcherBadges || {})}
       <div class="flex flex-col gap-3">
         <label class="flex flex-col gap-1.5">
           <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_title", "Title")}</span>

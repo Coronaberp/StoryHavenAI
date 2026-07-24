@@ -99,9 +99,9 @@ class AdminTrainView {
   render() {
     this.main.innerHTML = `
       <div class="content-col">
-      ${adminScreenSwitcherHtml("admin-train", window._adminSwitcherBadges || {})}
       ${backLinkHtml("Admin")}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_train_title"), t("ph_admin_train_sub"))}
+      ${adminScreenSwitcherHtml("admin-train", window._adminSwitcherBadges || {})}
       ${this.tabBarHtml()}
       ${this.tab === "train" ? this.trainTabHtml() : ""}
       ${this.tab === "progress" ? this.progressTabHtml() : ""}

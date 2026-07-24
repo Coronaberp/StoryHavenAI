@@ -25,9 +25,9 @@ class AdminFeaturesPanel {
   renderShell() {
     this.main.innerHTML = `
       <div class="content-col">
-      ${adminScreenSwitcherHtml("admin-features", window._adminSwitcherBadges || {})}
       ${backLinkHtml("Admin")}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_features_title", "Feature Flags"), t("ph_admin_features_sub", "Disable or restore features platform-wide."))}
+      ${adminScreenSwitcherHtml("admin-features", window._adminSwitcherBadges || {})}
       <div data-admin-features-container></div>
       </div>
     `;

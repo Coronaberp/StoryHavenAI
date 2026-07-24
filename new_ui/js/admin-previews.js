@@ -116,9 +116,9 @@ class AdminPreviewsView {
   render() {
     this.main.innerHTML = `
       <div class="content-col">
-      ${adminScreenSwitcherHtml("admin-previews", window._adminSwitcherBadges || {})}
       ${backLinkHtml("Admin")}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_previews_title"), t("ph_admin_previews_sub"))}
+      ${adminScreenSwitcherHtml("admin-previews", window._adminSwitcherBadges || {})}
       ${ADMIN_PREVIEW_KINDS.map((k) => this.kindSectionHtml(k)).join("")}
       </div>
     `;

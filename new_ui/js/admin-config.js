@@ -409,9 +409,9 @@ AdminConfigView.prototype.render = function () {
   const st = this.st;
   this.main.innerHTML = `
     <div class="content-col">
-    ${adminScreenSwitcherHtml("admin-config", window._adminSwitcherBadges || {})}
     ${backLinkHtml("Admin")}
     ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_config_title"), t("ph_admin_config_sub"))}
+    ${adminScreenSwitcherHtml("admin-config", window._adminSwitcherBadges || {})}
 
     <div class="mb-3">
       <label class="block text-xs text-sec mb-1">${t("admin_config_default_interface_language")}</label>

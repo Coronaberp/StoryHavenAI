@@ -598,9 +598,9 @@ AdminModerationView.prototype.attachMobileCardActions = function () {
 AdminModerationView.prototype.render = function () {
   this.main.innerHTML = `
     <div class="content-col admin-moderation-content">
-    ${adminScreenSwitcherHtml("admin-moderation", window._adminSwitcherBadges || {})}
     ${backLinkHtml("Admin")}
     ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_moderation_title"), `${this.attentionTotal()} items need attention`)}
+    ${adminScreenSwitcherHtml("admin-moderation", window._adminSwitcherBadges || {})}
     ${this.pendingSignupsHtml()}
     ${this.inviteCodesHtml()}
     ${this.flaggedEndpointsHtml()}
