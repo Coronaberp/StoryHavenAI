@@ -1,8 +1,7 @@
 import re
 
-_DIALOGUE_RE = re.compile(r'"([^"]*)"|"([^"]*)"')
+_DIALOGUE_RE = re.compile("\"([^\"]*)\"|“([^”]*)”")
 _OPEN_QUOTES = {'"', chr(0x201c)}
-_CLOSE_QUOTES = {'"', chr(0x201d)}
 
 def segment_speech(text: str) -> list[tuple[str, str]]:
     segments = []

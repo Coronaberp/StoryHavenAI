@@ -16,9 +16,15 @@ def test_segment_mixed():
         ("narration", "she says, stepping aside.")]
 
 def test_segment_curly_quotes():
-    assert segment_speech('He nods. "Of course."') == [
+    assert segment_speech("He nods. “Of course.”") == [
         ("narration", "He nods."),
         ("dialogue", "Of course.")]
+
+def test_segment_closed_curly_not_tail_leak():
+    assert segment_speech("“One.” and “Two.”") == [
+        ("dialogue", "One."),
+        ("narration", "and"),
+        ("dialogue", "Two.")]
 
 def test_segment_unclosed_quote_is_dialogue():
     assert segment_speech('She whispers. "And then everything went dark') == [
