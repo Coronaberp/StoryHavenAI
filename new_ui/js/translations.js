@@ -2176,6 +2176,14 @@ const UI_STRINGS = {
   admin_config_identity_providers_save_button: "Save identity providers",
   admin_config_identity_providers_saved: "Identity providers saved.",
   admin_config_identity_providers_save_failed: "Couldn't save identity providers.",
+  tts_voice_default: "Default",
+  tts_preview: "Preview",
+  tts_character_voice: "Character voice",
+  tts_narrator_voice: "Narrator voice",
+  tts_voice_heading: "Voice",
+  tts_voice_saved: "Voice saved.",
+  tts_voice_save_failed: "Couldn't save the voice settings.",
+  tts_failed: "Couldn't play the voice right now.",
 };
 
 let activeTranslations = null;
