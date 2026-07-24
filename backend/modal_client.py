@@ -1,4 +1,3 @@
-"""Client for the Modal-deployed LoRA training endpoint (modal_app/lora_train.py)."""
 import asyncio
 import json
 import os
@@ -12,25 +11,16 @@ MODEL_CACHE_VOLUME_NAME = "lora-train-model-cache"
 _OUTPUT_SUBDIR = "_outputs"
 _volume = None
 
-
 def _get_volume():
     global _volume
     if _volume is None:
         _volume = modal.Volume.from_name(MODEL_CACHE_VOLUME_NAME)
     return _volume
 
-
 class ModalNotConfigured(RuntimeError):
     pass
 
-
 async def request_checkpoint(job_id: str):
-    """Signals the Modal function that's currently training `job_id` to save
-    and stream an extra checkpoint right now, via the separate (no-GPU,
-    instant) request_checkpoint web endpoint deployed alongside `train` —
-    see modal_app/lora_train.py. This call only sets the flag; the actual
-    checkpoint bytes arrive later as a normal event on the already-open SSE
-    stream from stream_training_job, same as a scheduled checkpoint."""
     url = CFG.get("modal_checkpoint_url") or ""
     secret = CFG.get("modal_shared_secret") or ""
     if not url:
@@ -44,7 +34,6 @@ async def request_checkpoint(job_id: str):
             log.warning("modal checkpoint request failed: job_id=%s status=%s", job_id, resp.status_code)
             raise RuntimeError(f"Modal checkpoint endpoint returned {resp.status_code}: {resp.text[:300]}")
 
-
 def _require_deploy_urls():
     urls = {"train": CFG.get("modal_train_url")}
     secret = CFG.get("modal_shared_secret") or ""
@@ -55,10 +44,8 @@ def _require_deploy_urls():
         raise ModalNotConfigured("modal_shared_secret is not set in Settings")
     return urls, secret
 
-
 async def ensure_model_cached(name: str, local_path: str, on_progress=None):
     await ensure_models_cached([(name, local_path)], on_progress=on_progress)
-
 
 async def ensure_models_cached(items: list[tuple[str, str]], on_progress=None):
     vol = _get_volume()
@@ -93,9 +80,7 @@ async def ensure_models_cached(items: list[tuple[str, str]], on_progress=None):
         for name, path in to_upload:
             await on_progress(name, sizes[name], sizes[name], speed)
 
-
 _DATASET_SUBDIR = "_datasets"
-
 
 async def upload_dataset_images(job_id: str, local_dir: str, on_progress=None):
     vol = _get_volume()
@@ -115,7 +100,6 @@ async def upload_dataset_images(job_id: str, local_dir: str, on_progress=None):
     if on_progress:
         await on_progress(f"dataset ({len(filenames)} files)", total_size, total_size, speed)
 
-
 async def remove_dataset_images(job_id: str):
     vol = _get_volume()
     prefix = f"{_DATASET_SUBDIR}/{job_id}"
@@ -123,10 +107,8 @@ async def remove_dataset_images(job_id: str):
         await vol.remove_file.aio(entry.path.lstrip("/"))
     log.info("dataset upload: job=%s remote files removed", job_id)
 
-
 _PROGRESS_PCT_STEP = 0.05
 _PROGRESS_MIN_STEP_BYTES = 1024 * 1024
-
 
 async def download_output(name: str, dest_path: str, on_progress=None):
     vol = _get_volume()
@@ -160,12 +142,10 @@ async def download_output(name: str, dest_path: str, on_progress=None):
     if on_progress:
         await on_progress(name, received, received, None)
 
-
 async def stream_training_job(config: dict):
     urls, secret = _require_deploy_urls()
     headers = {"Authorization": f"Bearer {secret}"}
-    # No fixed timeout — a training run can legitimately take hours; the
-    # connection just needs to keep flushing SSE lines to stay alive.
+
     async with httpx.AsyncClient(timeout=httpx.Timeout(None)) as client:
         async with client.stream(
                 "POST", urls["train"], headers=headers,
@@ -180,12 +160,5 @@ async def stream_training_job(config: dict):
                     line, buf = buf.split("\n\n", 1)
                     line = line.strip()
                     if line.startswith("data:"):
-                        # The final "done" event carries the entire finished
-                        # LoRA file as one base64 string — json.loads on that
-                        # (tens of MB of text) is a genuinely slow, fully
-                        # synchronous call that blocked this app's single
-                        # shared event loop badly enough once already that
-                        # the whole app (every other request, not just this
-                        # job) froze for minutes and needed a hard restart.
-                        # asyncio.to_thread keeps the loop free during it.
+
                         yield await asyncio.to_thread(json.loads, line[len("data:"):].strip())

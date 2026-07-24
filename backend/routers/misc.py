@@ -1,4 +1,3 @@
-"""Translation/localization, summarize, health, and embed-test routes."""
 import asyncio
 import json
 import re
@@ -26,24 +25,8 @@ SUPPORTED_UI_LANGUAGES = [
 UI_RESYNC_CONCURRENCY = 40
 _ui_resync_running = False
 
-
 @api.post("/report-image")
 async def report_image(body: ContentReportIn, current_user: dict = Depends(get_current_user)):
-    """Generic "lodge a report" for any image on the site that isn't already
-    covered by its own structured review queue (standalone generated images —
-    see /api/imagegen/standalone/{id}/report — and emoji/sticker uploads both
-    have a dedicated approve/deny flow already). Unlike those, there's no
-    per-item column to flip here (an avatar, a banner, a pasted lore-image
-    URL inside custom HTML, ...) — so this writes a content_reports row
-    carrying the actual image URL and target id, so the admin queue's Review
-    button can show the image directly and resolve SFW/NSFW right there —
-    same as every other rating-report queue in the app — instead of just
-    linking off to go look at it manually.
-
-    Duplicate-guard is a real DB lookup for an existing PENDING report from
-    this same reporter against this same target, not a blind time window —
-    a time-window guard kept blocking re-reports for minutes after an admin
-    had already resolved the first one, which read as a broken button."""
     kind = (body.kind or "").strip()[:40] or "content"
     label = (body.label or "").strip()[:200] or "an image"
     note = (body.note or "").strip()[:500]
@@ -65,12 +48,6 @@ async def report_image(body: ContentReportIn, current_user: dict = Depends(get_c
 
 @api.post("/ui-translations")
 async def ui_translations(body: UiTranslateIn, current_user: dict = Depends(get_current_user)):
-    """Looks up the static UI chrome (nav, settings modal, buttons — see UI_STRINGS
-    in translations.js) in the persistent localization cache for the requested language.
-    Read-only: strings not already cached come back as the English source
-    unchanged. An admin can resync missing/changed strings on demand via
-    POST /admin/resync-ui-translations (Server configuration page) rather than
-    a live user's page load ever triggering an LLM call here."""
     lang = (body.lang or "").strip() or "English"
     if lang.lower() == "english" or not body.strings:
         return {"lang": "English", "strings": body.strings}
@@ -78,9 +55,7 @@ async def ui_translations(body: UiTranslateIn, current_user: dict = Depends(get_
     translated = await _localize_texts([body.strings[k] for k in keys], lang)
     return {"lang": lang, "strings": dict(zip(keys, translated))}
 
-
 UI_RESYNC_BATCH_SIZE = 1000
-
 
 async def _run_ui_translation_resync(strings: dict, admin_username: str):
     global _ui_resync_running
@@ -124,15 +99,8 @@ async def _run_ui_translation_resync(strings: dict, admin_username: str):
         log.info("admin: UI translation resync finished by=%s missing=%d translated=%d",
                  admin_username, len(work_items), total_translated)
 
-
 @api.post("/admin/resync-ui-translations")
 async def admin_resync_ui_translations(body: ResyncUiTranslationsIn, current_user: dict = Depends(get_admin)):
-    """Live-translates every currently-missing (string, language) pair across
-    SUPPORTED_UI_LANGUAGES for the UI_STRINGS payload sent by the admin's
-    browser (see new_ui/js/translations.js), so editing English UI copy can be
-    resynced deliberately by an admin instead of a live user's page load
-    ever triggering an LLM call. Runs as a decoupled background task since a
-    large resync can take a while — poll GET /admin/logs to watch progress."""
     global _ui_resync_running
     if not body.strings:
         raise HTTPException(400, "no strings provided")
@@ -142,58 +110,34 @@ async def admin_resync_ui_translations(body: ResyncUiTranslationsIn, current_use
     asyncio.create_task(_run_ui_translation_resync(body.strings, current_user["username"]))
     return {"started": True, "keys": len(body.strings), "languages": len(SUPPORTED_UI_LANGUAGES)}
 
-
 @api.post("/localize")
 async def localize(body: LocalizeIn, current_user: dict = Depends(get_current_user)):
-    """Batch content localization lookup for user-authored display text (scenarios,
-    character personas, greetings, persona descriptions) against the persistent
-    localization table (see _localize_texts) — read-only, strings not already
-    cached (see /api/translate) come back as source text unchanged."""
     texts = [str(t) for t in body.texts][:100]
     if any(len(t) > 20000 for t in texts):
         raise HTTPException(400, "text too long to localize")
     user_overrides = await db.get_user_settings(current_user["id"])
-    # Unlike the UI chrome (whose source is always English), user-authored content can
-    # be written in any language — so English is a real translation target here, not a
-    # passthrough.
+
     lang = (body.lang or "").strip() or _ui_language(user_overrides)
     if not texts:
         return {"lang": lang, "texts": texts}
     translated = await _localize_texts(texts, lang)
     return {"lang": lang, "texts": translated}
 
-
-# Guards against a model going conversational instead of translating (asking
-# for the source text back, apologizing, etc.) — always in English regardless
-# of the target language, so a plain English-phrase match is a reliable tell.
-# A cached refusal like this once surfaced verbatim as a tooltip's "translation".
 _TRANSLATE_REFUSAL_RE = re.compile(
     r"\b(please provide|no (source )?text (was|is) provided|no text was included|"
     r"i (see|notice|apologize)|source text is missing|to translate\??$)|"
     r"(请提供|未提供|没有提供|请提供源文本)",
     re.IGNORECASE)
 
-
 async def translate_text_live(text: str, target: str, chat_model: str, ep: dict,
                               glossary: dict | None = None) -> str:
-    """Live LLM translation with a persistent cache (kind='translate'), shared by
-    the reader-facing on-demand /api/translate button and any other caller that
-    needs an actual translation rather than a cache-only lookup (unlike
-    _localize_texts, this calls the LLM on a cache miss). Proper names are left
-    exactly as written in the source, never transliterated or localized, matching
-    the same rule the main chat generation prompt already follows."""
     text = text.strip()
     if not text:
         return text
     target = target.strip() or "English"
     glossary = glossary or {}
     lang = target.lower()
-    # No glossary: hash the bare text, matching _localize_texts's hash scheme exactly
-    # so a translation done here (on-demand, greeting, lore reveal, ...) is directly
-    # reusable by /api/ui-translations and /api/localize's cache-only lookups, and
-    # vice versa. Only fall back to a glossary-qualified hash when a glossary is
-    # actually in play, since the same source text can translate differently
-    # depending on the session's glossary.
+
     cache_key = (_src_hash(text) if not glossary else
                 _src_hash(text + "\x00" + json.dumps(sorted(glossary.items()), ensure_ascii=False)))
     cached = await localization_repo.get([cache_key], lang)
@@ -248,12 +192,8 @@ async def translate_text_live(text: str, target: str, chat_model: str, ep: dict,
     await localization_repo.set([(cache_key, text, result)], lang, kind="translate")
     return result
 
-
 @api.post("/sessions/{sid}/summarize")
 async def summarize_session(sid: str, current_user: dict = Depends(get_current_user)):
-    """One-off recap: reads the transcript and returns a summary WITHOUT touching
-    session history or memory — nothing here is persisted, so it never pollutes
-    the story with meta/OOC turns."""
     await _own_session(sid, current_user)
     user_overrides = await db.get_user_settings(current_user["id"]) if current_user else {}
     eff = _eff_cfg(user_overrides)
@@ -306,7 +246,6 @@ async def summarize_session(sid: str, current_user: dict = Depends(get_current_u
         raise HTTPException(502, f"summarize failed: {e}")
     return {"summary": "".join(result).strip()}
 
-
 @api.get("/health")
 async def health(_: dict = Depends(get_current_user)):
     out = {"ok": True, "chat_model": CFG["chat_model"], "embed_model": CFG["embed_model"],
@@ -328,7 +267,6 @@ async def health(_: dict = Depends(get_current_user)):
         out["embeddings"] = {"ok": False, "error": str(e)}
     return out
 
-
 @api.post("/settings/test-embed")
 async def test_embed(_: dict = Depends(get_current_user)):
     try:
@@ -336,8 +274,6 @@ async def test_embed(_: dict = Depends(get_current_user)):
         return {"ok": True, "dim": len(vec), "url": llm.embed_url()}
     except Exception as e:
         return {"ok": False, "error": str(e), "url": llm.embed_url()}
-
-
 
 @api.get("/docs/live-config")
 async def docs_live_config(_user: dict = Depends(get_current_user)):

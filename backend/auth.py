@@ -1,5 +1,3 @@
-"""Authentication: JWT access/refresh tokens (whitelisted in the DB), user
-dependencies, login throttle, and the public /api/auth routes."""
 import re
 import secrets
 import time
@@ -10,7 +8,7 @@ from fastapi import HTTPException, Request, Response, Depends
 
 from backend import db
 from backend.repositories import notifications as notification_repo
-from backend.state import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME, auth_router, log
+from backend.state import ACCESS_COOKIE_NAME, CFG, REFRESH_COOKIE_NAME, auth_router, log
 from backend.schemas import (
     LoginIn, PasswordChangeIn, PasswordResetRequestIn, TotpEnableIn, TotpDisableIn,
     TotpPasswordResetIn, TotpLoginEnforcementIn, TotpProvisionIn, RegisterIn,
@@ -24,18 +22,12 @@ JWT_ALG = "HS256"
 
 _USERNAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
-
 def normalize_username(raw: str) -> str:
-    """Usernames are letters/numbers/underscore/hyphen only — spaces are
-    silently folded to hyphens (so "John Doe" -> "John-Doe" instead of being
-    rejected outright) but anything else illegal (commas, punctuation, emoji,
-    etc.) is a hard error, not silently stripped."""
     name = re.sub(r"\s+", "-", (raw or "").strip())
     if not name or not _USERNAME_RE.match(name):
         raise HTTPException(400,
             "Usernames can only contain letters, numbers, underscores, and hyphens.")
     return name
-
 
 def _encode_token(user_id: str, jti: str, token_type: str, ttl: int) -> str:
     now = int(time.time())
@@ -43,7 +35,6 @@ def _encode_token(user_id: str, jti: str, token_type: str, ttl: int) -> str:
         "sub": user_id, "jti": jti, "type": token_type,
         "iat": now, "exp": now + ttl,
     }, db.get_jwt_secret(), algorithm=JWT_ALG)
-
 
 def _decode_token(token: str, expected_type: str) -> dict | None:
     try:
@@ -54,13 +45,11 @@ def _decode_token(token: str, expected_type: str) -> dict | None:
         return None
     return claims
 
-
 def _bearer_token(request: Request) -> str | None:
     header = request.headers.get("Authorization", "")
     if header.startswith("Bearer "):
         return header[len("Bearer "):].strip()
     return None
-
 
 async def _issue_tokens(user_id: str) -> dict:
     access_jti = secrets.token_hex(16)
@@ -74,7 +63,6 @@ async def _issue_tokens(user_id: str) -> dict:
         "refresh_token": refresh_token, "refresh_jti": refresh_jti,
     }
 
-
 def _set_auth_cookies(response: Response, access_token: str, refresh_token: str,
                        secure: bool = True):
     response.set_cookie(
@@ -84,11 +72,9 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str,
         key=REFRESH_COOKIE_NAME, value=refresh_token, max_age=db.REFRESH_TOKEN_TTL,
         httponly=True, secure=secure, samesite="lax", path="/api/auth")
 
-
 def _clear_auth_cookies(response: Response):
     response.delete_cookie(ACCESS_COOKIE_NAME, path="/")
     response.delete_cookie(REFRESH_COOKIE_NAME, path="/api/auth")
-
 
 async def _resolve_access_claims(request: Request) -> dict | None:
     token = _bearer_token(request) or request.cookies.get(ACCESS_COOKIE_NAME)
@@ -101,7 +87,6 @@ async def _resolve_access_claims(request: Request) -> dict | None:
         return None
     return claims
 
-
 async def get_current_user(request: Request) -> dict:
     claims = await _resolve_access_claims(request)
     if not claims:
@@ -111,11 +96,7 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Session expired or invalid")
     return user
 
-
 async def get_current_user_optional(request: Request) -> dict | None:
-    """Same as get_current_user but returns None instead of 401 — for the
-    handful of read-only public/community endpoints that anonymous visitors
-    (the /explore mode) may hit without ever having signed in."""
     claims = await _resolve_access_claims(request)
     if not claims:
         return None
@@ -124,64 +105,40 @@ async def get_current_user_optional(request: Request) -> dict | None:
         return None
     return user
 
-
 async def get_admin(current_user: dict = Depends(get_current_user)) -> dict:
     if not current_user.get("is_admin"):
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
-
 async def get_dev(current_user: dict = Depends(get_admin)) -> dict:
-    """The Dev tier: one step above admin, for the platform's own operator.
-    Sees raw model-request download material (curl commands, API keys) that
-    even other admins don't, and can grant/revoke Dev status on other admins."""
     if current_user.get("role") != "dev":
         raise HTTPException(status_code=403, detail="Dev access required")
     return current_user
-
 
 async def get_experimental_user(current_user: dict = Depends(get_current_user)) -> dict:
     if not current_user.get("experimental_features_enabled"):
         raise HTTPException(status_code=404, detail="Not found")
     return current_user
 
-
-# Simple dependency-free login throttle: failed attempts per (client_ip, username)
-# with timestamps, rejected after _LOGIN_MAX_ATTEMPTS within _LOGIN_WINDOW seconds.
-# Cleared on a successful login; stale entries pruned by the session-cleanup loop.
 _FAILED_LOGINS: dict[tuple[str, str], list[float]] = {}
 _LOGIN_MAX_ATTEMPTS = 5
 _LOGIN_WINDOW = 300
 
-
 def _client_ip(request: Request) -> str:
-    # uvicorn runs with --proxy-headers --forwarded-allow-ips='*', so it already
-    # rewrites request.client.host from cloudflared's X-Forwarded-For — this is
-    # the real client IP, not the tunnel's. No manual header parsing needed here.
+
     return request.client.host if request.client else "unknown"
 
-
-# Per-IP-only spray guard (any username): looser than the per-(ip,username) limit
-# above so a shared NAT/household with several real users mistyping passwords isn't
-# blocked, but an actual password-spray across many usernames from one IP is.
 _LOGIN_IP_SPRAY = SlidingWindow(
     20, 300, "Too many failed attempts from your network — try again in a few minutes")
 
-# Per-IP registration throttle (any outcome — success or validation failure counts),
-# so one IP can't mass-create pending accounts. Generous enough for a shared office/
-# household to sign up a few people; tight enough to stop automated spam.
 _REGISTRATIONS = SlidingWindow(
     5, 3600, "Too many sign-ups from your network — try again later")
 
-# Per-(ip,username) TOTP attempt guard: a 6-digit code has a far smaller search
-# space than a password, so it needs its own tight limit even though the request
-# already passed password verification.
 _TOTP_ATTEMPTS = SlidingWindow(
     8, 300, "Too many verification code attempts — try again in a few minutes")
 
 _TOTP_PROVISIONS = SlidingWindow(
     5, 3600, "Too many verification setups from your network — try again later")
-
 
 def _login_rate_check(ip: str, username: str):
     _LOGIN_IP_SPRAY.check(ip)
@@ -195,15 +152,12 @@ def _login_rate_check(ip: str, username: str):
     if len(attempts) >= _LOGIN_MAX_ATTEMPTS:
         raise HTTPException(429, "Too many failed attempts — try again in a few minutes")
 
-
 def _login_record_failure(ip: str, username: str):
     _FAILED_LOGINS.setdefault((ip, username.lower()), []).append(time.time())
     _LOGIN_IP_SPRAY.record(ip)
 
-
 def _login_clear(ip: str, username: str):
     _FAILED_LOGINS.pop((ip, username.lower()), None)
-
 
 def _prune_login_attempts():
     now = time.time()
@@ -218,7 +172,6 @@ def _prune_login_attempts():
     _TOTP_ATTEMPTS.prune()
     _TOTP_PROVISIONS.prune()
 
-
 @auth_router.post("/totp/provision")
 async def totp_provision(body: TotpProvisionIn, request: Request):
     ip = _client_ip(request)
@@ -230,10 +183,8 @@ async def totp_provision(body: TotpProvisionIn, request: Request):
     log.info("totp provisioned for pending registration: username=%s", username)
     return {"secret": secret, "otpauth_uri": uri}
 
-
 _GUEST_NAME_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789"
 _GUEST_NAME_LEN = 16
-
 
 async def _free_guest_username() -> str:
     for _ in range(20):
@@ -241,7 +192,6 @@ async def _free_guest_username() -> str:
         if not await user_repo.get_user_by_username(candidate):
             return candidate
     raise HTTPException(500, "Couldn't allocate a guest username - try again")
-
 
 @auth_router.post("/register")
 async def register(body: RegisterIn, request: Request):
@@ -301,13 +251,11 @@ async def register(body: RegisterIn, request: Request):
     return {"ok": True, "pending": status == "pending", "backup_codes": backup_codes,
             "username": username}
 
-
 _RESET_REQUESTS: dict[str, list[float]] = {}
 _RESET_MAX_ATTEMPTS = 5
 _RESET_WINDOW = 300
 
 _RESET_GENERIC = "If that account exists, an admin will review your request."
-
 
 def _reset_rate_check(ip: str):
     now = time.time()
@@ -319,10 +267,8 @@ def _reset_rate_check(ip: str):
     if len(attempts) >= _RESET_MAX_ATTEMPTS:
         raise HTTPException(429, "Too many requests — try again in a few minutes")
 
-
 def _reset_record(ip: str):
     _RESET_REQUESTS.setdefault(ip, []).append(time.time())
-
 
 @auth_router.post("/request-password-reset")
 async def request_password_reset(body: PasswordResetRequestIn, request: Request):
@@ -338,7 +284,6 @@ async def request_password_reset(body: PasswordResetRequestIn, request: Request)
         log.info("password reset requested: username=%s", user_row["username"])
     return {"ok": True, "message": _RESET_GENERIC}
 
-
 async def _verify_totp(user_row: dict, code: str | None) -> bool:
     if not code:
         return False
@@ -347,15 +292,10 @@ async def _verify_totp(user_row: dict, code: str | None) -> bool:
         return True
     return await user_repo.consume_totp_backup_code(user_row["id"], code.strip())
 
-
 _TOTP_RESET_GENERIC = "Two-factor recovery is not available for this account, or the code was invalid."
-
 
 @auth_router.post("/password-reset/totp")
 async def totp_password_reset(body: TotpPasswordResetIn, request: Request):
-    """Self-service account recovery: proving control of a TOTP device/backup
-    code resets the password directly, no admin approval needed — distinct
-    from /request-password-reset (admin-mediated, for accounts without TOTP)."""
     ip = _client_ip(request)
     username = normalize_username(body.username)
     _reset_rate_check(ip)
@@ -375,7 +315,6 @@ async def totp_password_reset(body: TotpPasswordResetIn, request: Request):
     await user_repo.revoke_user_tokens(user_row["id"])
     log.info("password reset via totp: username=%s user_id=%s", username, user_row["id"])
     return {"ok": True}
-
 
 @auth_router.post("/login")
 async def login(body: LoginIn, request: Request, response: Response):
@@ -412,11 +351,7 @@ async def login(body: LoginIn, request: Request, response: Response):
         raise HTTPException(status_code=403, detail="Account access denied")
     _login_clear(ip, username)
     tokens = await _issue_tokens(user_row["id"])
-    # request.url.scheme correctly reports "https" behind the Cloudflare tunnel
-    # (uvicorn is started with --proxy-headers --forwarded-allow-ips='*', so it
-    # trusts X-Forwarded-Proto from cloudflared) and "http" for direct local
-    # access — hardcoding Secure=True would silently break login over plain
-    # http://localhost:3000.
+
     _set_auth_cookies(response, tokens["access_token"], tokens["refresh_token"],
                        secure=request.url.scheme == "https")
     log.info("login: username=%s user_id=%s", user_row["username"], user_row["id"])
@@ -428,16 +363,8 @@ async def login(body: LoginIn, request: Request, response: Response):
             "token_type": "bearer",
             "expires_in": db.ACCESS_TOKEN_TTL}
 
-
 @auth_router.post("/refresh")
 async def refresh(request: Request, response: Response):
-    """Rotates the refresh token on every call, not just the access token:
-    the presented jti is marked used (never deleted) and a brand new refresh
-    jti is issued in its place. If that same now-used jti is ever presented
-    again — the only way that happens is a stolen token being replayed
-    alongside (or after) the legitimate client's own rotation — it's treated
-    as theft: every token for the account, access and refresh alike, is
-    revoked immediately rather than just rejecting the one request."""
     token = _bearer_token(request) or request.cookies.get(REFRESH_COOKIE_NAME)
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -468,7 +395,6 @@ async def refresh(request: Request, response: Response):
     return {"access_token": tokens["access_token"], "refresh_token": tokens["refresh_token"],
             "token_type": "bearer", "expires_in": db.ACCESS_TOKEN_TTL}
 
-
 @auth_router.post("/logout")
 async def logout(request: Request, response: Response):
     access_token = _bearer_token(request) or request.cookies.get(ACCESS_COOKIE_NAME)
@@ -487,12 +413,11 @@ async def logout(request: Request, response: Response):
     _clear_auth_cookies(response)
     return {"ok": True}
 
-
 @auth_router.get("/me")
 async def me(current_user: dict = Depends(get_current_user)):
     user_overrides = await user_repo.get_user_settings(current_user["id"])
-    return {**current_user, "interface_language": user_overrides.get("interface_language")}
-
+    return {**current_user, "interface_language": user_overrides.get("interface_language"),
+            "nsfw_classification_enabled": bool(CFG.get("nsfw_classification", True))}
 
 @auth_router.put("/password")
 async def change_password(body: PasswordChangeIn, request: Request,
@@ -512,10 +437,8 @@ async def change_password(body: PasswordChangeIn, request: Request,
     log.info("password changed: username=%s user_id=%s", current_user["username"], current_user["id"])
     return {"ok": True}
 
-
 def _generate_backup_codes(count: int = 8) -> list[str]:
     return [secrets.token_hex(4) for _ in range(count)]
-
 
 @auth_router.post("/totp/setup")
 async def totp_setup(current_user: dict = Depends(get_current_user)):
@@ -528,12 +451,8 @@ async def totp_setup(current_user: dict = Depends(get_current_user)):
     log.info("totp setup started: username=%s user_id=%s", current_user["username"], current_user["id"])
     return {"secret": secret, "otpauth_uri": uri}
 
-
 @auth_router.post("/totp/enable")
 async def totp_enable(body: TotpEnableIn, current_user: dict = Depends(get_current_user)):
-    """Configures TOTP as an account-recovery method (see /password-reset/totp).
-    This alone does NOT require a code at login — that's a separate opt-in,
-    see /totp/login-enforcement."""
     if current_user.get("totp_enabled"):
         raise HTTPException(400, "TOTP is already configured for this account")
     secret = await user_repo.get_totp_secret(current_user["id"])
@@ -548,11 +467,8 @@ async def totp_enable(body: TotpEnableIn, current_user: dict = Depends(get_curre
     log.info("totp enabled: username=%s user_id=%s", current_user["username"], current_user["id"])
     return {"ok": True, "backup_codes": backup_codes}
 
-
 @auth_router.post("/totp/disable")
 async def totp_disable(body: TotpDisableIn, current_user: dict = Depends(get_current_user)):
-    """Removes TOTP entirely — also drops login enforcement, since it can't be
-    required once there's no secret left to check it against."""
     user_row = await user_repo.get_user_by_username(current_user["username"])
     if not db.verify_password(body.password, user_row["password_hash"]):
         log.warning("totp disable failed: username=%s reason=wrong_password", current_user["username"])
@@ -565,13 +481,9 @@ async def totp_disable(body: TotpDisableIn, current_user: dict = Depends(get_cur
     log.info("totp disabled: username=%s user_id=%s", current_user["username"], current_user["id"])
     return {"ok": True}
 
-
 @auth_router.put("/totp/login-enforcement")
 async def totp_login_enforcement(body: TotpLoginEnforcementIn,
                                  current_user: dict = Depends(get_current_user)):
-    """The explicit second opt-in that actually makes /login demand a TOTP
-    code — configuring TOTP via /totp/enable alone only makes it available
-    for /password-reset/totp recovery."""
     if not current_user.get("totp_enabled"):
         raise HTTPException(400, "Configure TOTP via /totp/setup and /totp/enable first")
     user_row = await user_repo.get_user_by_username(current_user["username"])

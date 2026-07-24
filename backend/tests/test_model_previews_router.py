@@ -17,16 +17,13 @@ _PNG_BYTES = bytes.fromhex(
     "89504e470d0a1a0a0000000d494844520000000100000001080600000"
     "01f15c4890000000c4944415478da63646060601a01000005000103d18f7c8f0000000049454e44ae426082")
 
-
 def _upload(filename="preview.png", data=_PNG_BYTES):
     return UploadFile(file=io.BytesIO(data), filename=filename)
-
 
 async def test_admin_only_routes_reject_plain_user():
     with pytest.raises(HTTPException) as exc_info:
         await get_admin(current_user=PLAIN_USER)
     assert exc_info.value.status_code == 403
-
 
 async def test_checkpoint_meta_route_sets_and_returns_meta(db_conn):
     body = ModelMetaIn(display_name="My Checkpoint", description="a nice checkpoint",
@@ -37,7 +34,6 @@ async def test_checkpoint_meta_route_sets_and_returns_meta(db_conn):
     assert result["display_name"] == "My Checkpoint"
     stored = await checkpoints.list_previews()
     assert stored["ckpt-a.safetensors"]["model_type"] == "sdxl"
-
 
 async def test_checkpoint_preview_upload_and_clear(db_conn, monkeypatch):
     monkeypatch.setattr(model_previews, "MEDIA_DIR", "/tmp")
@@ -54,7 +50,6 @@ async def test_checkpoint_preview_upload_and_clear(db_conn, monkeypatch):
     assert cleared == {"cleared": True}
     assert (await checkpoints.get_preview("ckpt-b.safetensors")) is None
 
-
 async def test_get_imagegen_checkpoints_wraps_comfyui_errors(db_conn, monkeypatch):
     from backend import imagegen
     async def _boom(url):
@@ -66,7 +61,6 @@ async def test_get_imagegen_checkpoints_wraps_comfyui_errors(db_conn, monkeypatc
 
     assert exc_info.value.status_code == 502
 
-
 async def test_get_imagegen_checkpoints_returns_list(db_conn, monkeypatch):
     from backend import imagegen
     async def _fake_list(url):
@@ -76,7 +70,6 @@ async def test_get_imagegen_checkpoints_returns_list(db_conn, monkeypatch):
     result = await model_previews.get_imagegen_checkpoints(current_user=PLAIN_USER)
 
     assert result == ["ckpt-a.safetensors", "ckpt-b.safetensors"]
-
 
 async def test_get_imagegen_loras_hides_unpublished_for_plain_user(db_conn, monkeypatch):
     from backend import imagegen
@@ -89,7 +82,6 @@ async def test_get_imagegen_loras_hides_unpublished_for_plain_user(db_conn, monk
 
     assert result == ["public-lora.safetensors"]
 
-
 async def test_get_imagegen_loras_shows_everything_for_admin(db_conn, monkeypatch):
     from backend import imagegen
     async def _fake_list(url):
@@ -101,7 +93,6 @@ async def test_get_imagegen_loras_shows_everything_for_admin(db_conn, monkeypatc
 
     assert set(result) == {"public-lora.safetensors", "gated-lora-2.safetensors"}
 
-
 async def test_lora_meta_route_rejects_invalid_category(db_conn):
     body = ModelMetaIn(display_name="X", model_category=["not-a-real-category"])
 
@@ -110,14 +101,12 @@ async def test_lora_meta_route_rejects_invalid_category(db_conn):
 
     assert exc_info.value.status_code == 400
 
-
 async def test_lora_meta_route_accepts_valid_category(db_conn):
     body = ModelMetaIn(display_name="X", model_category=["sdxl", "pony"], keywords=["my trigger"])
 
     result = await model_previews.set_lora_meta_route("lora-y.safetensors", body, current_user=ADMIN)
 
     assert result["model_category"] == ["sdxl", "pony"]
-
 
 async def test_publish_lora_route_requires_gated_lora(db_conn):
     body = LoraPublishIn(published=True)
@@ -127,7 +116,6 @@ async def test_publish_lora_route_requires_gated_lora(db_conn):
 
     assert exc_info.value.status_code == 404
 
-
 async def test_publish_lora_route_publishes_gated_lora(db_conn):
     await loras.gate_visibility("gated-for-publish.safetensors", "u_mp_admin")
     body = LoraPublishIn(published=True)
@@ -136,13 +124,11 @@ async def test_publish_lora_route_publishes_gated_lora(db_conn):
 
     assert result["is_published"] is True
 
-
 async def test_delete_model_file_rejects_unsupported_kind(db_conn):
     with pytest.raises(HTTPException) as exc_info:
         await model_previews.delete_model_file("nope", "some-file.safetensors", current_user=ADMIN)
 
     assert exc_info.value.status_code == 400
-
 
 async def test_delete_model_file_missing_file_404s(db_conn, monkeypatch, tmp_path):
     monkeypatch.setitem(model_previews._DELETABLE_MODEL_DIRS, "ckpt", str(tmp_path))
@@ -151,7 +137,6 @@ async def test_delete_model_file_missing_file_404s(db_conn, monkeypatch, tmp_pat
         await model_previews.delete_model_file("ckpt", "missing-file.safetensors", current_user=ADMIN)
 
     assert exc_info.value.status_code == 404
-
 
 async def test_delete_model_file_removes_file_and_preview(db_conn, monkeypatch, tmp_path):
     target = tmp_path / "real-ckpt.safetensors"
@@ -164,7 +149,6 @@ async def test_delete_model_file_removes_file_and_preview(db_conn, monkeypatch, 
     assert result == {"deleted": True}
     assert not target.exists()
     assert (await checkpoints.get_preview("real-ckpt.safetensors")) is None
-
 
 async def test_sampler_meta_and_preview_roundtrip(db_conn, monkeypatch):
     async def _fake_save(data, basename, ext, allow_animated=False):
@@ -185,7 +169,6 @@ async def test_sampler_meta_and_preview_roundtrip(db_conn, monkeypatch):
     cleared = await model_previews.clear_sampler_preview("euler_a", current_user=ADMIN)
     assert cleared == {"cleared": True}
 
-
 async def test_scheduler_meta_and_preview_roundtrip(db_conn, monkeypatch):
     async def _fake_save(data, basename, ext, allow_animated=False):
         return ".png"
@@ -202,7 +185,6 @@ async def test_scheduler_meta_and_preview_roundtrip(db_conn, monkeypatch):
     cleared = await model_previews.clear_scheduler_preview("karras", current_user=ADMIN)
     assert cleared == {"cleared": True}
 
-
 async def test_upscaler_meta_and_preview_roundtrip(db_conn, monkeypatch):
     async def _fake_save(data, basename, ext, allow_animated=False):
         return ".png"
@@ -218,7 +200,6 @@ async def test_upscaler_meta_and_preview_roundtrip(db_conn, monkeypatch):
 
     cleared = await model_previews.clear_upscaler_preview("4x-ultrasharp", current_user=ADMIN)
     assert cleared == {"cleared": True}
-
 
 async def test_get_imagegen_upscalers_wraps_comfyui_errors(db_conn, monkeypatch):
     from backend import imagegen

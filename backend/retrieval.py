@@ -9,15 +9,12 @@ from backend.repositories import lore_chunks as lore_chunks_repo
 LORE_CHUNK_THRESHOLD_TOKENS = 450
 LORE_RECURSION_MAX_DEPTH = 2
 
-
 def _estimate_tokens(text: str) -> int:
     return len(text) // 4 + 1
-
 
 def _split_into_sentences(text: str) -> list[str]:
     sentences = re.split(r"(?<=[.!?])\s+", text.strip())
     return [s for s in sentences if s]
-
 
 def _split_oversized_sentence(sentence: str, limit_tokens: int) -> list[str]:
     words = sentence.split(" ")
@@ -38,7 +35,6 @@ def _split_oversized_sentence(sentence: str, limit_tokens: int) -> list[str]:
         pieces.append(" ".join(current))
     return pieces
 
-
 def _pack_sentences(sentences: list[str], limit_tokens: int) -> list[str]:
     packed, current = [], []
     current_tokens = 0
@@ -58,7 +54,6 @@ def _pack_sentences(sentences: list[str], limit_tokens: int) -> list[str]:
     if current:
         packed.append(" ".join(current))
     return packed
-
 
 def chunk_lore_content(content: str) -> list[str]:
     if _estimate_tokens(content) <= LORE_CHUNK_THRESHOLD_TOKENS:
@@ -85,7 +80,6 @@ def chunk_lore_content(content: str) -> list[str]:
         chunks.append("\n\n".join(current))
     return chunks
 
-
 async def index_lore(lid, char_id, content, name: str = "", category: str = ""):
     try:
         prefix = ", ".join(p for p in (category, name) if p)
@@ -108,16 +102,13 @@ async def index_lore(lid, char_id, content, name: str = "", category: str = ""):
     except Exception as e:
         log.warning("lore embedding failed for %s: %s", lid, e)
 
-
 _CJK_RE = re.compile(r"[一-鿿぀-ヿ가-힯]")
-
 
 def _key_in_text(key: str, text_lower: str) -> bool:
     key_lower = key.lower()
     if _CJK_RE.search(key_lower):
         return key_lower in text_lower
     return re.search(r"\b" + re.escape(key_lower) + r"\b", text_lower) is not None
-
 
 def _entry_matches(e: dict, text_lower: str) -> bool:
     if not any(_key_in_text(k, text_lower) for k in e["keys"]):
@@ -127,7 +118,6 @@ def _entry_matches(e: dict, text_lower: str) -> bool:
     if e["exclude_keys"] and any(_key_in_text(k, text_lower) for k in e["exclude_keys"]):
         return False
     return True
-
 
 async def retrieve(char_id, session_id, query, recent, viewer_id: str | None = None) -> tuple[list[dict], None]:
     rt = (recent or "").lower()

@@ -1,9 +1,6 @@
-"""Character mood-tag parsing — the trailing [mood: X] tag a character with
-stage/music/sprite assets is asked to append to each reply."""
 import re
 
 MOOD_RE = re.compile(r"\[mood:\s*([a-z0-9 _\-]+)\]\s*$", re.I)
-
 
 def character_moods(char):
     a = char.get("assets") or {}
@@ -11,7 +8,6 @@ def character_moods(char):
     for sect in ("stage", "music", "sprites"):
         moods.update((a.get(sect) or {}).get("moods", {}).keys())
     return sorted(moods)
-
 
 def parse_mood(text, moods):
     text = text or ""

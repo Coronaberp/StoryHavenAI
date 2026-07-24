@@ -6,10 +6,8 @@ from backend.schemas import LoreIn
 
 pytestmark = pytest.mark.asyncio
 
-
 async def _make_lore(db_conn, char_id=None, name="test-lore", content="secret content"):
     return await lore.create(char_id, ["alpha", "beta"], content, always=False, name=name)
-
 
 async def test_create_and_get(db_conn):
     lid = await _make_lore(db_conn)
@@ -21,10 +19,8 @@ async def test_create_and_get(db_conn):
     assert entry["always"] is False
     assert entry["global"] is True
 
-
 async def test_get_missing_returns_none(db_conn):
     assert await lore.get("nonexistent") is None
-
 
 async def test_list_for_character_scopes_global_to_viewer(db_conn):
     mine = await lore.create(None, ["k"], "my global", always=False, name="mine", owner_id="user-a")
@@ -32,12 +28,10 @@ async def test_list_for_character_scopes_global_to_viewer(db_conn):
     ids = {e["id"] for e in await lore.list_for_character("some-char-id", "user-a")}
     assert mine in ids and theirs not in ids
 
-
 async def test_list_for_character_no_viewer_excludes_global(db_conn):
     lid = await lore.create(None, ["k"], "global", always=False, name="g", owner_id="user-a")
     ids = {e["id"] for e in await lore.list_for_character("some-char-id")}
     assert lid not in ids
-
 
 async def test_update(db_conn):
     lid = await _make_lore(db_conn, name="before-update")
@@ -50,16 +44,13 @@ async def test_update(db_conn):
     assert entry["hidden"] is True
     assert entry["name"] == "before-update"
 
-
 async def test_update_missing_returns_false(db_conn):
     assert await lore.update("nonexistent", ["k"], "c", always=False) is False
-
 
 async def test_delete(db_conn):
     lid = await _make_lore(db_conn)
     await lore.delete(lid)
     assert await lore.get(lid) is None
-
 
 async def test_by_ids(db_conn):
     lid1 = await _make_lore(db_conn, name="one")
@@ -68,10 +59,8 @@ async def test_by_ids(db_conn):
     ids = {e["id"] for e in entries}
     assert ids == {lid1, lid2}
 
-
 async def test_by_ids_empty_list(db_conn):
     assert await lore.by_ids([]) == []
-
 
 async def test_list_mine_scoped_to_owner(db_conn):
     from backend.repositories import characters as characters_repo
@@ -88,10 +77,8 @@ async def test_list_mine_scoped_to_owner(db_conn):
     assert ids == [lid_a2, lid_a1]
     assert all(e["name"] in ("a1", "a2") for e in entries)
 
-
 async def test_list_mine_no_characters_returns_empty(db_conn):
     assert await lore.list_mine("nobody") == []
-
 
 async def test_list_mine_includes_only_own_global_lore(db_conn):
     from backend.repositories import characters as characters_repo
@@ -107,7 +94,6 @@ async def test_list_mine_includes_only_own_global_lore(db_conn):
     assert "owned" in names and "my-global" in names
     assert "their-global" not in names and "legacy-global" not in names
 
-
 async def test_add_lore_route_ignores_global_flag(db_conn):
     from backend.repositories import characters as characters_repo
     from backend.routers.lore import add_lore
@@ -121,7 +107,6 @@ async def test_add_lore_route_ignores_global_flag(db_conn):
     entry = await lore.get(result["id"])
     assert entry["global"] is False and entry["char_id"] == char["id"]
 
-
 async def test_add_global_lore_route_sets_owner(db_conn):
     from backend.routers.lore import add_global_lore
 
@@ -132,7 +117,6 @@ async def test_add_global_lore_route_sets_owner(db_conn):
 
     entry = await lore.get(result["id"])
     assert entry["global"] is True and entry["owner_id"] == "user-a"
-
 
 async def test_global_lore_edit_scoped_to_owner(db_conn):
     from backend.routers.lore import update_lore
@@ -149,12 +133,10 @@ async def test_global_lore_edit_scoped_to_owner(db_conn):
     await update_lore(lid, body, current_user=owner)
     assert (await lore.get(lid))["content"] == "changed"
 
-
 async def test_usable_as_persona_defaults_false(db_conn):
     lid = await _make_lore(db_conn)
     entry = await lore.get(lid)
     assert entry["usable_as_persona"] is False
-
 
 async def test_set_usable_as_persona(db_conn):
     lid = await _make_lore(db_conn)
@@ -164,7 +146,6 @@ async def test_set_usable_as_persona(db_conn):
     await lore.set_usable_as_persona(lid, False)
     entry = await lore.get(lid)
     assert entry["usable_as_persona"] is False
-
 
 async def test_set_lore_usable_as_persona_route_permission(db_conn):
     from backend.repositories import characters as characters_repo
@@ -184,7 +165,6 @@ async def test_set_lore_usable_as_persona_route_permission(db_conn):
     assert result["usable_as_persona"] is True
     entry = await lore.get(lid)
     assert entry["usable_as_persona"] is True
-
 
 async def test_become_persona_from_lore_permission_gate(db_conn):
     from backend.repositories import characters as characters_repo
@@ -209,7 +189,6 @@ async def test_become_persona_from_lore_permission_gate(db_conn):
     assert stranger_persona["name"] == "Urabel"
     assert stranger_persona["id"] != owner_persona["id"]
 
-
 async def test_become_persona_from_lore_blocks_hidden_for_non_owner(db_conn):
     from backend.repositories import characters as characters_repo
     from backend.routers.lore import become_persona_from_lore
@@ -228,14 +207,12 @@ async def test_become_persona_from_lore_blocks_hidden_for_non_owner(db_conn):
     owner_persona = await become_persona_from_lore(lid, current_user=owner)
     assert owner_persona["name"] == "Kestrel"
 
-
 async def test_delete_cleans_up_links(db_conn):
     a = await lore.create(None, [], "a-content", always=False, name="a")
     b = await lore.create(None, [], "b-content", always=False, name="b")
     await lore_links.set_link(a, b, "lives in")
     await lore.delete(a)
     assert await lore_links.incoming_for(b) == []
-
 
 async def test_list_lore_route_strips_link_labels_touching_hidden_entries(db_conn):
     from backend.repositories import characters as characters_repo
@@ -271,7 +248,6 @@ async def test_list_lore_route_strips_link_labels_touching_hidden_entries(db_con
     assert secret_entry["outgoing_links"][0]["label"] == ""
     assert visible_entry["outgoing_links"][0]["target_id"] == secret2
 
-
 async def test_update_deletes_secrets_when_content_changes(db_conn):
     from backend.repositories import lore_secrets as ls
 
@@ -279,7 +255,6 @@ async def test_update_deletes_secrets_when_content_changes(db_conn):
     await ls.set_secrets(lid, ["a secret"])
     await lore.update(lid, [], "new content", always=False)
     assert await ls.secrets_for(lid) == []
-
 
 async def test_update_keeps_secrets_when_content_unchanged(db_conn):
     from backend.repositories import lore_secrets as ls
@@ -290,14 +265,12 @@ async def test_update_keeps_secrets_when_content_unchanged(db_conn):
     result = await ls.secrets_for(lid)
     assert len(result) == 1
 
-
 async def test_create_and_get_persists_require_and_exclude_keys(db_conn):
     lid = await lore.create("char-req-1", ["dragon"], "content", False,
                                  require_keys=["cave"], exclude_keys=["slain"])
     entry = await lore.get(lid)
     assert entry["require_keys"] == ["cave"]
     assert entry["exclude_keys"] == ["slain"]
-
 
 async def test_update_changes_require_and_exclude_keys(db_conn):
     lid = await lore.create("char-req-2", ["dragon"], "content", False)

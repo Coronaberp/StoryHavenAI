@@ -31,7 +31,6 @@ async def _require_can_edit(entry: dict, current_user: dict) -> None:
     if entry.get("owner_id") != current_user["id"]:
         raise HTTPException(403, "Not authorized")
 
-
 async def _attach_links(entries: list[dict]) -> None:
     ids = [e["id"] for e in entries]
     outgoing = await lore_links.outgoing_for_many(ids)
@@ -40,18 +39,15 @@ async def _attach_links(entries: list[dict]) -> None:
         e["outgoing_links"] = outgoing.get(e["id"], [])
         e["incoming_links"] = incoming.get(e["id"], [])
 
-
 @api.get("/lore/mine")
 async def list_my_lore(current_user: dict = Depends(get_current_user)):
     entries = await lore.list_mine(current_user["id"])
     await _attach_links(entries)
     return entries
 
-
 @api.post("/lore/preview-chunks")
 async def preview_lore_chunks(body: LoreChunkPreviewIn, current_user: dict = Depends(get_current_user)):
     return {"chunks": chunk_lore_content(body.content)}
-
 
 @api.get("/characters/{cid}/lore")
 async def list_lore(cid: str, current_user: dict | None = Depends(get_current_user_optional)):
@@ -77,7 +73,6 @@ async def list_lore(cid: str, current_user: dict | None = Depends(get_current_us
                     l["label"] = ""
     return entries
 
-
 @api.post("/characters/{cid}/lore")
 async def add_lore(cid: str, body: LoreIn, current_user: dict = Depends(get_current_user),
                     _feature_ok: None = Depends(require_feature_enabled("lore"))):
@@ -92,7 +87,6 @@ async def add_lore(cid: str, body: LoreIn, current_user: dict = Depends(get_curr
     log.info("lore: created id=%s char=%s by=%s", lid, cid, current_user["username"])
     return {"id": lid}
 
-
 @api.post("/lore/global")
 async def add_global_lore(body: LoreIn, current_user: dict = Depends(get_current_user),
                           _feature_ok: None = Depends(require_feature_enabled("lore"))):
@@ -102,7 +96,6 @@ async def add_global_lore(body: LoreIn, current_user: dict = Depends(get_current
     lid = await _create_entry(None, current_user["id"], body, current_user)
     log.info("lore: global entry created id=%s owner=%s", lid, current_user["username"])
     return {"id": lid}
-
 
 async def _create_entry(char_id: str | None, owner_id: str | None, body: LoreIn,
                         current_user: dict) -> str:
@@ -121,7 +114,6 @@ async def _create_entry(char_id: str | None, owner_id: str | None, body: LoreIn,
     await index_lore(lid, char_id, body.content, body.name, body.category)
     return lid
 
-
 @api.post("/lore/media")
 async def upload_lore_media(file: UploadFile = File(...),
                             current_user: dict = Depends(get_current_user)):
@@ -134,7 +126,6 @@ async def upload_lore_media(file: UploadFile = File(...),
     ext = await _save_uploaded_image(data, basename, ext)
     log.info("lore media uploaded: by=%s file=%s", current_user["id"], basename + ext)
     return {"url": f"/media/{basename}{ext}"}
-
 
 @api.put("/lore/{lid}")
 async def update_lore(lid: str, body: LoreIn, current_user: dict = Depends(get_current_user)):
@@ -163,7 +154,6 @@ async def update_lore(lid: str, body: LoreIn, current_user: dict = Depends(get_c
     log.info("lore: updated id=%s by=%s", lid, current_user["username"])
     return {"id": lid}
 
-
 @api.put("/lore/{lid}/usable-as-persona")
 async def set_lore_usable_as_persona(lid: str, body: LorePersonaToggleIn,
                                      current_user: dict = Depends(get_current_user)):
@@ -174,7 +164,6 @@ async def set_lore_usable_as_persona(lid: str, body: LorePersonaToggleIn,
     await lore.set_usable_as_persona(lid, body.value)
     log.info("lore: usable_as_persona toggled id=%s value=%s by=%s", lid, body.value, current_user["username"])
     return {"id": lid, "usable_as_persona": body.value}
-
 
 @api.post("/lore/{lid}/persona")
 async def become_persona_from_lore(lid: str, current_user: dict = Depends(get_current_user)):
@@ -193,7 +182,6 @@ async def become_persona_from_lore(lid: str, current_user: dict = Depends(get_cu
     log.info("lore: persona created from entry=%s by=%s", lid, current_user["username"])
     return p
 
-
 @api.delete("/lore/{lid}")
 async def delete_lore(lid: str, current_user: dict = Depends(get_current_user)):
     entry = await lore.get(lid)
@@ -206,7 +194,6 @@ async def delete_lore(lid: str, current_user: dict = Depends(get_current_user)):
     await lore_secrets.delete_secrets(lid)
     log.info("lore: deleted id=%s by=%s", lid, current_user["username"])
     return {"deleted": True}
-
 
 @api.put("/lore/{lid}/links")
 async def set_lore_links(lid: str, body: LoreLinksIn, current_user: dict = Depends(get_current_user)):

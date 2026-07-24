@@ -6,15 +6,12 @@ from backend.repositories import oauth_providers as provider_repo
 
 pytestmark = pytest.mark.asyncio
 
-
 async def _clear_providers():
     await db._w(sa_delete(db.oauth_providers))
-
 
 async def test_oauth_providers_table_exists(db_conn):
     result = await db._q(select(db.oauth_providers).limit(0))
     assert result == []
-
 
 async def test_upsert_and_get(db_conn):
     await provider_repo.upsert("google", "client-123", "secret-abc", True)
@@ -24,7 +21,6 @@ async def test_upsert_and_get(db_conn):
     assert row["client_secret"] == "secret-abc"
     assert row["enabled"] is True
 
-
 async def test_upsert_overwrites(db_conn):
     await provider_repo.upsert("github", "id-1", "secret-1", True)
     await provider_repo.upsert("github", "id-2", "secret-2", False)
@@ -33,14 +29,12 @@ async def test_upsert_overwrites(db_conn):
     assert row["client_secret"] == "secret-2"
     assert row["enabled"] is False
 
-
 async def test_upsert_keeps_existing_secret_when_none_passed(db_conn):
     await provider_repo.upsert("discord", "id-1", "secret-1", True)
     await provider_repo.upsert("discord", "id-1-new", None, True)
     row = await provider_repo.get("discord")
     assert row["client_id"] == "id-1-new"
     assert row["client_secret"] == "secret-1"
-
 
 async def test_upsert_stores_encrypted_secret(db_conn):
     plaintext = "super-secret-value"
@@ -50,10 +44,8 @@ async def test_upsert_stores_encrypted_secret(db_conn):
     assert raw_secret.startswith("enc:")
     assert raw_secret != plaintext
 
-
 async def test_get_missing_returns_none(db_conn):
     assert await provider_repo.get("not-configured") is None
-
 
 async def test_list_all(db_conn):
     await _clear_providers()
@@ -63,7 +55,6 @@ async def test_list_all(db_conn):
     providers = {r["provider"] for r in rows}
     assert providers == {"google", "github"}
 
-
 async def test_list_enabled_excludes_disabled(db_conn):
     await _clear_providers()
     await provider_repo.upsert("google", "id", "secret", True)
@@ -71,13 +62,11 @@ async def test_list_enabled_excludes_disabled(db_conn):
     rows = await provider_repo.list_enabled()
     assert [r["provider"] for r in rows] == ["google"]
 
-
 async def test_list_enabled_excludes_missing_client_id(db_conn):
     await _clear_providers()
     await provider_repo.upsert("google", "", "secret", True)
     rows = await provider_repo.list_enabled()
     assert rows == []
-
 
 async def test_list_enabled_excludes_missing_secret(db_conn):
     await _clear_providers()

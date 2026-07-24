@@ -1,11 +1,3 @@
-"""
-vectors.py — vector storage + similarity search (PostgreSQL + pgvector).
-
-Embeddings live in two tables (memory_vectors/lore_vectors) with HNSW cosine
-indexes, sharing db.py's engine. Postgres owns the readable relational data;
-this module owns the embeddings. Cosine distance is the metric (pgvector <=>),
-so the max_dist thresholds are plain cosine distances.
-"""
 import logging
 import numpy as np
 
@@ -19,24 +11,19 @@ _meta = sa.MetaData()
 _mem_tbl = None
 _lore_tbl = None
 
-
 def _engine():
     from backend import db
     return db.engine()
-
 
 def _encrypt_secret(s: str) -> str:
     from backend import db
     return db._encrypt_secret(s)
 
-
 def _decrypt_secret(s: str) -> str:
     from backend import db
     return db._decrypt_secret(s)
 
-
 def _build_tables(dim: int):
-    """(Re)build the vector Table objects for the given embedding dimension."""
     global _mem_tbl, _lore_tbl, _meta, _dim
     from pgvector.sqlalchemy import Vector
     _dim = dim
@@ -58,18 +45,14 @@ def _build_tables(dim: int):
         sa.Column("embedding", Vector(dim)),
     )
 
-
 def connect():
     pass
-
 
 async def close():
     pass
 
-
 def _to_list(vec):
     return np.asarray(vec, dtype=np.float32).tolist()
-
 
 async def ensure_indexes(dim: int):
     _build_tables(dim)
@@ -94,10 +77,7 @@ async def ensure_indexes(dim: int):
     from backend.repositories import memory_facts
     await memory_facts.ensure_tables(dim)
 
-
 async def reset_indexes(dim: int):
-    """Drop and recreate both vector tables — used when the embedding dimension
-    changes, since vectors of different sizes can't coexist in one index."""
     async with _engine().begin() as conn:
         await conn.execute(sa.text("DROP TABLE IF EXISTS memory_vectors"))
         await conn.execute(sa.text("DROP TABLE IF EXISTS lore_vectors"))
@@ -105,22 +85,13 @@ async def reset_indexes(dim: int):
     await memory_facts.drop_tables()
     await ensure_indexes(dim)
 
-
-# --------------------------------------------------------------------------
-# Memory
-# --------------------------------------------------------------------------
 async def delete_memory(mem_id: str):
-    """Delete a single turn's memory (keyed by the triggering user message id)."""
     try:
         async with _engine().begin() as conn:
             await conn.execute(sa.delete(_mem_tbl).where(_mem_tbl.c.id == mem_id))
     except Exception as e:
         log.warning("delete_memory failed (id=%s): %s: %s", mem_id, type(e).__name__, e)
 
-
-# --------------------------------------------------------------------------
-# Lore vectors (content lives in the relational DB; we store id -> vector only)
-# --------------------------------------------------------------------------
 async def store_lore_vector(lore_id: str, char_id: str | None, vec, part_id: int = 0):
     ins = pg_insert(_lore_tbl).values(
         lore_id=lore_id, part_id=part_id, char_id=char_id, embedding=_to_list(vec))
@@ -128,7 +99,6 @@ async def store_lore_vector(lore_id: str, char_id: str | None, vec, part_id: int
         "char_id": ins.excluded.char_id, "embedding": ins.excluded.embedding})
     async with _engine().begin() as conn:
         await conn.execute(ins)
-
 
 async def search_lore_ids(char_id: str, vec, k: int, max_dist: float):
     best_by_lore_id: dict[str, float] = {}
@@ -151,7 +121,6 @@ async def search_lore_ids(char_id: str, vec, k: int, max_dist: float):
     ranked = sorted(best_by_lore_id.items(), key=lambda item: item[1])
     return [lore_id for lore_id, _ in ranked[:k]]
 
-
 async def search_lore_chunks(char_id: str, vec, k: int, max_dist: float) -> list[dict]:
     hits = []
     try:
@@ -170,11 +139,9 @@ async def search_lore_chunks(char_id: str, vec, k: int, max_dist: float) -> list
         log.warning("lore chunk search failed (char=%s): %s: %s", char_id, type(e).__name__, e)
     return hits
 
-
 async def delete_lore_vector(lore_id: str):
     async with _engine().begin() as conn:
         await conn.execute(sa.delete(_lore_tbl).where(_lore_tbl.c.lore_id == lore_id))
-
 
 async def delete_lore_vectors_by_char(char_id: str):
     try:
@@ -182,7 +149,6 @@ async def delete_lore_vectors_by_char(char_id: str):
             await conn.execute(sa.delete(_lore_tbl).where(_lore_tbl.c.char_id == char_id))
     except Exception as e:
         log.warning("delete_lore_vectors_by_char(%s) failed: %s", char_id, e)
-
 
 async def stats():
     try:

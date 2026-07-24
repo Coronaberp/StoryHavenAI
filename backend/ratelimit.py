@@ -1,8 +1,6 @@
-"""In-memory sliding-window and in-flight rate limiters shared across routes."""
 import time
 
 from fastapi import HTTPException
-
 
 class SlidingWindow:
     def __init__(self, max_hits: int, window: float, message: str):
@@ -34,7 +32,6 @@ class SlidingWindow:
     def prune(self):
         for key in list(self._hits):
             self._fresh(key)
-
 
 class InFlight:
     def __init__(self, message: str):

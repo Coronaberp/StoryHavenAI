@@ -6,7 +6,6 @@ from backend.schemas import ImageGenVideoIn
 
 pytestmark = pytest.mark.asyncio
 
-
 async def test_video_rejects_missing_wan_models(db_conn, monkeypatch):
     from backend import imagegen
 
@@ -22,14 +21,12 @@ async def test_video_rejects_missing_wan_models(db_conn, monkeypatch):
         await stream_video(body, current_user=user)
     assert exc_info.value.status_code == 400
 
-
 async def test_video_rejects_zero_fps(db_conn):
     user = {"id": "user-a", "username": "user-a", "is_admin": False}
     body = ImageGenVideoIn(positive="a dog running", fps=0)
     with pytest.raises(HTTPException) as exc_info:
         await stream_video(body, current_user=user)
     assert exc_info.value.status_code == 400
-
 
 async def test_video_rejects_malformed_image(db_conn):
     user = {"id": "user-a", "username": "user-a", "is_admin": False}

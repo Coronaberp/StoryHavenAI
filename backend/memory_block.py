@@ -1,9 +1,7 @@
 RESERVED_FRACTION = 0.6
 
-
 def estimate_tokens(text: str) -> int:
     return len(text) // 4 + 1
-
 
 def _render(fact: dict) -> str:
     if fact.get("source") == "lore":
@@ -14,7 +12,6 @@ def _render(fact: dict) -> str:
     if fact["valid_until_turn"] is not None:
         return f"- {fact['text']} (this later changed)"
     return f"- {fact['text']}"
-
 
 def build_block(pinned: list[dict], active: list[dict], ranked: list[dict],
                 budget_tokens: int) -> tuple[str, list[str], list[str]]:

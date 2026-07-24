@@ -6,12 +6,10 @@ from backend.repositories import flagged_endpoints as flagged_endpoint_repo
 
 pytestmark = pytest.mark.asyncio
 
-
 @pytest.fixture(autouse=True)
 def _ensure_fernet():
     if db._fernet is None:
         db._fernet = Fernet(Fernet.generate_key())
-
 
 async def test_flagged_endpoint_create_get_list_set_status(db_conn):
     fid = await flagged_endpoint_repo.create("user-1", "http://example.com", "secret-key", "suspicious", "detail text")

@@ -1,4 +1,3 @@
-"""Persona CRUD routes."""
 from fastapi import HTTPException, Depends
 
 from backend import db
@@ -20,19 +19,13 @@ _EXPAND_LIMIT = SlidingWindow(
 async def list_personas(current_user: dict = Depends(get_current_user)):
     return await personas.list_own(current_user["id"])
 
-
 @api.get("/personas/drafts")
 async def list_draft_personas(current_user: dict = Depends(get_current_user)):
     return await personas.list_drafts(current_user["id"])
 
-
 @api.post("/personas/expand-description")
 async def expand_description(body: ExpandPersonaIn,
                              current_user: dict = Depends(get_current_user)):
-    """Expand/normalize a plaintext persona description (full persona or short
-    descriptors) into complete prose via the LLM and return it. No DB write —
-    the frontend drops the result back into the textarea for the user to review
-    and Save."""
     text = (body.text or "").strip()
     if not text:
         raise HTTPException(400, "text is required")
@@ -42,7 +35,6 @@ async def expand_description(body: ExpandPersonaIn,
     ep = await _endpoints(user_overrides, current_user["id"], current_user.get("is_admin", False))
     return {"description": await expand_persona_description(
         text, chat_model, chat_base=ep["chat_base"], chat_key=ep["chat_key"])}
-
 
 @api.post("/characters/{cid}/persona")
 async def become_persona(cid: str, current_user: dict = Depends(get_current_user)):
@@ -55,12 +47,10 @@ async def become_persona(cid: str, current_user: dict = Depends(get_current_user
         raise HTTPException(404, "character not found")
     return await personas.get_or_create_from_character(char, current_user["id"])
 
-
 def _persona_avatar(body: PersonaIn) -> str:
     if body.avatar_data:
         return _decode_lore_image(body.avatar_data) or body.avatar
     return body.avatar
-
 
 @api.post("/personas")
 async def create_persona(body: PersonaIn, current_user: dict = Depends(get_current_user),
@@ -75,7 +65,6 @@ async def create_persona(body: PersonaIn, current_user: dict = Depends(get_curre
     log.info("persona: created id=%s by=%s session=%s", p["id"], current_user["username"], data.get("session_id"))
     return p
 
-
 @api.put("/personas/{pid}")
 async def update_persona(pid: str, body: PersonaIn, current_user: dict = Depends(get_current_user)):
     p = await personas.get(pid)
@@ -88,7 +77,6 @@ async def update_persona(pid: str, body: PersonaIn, current_user: dict = Depends
     p = await personas.update(pid, data, current_user["id"])
     log.info("persona: updated id=%s by=%s", pid, current_user["username"])
     return p
-
 
 @api.delete("/personas/{pid}")
 async def delete_persona(pid: str, current_user: dict = Depends(get_current_user)):

@@ -5,7 +5,6 @@ from backend import vectors
 
 pytestmark = pytest.mark.asyncio
 
-
 def test_lore_candidate_shape_for_keyword_match():
     entry = {"id": "l1", "content": "The Sunken City lies beneath the bay.",
              "category": "Locations", "name": "Sunken City"}
@@ -18,14 +17,12 @@ def test_lore_candidate_shape_for_keyword_match():
     assert cand["valid_until_turn"] is None
     assert cand["link_label"] is None
 
-
 def test_lore_candidate_carries_link_label_and_distance():
     entry = {"id": "l2", "content": "Chancellor Voss leads the council.", "category": "", "name": ""}
     cand = lore_memory.lore_candidate(entry, current_turn=1, distance=0.3, link_label="leads")
     assert cand["distance"] == 0.3
     assert cand["link_label"] == "leads"
     assert cand["pinned"] is False
-
 
 async def test_fetch_lore_candidates_includes_keyword_matches_as_pinned(db_conn):
     from backend.repositories import lore as lore_repo
@@ -39,7 +36,6 @@ async def test_fetch_lore_candidates_includes_keyword_matches_as_pinned(db_conn)
     assert entry["id"] in ids
     match = next(c for c in candidates if c["id"] == entry["id"])
     assert match["pinned"] is True
-
 
 async def test_fetch_lore_candidates_expands_one_hop_relationships(db_conn):
     from backend.repositories import lore as lore_repo
@@ -59,7 +55,6 @@ async def test_fetch_lore_candidates_expands_one_hop_relationships(db_conn):
     assert expanded["link_label"] == "leads"
     assert expanded["pinned"] is False
 
-
 async def test_fetch_lore_candidates_applies_session_override_content(db_conn):
     from backend.repositories import lore as lore_repo
     from backend.repositories import session_lore_state
@@ -72,7 +67,6 @@ async def test_fetch_lore_candidates_applies_session_override_content(db_conn):
         cfg={"top_k_lore": 4, "lore_max_dist": 0.8}, current_turn=1)
     match = next(c for c in candidates if c["id"] == entry["id"])
     assert match["text"] == "The Government was overthrown."
-
 
 async def test_fetch_lore_candidates_includes_knn_matches_and_dedupes(db_conn):
     from backend.repositories import lore as lore_repo
@@ -96,7 +90,6 @@ async def test_fetch_lore_candidates_includes_knn_matches_and_dedupes(db_conn):
     kw_match = next(c for c in candidates if c["id"] == kw_entry["id"])
     assert kw_match["pinned"] is True
 
-
 async def test_fetch_lore_candidates_knn_pool_not_capped_at_top_k_lore(db_conn):
     from backend.repositories import lore as lore_repo
     await vectors.ensure_indexes(768)
@@ -112,7 +105,6 @@ async def test_fetch_lore_candidates_knn_pool_not_capped_at_top_k_lore(db_conn):
         cfg={"top_k_lore": 6, "lore_max_dist": 0.8}, current_turn=1)
     assert len(candidates) > 6
 
-
 async def test_apply_session_lore_override_creates_pinned_fact_and_state(db_conn, monkeypatch):
     from backend.repositories import session_lore_state
     async def fake_embed(*args, **kwargs):
@@ -124,7 +116,6 @@ async def test_apply_session_lore_override_creates_pinned_fact_and_state(db_conn
     state = await session_lore_state.get_state("sess-apply-1", "lore-apply-1")
     assert state["override_content"] == "The government was overthrown."
     assert state["override_fact_id"] == fact_id
-
 
 async def test_apply_session_lore_override_updates_existing_override(db_conn, monkeypatch):
     from backend.repositories import session_lore_state
@@ -138,7 +129,6 @@ async def test_apply_session_lore_override_updates_existing_override(db_conn, mo
     assert first_id == second_id
     state = await session_lore_state.get_state("sess-apply-2", "lore-apply-2")
     assert state["override_content"] == "second version"
-
 
 async def test_apply_secret_reveal_marks_revealed_and_inserts_memory_fact(db_conn, monkeypatch):
     from backend.repositories import lore as lore_repo
@@ -161,7 +151,6 @@ async def test_apply_secret_reveal_marks_revealed_and_inserts_memory_fact(db_con
     live = await memory_facts.list_live("sess-reveal-1")
     assert any(f["text"] == "The chest holds a cursed ring." for f in live)
 
-
 async def test_apply_secret_reveal_is_idempotent(db_conn, monkeypatch):
     from backend.repositories import lore as lore_repo
     from backend.repositories import lore_secrets
@@ -182,12 +171,10 @@ async def test_apply_secret_reveal_is_idempotent(db_conn, monkeypatch):
     revealed = await lore_secrets.revealed_ids("sess-reveal-2", [secret_id])
     assert secret_id in revealed
 
-
 async def test_detect_and_reveal_secrets_no_drafts_returns_zero(db_conn):
     stats = await lore_memory.detect_and_reveal_secrets(
         "sess-reveal-3", "char-reveal-3", [], "test-model", None, None, None, None)
     assert stats == {"checked": 0, "revealed": 0}
-
 
 async def test_fetch_lore_candidates_expands_chunked_keyword_entry(db_conn, monkeypatch):
     from backend import lore_memory
@@ -202,7 +189,6 @@ async def test_fetch_lore_candidates_expands_chunked_keyword_entry(db_conn, monk
     assert "second chunk text" in chunk_texts
     assert all(c["pinned"] for c in candidates)
 
-
 async def test_fetch_lore_candidates_single_candidate_for_unchunked_entry(db_conn):
     from backend import lore_memory
     entry = {"id": "l-fetch-2", "content": "a short entry", "always": True, "pinned": False}
@@ -210,7 +196,6 @@ async def test_fetch_lore_candidates_single_candidate_for_unchunked_entry(db_con
         "char-1", "sess-2", [entry], None, {}, current_turn=1)
     assert len(candidates) == 1
     assert candidates[0]["text"] == "a short entry"
-
 
 async def test_fetch_lore_candidates_override_bypasses_chunking(db_conn, monkeypatch):
     from backend import lore_memory
@@ -223,7 +208,6 @@ async def test_fetch_lore_candidates_override_bypasses_chunking(db_conn, monkeyp
         "char-1", "sess-3", [entry], None, {}, current_turn=1)
     assert len(candidates) == 1
     assert candidates[0]["text"] == "the overridden content"
-
 
 async def test_fetch_lore_candidates_caps_pinned_at_max_and_demotes_overflow(db_conn):
     from backend import lore_memory

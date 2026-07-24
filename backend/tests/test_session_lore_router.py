@@ -11,23 +11,19 @@ pytestmark = pytest.mark.asyncio
 
 _EMBED_DIM = int(os.environ.get("EMBED_DIM", "768"))
 
-
 @pytest.fixture(autouse=True)
 def _ensure_memory_facts_table():
     memory_facts.build_tables(_EMBED_DIM)
-
 
 async def _fake_secrets(monkeypatch, facts):
     async def fake_extract(content, chat_model, chat_base=None, chat_key=None):
         return facts
     monkeypatch.setattr(ai_helpers, "extract_lore_secrets", fake_extract)
 
-
 async def _fake_embed(monkeypatch):
     async def fake(text, model, base_url=None, api_key=None):
         return [0.1] * _EMBED_DIM
     monkeypatch.setattr(llm, "embed", fake)
-
 
 async def _make_session(db_conn, hidden_content="she likes sweets but hates cake"):
     char = await characters_repo.create({"owner_id": "user-a", "name": "Char A"})
@@ -35,7 +31,6 @@ async def _make_session(db_conn, hidden_content="she likes sweets but hates cake
     hidden_id = await lore.create(char["id"], [], hidden_content, always=False, name="Hidden", hidden=True)
     sid = await chat_sessions.create(char["id"], None, "Chat", "You", user_id="user-a")
     return char, sid, visible_id, hidden_id
-
 
 async def test_list_session_lore_excludes_unrevealed_hidden(db_conn):
     from backend.routers.session_lore import list_session_lore
@@ -48,10 +43,10 @@ async def test_list_session_lore_excludes_unrevealed_hidden(db_conn):
     assert visible_id in ids
     assert hidden_id not in ids
 
-
-async def test_list_hidden_session_lore_shows_name_never_content(db_conn):
+async def test_list_hidden_session_lore_shows_name_never_content(db_conn, monkeypatch):
     from backend.routers.session_lore import list_hidden_session_lore
 
+    await _fake_secrets(monkeypatch, ["a secret"])
     char, sid, visible_id, hidden_id = await _make_session(db_conn, hidden_content="the raw secret prose")
     owner = {"id": "user-a", "username": "user-a", "is_admin": False}
 
@@ -60,7 +55,6 @@ async def test_list_hidden_session_lore_shows_name_never_content(db_conn):
     assert hidden[0]["id"] == hidden_id
     assert set(hidden[0].keys()) == {"id", "name", "category"}
     assert "the raw secret prose" not in str(hidden[0])
-
 
 async def test_get_secrets_never_sends_unrevealed_text(db_conn, monkeypatch):
     from backend.routers.session_lore import get_lore_secrets
@@ -73,7 +67,6 @@ async def test_get_secrets_never_sends_unrevealed_text(db_conn, monkeypatch):
     assert len(secrets) == 2
     assert all(s["revealed"] is False for s in secrets)
     assert all(s["text"] is None for s in secrets)
-
 
 async def test_reveal_one_secret_does_not_reveal_the_other(db_conn, monkeypatch):
     from backend.routers.session_lore import get_lore_secrets, reveal_lore_secret, list_session_lore
@@ -99,7 +92,6 @@ async def test_reveal_one_secret_does_not_reveal_the_other(db_conn, monkeypatch)
     assert "She has a sweet tooth" in hidden_entry["content"]
     assert "cake" not in hidden_entry["content"].lower()
 
-
 async def test_reveal_rejects_secret_from_different_entry(db_conn, monkeypatch):
     from backend.routers.session_lore import get_lore_secrets, reveal_lore_secret
 
@@ -115,7 +107,6 @@ async def test_reveal_rejects_secret_from_different_entry(db_conn, monkeypatch):
         await reveal_lore_secret(sid, other_hidden_id, real_secret_id, current_user=owner)
     assert exc_info.value.status_code == 404
 
-
 async def test_reveal_rejects_wrong_owner(db_conn, monkeypatch):
     from backend.routers.session_lore import get_lore_secrets, reveal_lore_secret
 
@@ -130,7 +121,6 @@ async def test_reveal_rejects_wrong_owner(db_conn, monkeypatch):
     with pytest.raises(HTTPException) as exc_info:
         await reveal_lore_secret(sid, hidden_id, real_secret_id, current_user=stranger)
     assert exc_info.value.status_code == 404
-
 
 async def test_override_works_regardless_of_memory_v2_flag(db_conn, monkeypatch):
     from backend.state import CFG
@@ -151,7 +141,6 @@ async def test_override_works_regardless_of_memory_v2_flag(db_conn, monkeypatch)
     finally:
         CFG["memory_v2"] = original
 
-
 async def test_override_creates_pinned_fact_when_memory_v2_on(db_conn, monkeypatch):
     from backend.state import CFG
     from backend.repositories import memory_facts, session_lore_state as sls
@@ -171,7 +160,6 @@ async def test_override_creates_pinned_fact_when_memory_v2_on(db_conn, monkeypat
         assert any(r["id"] == state["override_fact_id"] for r in reserved)
     finally:
         CFG["memory_v2"] = original
-
 
 async def test_override_clear_expires_not_deletes(db_conn, monkeypatch):
     from backend.state import CFG
@@ -194,7 +182,6 @@ async def test_override_clear_expires_not_deletes(db_conn, monkeypatch):
     finally:
         CFG["memory_v2"] = original
 
-
 async def test_reveal_records_memory_fact_when_memory_v2_on(db_conn, monkeypatch):
     from backend.state import CFG
     from backend.repositories import memory_facts
@@ -213,7 +200,6 @@ async def test_reveal_records_memory_fact_when_memory_v2_on(db_conn, monkeypatch
         assert any("sweet tooth" in c["text"] for c in candidates)
     finally:
         CFG["memory_v2"] = original
-
 
 async def test_reveal_does_not_require_memory_v2(db_conn, monkeypatch):
     from backend.state import CFG

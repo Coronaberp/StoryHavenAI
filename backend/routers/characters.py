@@ -1,4 +1,3 @@
-"""Character CRUD, avatar/media upload, and card import/export routes."""
 import os
 import io
 import json
@@ -44,7 +43,6 @@ async def _group_feed_item(g: dict) -> dict:
     return {"id": g["id"], "kind": "group", "name": g["name"],
             "group_mode": g["group_mode"], "cast_preview": preview, "creator": creator}
 
-
 @api.get("/characters")
 async def list_characters(q: str | None = None, scope: str | None = None,
                           tags: str | None = None, creator: str | None = None,
@@ -70,17 +68,14 @@ async def list_characters(q: str | None = None, scope: str | None = None,
             rows.append(await _group_feed_item(g))
     return rows
 
-
 @api.get("/characters/{cid}/groups")
 async def character_groups(cid: str, current_user: dict | None = Depends(get_current_user_optional)):
     hidden = await db.hidden_user_ids(current_user["id"]) if current_user else set()
     return [await _group_feed_item(g) for g in await groups_repo.list_public_for_char(cid) if g["owner_id"] not in hidden]
 
-
 @api.get("/characters/persona-pool")
 async def persona_pool(current_user: dict = Depends(get_current_user)):
     return await personas.list_pool_characters(current_user["id"], current_user["is_admin"])
-
 
 @api.get("/characters/{cid}")
 async def get_character(cid: str, current_user: dict | None = Depends(get_current_user_optional)):
@@ -88,33 +83,28 @@ async def get_character(cid: str, current_user: dict | None = Depends(get_curren
     if not c:
         raise HTTPException(404, "character not found")
     is_owner = bool(current_user) and c.get("owner_id") == current_user["id"]
-    # Visible if public, or own character — admins get no special access to private content
+
     if not c.get("is_public") and not is_owner:
         raise HTTPException(404, "character not found")
     if (current_user and not is_owner and c.get("owner_id")
             and await db.is_block_between(current_user["id"], c["owner_id"])):
         raise HTTPException(404, "character not found")
-    # Explicit content is not hidden from anon viewers anymore — the frontend
-    # blurs its images for anyone who isn't opted into mature content, same as
-    # a logged-in SFW-mode user. This is what makes shared links to explicit
-    # characters work for signed-out visitors at all.
-    return c
 
+    return c
 
 @api.post("/characters")
 async def create_character(body: CharacterIn, current_user: dict = Depends(get_current_user),
                             _feature_ok: None = Depends(require_feature_enabled("characters"))):
     guest_quota.require_full(current_user, "create characters")
     data = body.model_dump()
-    data["owner_id"] = current_user["id"]   # creator always owns it
+    data["owner_id"] = current_user["id"]
     if not (data.get("creator") or "").strip() or data.get("creator") == "you":
         data["creator"] = current_user["username"]
     data["assets"] = _decode_media_paths(data.get("assets") or {})
-    # is_public stays from body (default False = library-only)
+
     c = await characters.create(data)
     log.info("character created: id=%s owner=%s public=%s", c["id"], current_user["id"], data.get("is_public"))
     return c
-
 
 @api.put("/characters/{cid}")
 async def update_character(cid: str, body: CharacterIn,
@@ -122,17 +112,16 @@ async def update_character(cid: str, body: CharacterIn,
     c = await characters.get(cid)
     if not c:
         raise HTTPException(404, "character not found")
-    # Editing is owner-only — admins can delete (moderation) but not touch content
+
     if c.get("owner_id") != current_user["id"]:
         raise HTTPException(403, "Not authorized to edit this character")
     data = body.model_dump()
-    data.pop("is_private", None)            # remove legacy field if client sends it
-    data["owner_id"] = c["owner_id"]        # ownership never changes via edit
+    data.pop("is_private", None)
+    data["owner_id"] = c["owner_id"]
     data["assets"] = _decode_media_paths(data.get("assets") or {})
     c = await characters.update(cid, data)
     log.info("character updated: id=%s by=%s", cid, current_user["id"])
     return c
-
 
 @api.post("/characters/{cid}/avatar")
 async def upload_avatar(cid: str, file: UploadFile = File(...),
@@ -156,7 +145,6 @@ async def upload_avatar(cid: str, file: UploadFile = File(...),
     log.info("character avatar uploaded: id=%s by=%s", cid, current_user["id"])
     return {"avatar": char["avatar"]}
 
-
 @api.post("/characters/{cid}/media")
 async def upload_media(cid: str, file: UploadFile = File(...),
                        current_user: dict = Depends(get_current_user)):
@@ -179,14 +167,13 @@ async def upload_media(cid: str, file: UploadFile = File(...),
     log.info("character media uploaded: id=%s by=%s file=%s", cid, current_user["id"], basename + ext)
     return {"url": f"/media/{basename}{ext}"}
 
-
 @api.delete("/characters/{cid}")
 async def delete_character(cid: str, current_user: dict = Depends(get_current_user)):
     c = await characters.get(cid)
     if not c:
         raise HTTPException(404, "character not found")
     owner_id = c.get("owner_id")
-    # Owner can always delete their own character; admin can delete anything
+
     if owner_id != current_user["id"] and not current_user["is_admin"]:
         raise HTTPException(403, "Not authorized to delete this character")
     await characters.delete(cid)
@@ -194,7 +181,6 @@ async def delete_character(cid: str, current_user: dict = Depends(get_current_us
     await vectors.delete_lore_vectors_by_char(cid)
     log.info("character deleted: id=%s by=%s", cid, current_user["id"])
     return {"deleted": True}
-
 
 def parse_card(filename, data):
     if (filename or "").lower().endswith(".json"):
@@ -211,18 +197,13 @@ def parse_card(filename, data):
         if not blob:
             raise ValueError("no character data in image")
         raw = json.loads(base64.b64decode(blob).decode("utf-8", "ignore"))
-    # v1 cards are a bare object with these same field names and no {spec,data}
-    # wrapper, no character_book, and no extensions — the "data" fallback to
-    # raw itself, plus .get() defaults everywhere below, already cover that
-    # shape without any v1-specific branch needed.
+
     d = raw.get("data") if isinstance(raw, dict) and "data" in raw else raw
     persona = d.get("description", "") or ""
     personality = d.get("personality", "") or ""
     if personality and personality not in persona:
         persona = (persona + ("\n\n" if persona else "") + "Personality: " + personality)
-    # v4 (this app's own round-trip format) rides inside data.extensions.storyhaven
-    # — a v2/v3 card simply won't have this key, so sh ends up {} and every field
-    # below falls back to this app's own create_character defaults.
+
     sh = (d.get("extensions") or {}).get("storyhaven") or {}
     return {
         "name": d.get("name", "") or "Imported character",
@@ -237,19 +218,11 @@ def parse_card(filename, data):
         "is_explicit": bool(sh.get("is_explicit")),
         "can_be_persona": bool(sh.get("can_be_persona")),
         "allow_download": bool(sh.get("allow_download")),
-        # Left undecoded (any embedded images stay as data URIs) — parse_card
-        # itself must never write files, since parsing happens both for the
-        # save-nothing-yet import preview and for reimport, and a preview the
-        # user discards without saving shouldn't leave orphaned media files
-        # on disk. Whoever actually persists the character is responsible for
-        # decoding these for real at that point.
+
         "assets": sh.get("assets") or {},
     }
 
-
 def _decode_lore_image(image_data: str | None) -> str:
-    """Reverse of _embed_lore_image: pulls a card entry's inline data URI back
-    out to a media file, returning the /media path (or "" if none/invalid)."""
     if not image_data or not image_data.startswith("data:image/"):
         return ""
     try:
@@ -266,12 +239,7 @@ def _decode_lore_image(image_data: str | None) -> str:
         fh.write(data)
     return f"/media/{fname}"
 
-
 def _decode_media_paths(value):
-    """Reverse of _embed_media_paths: walks an imported v4 assets blob and
-    writes any inline data:image/... URI back out to a real media file,
-    replacing it with the resulting /media path. Non-data-URI strings pass
-    through unchanged (e.g. a v4 card built without a given asset present)."""
     if isinstance(value, dict):
         return {k: _decode_media_paths(v) for k, v in value.items()}
     if isinstance(value, list):
@@ -280,17 +248,10 @@ def _decode_media_paths(value):
         return _decode_lore_image(value) or value
     return value
 
-
 @api.post("/characters/import")
 async def import_character(file: UploadFile = File(...),
                            current_user: dict = Depends(get_current_user)):
     guest_quota.require_full(current_user, "import characters")
-    """Parses a card and returns its fields for the editor to prefill — this
-    does NOT create or save anything. The importer reviews/edits in the normal
-    "new character" editor and only a real, explicit Save persists it, same as
-    writing one from scratch. (Previously this saved immediately, which meant
-    dropping a card into the editor's own import dropzone silently created a
-    character and navigated away from the very form the user was looking at.)"""
     data = await file.read()
     _check_upload_size(data)
     try:
@@ -320,10 +281,7 @@ async def import_character(file: UploadFile = File(...),
             "category": meta.get("category", ""), "name": meta.get("name") or e.get("comment") or "",
             "appearance_tags": meta.get("appearance_tags", ""),
             "appearance_tags_negative": meta.get("appearance_tags_negative", ""),
-            # Left as a data URI (not written to a media file) — the character
-            # doesn't exist yet, and if the user never saves, nothing orphaned
-            # is left on disk. Decoded for real only once lore is actually
-            # created after the character itself is saved.
+
             "image_data": meta.get("image_data"),
         })
     return {
@@ -335,13 +293,9 @@ async def import_character(file: UploadFile = File(...),
         "assets": card["assets"], "avatar_data_url": avatar_data_url, "lore": lore,
     }
 
-
 @api.post("/characters/generate-from-description")
 async def generate_from_description(request: Request,
                                     current_user: dict = Depends(get_current_user)):
-    """Expand a plaintext description into structured character fields via the
-    LLM and return them for the editor to prefill — no DB write, same as the
-    import preview. The user reviews the filled form and must click Save."""
     try:
         raw = await request.json()
     except Exception as e:
@@ -357,14 +311,9 @@ async def generate_from_description(request: Request,
     return await generate_character_from_description(
         desc, chat_model, chat_base=ep["chat_base"], chat_key=ep["chat_key"])
 
-
 @api.post("/characters/{cid}/reimport")
 async def reimport_character(cid: str, file: UploadFile = File(...),
                              current_user: dict = Depends(get_current_user)):
-    """Refresh an existing character from a newer card: overwrites the card fields
-    (name, persona, scenario, greeting, dialogue, system prompt, tags, alternate
-    greetings) in place. Ownership, visibility, creator attribution, stage assets,
-    existing lore, and chats are untouched; a PNG card also refreshes the avatar."""
     c = await characters.get(cid)
     if not c:
         raise HTTPException(404, "character not found")
@@ -387,14 +336,10 @@ async def reimport_character(cid: str, file: UploadFile = File(...),
     log.info("character reimported: id=%s by=%s", cid, current_user["username"])
     return char
 
-
 def _embed_lore_image(image_path: str) -> str | None:
-    """Inline an entry's image as a data URI so it travels with the exported
-    card file — a plain /media path would 404 on any other install."""
     if not image_path or not image_path.startswith("/media/"):
         return None
-    # basename strips any "../" a crafted lore.image value could contain — the
-    # /media/ prefix check alone doesn't stop "/media/../../etc/passwd".
+
     fname = os.path.basename(image_path[len("/media/"):])
     fpath = os.path.join(MEDIA_DIR, fname)
     if not os.path.isfile(fpath):
@@ -405,14 +350,7 @@ def _embed_lore_image(image_path: str) -> str | None:
         b64 = base64.b64encode(fh.read()).decode("ascii")
     return f"data:image/{mime};base64,{b64}"
 
-
 def _embed_media_paths(value):
-    """Walks an arbitrary JSON-ish structure (the character `assets` blob —
-    banner, stage.default, sprites, etc. — shape not fixed) and replaces any
-    /media/ path string with its inlined data URI, so a v4 export is fully
-    self-contained instead of pointing at paths that only exist on this
-    install. Non-media strings, and anything _embed_lore_image can't read
-    (missing file, non-image path), pass through unchanged."""
     if isinstance(value, dict):
         return {k: _embed_media_paths(v) for k, v in value.items()}
     if isinstance(value, list):
@@ -420,7 +358,6 @@ def _embed_media_paths(value):
     if isinstance(value, str) and value.startswith("/media/"):
         return _embed_lore_image(value) or value
     return value
-
 
 def build_card(char: dict, lore: list, spec: str = "v2") -> dict:
     entries = []
@@ -459,7 +396,7 @@ def build_card(char: dict, lore: list, spec: str = "v2") -> dict:
             "extensions": {}, "entries": entries,
         }
     if spec in ("v3", "storyhaven"):
-        # chara_card_v3 is additive over v2 — same `data` fields, plus these.
+
         avatar_url = _embed_lore_image(char.get("avatar", "")) if char.get("avatar", "").startswith("/media/") else None
         data["nickname"] = ""
         data["creator_notes_multilingual"] = {}
@@ -470,11 +407,7 @@ def build_card(char: dict, lore: list, spec: str = "v2") -> dict:
         data["assets"] = [{"type": "icon", "uri": avatar_url or "ccdefault:", "name": "main", "ext": "png"}]
         if spec == "v3":
             return {"spec": "chara_card_v3", "spec_version": "3.0", "data": data}
-        # "storyhaven" is this app's own full-fidelity round-trip format — not a
-        # numbered spec version, just this app's own extras riding inside the
-        # spec's own reserved data.extensions slot. Additive over v3, so any
-        # spec-v3 reader still opens it fine and just ignores what it doesn't
-        # recognize; only this app reads data.extensions.storyhaven back out.
+
         data["extensions"]["storyhaven"] = {
             "mode": char.get("mode", "character"),
             "presentation_html": char.get("presentation_html", "") or "",
@@ -485,7 +418,6 @@ def build_card(char: dict, lore: list, spec: str = "v2") -> dict:
         }
         return {"spec": "storyhaven_card", "spec_version": "1.0", "data": data}
     return {"spec": "chara_card_v2", "spec_version": "2.0", "data": data}
-
 
 @api.get("/characters/{cid}/export")
 async def export_character(cid: str, spec: str = "v2",

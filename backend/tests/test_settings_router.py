@@ -7,7 +7,6 @@ from backend.state import CFG
 
 pytestmark = pytest.mark.asyncio
 
-
 async def test_get_my_settings_never_leaks_raw_api_key_in_defaults(db_conn, monkeypatch):
     monkeypatch.setitem(CFG, "api_key", "sk-real-secret-value")
     user = {"id": "user-a", "username": "user-a", "is_admin": False}
@@ -16,7 +15,6 @@ async def test_get_my_settings_never_leaks_raw_api_key_in_defaults(db_conn, monk
 
     assert "api_key" not in result["defaults"]
     assert result["defaults"].get("has_api_key") is True
-
 
 async def test_get_my_settings_defaults_has_api_key_false_when_unset(db_conn, monkeypatch):
     monkeypatch.setitem(CFG, "api_key", "")
@@ -27,7 +25,6 @@ async def test_get_my_settings_defaults_has_api_key_false_when_unset(db_conn, mo
     assert "api_key" not in result["defaults"]
     assert result["defaults"].get("has_api_key") is False
 
-
 async def test_put_my_experimental_features_returns_updated_state(db_conn):
     user = await user_repo.create_user("repo_test_settings_experimental_user", "s3cret-password")
 
@@ -35,7 +32,6 @@ async def test_put_my_experimental_features_returns_updated_state(db_conn):
         ExperimentalFeaturesIn(enabled=True), current_user=user)
 
     assert result == {"experimental_features_enabled": True}
-
 
 async def test_get_and_put_settings_return_same_has_key_fields(db_conn):
     admin_user = {"id": "admin-a", "username": "admin-a", "is_admin": True}

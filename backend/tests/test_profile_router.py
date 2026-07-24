@@ -14,15 +14,12 @@ _PNG_BYTES = bytes.fromhex(
     "0000001649444154789c63fccfc0c0c0c0c0c4c0c0c0c0c000000d1d01036ac29be"
     "90000000049454e44ae426082")
 
-
 def _upload(filename="avatar.png", data=_PNG_BYTES):
     return UploadFile(file=io.BytesIO(data), filename=filename)
-
 
 def _as_user(row):
     return {"id": row["id"], "username": row["username"], "is_admin": bool(row["is_admin"]),
             "role": "admin" if row["is_admin"] else "user", "tier": row.get("tier", "full")}
-
 
 async def test_public_profile_returns_expected_fields(db_conn):
     owner = await user_repo.create_user("profile_test_owner_1", "s3cret-password")
@@ -34,13 +31,11 @@ async def test_public_profile_returns_expected_fields(db_conn):
     assert result["following"] is False
     assert "characters" in result
 
-
 async def test_public_profile_missing_user_404s(db_conn):
     with pytest.raises(HTTPException) as exc_info:
         await profile.public_profile("does-not-exist-user", current_user=None)
 
     assert exc_info.value.status_code == 404
-
 
 async def test_public_profile_hidden_between_blocked_users(db_conn):
     from backend.repositories import blocks as block_repo
@@ -53,7 +48,6 @@ async def test_public_profile_hidden_between_blocked_users(db_conn):
 
     assert exc_info.value.status_code == 404
 
-
 async def test_update_my_profile_updates_display_name_and_bio(db_conn):
     user = await user_repo.create_user("profile_test_update_1", "s3cret-password")
     body = ProfileIn(display_name="  New Name  ", bio="  A short bio.  ")
@@ -62,7 +56,6 @@ async def test_update_my_profile_updates_display_name_and_bio(db_conn):
 
     assert result["display_name"] == "New Name"
     assert result["bio"] == "A short bio."
-
 
 async def test_update_my_profile_rejects_invalid_hex_color(db_conn):
     user = await user_repo.create_user("profile_test_update_2", "s3cret-password")
@@ -73,7 +66,6 @@ async def test_update_my_profile_rejects_invalid_hex_color(db_conn):
 
     assert exc_info.value.status_code == 400
 
-
 async def test_update_my_profile_accepts_valid_hex_color(db_conn):
     user = await user_repo.create_user("profile_test_update_3", "s3cret-password")
     body = ProfileIn(banner_color="#aabbcc")
@@ -81,7 +73,6 @@ async def test_update_my_profile_accepts_valid_hex_color(db_conn):
     result = await profile.update_my_profile(body, current_user=_as_user(user))
 
     assert result["banner_color"] == "#aabbcc"
-
 
 async def test_update_my_profile_filters_social_links_to_known_keys(db_conn):
     user = await user_repo.create_user("profile_test_update_4", "s3cret-password")
@@ -94,7 +85,6 @@ async def test_update_my_profile_filters_social_links_to_known_keys(db_conn):
     assert "twitter" in links
     assert "not_a_real_platform" not in links
 
-
 async def test_update_my_profile_requires_share_placeholder_in_profile_html(db_conn):
     user = await user_repo.create_user("profile_test_update_5", "s3cret-password")
     body = ProfileIn(profile_html="<div>no placeholders here</div>")
@@ -103,7 +93,6 @@ async def test_update_my_profile_requires_share_placeholder_in_profile_html(db_c
         await profile.update_my_profile(body, current_user=_as_user(user))
 
     assert exc_info.value.status_code == 400
-
 
 async def test_update_my_profile_accepts_profile_html_with_all_placeholders(db_conn):
     user = await user_repo.create_user("profile_test_update_6", "s3cret-password")
@@ -114,7 +103,6 @@ async def test_update_my_profile_accepts_profile_html_with_all_placeholders(db_c
 
     assert result["profile_html"] == html
 
-
 async def test_update_my_profile_title_with_html_rejected(db_conn):
     user = await user_repo.create_user("profile_test_update_7", "s3cret-password")
     body = ProfileIn(title="<b>bold</b>")
@@ -124,7 +112,6 @@ async def test_update_my_profile_title_with_html_rejected(db_conn):
 
     assert exc_info.value.status_code == 400
 
-
 async def test_update_my_profile_new_title_goes_pending(db_conn):
     user = await user_repo.create_user("profile_test_update_8", "s3cret-password")
     body = ProfileIn(title="Storyteller")
@@ -132,7 +119,6 @@ async def test_update_my_profile_new_title_goes_pending(db_conn):
     result = await profile.update_my_profile(body, current_user=_as_user(user))
 
     assert result["title_status"] == "pending"
-
 
 async def test_upload_my_avatar_saves_and_returns_url(db_conn, monkeypatch):
     from backend import classify
@@ -146,7 +132,6 @@ async def test_upload_my_avatar_saves_and_returns_url(db_conn, monkeypatch):
     updated = await user_repo.get_user_by_id(user["id"])
     assert updated["avatar"] == result["avatar"]
 
-
 async def test_upload_my_banner_saves_and_returns_url(db_conn, monkeypatch):
     monkeypatch.setattr(profile, "classify_image_background", lambda *a, **k: None)
     user = await user_repo.create_user("profile_test_banner_1", "s3cret-password")
@@ -154,7 +139,6 @@ async def test_upload_my_banner_saves_and_returns_url(db_conn, monkeypatch):
     result = await profile.upload_my_banner(file=_upload(), current_user=_as_user(user))
 
     assert result["banner_img"].startswith(f"/media/ub_{user['id']}")
-
 
 async def test_upload_my_chat_background_saves_and_returns_url(db_conn, monkeypatch):
     monkeypatch.setattr(profile, "classify_image_background", lambda *a, **k: None)
@@ -164,7 +148,6 @@ async def test_upload_my_chat_background_saves_and_returns_url(db_conn, monkeypa
 
     assert result["chat_background_img"].startswith(f"/media/ucb_{user['id']}")
 
-
 async def test_block_user_route_rejects_self_block(db_conn):
     user = await user_repo.create_user("profile_test_block_1", "s3cret-password")
     body = BlockIn(reason="testing")
@@ -173,7 +156,6 @@ async def test_block_user_route_rejects_self_block(db_conn):
         await profile.block_user_route(user["username"], body, current_user=_as_user(user))
 
     assert exc_info.value.status_code == 400
-
 
 async def test_block_user_route_blocks_other_user(db_conn):
     a = await user_repo.create_user("profile_test_block_2", "s3cret-password")
@@ -186,7 +168,6 @@ async def test_block_user_route_blocks_other_user(db_conn):
     from backend.repositories import blocks as block_repo
     assert await block_repo.has_blocked(a["id"], b["id"]) is True
 
-
 async def test_block_user_route_missing_user_404s(db_conn):
     user = await user_repo.create_user("profile_test_block_4", "s3cret-password")
     body = BlockIn(reason="")
@@ -195,7 +176,6 @@ async def test_block_user_route_missing_user_404s(db_conn):
         await profile.block_user_route("no-such-user-anywhere", body, current_user=_as_user(user))
 
     assert exc_info.value.status_code == 404
-
 
 async def test_unblock_user_route(db_conn):
     a = await user_repo.create_user("profile_test_unblock_1", "s3cret-password")
@@ -208,7 +188,6 @@ async def test_unblock_user_route(db_conn):
     assert result == {"blocked": False}
     assert await block_repo.has_blocked(a["id"], b["id"]) is False
 
-
 async def test_my_blocked_lists_blocked_users(db_conn):
     a = await user_repo.create_user("profile_test_myblocked_1", "s3cret-password")
     b = await user_repo.create_user("profile_test_myblocked_2", "s3cret-password")
@@ -219,7 +198,6 @@ async def test_my_blocked_lists_blocked_users(db_conn):
 
     assert any(r["id"] == b["id"] for r in result)
 
-
 async def test_follow_user_route_rejects_self_follow(db_conn):
     user = await user_repo.create_user("profile_test_follow_1", "s3cret-password")
 
@@ -227,7 +205,6 @@ async def test_follow_user_route_rejects_self_follow(db_conn):
         await profile.follow_user_route(user["username"], current_user=_as_user(user))
 
     assert exc_info.value.status_code == 400
-
 
 async def test_follow_user_route_rejects_when_blocked(db_conn):
     a = await user_repo.create_user("profile_test_follow_2", "s3cret-password")
@@ -239,7 +216,6 @@ async def test_follow_user_route_rejects_when_blocked(db_conn):
         await profile.follow_user_route(b["username"], current_user=_as_user(a))
 
     assert exc_info.value.status_code == 403
-
 
 async def test_follow_user_route_follows_and_unfollow(db_conn):
     a = await user_repo.create_user("profile_test_follow_4", "s3cret-password")
@@ -253,13 +229,11 @@ async def test_follow_user_route_follows_and_unfollow(db_conn):
     assert result["following"] is False
     assert result["follower_count"] == 0
 
-
 async def test_user_followers_missing_user_404s(db_conn):
     with pytest.raises(HTTPException) as exc_info:
         await profile.user_followers("no-such-user-followers", current_user=None)
 
     assert exc_info.value.status_code == 404
-
 
 async def test_user_followers_returns_list(db_conn):
     a = await user_repo.create_user("profile_test_followers_1", "s3cret-password")
@@ -270,7 +244,6 @@ async def test_user_followers_returns_list(db_conn):
     result = await profile.user_followers(b["username"], current_user=None)
 
     assert any(r["username"] == a["username"] for r in result)
-
 
 async def test_list_public_users_hides_blocked(db_conn):
     a = await user_repo.create_user("profile_test_listusers_1", "s3cret-password")

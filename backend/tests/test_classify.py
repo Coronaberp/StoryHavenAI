@@ -8,12 +8,10 @@ from backend.repositories import notifications as notification_repo
 
 pytestmark = pytest.mark.asyncio
 
-
 def _static_png_bytes():
     buf = io.BytesIO()
     Image.new("RGB", (4, 4), color="red").save(buf, format="PNG")
     return buf.getvalue()
-
 
 def _animated_gif_bytes():
     buf = io.BytesIO()
@@ -21,19 +19,16 @@ def _animated_gif_bytes():
     frames[0].save(buf, format="GIF", save_all=True, append_images=frames[1:], duration=100, loop=0)
     return buf.getvalue()
 
-
 def _animated_webp_bytes():
     buf = io.BytesIO()
     frames = [Image.new("RGB", (4, 4), color="red"), Image.new("RGB", (4, 4), color="blue")]
     frames[0].save(buf, format="WEBP", save_all=True, append_images=frames[1:], duration=100, loop=0)
     return buf.getvalue()
 
-
 def _static_webp_bytes():
     buf = io.BytesIO()
     Image.new("RGB", (4, 4), color="green").save(buf, format="WEBP")
     return buf.getvalue()
-
 
 class TestIsAnimatedImage:
     async def test_none_is_not_animated(self):
@@ -57,7 +52,6 @@ class TestIsAnimatedImage:
     async def test_garbage_bytes_is_not_animated(self):
         assert classify._is_animated_image(b"not an image") is False
 
-
 class TestDataUrlToBytes:
     async def test_valid_data_url_roundtrips(self):
         raw = _static_png_bytes()
@@ -75,7 +69,6 @@ class TestDataUrlToBytes:
 
     async def test_malformed_data_url_returns_none_none(self):
         assert classify._data_url_to_bytes("data:image/png;base64,not-valid-base64!!!") == (None, None)
-
 
 class TestClassifyImageNsfw:
     async def test_animated_gif_bypasses_classifier_and_returns_unconfident(self, monkeypatch):
@@ -135,7 +128,6 @@ class TestClassifyImageNsfw:
         monkeypatch.setattr(classify.llm, "classify_image_explicit", _fail)
         explicit, confidence = await classify.classify_image_nsfw(_static_png_bytes(), mime="image/png")
         assert (explicit, confidence) == (False, 0)
-
 
 class TestClassifyImageBackground:
     async def _drain(self):

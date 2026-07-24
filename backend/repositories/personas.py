@@ -1,4 +1,3 @@
-"""Persona repository — encapsulates CRUD for the `personas` table."""
 from __future__ import annotations
 import time
 
@@ -11,7 +10,6 @@ from backend.db import (
 from backend.repositories.characters import _char_row
 from backend.state import log
 
-
 def _persona_row(row) -> dict:
     d = dict(row)
     d["name"] = _decrypt_secret(d.get("name") or "")
@@ -19,7 +17,6 @@ def _persona_row(row) -> dict:
     d["gender"] = _decrypt_secret(d.get("gender") or "")
     d["is_draft"] = bool(d.get("is_draft"))
     return d
-
 
 async def create(data: dict, user_id: str = None) -> dict:
     pid = nid("p")
@@ -41,25 +38,16 @@ async def create(data: dict, user_id: str = None) -> dict:
               pid, user_id, bool(data.get("is_draft")), data.get("session_id"))
     return await get(pid)
 
-
 async def get(pid: str) -> dict | None:
     row = await _q1(select(personas).where(personas.c.id == pid))
     return _persona_row(row) if row else None
-
 
 async def list_all(user_id: str = None) -> list[dict]:
     stmt = (select(personas).where(personas.c.owner_id == user_id)
             .order_by(personas.c.is_default.desc(), personas.c.created.desc()))
     return [_persona_row(r) for r in await _q(stmt)]
 
-
 async def list_own(user_id: str = None) -> list[dict]:
-    """All of a user's usable personas — both ones they made directly and
-    ones added via a character's "let others play as this character" button
-    (source_char_id set). Both need to show up in My Masks, since that's the
-    only place a user manages/selects a persona. Excludes personas created as
-    session-exclusive (session_id set) from a multiplayer chat — those only
-    ever show up in that one session's own persona picker."""
     stmt = (select(personas)
             .where(and_(personas.c.owner_id == user_id,
                         personas.c.is_draft == 0,
@@ -67,12 +55,7 @@ async def list_own(user_id: str = None) -> list[dict]:
             .order_by(personas.c.is_default.desc(), personas.c.created.desc()))
     return [_persona_row(r) for r in await _q(stmt)]
 
-
 async def list_own_for_session(user_id: str, session_id: str) -> list[dict]:
-    """A user's normal personas plus any personas created exclusively for
-    this particular multiplayer session — used by the in-chat persona
-    picker so session-exclusive personas are selectable there but nowhere
-    else."""
     stmt = (select(personas)
             .where(and_(personas.c.owner_id == user_id,
                         personas.c.is_draft == 0,
@@ -81,9 +64,7 @@ async def list_own_for_session(user_id: str, session_id: str) -> list[dict]:
             .order_by(personas.c.is_default.desc(), personas.c.created.desc()))
     return [_persona_row(r) for r in await _q(stmt)]
 
-
 async def list_drafts(user_id: str = None) -> list[dict]:
-    """A user's own unfinished (autosaved) personas, for the Pending tab."""
     stmt = (select(personas)
             .where(and_(personas.c.owner_id == user_id,
                         personas.c.source_char_id.is_(None),
@@ -91,9 +72,7 @@ async def list_drafts(user_id: str = None) -> list[dict]:
             .order_by(personas.c.created.desc()))
     return [_persona_row(r) for r in await _q(stmt)]
 
-
 async def list_pool_characters(user_id: str = None, is_admin: bool = False) -> list[dict]:
-    """Characters flagged can_be_persona that the user is allowed to play as."""
     conditions = [characters.c.can_be_persona == 1]
     if user_id:
         conditions.append(or_(characters.c.is_public == 1,
@@ -104,7 +83,6 @@ async def list_pool_characters(user_id: str = None, is_admin: bool = False) -> l
     rows = [_char_row(r) for r in await _q(stmt)]
     rows.sort(key=lambda c: (c.get("name") or "").lower())
     return rows
-
 
 async def get_or_create_from_character(char: dict, user_id: str = None) -> dict:
     row = await _q1(select(personas).where(and_(
@@ -121,7 +99,6 @@ async def get_or_create_from_character(char: dict, user_id: str = None) -> dict:
     log.info("personas: created id=%s from character char=%s owner=%s", pid, char["id"], user_id)
     return await get(pid)
 
-
 async def get_or_create_from_lore(entry: dict, user_id: str = None) -> dict:
     row = await _q1(select(personas).where(and_(
         personas.c.source_lore_id == entry["id"], personas.c.owner_id == user_id)))
@@ -137,12 +114,10 @@ async def get_or_create_from_lore(entry: dict, user_id: str = None) -> dict:
     log.info("personas: created id=%s from lore entry=%s owner=%s", pid, entry["id"], user_id)
     return await get(pid)
 
-
 async def default(user_id: str = None) -> dict | None:
     row = await _q1(select(personas).where(and_(
         personas.c.is_default == 1, personas.c.owner_id == user_id)).limit(1))
     return _persona_row(row) if row else None
-
 
 async def update(pid: str, data: dict, user_id: str = None) -> dict | None:
     p = await get(pid)
@@ -165,7 +140,6 @@ async def update(pid: str, data: dict, user_id: str = None) -> dict | None:
         await conn.execute(sa_update(personas).where(personas.c.id == pid).values(**vals))
     log.info("personas: updated id=%s", pid)
     return await get(pid)
-
 
 async def delete(pid: str):
     await _w(sa_delete(personas).where(personas.c.id == pid))

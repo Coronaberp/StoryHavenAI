@@ -6,11 +6,9 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from backend.db import feature_flags
 from backend.state import log
 
-
 def _engine():
     from backend import db
     return db.engine()
-
 
 async def get(key: str) -> dict | None:
     stmt = select(feature_flags).where(feature_flags.c.key == key)
@@ -18,13 +16,11 @@ async def get(key: str) -> dict | None:
         row = (await conn.execute(stmt)).fetchone()
     return dict(row._mapping) if row else None
 
-
 async def get_all() -> dict[str, dict]:
     stmt = select(feature_flags)
     async with _engine().connect() as conn:
         rows = (await conn.execute(stmt)).fetchall()
     return {r._mapping["key"]: dict(r._mapping) for r in rows}
-
 
 async def apply_batch(keys: list[str], enabled: bool, message: str | None,
                       eta_minutes: int | None, updated_by: str, updated_by_name: str,

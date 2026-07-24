@@ -13,7 +13,6 @@ LORE_CANDIDATE_K = 32
 NEIGHBOR_K = 3
 MAX_PINNED_LORE_CHUNKS = 12
 
-
 def lore_candidate(entry: dict, current_turn: int, distance: float = 0.0,
                    pinned: bool = False, link_label: str | None = None,
                    candidate_id: str | None = None, content: str | None = None) -> dict:
@@ -24,7 +23,6 @@ def lore_candidate(entry: dict, current_turn: int, distance: float = 0.0,
         "reinforcements": 0, "pinned": pinned, "valid_until_turn": None,
         "last_turn": current_turn, "distance": distance, "link_label": link_label,
     }
-
 
 async def _expand_entry_candidates(entry: dict, overrides: dict, current_turn: int,
                                    pinned: bool, distance: float = 0.0,
@@ -39,7 +37,6 @@ async def _expand_entry_candidates(entry: dict, overrides: dict, current_turn: i
                            candidate_id=f"{entry['id']}#{chunk['part_id']}",
                            content=chunk["content"])
             for chunk in chunks]
-
 
 async def _resolve_hit_candidate(hit: dict, entry: dict, overrides: dict,
                                  current_turn: int) -> dict | None:
@@ -58,7 +55,6 @@ async def _resolve_hit_candidate(hit: dict, entry: dict, overrides: dict,
     return lore_candidate(entry, current_turn, hit["distance"],
                           candidate_id=f"{lore_id}#{hit['part_id']}", content=chunk["content"])
 
-
 async def _append_semantic_hits(candidates: list[dict], seen_ids: set[str], char_id: str,
                                 query_vec, overrides: dict, cfg: dict, current_turn: int) -> None:
     chunk_hits = await vectors.search_lore_chunks(
@@ -76,7 +72,6 @@ async def _append_semantic_hits(candidates: list[dict], seen_ids: set[str], char
         if candidate:
             candidates.append(candidate)
         seen_ids.add(hit["lore_id"])
-
 
 async def fetch_lore_candidates(char_id: str, session_id: str, keyword_entries: list[dict],
                                 query_vec, cfg: dict, current_turn: int) -> list[dict]:
@@ -116,7 +111,6 @@ async def fetch_lore_candidates(char_id: str, session_id: str, keyword_entries: 
                 seen_ids.add(e["id"])
     return candidates
 
-
 async def apply_session_lore_override(session_id: str, char_id: str, lore_id: str, content: str) -> str:
     vec = await llm.embed(content, CFG["embed_model"])
     existing = await session_lore_state.get_state(session_id, lore_id)
@@ -130,7 +124,6 @@ async def apply_session_lore_override(session_id: str, char_id: str, lore_id: st
         }, vec, pinned=True)
     await session_lore_state.set_override(session_id, lore_id, content, fact_id)
     return fact_id
-
 
 async def detect_and_apply_lore_updates(session_id: str, char_id: str, drafts: list,
                                         model: str, chat_base: str | None, chat_key: str | None,
@@ -161,7 +154,6 @@ async def detect_and_apply_lore_updates(session_id: str, char_id: str, drafts: l
                         session_id, decision.lore_id, type(e).__name__, e)
     return stats
 
-
 async def apply_secret_reveal(session_id: str, char_id: str, secret_id: str, secret_text: str,
                               embed_base: str | None = None, embed_key: str | None = None) -> None:
     await lore_secrets.reveal(session_id, secret_id)
@@ -174,7 +166,6 @@ async def apply_secret_reveal(session_id: str, char_id: str, secret_id: str, sec
     except Exception as e:
         log.warning("lore_memory: secret-reveal memory enrichment failed session=%s secret=%s: %s: %s",
                     session_id, secret_id, type(e).__name__, e)
-
 
 async def detect_and_reveal_secrets(session_id: str, char_id: str, drafts: list,
                                     model: str, chat_base: str | None, chat_key: str | None,

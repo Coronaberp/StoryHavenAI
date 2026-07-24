@@ -10,7 +10,6 @@ from backend.state import log
 FACT_TYPES = ("event", "state", "relationship", "world", "profile")
 MAX_FACTS_PER_BATCH = 10
 
-
 class FactDraft(BaseModel):
     text: str = Field(min_length=1)
     fact_type: Literal["event", "state", "relationship", "world", "profile"]
@@ -18,12 +17,10 @@ class FactDraft(BaseModel):
     importance: int = Field(ge=1, le=5)
     valence: int = Field(ge=-2, le=2)
 
-
 class CharStateDraft(BaseModel):
     doing: str = ""
     location: str = ""
     npcs: list[str] = []
-
 
 class ReconcileDecision(BaseModel):
     index: int = Field(ge=0)
@@ -36,17 +33,14 @@ class ReconcileDecision(BaseModel):
             raise ValueError(f"action {self.action} requires target_id")
         return self
 
-
 class LoreUpdateDecision(BaseModel):
     index: int = Field(ge=0)
     lore_id: str
     new_content: str = Field(min_length=1)
 
-
 class SecretRevealDecision(BaseModel):
     index: int = Field(ge=0)
     secret_id: str
-
 
 EXTRACT_EXAMPLE = (
     '{"facts": [{"text": "Bandits ambushed the caravan on the Kelder road.", '
@@ -62,7 +56,6 @@ EXTRACT_EXAMPLE = (
     '"char_state": {"doing": "tending to Mira\'s wound", "location": "the collapsed mine entrance", '
     '"npcs": ["Mira", "Tomas", "Kael"]}}'
 )
-
 
 def build_extract_prompt(transcript: str, char_name: str, user_name: str, language: str,
                          cast_names: list[str] | None = None) -> str:
@@ -103,7 +96,6 @@ def build_extract_prompt(transcript: str, char_name: str, user_name: str, langua
         f"Transcript:\n{transcript}\n\n"
         "Reply with only a JSON object in exactly the example's format."
     )
-
 
 def build_reconcile_prompt(drafts: list[FactDraft], neighbors: list[list[dict]]) -> str:
     new_lines, neighbor_lines = [], []
@@ -147,7 +139,6 @@ def build_reconcile_prompt(drafts: list[FactDraft], neighbors: list[list[dict]])
         "in exactly the example's format."
     )
 
-
 def build_lore_update_prompt(drafts: list[FactDraft], lore_neighbors: list[list[dict]]) -> str:
     new_lines, neighbor_lines = [], []
     for i, draft in enumerate(drafts):
@@ -171,7 +162,6 @@ def build_lore_update_prompt(drafts: list[FactDraft], lore_neighbors: list[list[
         'the player; the old ruling council no longer holds power."}]\n\n'
         "Reply with only a JSON array — one entry per fact that updates lore, [] if none do."
     )
-
 
 def build_secret_reveal_prompt(drafts: list[FactDraft], secret_neighbors: list[list[dict]]) -> str:
     new_lines, neighbor_lines = [], []
@@ -197,7 +187,6 @@ def build_secret_reveal_prompt(drafts: list[FactDraft], secret_neighbors: list[l
         "Reply with only a JSON array — one entry per fact that reveals a secret, [] if none do."
     )
 
-
 def _load_array(raw: str) -> list:
     try:
         data = json.loads(strip_json_fence(raw))
@@ -206,7 +195,6 @@ def _load_array(raw: str) -> list:
     if not isinstance(data, list):
         raise ValueError("expected a JSON array")
     return data
-
 
 def parse_extract_response(raw: str) -> tuple[list[FactDraft], CharStateDraft]:
     data = json.loads(strip_json_fence(raw))
@@ -218,7 +206,6 @@ def parse_extract_response(raw: str) -> tuple[list[FactDraft], CharStateDraft]:
     except ValidationError as e:
         raise ValueError(str(e)) from e
     return facts[:MAX_FACTS_PER_BATCH], char_state
-
 
 def parse_reconcile(raw: str, fact_count: int, valid_ids: set[str]) -> list[ReconcileDecision]:
     data = _load_array(raw)
@@ -236,7 +223,6 @@ def parse_reconcile(raw: str, fact_count: int, valid_ids: set[str]) -> list[Reco
             raise ValueError(f"unknown target_id {d.target_id}")
     return sorted(decisions, key=lambda d: d.index)
 
-
 def parse_lore_updates(raw: str, fact_count: int, valid_lore_ids: set[str]) -> list[LoreUpdateDecision]:
     data = _load_array(raw)
     try:
@@ -249,7 +235,6 @@ def parse_lore_updates(raw: str, fact_count: int, valid_lore_ids: set[str]) -> l
         if d.lore_id not in valid_lore_ids:
             raise ValueError(f"unknown lore_id {d.lore_id}")
     return decisions
-
 
 def parse_secret_reveals(raw: str, fact_count: int, valid_secret_ids: set[str]) -> list[SecretRevealDecision]:
     data = _load_array(raw)
@@ -264,7 +249,6 @@ def parse_secret_reveals(raw: str, fact_count: int, valid_secret_ids: set[str]) 
             raise ValueError(f"unknown secret_id {d.secret_id}")
     return decisions
 
-
 async def _call(prompt: str, model: str, base_url: str | None, api_key: str | None) -> str:
     out = []
     async for channel, chunk in llm.chat_stream(
@@ -273,7 +257,6 @@ async def _call(prompt: str, model: str, base_url: str | None, api_key: str | No
         if channel == "content":
             out.append(chunk)
     return "".join(out)
-
 
 async def _call_validated(prompt: str, parse, model: str, base_url: str | None,
                           api_key: str | None, label: str):
@@ -287,7 +270,6 @@ async def _call_validated(prompt: str, parse, model: str, base_url: str | None,
         raw = await _call(retry_prompt, model, base_url, api_key)
         return parse(raw)
 
-
 async def run_extract(transcript: str, char_name: str, user_name: str, language: str,
                       model: str, base_url: str | None = None,
                       api_key: str | None = None,
@@ -298,7 +280,6 @@ async def run_extract(transcript: str, char_name: str, user_name: str, language:
     except Exception as e:
         log.warning("memory extract batch dropped after retry: %s", e)
         return [], CharStateDraft()
-
 
 async def run_reconcile(drafts: list[FactDraft], neighbors: list[list[dict]], model: str,
                         base_url: str | None = None,
@@ -314,7 +295,6 @@ async def run_reconcile(drafts: list[FactDraft], neighbors: list[list[dict]], mo
         log.warning("memory reconcile failed after retry, falling back to add-all: %s", e)
         return [ReconcileDecision(index=i, action="add") for i in range(len(drafts))]
 
-
 async def run_lore_update_detection(drafts: list[FactDraft], lore_neighbors: list[list[dict]],
                                     model: str, base_url: str | None = None,
                                     api_key: str | None = None) -> list[LoreUpdateDecision]:
@@ -328,7 +308,6 @@ async def run_lore_update_detection(drafts: list[FactDraft], lore_neighbors: lis
     except Exception as e:
         log.warning("lore update detection failed after retry, applying no updates: %s", e)
         return []
-
 
 async def run_secret_reveal_detection(drafts: list[FactDraft], secret_neighbors: list[list[dict]],
                                       model: str, base_url: str | None = None,

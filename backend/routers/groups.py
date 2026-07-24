@@ -12,7 +12,6 @@ from backend.repositories import users as users_repo
 from backend.routers.sessions import start_group_from_cast
 from backend.feature_flags import require_feature_enabled
 
-
 async def _own_private_char_ids(char_ids: list[str], owner_id: str) -> list[str]:
     blockers = []
     for cid in char_ids:
@@ -20,7 +19,6 @@ async def _own_private_char_ids(char_ids: list[str], owner_id: str) -> list[str]
         if c and c.get("owner_id") == owner_id and not c.get("is_public"):
             blockers.append(cid)
     return blockers
-
 
 @api.post("/groups")
 async def publish_group(body: GroupPublishIn, current_user: dict = Depends(get_current_user),
@@ -51,10 +49,8 @@ async def publish_group(body: GroupPublishIn, current_user: dict = Depends(get_c
     log.info("group published: id=%s from_session=%s owner=%s", gid, body.session_id, current_user["id"])
     return {"id": gid}
 
-
 def _char_accessible(c: dict, viewer_id: str | None) -> bool:
     return bool(c.get("is_public")) or (viewer_id is not None and c.get("owner_id") == viewer_id)
-
 
 async def _cast_view(gid: str, viewer_id: str | None) -> list[dict]:
     out = []
@@ -70,7 +66,6 @@ async def _cast_view(gid: str, viewer_id: str | None) -> list[dict]:
             out.append({"char_id": row["char_id"], "name": None, "avatar": None,
                         "is_public": False, "linkable": False, "hidden": True})
     return out
-
 
 @api.get("/groups/{gid}")
 async def get_group(gid: str, current_user: dict | None = Depends(get_current_user_optional)):
@@ -89,7 +84,6 @@ async def get_group(gid: str, current_user: dict | None = Depends(get_current_us
                       "display_name": (owner or {}).get("display_name"),
                       "avatar": (owner or {}).get("avatar")},
             "cast": await _cast_view(gid, viewer_id)}
-
 
 async def _validate_cast(char_ids: list[str], owner_id: str) -> list[str]:
     seen, ordered = set(), []
@@ -110,13 +104,11 @@ async def _validate_cast(char_ids: list[str], owner_id: str) -> list[str]:
         raise HTTPException(400, f"publish these characters first: {', '.join(blockers)}")
     return ordered
 
-
 async def _own_group_or_404(gid: str, current_user: dict) -> dict:
     g = await groups_repo.get(gid)
     if not g or g["owner_id"] != current_user["id"]:
         raise HTTPException(404, "group not found")
     return g
-
 
 @api.put("/groups/{gid}")
 async def edit_group(gid: str, body: GroupEditIn, current_user: dict = Depends(get_current_user)):
@@ -128,7 +120,6 @@ async def edit_group(gid: str, body: GroupEditIn, current_user: dict = Depends(g
     await groups_repo.update(gid, body.name.strip(), (body.opening or "").strip(), mode, char_ids)
     log.info("group edited: id=%s owner=%s", gid, current_user["id"])
     return {"ok": True}
-
 
 @api.post("/groups/{gid}/sessions")
 async def start_group_chat(gid: str, current_user: dict = Depends(get_current_user)):
@@ -150,7 +141,6 @@ async def start_group_chat(gid: str, current_user: dict = Depends(get_current_us
     log.info("group chat started from template: template=%s session=%s by=%s",
              gid, sid, current_user["id"])
     return {"session_id": sid}
-
 
 @api.delete("/groups/{gid}")
 async def delete_group(gid: str, current_user: dict = Depends(get_current_user)):

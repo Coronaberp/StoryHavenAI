@@ -10,12 +10,10 @@ pytestmark = pytest.mark.asyncio
 
 OWNER_ID = "u_owner_misc"
 
-
 async def _make_session():
     char = await characters.create({"owner_id": OWNER_ID, "name": "Aria", "mode": "character"})
     sid = await chat_sessions.create(char["id"], None, "Chat", "You", user_id=OWNER_ID)
     return sid, char
-
 
 async def test_report_image_creates_report(db_conn):
     user = {"id": "u_reporter_1", "username": "reporter1", "is_admin": False}
@@ -29,7 +27,6 @@ async def test_report_image_creates_report(db_conn):
     assert stored is not None
     assert stored["label"] == "Someone's avatar"
 
-
 async def test_report_image_rejects_duplicate_pending_report(db_conn):
     user = {"id": "u_reporter_2", "username": "reporter2", "is_admin": False}
     body = ContentReportIn(kind="avatar", label="Dup target", target_id="target-2", image="", note="")
@@ -40,7 +37,6 @@ async def test_report_image_rejects_duplicate_pending_report(db_conn):
 
     assert exc_info.value.status_code == 429
 
-
 async def test_ui_translations_english_passes_through_unchanged(db_conn):
     user = {"id": "u_ui_1", "username": "uiuser", "is_admin": False}
     body = UiTranslateIn(lang="English", strings={"save": "Save"})
@@ -48,7 +44,6 @@ async def test_ui_translations_english_passes_through_unchanged(db_conn):
     result = await misc.ui_translations(body, current_user=user)
 
     assert result == {"lang": "English", "strings": {"save": "Save"}}
-
 
 async def test_ui_translations_returns_source_when_not_cached(db_conn):
     user = {"id": "u_ui_2", "username": "uiuser2", "is_admin": False}
@@ -59,7 +54,6 @@ async def test_ui_translations_returns_source_when_not_cached(db_conn):
 
     assert result["lang"] == "Spanish (Spain)"
     assert result["strings"] == {"save": "Save-zx91q", "cancel": "Cancel-zx91q"}
-
 
 async def test_ui_translations_uses_cached_localization(db_conn):
     user = {"id": "u_ui_3", "username": "uiuser3", "is_admin": False}
@@ -72,7 +66,6 @@ async def test_ui_translations_uses_cached_localization(db_conn):
 
     assert result["strings"]["save"] == "Guardar"
 
-
 async def test_admin_resync_ui_translations_rejects_non_admin(db_conn):
     user = {"id": "u_plain_1", "username": "plainuser", "is_admin": False, "role": "user"}
     from backend.auth import get_admin
@@ -81,7 +74,6 @@ async def test_admin_resync_ui_translations_rejects_non_admin(db_conn):
         await get_admin(current_user=user)
 
     assert exc_info.value.status_code == 403
-
 
 async def test_admin_resync_ui_translations_rejects_empty_strings(db_conn):
     admin = {"id": "u_admin_1", "username": "adminuser", "is_admin": True, "role": "admin"}
@@ -92,7 +84,6 @@ async def test_admin_resync_ui_translations_rejects_empty_strings(db_conn):
 
     assert exc_info.value.status_code == 400
 
-
 async def test_admin_resync_ui_translations_rejects_concurrent_run(db_conn, monkeypatch):
     admin = {"id": "u_admin_2", "username": "adminuser2", "is_admin": True, "role": "admin"}
     monkeypatch.setattr(misc, "_ui_resync_running", True)
@@ -102,7 +93,6 @@ async def test_admin_resync_ui_translations_rejects_concurrent_run(db_conn, monk
         await misc.admin_resync_ui_translations(body, current_user=admin)
 
     assert exc_info.value.status_code == 409
-
 
 async def test_admin_resync_ui_translations_starts_and_completes(db_conn, monkeypatch):
     admin = {"id": "u_admin_3", "username": "adminuser3", "is_admin": True, "role": "admin"}
@@ -129,7 +119,6 @@ async def test_admin_resync_ui_translations_starts_and_completes(db_conn, monkey
     await captured["coro"]
     assert misc._ui_resync_running is False
 
-
 async def test_localize_returns_source_when_not_cached(db_conn):
     user = {"id": "u_loc_1", "username": "locuser", "is_admin": False}
     body = LocalizeIn(texts=["Hello there"], lang="Spanish (Spain)")
@@ -138,7 +127,6 @@ async def test_localize_returns_source_when_not_cached(db_conn):
 
     assert result["lang"] == "Spanish (Spain)"
     assert result["texts"] == ["Hello there"]
-
 
 async def test_localize_rejects_text_too_long(db_conn):
     user = {"id": "u_loc_2", "username": "locuser2", "is_admin": False}
@@ -149,7 +137,6 @@ async def test_localize_rejects_text_too_long(db_conn):
 
     assert exc_info.value.status_code == 400
 
-
 async def test_localize_defaults_language_from_user_settings(db_conn):
     user = {"id": "u_loc_3", "username": "locuser3", "is_admin": False}
     body = LocalizeIn(texts=["Hello"], lang=None)
@@ -157,7 +144,6 @@ async def test_localize_defaults_language_from_user_settings(db_conn):
     result = await misc.localize(body, current_user=user)
 
     assert result["lang"] == "English"
-
 
 async def test_translate_text_live_returns_stripped_translation(db_conn, monkeypatch):
     async def _fake_stream(messages, model, params=None, parse_think=False,
@@ -170,7 +156,6 @@ async def test_translate_text_live_returns_stripped_translation(db_conn, monkeyp
 
     assert result == "Hola"
 
-
 async def test_translate_text_live_discards_echo(db_conn, monkeypatch):
     async def _fake_stream(messages, model, params=None, parse_think=False,
                            base_url=None, api_key=None, pin_host=False):
@@ -182,11 +167,9 @@ async def test_translate_text_live_discards_echo(db_conn, monkeypatch):
 
     assert result == ""
 
-
 async def test_translate_text_live_empty_text_returns_immediately(db_conn):
     result = await misc.translate_text_live("   ", "Spanish", "some-model", {"chat_base": None, "chat_key": None})
     assert result == ""
-
 
 async def test_summarize_session_not_found(db_conn):
     user = {"id": OWNER_ID, "username": "owner", "is_admin": False}
@@ -195,7 +178,6 @@ async def test_summarize_session_not_found(db_conn):
         await misc.summarize_session("nonexistent-sid", current_user=user)
 
     assert exc_info.value.status_code == 404
-
 
 async def test_summarize_session_not_owned_by_caller(db_conn):
     sid, _char = await _make_session()
@@ -206,7 +188,6 @@ async def test_summarize_session_not_owned_by_caller(db_conn):
 
     assert exc_info.value.status_code == 404
 
-
 async def test_summarize_session_no_messages(db_conn):
     sid, _char = await _make_session()
     user = {"id": OWNER_ID, "username": "owner", "is_admin": False}
@@ -214,7 +195,6 @@ async def test_summarize_session_no_messages(db_conn):
     result = await misc.summarize_session(sid, current_user=user)
 
     assert "hasn't started" in result["summary"]
-
 
 async def test_summarize_session_returns_llm_summary(db_conn, monkeypatch):
     sid, char = await _make_session()
@@ -232,7 +212,6 @@ async def test_summarize_session_returns_llm_summary(db_conn, monkeypatch):
 
     assert result["summary"] == "A short recap of the story so far."
 
-
 async def test_summarize_session_llm_failure_returns_502(db_conn, monkeypatch):
     sid, char = await _make_session()
     await chat_sessions.add_message(sid, "user", "Hello", user_name="You")
@@ -248,7 +227,6 @@ async def test_summarize_session_llm_failure_returns_502(db_conn, monkeypatch):
         await misc.summarize_session(sid, current_user=user)
 
     assert exc_info.value.status_code == 502
-
 
 async def test_health_reports_ok_when_dependencies_reachable(db_conn, monkeypatch):
     from backend import vectors, llm
@@ -268,7 +246,6 @@ async def test_health_reports_ok_when_dependencies_reachable(db_conn, monkeypatc
     assert result["embeddings"]["ok"] is True
     assert result["embeddings"]["dim"] == 3
 
-
 async def test_health_reports_embed_failure(db_conn, monkeypatch):
     from backend import vectors, llm
     async def _fake_stats():
@@ -282,7 +259,6 @@ async def test_health_reports_embed_failure(db_conn, monkeypatch):
     result = await misc.health(_=user)
 
     assert result["embeddings"]["ok"] is False
-
 
 async def test_test_embed_success(db_conn, monkeypatch):
     from backend import llm
@@ -299,7 +275,6 @@ async def test_test_embed_success(db_conn, monkeypatch):
     assert result["ok"] is True
     assert result["dim"] == 2
 
-
 async def test_test_embed_failure(db_conn, monkeypatch):
     from backend import llm
     async def _fail_embed(text, model):
@@ -311,7 +286,6 @@ async def test_test_embed_failure(db_conn, monkeypatch):
     result = await misc.test_embed(_=user)
 
     assert result["ok"] is False
-
 
 async def test_docs_live_config_returns_expected_keys(db_conn):
     user = {"id": "u_docs_1", "username": "docsuser", "is_admin": False}

@@ -15,19 +15,16 @@ ACTIVE_STATE_IMPORTANCE_FLOOR = 3
 MAX_ACTIVE_RESERVED_FACTS = 12
 PARTICIPANT_ABSENCE_PENALTY = 0.5
 
-
 def location_matches(fact: dict, current_location: str | None) -> bool:
     fact_location = fact.get("location")
     if not fact_location or not current_location:
         return True
     return fact_location.strip().lower() == current_location.strip().lower()
 
-
 def is_active(fact: dict, current_location: str | None = None) -> bool:
     return (fact["fact_type"] in STATEFUL_TYPES and fact["valid_until_turn"] is None
             and fact["importance"] >= ACTIVE_STATE_IMPORTANCE_FLOOR
             and location_matches(fact, current_location))
-
 
 def retention(fact: dict, current_turn: int, current_location: str | None = None) -> float:
     if fact.get("source") == "lore" or fact.get("pinned"):
@@ -41,7 +38,6 @@ def retention(fact: dict, current_turn: int, current_location: str | None = None
     age = max(0, current_turn - fact["last_turn"])
     return math.exp(-age / strength)
 
-
 def participants_present(fact: dict, present_lower: set[str]) -> bool:
     if fact["fact_type"] == "world" or fact.get("source") == "lore":
         return True
@@ -49,11 +45,9 @@ def participants_present(fact: dict, present_lower: set[str]) -> bool:
         return True
     return any(p.lower() in present_lower for p in fact["participants"])
 
-
 def passes_filters(fact: dict, present_lower: set[str], current_turn: int,
                     current_location: str | None = None) -> bool:
     return retention(fact, current_turn, current_location) >= RETENTION_FLOOR
-
 
 def score(fact: dict, current_turn: int, current_location: str | None = None,
           present_lower: set[str] | None = None) -> float:
@@ -71,7 +65,6 @@ def score(fact: dict, current_turn: int, current_location: str | None = None,
     if present_lower is not None and not participants_present(fact, present_lower):
         return base * PARTICIPANT_ABSENCE_PENALTY
     return base
-
 
 def rank(candidates: list[dict], present: list[str], current_turn: int,
          current_location: str | None = None) -> list[dict]:

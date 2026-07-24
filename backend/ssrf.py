@@ -47,7 +47,6 @@ async def resolve_pinned_host(url: str, is_admin: bool = False) -> tuple[str, st
     pinned = parsed._replace(netloc=netloc).geturl()
     return pinned, host
 
-
 async def _resolve_host_ip_issue(url: str, is_admin: bool = False) -> str | None:
     if is_admin:
         return None
@@ -68,7 +67,6 @@ async def _resolve_host_ip_issue(url: str, is_admin: bool = False) -> str | None
             return f"resolves to a non-public address ({addr}) — refusing to connect"
     return None
 
-
 def _is_blocked_ip(addr: str) -> bool:
     try:
         ip = ipaddress.ip_address(addr)
@@ -77,13 +75,11 @@ def _is_blocked_ip(addr: str) -> bool:
     return (ip.is_private or ip.is_loopback or ip.is_link_local
             or ip.is_reserved or ip.is_multicast or ip.is_unspecified)
 
-
 _KNOWN_MODEL_LIST_SHAPES = (
     ("/models", lambda d: isinstance(d, dict) and isinstance(d.get("data"), list)),
     ("/api/tags", lambda d: isinstance(d, dict) and isinstance(d.get("models"), list)),
     ("/api/version", lambda d: isinstance(d, dict) and "version" in d),
 )
-
 
 async def _validate_chat_endpoint(base_url: str, api_key: str | None,
                                   is_admin: bool = False) -> tuple[bool, str | None, str]:

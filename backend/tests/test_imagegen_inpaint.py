@@ -8,16 +8,13 @@ from backend import imagegen
 
 pytestmark = pytest.mark.asyncio
 
-
 class _FakeWSMessage:
     def __init__(self, payload):
         self._payload = payload
 
-
 async def _fake_ws_iter(messages):
     for m in messages:
         yield m
-
 
 @patch("backend.imagegen.httpx.AsyncClient")
 @patch("backend.imagegen.websockets.connect")

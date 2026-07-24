@@ -6,20 +6,17 @@ from sqlalchemy import select, insert, update as sa_update, delete as sa_delete,
 from backend.db import groups, group_characters, nid, _q, _q1, _w, _encrypt_secret, _decrypt_secret
 from backend.state import log
 
-
 def _row(row: dict) -> dict:
     d = dict(row)
     d["name"] = _decrypt_secret(d.get("name") or "")
     d["opening"] = _decrypt_secret(d.get("opening") or "")
     return d
 
-
 async def _write_cast(gid: str, char_ids: list[str]) -> None:
     await _w(sa_delete(group_characters).where(group_characters.c.group_id == gid))
     for position, char_id in enumerate(char_ids):
         await _w(insert(group_characters).values(
             id=nid("gc"), group_id=gid, char_id=char_id, position=position))
-
 
 async def create(owner_id: str, name: str, opening: str, group_mode: str,
                  is_public: int, char_ids: list[str]) -> str:
@@ -33,11 +30,9 @@ async def create(owner_id: str, name: str, opening: str, group_mode: str,
              gid, owner_id, len(char_ids), bool(is_public))
     return gid
 
-
 async def get(gid: str) -> dict | None:
     row = await _q1(select(groups).where(groups.c.id == gid))
     return _row(row) if row else None
-
 
 async def update(gid: str, name: str, opening: str, group_mode: str, char_ids: list[str]) -> None:
     await _w(sa_update(groups).where(groups.c.id == gid).values(
@@ -45,30 +40,25 @@ async def update(gid: str, name: str, opening: str, group_mode: str, char_ids: l
     await _write_cast(gid, char_ids)
     log.info("group template updated: id=%s cast=%d", gid, len(char_ids))
 
-
 async def set_public(gid: str, is_public: int) -> None:
     await _w(sa_update(groups).where(groups.c.id == gid).values(
         is_public=1 if is_public else 0, updated=time.time()))
     log.info("group template visibility: id=%s public=%s", gid, bool(is_public))
-
 
 async def delete(gid: str) -> None:
     await _w(sa_delete(group_characters).where(group_characters.c.group_id == gid))
     await _w(sa_delete(groups).where(groups.c.id == gid))
     log.info("group template deleted: id=%s", gid)
 
-
 async def set_cast(gid: str, char_ids: list[str]) -> None:
     await _write_cast(gid, char_ids)
     log.info("group template cast set: id=%s cast=%d", gid, len(char_ids))
-
 
 async def list_cast(gid: str) -> list[dict]:
     rows = await _q(select(group_characters)
                     .where(group_characters.c.group_id == gid)
                     .order_by(group_characters.c.position))
     return [dict(r) for r in rows]
-
 
 async def list_public(q: str | None, creator_ids: list[str] | None) -> list[dict]:
     conditions = [groups.c.is_public == 1]
@@ -81,7 +71,6 @@ async def list_public(q: str | None, creator_ids: list[str] | None) -> list[dict
         result = [r for r in result if needle in r["name"].lower()]
     return result
 
-
 async def list_public_for_char(char_id: str) -> list[dict]:
     rows = await _q(
         select(groups)
@@ -89,7 +78,6 @@ async def list_public_for_char(char_id: str) -> list[dict]:
         .where(and_(group_characters.c.char_id == char_id, groups.c.is_public == 1))
         .order_by(groups.c.updated.desc()))
     return [_row(r) for r in rows]
-
 
 async def list_by_owner(owner_id: str) -> list[dict]:
     rows = await _q(select(groups).where(groups.c.owner_id == owner_id)

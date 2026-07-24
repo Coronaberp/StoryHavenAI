@@ -7,7 +7,6 @@ from backend.routers.sessions import list_sessions
 
 pytestmark = pytest.mark.asyncio
 
-
 async def test_list_sessions_attaches_cast_avatars(db_conn):
     owner = "user-cast-1"
     char_a = await characters.create({
@@ -38,7 +37,6 @@ async def test_list_sessions_attaches_cast_avatars(db_conn):
 
     assert not solo_row.get("cast_avatars")
 
-
 async def test_list_sessions_excludes_narrator_from_cast_avatars(db_conn):
     owner = "user-cast-2"
     char_a = await characters.create({
@@ -66,7 +64,6 @@ async def test_list_sessions_excludes_narrator_from_cast_avatars(db_conn):
     assert len(group_row["cast_avatars"]) == 2
     names = {m["name"] for m in group_row["cast_avatars"]}
     assert names == {"Corvin", "Delia"}
-
 
 async def test_list_sessions_caps_cast_avatars_at_four(db_conn):
     owner = "user-cast-3"

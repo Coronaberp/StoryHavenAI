@@ -2,7 +2,6 @@ import pytest
 
 from backend.imagegen_workflows import _build_inpaint_workflow, _build_anima_inpaint_workflow
 
-
 def test_build_inpaint_workflow_wires_mask_and_image():
     wf = _build_inpaint_workflow(
         "a cat", "blurry", "model.safetensors", "photo.png", "mask.png", denoise=0.8)
@@ -28,18 +27,13 @@ def test_build_inpaint_workflow_wires_mask_and_image():
     save = next(n for n in wf.values() if n["class_type"] == "SaveImage")
     assert save is not None
 
-
 def test_build_inpaint_workflow_rejects_blacklisted_checkpoint():
     with pytest.raises(ValueError):
         _build_inpaint_workflow(
             "a cat", "blurry", "prefect_illustrous_sdxl.safetensors",
             "photo.png", "mask.png")
 
-
 def test_build_anima_inpaint_workflow_uses_unet_loader_not_checkpoint():
-    """An Anima UNET file isn't a valid CheckpointLoaderSimple ckpt_name —
-    ComfyUI rejected it outright when the plain _build_inpaint_workflow was
-    used for an Anima model. This graph must load it via UNETLoader instead."""
     wf = _build_anima_inpaint_workflow(
         "a cat", "blurry", "anima_unet.safetensors", "photo.png", "mask.png", denoise=0.8)
 
@@ -54,9 +48,7 @@ def test_build_anima_inpaint_workflow_uses_unet_loader_not_checkpoint():
     ksampler = next(n for n in wf.values() if n["class_type"] == "KSampler")
     assert ksampler["inputs"]["denoise"] == 0.8
 
-
 from backend.imagegen_workflows import _build_wan_video_workflow
-
 
 def test_build_wan_video_workflow_text_to_video():
     wf = _build_wan_video_workflow(

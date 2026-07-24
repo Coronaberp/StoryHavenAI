@@ -12,11 +12,9 @@ pytestmark = pytest.mark.asyncio
 
 _EMBED_DIM = int(os.environ.get("EMBED_DIM", "768"))
 
-
 @pytest.fixture(autouse=True)
 def _ensure_memory_facts_table():
     memory_facts.build_tables(_EMBED_DIM)
-
 
 def _fake_chat_stream(reply_text):
     async def _stream(messages, model, params=None, parse_think=False,
@@ -24,13 +22,11 @@ def _fake_chat_stream(reply_text):
         yield ("content", reply_text)
     return _stream
 
-
 @pytest.fixture(autouse=True)
 def _stub_memory_extraction(monkeypatch):
     async def _noop_maybe_extract(*args, **kwargs):
         return None
     monkeypatch.setattr(memory_service, "maybe_extract", _noop_maybe_extract)
-
 
 @pytest.fixture(autouse=True)
 def _stub_embed(monkeypatch):
@@ -38,12 +34,10 @@ def _stub_embed(monkeypatch):
         raise RuntimeError("embed endpoint unreachable in tests")
     monkeypatch.setattr(llm, "embed", _no_embed)
 
-
 async def _drain(sid):
     handle = chat_service._active_gen[sid]
     await handle.task
     return [json.loads(raw.removeprefix("data: ").strip()) for raw in handle._buf]
-
 
 async def test_continue_merges_into_previous_message(monkeypatch, db_conn):
     char = await characters.create({"owner_id": "owner-1", "name": "Aria", "mode": "character"})
@@ -61,7 +55,6 @@ async def test_continue_merges_into_previous_message(monkeypatch, db_conn):
     done = next(e for e in events if e["type"] == "done")
     assert done["message"]["id"] == assistant_msgs[0]["id"]
     assert done["message"]["content"] == assistant_msgs[0]["content"]
-
 
 async def test_group_regenerate_routes_to_authoring_character(monkeypatch, db_conn):
     char_a = await characters.create({"owner_id": "owner-1", "name": "Alpha", "mode": "character"})
@@ -83,7 +76,6 @@ async def test_group_regenerate_routes_to_authoring_character(monkeypatch, db_co
     assert "Beta speaks again" in assistant_msgs[0]["content"]
     assert any(e.get("char_id") == char_b["id"] for e in events if e["type"] == "delta")
 
-
 async def test_group_continue_rejected(db_conn):
     char_a = await characters.create({"owner_id": "owner-1", "name": "Alpha", "mode": "character"})
     sid = await chat_sessions.create_group("owner-1", "Party", [char_a["id"]])
@@ -91,7 +83,6 @@ async def test_group_continue_rejected(db_conn):
     with pytest.raises(HTTPException) as exc_info:
         await chat_service._run(sid, continue_mode=True, current_user={"id": "owner-1"})
     assert exc_info.value.status_code == 400
-
 
 async def test_multiplayer_gate_registers_before_first_await(monkeypatch, db_conn):
     from backend.repositories import session_participants as sp
@@ -109,7 +100,6 @@ async def test_multiplayer_gate_registers_before_first_await(monkeypatch, db_con
     await chat_service._run(sid, user_content="I act.", current_user={"id": "owner-1"})
     await _drain(sid)
     assert seen["registered"] is True
-
 
 async def test_multiplayer_gate_placeholder_cleared_on_failure(db_conn):
     from fastapi import HTTPException

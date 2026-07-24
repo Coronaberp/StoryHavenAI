@@ -1,6 +1,3 @@
-"""Standalone (community-gallery) image repository — separate from the
-chat-message-image functions in backend/db.py (set_message_image etc.),
-which belong to the chat/session domain, not this one."""
 import json
 import time
 
@@ -11,7 +8,6 @@ from backend.db import (
     _q, _q1, _w, _scalar, nid, _decrypt_secret, _preview, _THINK_RE,
 )
 from backend.state import log
-
 
 def _standalone_row(r) -> dict:
     d = dict(r)
@@ -36,11 +32,7 @@ def _standalone_row(r) -> dict:
     d["duration_s"] = d.get("duration_s") or 0
     return d
 
-
 async def list_all_for_user(user_id: str) -> list[dict]:
-    """Every generated image belonging to a user's own sessions, newest first —
-    powers the Image Gallery page. Draws from chat messages, not the
-    standalone_images table."""
     j = (messages.join(sessions, sessions.c.id == messages.c.session_id)
          .join(characters, characters.c.id == sessions.c.char_id, isouter=True))
     stmt = (select(
@@ -74,7 +66,6 @@ async def list_all_for_user(user_id: str) -> list[dict]:
         r["is_explicit"] = bool(r.get("is_explicit")) or bool(r.pop("image_is_explicit", 0))
     return rows
 
-
 async def create(user_id: str, image: str, positive: str, negative: str,
                  checkpoint: str = "", loras: list | None = None,
                  is_explicit: bool = False, sampler: str = "",
@@ -105,17 +96,14 @@ async def create(user_id: str, image: str, positive: str, negative: str,
             "source_image_id": source_image_id, "fps": fps,
             "frame_count": frame_count, "duration_s": duration_s}
 
-
 async def get(iid: str) -> dict | None:
     row = await _q1(select(standalone_images).where(standalone_images.c.id == iid))
     return _standalone_row(row) if row else None
-
 
 async def list_for_user(user_id: str) -> list[dict]:
     stmt = (select(standalone_images).where(standalone_images.c.user_id == user_id)
             .order_by(standalone_images.c.created.desc()))
     return [_standalone_row(r) for r in await _q(stmt)]
-
 
 async def set_public(iid: str, user_id: str, is_public: bool,
                      is_explicit: bool | None = None) -> dict | None:
@@ -123,11 +111,7 @@ async def set_public(iid: str, user_id: str, is_public: bool,
         standalone_images.c.id == iid, standalone_images.c.user_id == user_id)))
     if row is None:
         return None
-    # is_explicit is the classifier's (or self-flagged) rating of the actual
-    # content — it doesn't stop being true just because the image goes
-    # private again. Only touch it when the caller actually passed a fresh
-    # value (sharing); unsharing passes None and must leave it exactly as it
-    # was, not silently reset it to SFW.
+
     values = {"is_public": int(is_public)}
     if is_explicit is not None:
         values["is_explicit"] = int(is_explicit)
@@ -137,7 +121,6 @@ async def set_public(iid: str, user_id: str, is_public: bool,
     out["is_public"] = is_public
     out["is_explicit"] = bool(is_explicit) if is_explicit is not None else bool(row["is_explicit"])
     return out
-
 
 async def list_community(hidden_ids: set) -> list[dict]:
     stmt = (select(standalone_images, users.c.username, users.c.display_name,
@@ -157,7 +140,6 @@ async def list_community(hidden_ids: set) -> list[dict]:
         out.append(d)
     return out
 
-
 async def get_public(iid: str) -> dict | None:
     stmt = (select(standalone_images, users.c.username, users.c.display_name,
                    users.c.avatar)
@@ -174,7 +156,6 @@ async def get_public(iid: str) -> dict | None:
     d["owner_avatar"] = d.pop("avatar", "") or ""
     return d
 
-
 async def set_explicit(iid: str, is_explicit: bool = True,
                        human_reviewed: bool = False):
     vals = {"is_explicit": 1 if is_explicit else 0}
@@ -183,11 +164,9 @@ async def set_explicit(iid: str, is_explicit: bool = True,
     await _w(sa_update(standalone_images).where(standalone_images.c.id == iid).values(**vals))
     log.info(f"standalone_images: explicit flag set id={iid} is_explicit={is_explicit} human_reviewed={human_reviewed}")
 
-
 async def mark_classified(iid: str):
     await _w(sa_update(standalone_images).where(standalone_images.c.id == iid).values(classified=1))
     log.info(f"standalone_images: classified id={iid}")
-
 
 async def delete(iid: str, user_id: str) -> str | None:
     image = await _scalar(select(standalone_images.c.image).where(and_(

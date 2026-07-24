@@ -1,4 +1,3 @@
-"""Character repository — encapsulates CRUD for the `characters` table."""
 from __future__ import annotations
 import json
 import time
@@ -12,7 +11,6 @@ from backend.db import (
     engine,
 )
 from backend.state import log
-
 
 def _char_row(row) -> dict:
     d = dict(row)
@@ -35,7 +33,6 @@ def _char_row(row) -> dict:
     d["is_explicit"] = bool(d.get("is_explicit"))
     d["is_draft"] = bool(d.get("is_draft"))
     return d
-
 
 async def create(data: dict) -> dict:
     cid = nid("c")
@@ -71,7 +68,6 @@ async def create(data: dict) -> dict:
               cid, data.get("owner_id"), mode, bool(data.get("is_draft")))
     return await get(cid)
 
-
 async def get(cid: str) -> dict | None:
     row = await _q1(select(characters).where(characters.c.id == cid))
     if not row:
@@ -82,22 +78,12 @@ async def get(cid: str) -> dict | None:
     c["owner_username"] = await owner_username(c.get("owner_id"))
     return c
 
-
 async def owner_username(owner_id: str | None) -> str | None:
     if not owner_id:
         return None
     return await _scalar(select(users.c.username).where(users.c.id == owner_id))
 
-
 async def list_public_users(q: str | None = None) -> list[dict]:
-    """Public creator directory. Lists every active user as a potential
-    creator to browse — publishing a character or filling in a profile isn't
-    required, `public_characters` is just 0 for those who haven't. Excludes
-    only deactivated/non-active accounts (see `users.status`); admins are
-    left in since an admin can be a genuine, prolific creator in their own
-    right (e.g. one with several public characters) — excluding the role
-    would just hide real content from the directory. Supports q against
-    username/display_name."""
     counts = await _q(select(characters.c.owner_id, func.count().label("n"))
                       .where(characters.c.is_public == 1)
                       .group_by(characters.c.owner_id))
@@ -125,24 +111,11 @@ async def list_public_users(q: str | None = None) -> list[dict]:
     out.sort(key=lambda x: (-x["public_characters"], x["username"]))
     return out
 
-
 async def list_all(q: str | None = None, user_id: str | None = None,
                     is_admin: bool = False,
                     scope: str | None = None,
                     tags: list[str] | None = None,
                     creator: str | None = None) -> list[dict]:
-    """Return characters filtered by scope.
-
-    scope='mine'      → owner's private characters only
-    scope='community' → public characters (is_public=1)
-    scope='drafts'    → owner's own autosaved-but-not-yet-finished characters only
-    scope=None        → public + user's own (legacy / admin uses all)
-
-    Drafts never appear under any other scope — they're a distinct, separate
-    bucket (see the "Pending" library tab) until their author actually finishes
-    and saves them for real, not half-written characters mixed into everyone's
-    normal browsing.
-    """
     conditions = []
     if creator:
         cl = creator.strip().lower()
@@ -170,11 +143,6 @@ async def list_all(q: str | None = None, user_id: str | None = None,
         else:
             conditions.append(characters.c.is_public == 1)
 
-    # `persona` is encrypted at rest, so it can't be matched with SQL LIKE.
-    # Rather than split the match across a SQL pass (name/tags) and a Python
-    # pass (persona) — which would miss rows where only persona matches but
-    # name/tags don't — the scope filter runs in SQL and the full text match
-    # (name + tags + persona) runs in Python on the decrypted rows below.
     chats = (select(func.count()).select_from(sessions)
              .where(sessions.c.char_id == characters.c.id)
              .scalar_subquery().label("chats"))
@@ -205,7 +173,6 @@ async def list_all(q: str | None = None, user_id: str | None = None,
         c["owner_username"] = usernames.get(c.get("owner_id"))
     return rows
 
-
 async def update(cid: str, data: dict) -> dict | None:
     c = await get(cid)
     if not c:
@@ -214,7 +181,7 @@ async def update(cid: str, data: dict) -> dict | None:
     mode = data.get("mode", c["mode"])
     if mode not in ("character", "rpg"):
         mode = "character"
-    # owner_id is preserved — only the original creator keeps ownership
+
     owner_id = c.get("owner_id")
     is_public = int(bool(data.get("is_public", c.get("is_public", False))))
     await _w(sa_update(characters).where(characters.c.id == cid).values(
@@ -243,9 +210,7 @@ async def update(cid: str, data: dict) -> dict | None:
     log.info("characters: updated id=%s", cid)
     return await get(cid)
 
-
 async def delete(cid: str) -> list[str]:
-    """Delete character and all related data. Returns list of deleted session ids."""
     sids = [r["id"] for r in await _q(
         select(sessions.c.id).where(sessions.c.char_id == cid))]
     async with engine().begin() as conn:
@@ -256,7 +221,6 @@ async def delete(cid: str) -> list[str]:
         await conn.execute(sa_delete(characters).where(characters.c.id == cid))
     log.info("characters: deleted id=%s sessions_removed=%d", cid, len(sids))
     return sids
-
 
 async def set_explicit(cid: str, explicit: bool):
     await _w(sa_update(characters).where(characters.c.id == cid).values(is_explicit=1 if explicit else 0))

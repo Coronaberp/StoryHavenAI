@@ -10,7 +10,6 @@ from backend.routers.comments import _COMMENT_IMAGE_RE, _COMMENT_STICKER_RE
 from backend.schemas import MultiplayerJoinIn, MultiplayerAcceptIn, PartyChatIn
 from backend import live_broadcast
 
-
 async def _validated_persona_id(persona_id: str | None, current_user: dict) -> str | None:
     if not persona_id:
         return None
@@ -22,12 +21,10 @@ async def _validated_persona_id(persona_id: str | None, current_user: dict) -> s
         raise HTTPException(404, "persona not found")
     return persona_id
 
-
 async def _require_rpg_mode(session: dict) -> None:
     char = await characters.get(session["char_id"])
     if not char or char.get("mode") != "rpg":
         raise HTTPException(400, "Multiplayer sessions require an RPG-mode character")
-
 
 async def _require_host(session: dict, current_user: dict) -> None:
     if session.get("user_id") == current_user["id"]:
@@ -36,7 +33,6 @@ async def _require_host(session: dict, current_user: dict) -> None:
     if any(r["user_id"] == current_user["id"] and r["role"] == "host" for r in rows):
         return
     raise HTTPException(403, "Only the host can do this")
-
 
 @api.post("/sessions/{sid}/multiplayer/invite-link")
 async def create_invite_link(sid: str, current_user: dict = Depends(get_experimental_user)):
@@ -49,7 +45,6 @@ async def create_invite_link(sid: str, current_user: dict = Depends(get_experime
     log.info("multiplayer: invite link created session=%s by=%s", sid, current_user["id"])
     return {"token": token}
 
-
 @api.post("/sessions/{sid}/multiplayer/invite-link/revoke")
 async def revoke_invite_link(sid: str, current_user: dict = Depends(get_experimental_user)):
     session = await _own_session(sid, current_user)
@@ -57,7 +52,6 @@ async def revoke_invite_link(sid: str, current_user: dict = Depends(get_experime
     await session_invites.revoke_all_for_session(sid)
     log.info("multiplayer: invite links revoked session=%s by=%s", sid, current_user["id"])
     return {"ok": True}
-
 
 @api.post("/sessions/{sid}/multiplayer/join")
 async def join_via_link(sid: str, body: MultiplayerJoinIn,
@@ -76,7 +70,6 @@ async def join_via_link(sid: str, body: MultiplayerJoinIn,
     log.info("multiplayer: user=%s joined session=%s via link", current_user["id"], sid)
     live_broadcast.broadcast(sid, "participant_joined", {"user_id": current_user["id"]})
     return {"ok": True}
-
 
 @api.post("/sessions/{sid}/multiplayer/invite/{username}")
 async def invite_by_username(sid: str, username: str,
@@ -97,7 +90,6 @@ async def invite_by_username(sid: str, username: str,
     log.info("multiplayer: invite sent session=%s from=%s to=%s", sid, current_user["id"], invitee["id"])
     return {"ok": True}
 
-
 @api.post("/sessions/{sid}/multiplayer/accept")
 async def accept_invite(sid: str, body: MultiplayerAcceptIn,
                         current_user: dict = Depends(get_current_user)):
@@ -117,13 +109,11 @@ async def accept_invite(sid: str, body: MultiplayerAcceptIn,
     live_broadcast.broadcast(sid, "participant_joined", {"user_id": current_user["id"]})
     return {"ok": True}
 
-
 @api.get("/sessions/{sid}/multiplayer/my-personas")
 async def list_my_personas_for_session(sid: str, current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     from backend.repositories import personas
     return await personas.list_own_for_session(current_user["id"], sid)
-
 
 @api.get("/sessions/{sid}/multiplayer/participants")
 async def list_participants(sid: str, current_user: dict = Depends(get_current_user)):
@@ -143,7 +133,6 @@ async def list_participants(sid: str, current_user: dict = Depends(get_current_u
         })
     return enriched
 
-
 @api.get("/sessions/{sid}/multiplayer/participants/{user_id}/persona")
 async def get_participant_persona(sid: str, user_id: str, current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
@@ -159,7 +148,6 @@ async def get_participant_persona(sid: str, user_id: str, current_user: dict = D
         raise HTTPException(404, "Persona not found")
     return persona
 
-
 @api.delete("/sessions/{sid}/multiplayer/participants/{user_id}")
 async def remove_participant(sid: str, user_id: str,
                              current_user: dict = Depends(get_experimental_user)):
@@ -173,13 +161,11 @@ async def remove_participant(sid: str, user_id: str,
     live_broadcast.disconnect_user(sid, user_id)
     return {"ok": True}
 
-
 @api.post("/sessions/{sid}/multiplayer/typing")
 async def typing_ping(sid: str, current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     live_broadcast.broadcast(sid, "typing", {"user_id": current_user["id"]})
     return {"ok": True}
-
 
 @api.get("/sessions/{sid}/multiplayer/live")
 async def live(sid: str, current_user: dict = Depends(get_current_user)):
@@ -194,12 +180,10 @@ async def live(sid: str, current_user: dict = Depends(get_current_user)):
         },
     )
 
-
 @api.get("/sessions/{sid}/multiplayer/party-chat")
 async def get_party_chat(sid: str, current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     return await party_chat.list_recent(sid)
-
 
 async def _validated_party_chat_image(body: PartyChatIn, current_user: dict) -> str | None:
     image = (body.image or "").strip()
@@ -215,7 +199,6 @@ async def _validated_party_chat_image(body: PartyChatIn, current_user: dict) -> 
         return image
     log.warning("multiplayer: party chat attachment rejected user=%s", current_user["id"])
     raise HTTPException(400, "invalid attachment reference")
-
 
 @api.post("/sessions/{sid}/multiplayer/party-chat")
 async def post_party_chat(sid: str, body: PartyChatIn,

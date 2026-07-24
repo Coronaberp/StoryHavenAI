@@ -1,5 +1,3 @@
-"""Custom emoji/sticker uploads — user-generated small images referenced by
-:shortcode: in comments, or attached whole as a "sticker"."""
 from __future__ import annotations
 import re
 import time
@@ -12,33 +10,14 @@ from backend.state import log
 
 _SHORTCODE_RE = re.compile(r"^[a-z0-9_]{2,32}$")
 
-
 def _shape_custom_emoji(row: dict, admin_view: bool = False) -> dict:
-    """The true uploaded file always stays in `image`; the public-facing dict
-    swaps it for the blurred static preview while is_explicit is set and a
-    preview exists, so every existing display path (picker, :shortcode:
-    rendering, sticker attachments) shows the safe stand-in with no caller-
-    side changes. admin_view=True (the admin management panel) always gets
-    the real file, since reviewing *is* looking at the actual content."""
     d = dict(row)
     if not admin_view and d.get("is_explicit") and d.get("preview_image"):
         d["image"] = d["preview_image"]
     return d
 
-
 async def create(shortcode: str, image: str, kind: str, uploader_id: str,
                  is_explicit: bool = False, preview_image: str | None = None) -> dict | None:
-    """Returns None for an invalid shortcode OR one already owned by a
-    different uploader — since any user can upload these, a plain upsert
-    would let anyone silently overwrite someone else's existing :shortcode:
-    (replacing content already used across many messages). Only the
-    original uploader can update their own shortcode's image/kind.
-
-    is_explicit=True + preview_image is used for animated GIFs, which the
-    NSFW classifier can't reliably judge (see chat_service.classify_image_nsfw)
-    — rather than trust an always-negative verdict, they're stored pre-flagged
-    with a blurred static-frame stand-in pending an admin's manual review;
-    see _shape_custom_emoji for how that's served in place of `image`."""
     shortcode = shortcode.strip().lower()
     if not _SHORTCODE_RE.match(shortcode):
         log.warning("emojis: create rejected, invalid shortcode uploader=%s", uploader_id)
@@ -61,24 +40,16 @@ async def create(shortcode: str, image: str, kind: str, uploader_id: str,
              eid, shortcode, uploader_id, kind)
     return await _q1(select(custom_emojis).where(custom_emojis.c.shortcode == shortcode))
 
-
 async def set_explicit(eid: str):
     await _w(sa_update(custom_emojis).where(custom_emojis.c.id == eid).values(is_explicit=1))
     log.info("emojis: emoji id=%s flagged explicit", eid)
 
-
 async def approve(eid: str):
-    """Admin confirms a pending (usually GIF) upload is actually SFW — clears
-    the flag and the now-unneeded preview so the real file is served again."""
     await _w(sa_update(custom_emojis).where(custom_emojis.c.id == eid)
              .values(is_explicit=0, preview_image=None))
     log.info("emojis: emoji id=%s approved", eid)
 
-
 async def update(eid: str, shortcode: str | None, kind: str | None) -> dict | None:
-    """Admin-only rename/retype. Preserves the same shortcode-uniqueness
-    constraint as create() — returns None if the new shortcode is invalid
-    or already claimed by a different emoji."""
     row = await _q1(select(custom_emojis).where(custom_emojis.c.id == eid))
     if not row:
         log.warning("emojis: update failed, emoji not found id=%s", eid)
@@ -101,7 +72,6 @@ async def update(eid: str, shortcode: str | None, kind: str | None) -> dict | No
         log.info("emojis: emoji id=%s updated fields=%s", eid, list(values))
     return await _q1(select(custom_emojis).where(custom_emojis.c.id == eid))
 
-
 async def list_all(kind: str | None = None, admin_view: bool = False) -> list[dict]:
     if admin_view:
         j = custom_emojis.join(users, users.c.id == custom_emojis.c.uploader_id, isouter=True)
@@ -113,20 +83,14 @@ async def list_all(kind: str | None = None, admin_view: bool = False) -> list[di
         stmt = stmt.where(custom_emojis.c.kind == kind)
     return [_shape_custom_emoji(r, admin_view) for r in await _q(stmt)]
 
-
 async def get(eid: str, admin_view: bool = False) -> dict | None:
     row = await _q1(select(custom_emojis).where(custom_emojis.c.id == eid))
     return _shape_custom_emoji(row, admin_view) if row else None
 
-
 async def get_sticker_by_image(image: str) -> dict | None:
-    """Used to validate a comment's sticker attachment actually is one — the
-    image path alone (an emo_... filename) isn't proof, since it's just a
-    client-supplied string; this confirms a real sticker row backs it."""
     row = await _q1(select(custom_emojis).where(and_(
         custom_emojis.c.image == image, custom_emojis.c.kind == "sticker")))
     return dict(row) if row else None
-
 
 async def delete(eid: str):
     await _w(sa_delete(custom_emojis).where(custom_emojis.c.id == eid))

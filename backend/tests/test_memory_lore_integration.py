@@ -2,7 +2,6 @@ import pytest
 
 pytestmark = pytest.mark.asyncio
 
-
 async def test_oversized_always_entry_actually_reaches_the_rendered_block(db_conn, monkeypatch):
     from backend.retrieval import index_lore, retrieve
     from backend import lore_memory, memory_block, vectors
@@ -31,7 +30,6 @@ async def test_oversized_always_entry_actually_reaches_the_rendered_block(db_con
 
     block, used_ids, dropped_ids = memory_block.build_block(pinned, [], [], budget_tokens=20000)
     assert "Aurelia" in block or "kingdom" in block.lower()
-
 
 async def test_oversized_entry_chunks_are_capped_and_demoted_not_dropped(db_conn, monkeypatch):
     from backend.retrieval import index_lore, retrieve
@@ -66,7 +64,6 @@ async def test_oversized_entry_chunks_are_capped_and_demoted_not_dropped(db_conn
     assert len(demoted_from_entry) > 0
     assert len(entry_candidates) > lore_memory.MAX_PINNED_LORE_CHUNKS
 
-
 async def test_semantic_knn_chunk_path_resolves_real_chunk_content(db_conn, monkeypatch):
     from backend.retrieval import index_lore
     from backend import lore_memory, vectors
@@ -94,7 +91,6 @@ async def test_semantic_knn_chunk_path_resolves_real_chunk_content(db_conn, monk
     chunk_texts = {c["content"] for c in chunks}
     assert any(c["text"] in chunk_texts for c in candidates if c["id"].split("#")[0] == lid)
 
-
 async def test_require_and_exclude_keys_actually_gate_retrieval_end_to_end(db_conn):
     from backend.retrieval import retrieve
     from backend.repositories import lore
@@ -112,7 +108,6 @@ async def test_require_and_exclude_keys_actually_gate_retrieval_end_to_end(db_co
     matched_slain, _ = await retrieve(char_id, "sess-integ-2c", "dragon cave slain",
                                       "a dragon in the cave was slain")
     assert not any(e["id"] == lid for e in matched_slain)
-
 
 async def test_pinned_lore_cap_and_demotion_survive_the_full_pipeline(db_conn):
     from backend import lore_memory, memory_ranking

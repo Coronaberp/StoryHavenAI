@@ -33,7 +33,6 @@ def _eff_cfg(user_overrides: dict) -> dict:
     return {**CFG, **{k: v for k, v in user_overrides.items()
                       if k in USER_CFG_KEYS and v is not None}}
 
-
 def _persona_switch_note(msgs: list[dict], char_name: str) -> str | None:
     user_turns = [m for m in msgs if m["role"] == "user"]
     if len(user_turns) < 2:
@@ -48,7 +47,6 @@ def _persona_switch_note(msgs: list[dict], char_name: str) -> str | None:
             f"interjecting, based only on what {char_name} actually knows about {current_name} "
             "(established lore, an earlier introduction in this story, or otherwise) — a total "
             "stranger if nothing establishes them as known.")
-
 
 async def _endpoints(user_overrides: dict, user_id: str | None = None,
                      is_admin: bool = False) -> dict:
@@ -70,15 +68,12 @@ async def _endpoints(user_overrides: dict, user_id: str | None = None,
         "embed_key": None,
     }
 
-
 def _ui_language(user_overrides: dict) -> str:
     return (user_overrides.get("interface_language") or "").strip() \
         or (CFG.get("default_language") or "").strip() or "English"
 
-
 def _chat_language(session: dict, user_overrides: dict) -> str:
     return (session.get("language") or "").strip() or _ui_language(user_overrides)
-
 
 async def _own_session(sid: str, current_user: dict) -> dict:
     s = await chat_sessions.get(sid)
@@ -89,7 +84,6 @@ async def _own_session(sid: str, current_user: dict) -> dict:
     if await session_participants.is_participant(sid, current_user["id"]):
         return s
     raise HTTPException(404, "session not found")
-
 
 async def _resolve_sender_persona(s: dict, current_user: dict | None) -> tuple[dict | None, str]:
     if current_user:
@@ -106,7 +100,6 @@ async def _resolve_sender_persona(s: dict, current_user: dict | None) -> tuple[d
     persona = await personas.get(s["persona_id"]) if s.get("persona_id") else None
     user_name = (persona["name"] if persona else None) or s.get("user_name") or "You"
     return persona, user_name
-
 
 class GenHandle:
     def __init__(self, sid: str):
@@ -159,9 +152,7 @@ class GenHandle:
             except ValueError:
                 pass
 
-
 _active_gen: dict[str, GenHandle] = {}
-
 
 def _extract_memory_in_background(sid: str, coro) -> None:
     async def _run():
@@ -170,7 +161,6 @@ def _extract_memory_in_background(sid: str, coro) -> None:
         except Exception as e:
             log.warning("memory extraction failed in background: session=%s error=%s", sid, e)
     asyncio.create_task(_run())
-
 
 def _start_gen(sid: str, coro_fn, *args, **kwargs):
     old = _active_gen.pop(sid, None)
@@ -195,7 +185,6 @@ def _start_gen(sid: str, coro_fn, *args, **kwargs):
     handle.task = asyncio.create_task(_wrap())
     return handle
 
-
 def _glossary_note(glossary: dict | None) -> str:
     if not glossary:
         return ""
@@ -203,10 +192,8 @@ def _glossary_note(glossary: dict | None) -> str:
     return (f" Glossary — the player has pinned these renderings; use them exactly, "
             f"every single time, over any other choice: {pairs}.")
 
-
 def _src_hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
 
 async def _localize_texts(texts: list[str], target_language: str) -> list[str]:
     lang = target_language.strip().lower()
@@ -214,9 +201,7 @@ async def _localize_texts(texts: list[str], target_language: str) -> list[str]:
     cached = await db.get_localizations(list(set(hashes)), lang)
     return [cached.get(h, t) for t, h in zip(texts, hashes)]
 
-
 MAX_GROUP_RESPONDERS = 3
-
 
 def _parse_id_list(text: str, valid: set[str]) -> list[str]:
     match = re.search(r"\[.*\]", text or "", re.S)
@@ -232,10 +217,8 @@ def _parse_id_list(text: str, valid: set[str]) -> list[str]:
             seen.append(item)
     return seen
 
-
 _ADDRESS_ALL_RE = re.compile(
     r"\b(everyone|everybody|you all|all of you|you guys|y'?all|folks|guys)\b|@all|@everyone", re.IGNORECASE)
-
 
 async def next_speaker(cast, user_text, last_speaker_id, recent, model, ep) -> list[str]:
     speakers = [c for c in cast if not c.get("is_narrator") and not c.get("muted")]
@@ -274,7 +257,6 @@ async def next_speaker(cast, user_text, last_speaker_id, recent, model, ep) -> l
                [c["char_id"] for c in speakers]
         ids = [pool[0]]
     return ids[:MAX_GROUP_RESPONDERS]
-
 
 def _assemble_system(char, s, persona, user_name, mode, language, do_think, eff, block, full_system,
                      is_multiplayer=False, other_player_names=None):
@@ -316,7 +298,6 @@ def _assemble_system(char, s, persona, user_name, mode, language, do_think, eff,
                    "inner voice on its own line formatted as: **<Name>'s thoughts 💭:** *<one or two "
                    "short sentences in first person>* — never the player's thoughts.")
     return system, length_preset
-
 
 async def _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep, chat_model,
                               persona, user_name, language, do_think, turn_group, query, viewer_id,
@@ -419,7 +400,6 @@ async def _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep, 
     yield "data: " + json.dumps({"type": "message", "message": amsg, "char_id": cid, "mood": mood,
                                  "lore": meta_lore_lines, "memory": meta_memory_lines}) + "\n\n"
 
-
 async def _load_group_cast(sid):
     cast_rows = await session_char_repo.list_cast(sid)
     chars_by_id = {}
@@ -428,7 +408,6 @@ async def _load_group_cast(sid):
         if c:
             chars_by_id[row["char_id"]] = c
     return cast_rows, chars_by_id
-
 
 async def _group_single(s, eff, ep, chat_model, cid, current_user, think, user_overrides, replace_mid=None):
     sid = s["id"]
@@ -480,7 +459,6 @@ async def _group_single(s, eff, ep, chat_model, cid, current_user, think, user_o
     handle = _start_gen(sid, gen)
     return StreamingResponse(handle.stream(), media_type="text/event-stream")
 
-
 async def run_group_speak(sid, char_id, current_user, think=None, replace_mid=None):
     user_overrides = await user_repo.get_user_settings(current_user["id"]) if current_user else {}
     eff = _eff_cfg(user_overrides)
@@ -492,7 +470,6 @@ async def run_group_speak(sid, char_id, current_user, think=None, replace_mid=No
         raise HTTPException(404, "group session not found")
     return await _group_single(s, eff, ep, chat_model, char_id, current_user, think,
                                user_overrides, replace_mid=replace_mid)
-
 
 async def _narrate_action(action, actor_name, language, chat_model, ep, gender=None):
     named = bool(actor_name and actor_name.strip() and actor_name.strip().lower() != "you")
@@ -521,9 +498,7 @@ async def _narrate_action(action, actor_name, language, chat_model, ep, gender=N
     out = strip_think(out).strip().strip('"').strip()
     return out
 
-
 _FIRST_PERSON_RE = re.compile(r"\b(I|I'm|I'll|I've|I'd|my|mine|me|myself)\b", re.IGNORECASE)
-
 
 async def group_narrate_edit(s, content, current_user):
     dialogue, action = group.split_speech(content)
@@ -542,7 +517,6 @@ async def group_narrate_edit(s, content, current_user):
     if narrated:
         return f'*{narrated}* "{dialogue}"' if dialogue else f"*{narrated}*"
     return content
-
 
 async def _run_group(s, eff, ep, chat_model, user_content, current_user, think, user_overrides):
     sid = s["id"]
@@ -613,7 +587,6 @@ async def _run_group(s, eff, ep, chat_model, user_content, current_user, think, 
     handle = _start_gen(sid, gen)
     return StreamingResponse(handle.stream(), media_type="text/event-stream")
 
-
 async def _regenerate_group(s, eff, ep, chat_model, current_user, think, user_overrides):
     msgs = await chat_sessions.list_messages(s["id"])
     target = next((m for m in reversed(msgs) if m["role"] == "assistant" and m.get("char_id")), None)
@@ -621,7 +594,6 @@ async def _regenerate_group(s, eff, ep, chat_model, current_user, think, user_ov
         raise HTTPException(400, "nothing to regenerate")
     return await _group_single(s, eff, ep, chat_model, target["char_id"], current_user, think,
                                user_overrides, replace_mid=target["id"])
-
 
 async def _run(sid, user_content=None, regenerate=False, continue_mode=False,
                direction=None, think=None, current_user=None):
@@ -652,7 +624,6 @@ async def _run(sid, user_content=None, regenerate=False, continue_mode=False,
         if placeholder is not None and _active_gen.get(sid) is placeholder:
             _active_gen.pop(sid, None)
         raise
-
 
 async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, user_overrides,
                     user_content, regenerate, continue_mode, direction, think, current_user):

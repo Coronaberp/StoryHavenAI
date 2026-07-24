@@ -1,4 +1,3 @@
-"""Creator profile pages, profile update, banner/avatar upload."""
 import os
 import json
 import time
@@ -21,19 +20,12 @@ from backend.repositories import comments as comment_repo
 from backend.repositories import notifications as notification_repo
 from backend.ratelimit import SlidingWindow
 
-# Same tighter cap as comment-attachment uploads (backend/routers/comments.py)
-# — a profile image upload is a full encode/decode/NSFW-classify round-trip,
-# not just a cheap metadata write, and was previously the only upload endpoint
-# in the app with no rate limit at all.
 _PROFILE_IMAGE_LIMIT = SlidingWindow(
     10, 300, "You're uploading too fast — please wait a moment and try again")
 
 @api.get("/users")
 async def list_public_users(q: str | None = None,
                             current_user: dict | None = Depends(get_current_user_optional)):
-    """Public creator directory (works for anon like the community char listing).
-    Only surfaces users who've published something publicly. Hides users the
-    viewer has blocked / been blocked by, mirroring the character listing."""
     rows = await db.list_public_users(q)
     following_ids = set()
     if current_user:
@@ -43,14 +35,8 @@ async def list_public_users(q: str | None = None,
         following_ids = set(await follow_repo.following_ids(current_user["id"]))
     return [{**{k: v for k, v in u.items() if k != "id"}, "following": u["id"] in following_ids} for u in rows]
 
-
 @api.get("/users/{username}")
 async def public_profile(username: str, current_user: dict | None = Depends(get_current_user_optional)):
-    """Public creator page: profile fields + their community characters. Never
-    exposes email-like or auth data — _user_row already strips the hash.
-    Viewable while logged out (matches character/image public pages) — the
-    viewer-relative fields (blocked_by_viewer, own-title visibility) simply
-    fall back to their anonymous defaults."""
     u = await user_repo.get_user_by_username(username)
     if not u or u.get("status") != "active":
         raise HTTPException(404, "user not found")
@@ -62,9 +48,7 @@ async def public_profile(username: str, current_user: dict | None = Depends(get_
     except (json.JSONDecodeError, TypeError):
         social_links = {}
     is_self = bool(current_user) and current_user["id"] == u["id"]
-    # get_user_by_username returns the raw row (it also serves login/password
-    # verification, which needs the undecrypted row) — bio is encrypted at
-    # rest, so it must be decrypted here before going out over the API.
+
     return {
         "id": u["id"],
         "username": u["username"],
@@ -91,9 +75,7 @@ async def public_profile(username: str, current_user: dict | None = Depends(get_
         "stats": {"characters": len(chars), "chats": sum(c.get("chats", 0) for c in chars)},
     }
 
-
 SOCIAL_LINK_KEYS = ("twitter", "twitch", "instagram", "discord", "pixiv", "youtube", "patreon", "kofi")
-
 
 @api.put("/me/profile")
 async def update_my_profile(body: ProfileIn, current_user: dict = Depends(get_current_user)):
@@ -148,7 +130,6 @@ async def update_my_profile(body: ProfileIn, current_user: dict = Depends(get_cu
     log.info("profile: updated by=%s fields=%s", current_user["username"], ",".join(sorted(data.keys())))
     return await user_repo.get_user_by_id(current_user["id"])
 
-
 @api.post("/me/banner")
 async def upload_my_banner(file: UploadFile = File(...),
                            current_user: dict = Depends(get_current_user),
@@ -169,14 +150,10 @@ async def upload_my_banner(file: UploadFile = File(...),
     log.info("profile: banner uploaded by=%s", current_user["username"])
     return {"banner_img": url}
 
-
 @api.post("/me/chat-background")
 async def upload_my_chat_background(file: UploadFile = File(...),
                                     current_user: dict = Depends(get_current_user),
                                     _feature: None = Depends(require_feature_enabled("profile"))):
-    """Fallback chat background — shown behind the message thread whenever a
-    character has no stage art, or the user has toggled stage art off for one
-    that does (see backend/routers/chat.py / new_ui/js/chat.js's #chatStage)."""
     _PROFILE_IMAGE_LIMIT.check_and_record(current_user["id"])
     ext = os.path.splitext(file.filename or "")[1].lower()
     if ext not in (".png", ".jpg", ".jpeg", ".webp"):
@@ -192,7 +169,6 @@ async def upload_my_chat_background(file: UploadFile = File(...),
                                   review_context="a chat background")
     log.info("profile: chat background uploaded by=%s", current_user["username"])
     return {"chat_background_img": url}
-
 
 @api.post("/me/avatar")
 async def upload_my_avatar(file: UploadFile = File(...),
@@ -215,8 +191,6 @@ async def upload_my_avatar(file: UploadFile = File(...),
     log.info("profile: avatar uploaded by=%s", current_user["username"])
     return {"avatar": url}
 
-
-
 @api.post("/users/{username}/block")
 async def block_user_route(username: str, body: BlockIn,
                            current_user: dict = Depends(get_current_user)):
@@ -232,7 +206,6 @@ async def block_user_route(username: str, body: BlockIn,
              current_user["username"], u["username"], removed)
     return {"blocked": True, "removed_comments": removed}
 
-
 @api.post("/users/{username}/unblock")
 async def unblock_user_route(username: str,
                              current_user: dict = Depends(get_current_user)):
@@ -243,14 +216,11 @@ async def unblock_user_route(username: str,
     log.info("user unblocked: by=%s unblocked=%s", current_user["username"], u["username"])
     return {"blocked": False}
 
-
 @api.get("/me/blocked")
 async def my_blocked(current_user: dict = Depends(get_current_user)):
     return await block_repo.list_blocked(current_user["id"])
 
-
 _FOLLOWER_MILESTONES = {10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000}
-
 
 @api.post("/users/{username}/follow")
 async def follow_user_route(username: str, current_user: dict = Depends(get_current_user),
@@ -276,7 +246,6 @@ async def follow_user_route(username: str, current_user: dict = Depends(get_curr
                 f"/u/{u['username']}")
     return {"following": True, "follower_count": count}
 
-
 @api.delete("/users/{username}/follow")
 async def unfollow_user_route(username: str, current_user: dict = Depends(get_current_user)):
     u = await user_repo.get_user_by_username(username)
@@ -284,7 +253,6 @@ async def unfollow_user_route(username: str, current_user: dict = Depends(get_cu
         raise HTTPException(404, "user not found")
     await follow_repo.unfollow(current_user["id"], u["id"])
     return {"following": False, "follower_count": await follow_repo.follower_count(u["id"])}
-
 
 @api.get("/users/{username}/followers")
 async def user_followers(username: str, current_user: dict | None = Depends(get_current_user_optional)):

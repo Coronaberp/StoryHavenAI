@@ -1,6 +1,3 @@
-"""Memory retrieval and the chat/regenerate/roll/continue SSE generation
-endpoints — the actual "have a conversation" surface. Session CRUD lives in
-sessions.py."""
 from fastapi import HTTPException, Depends
 
 from backend import db
@@ -15,9 +12,7 @@ from backend.feature_flags import require_feature_enabled
 from backend.prompt import apply_directive, apply_inline_directives, strip_sigil
 from backend.schemas import RollIn, ChatIn
 
-
 MEMORY_LIST_MAX = 1000
-
 
 @api.get("/sessions/{sid}/memory")
 async def get_memory(sid: str, q: str | None = None, k: int = 30,
@@ -36,13 +31,11 @@ async def get_memory(sid: str, q: str | None = None, k: int = 30,
     live = await memory_facts.list_live(sid, MEMORY_LIST_MAX)
     return {"items": [{"id": f["id"], "text": f["text"]} for f in live], "total": total}
 
-
 @api.delete("/sessions/{sid}/memory")
 async def clear_memory(sid: str, current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     await memory_facts.purge_session(sid)
     return {"cleared": True}
-
 
 @api.delete("/sessions/{sid}/memory/{mid}")
 async def delete_memory_entry(sid: str, mid: str, current_user: dict = Depends(get_current_user)):
@@ -50,20 +43,17 @@ async def delete_memory_entry(sid: str, mid: str, current_user: dict = Depends(g
     await memory_facts.expire(mid)
     return {"deleted": True}
 
-
 @api.post("/sessions/{sid}/speak/{char_id}")
 async def group_speak(sid: str, char_id: str, current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     guest_quota.check(current_user, "tokens")
     return await run_group_speak(sid, char_id, current_user)
 
-
 @api.post("/sessions/{sid}/messages/{mid}/reassign/{char_id}")
 async def group_reassign(sid: str, mid: str, char_id: str, current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     guest_quota.check(current_user, "tokens")
     return await run_group_speak(sid, char_id, current_user, replace_mid=mid)
-
 
 @api.post("/sessions/{sid}/chat")
 async def chat(sid: str, body: ChatIn, current_user: dict = Depends(get_current_user),
@@ -76,7 +66,6 @@ async def chat(sid: str, body: ChatIn, current_user: dict = Depends(get_current_
     return await _run(sid, user_content=content,
                       think=body.think, current_user=current_user)
 
-
 @api.post("/sessions/{sid}/regenerate")
 async def regenerate(sid: str, body: ChatIn | None = None,
                      current_user: dict = Depends(get_current_user)):
@@ -84,7 +73,6 @@ async def regenerate(sid: str, body: ChatIn | None = None,
     guest_quota.check(current_user, "tokens")
     return await _run(sid, regenerate=True,
                       think=(body.think if body else None), current_user=current_user)
-
 
 @api.post("/sessions/{sid}/roll")
 async def roll(sid: str, body: RollIn, current_user: dict = Depends(get_current_user)):
@@ -96,7 +84,6 @@ async def roll(sid: str, body: RollIn, current_user: dict = Depends(get_current_
         raise HTTPException(400, str(e))
     return await _run(sid, user_content=apply_directive(format_roll(r, body.note), "roll"),
                       think=body.think, current_user=current_user)
-
 
 @api.post("/sessions/{sid}/continue")
 async def continue_chat(sid: str, body: ChatIn | None = None,

@@ -1,23 +1,3 @@
-"""server.py — FastAPI app assembly.
-
-Thin composition root: builds the app + lifespan, wires shared infrastructure
-(db, vectors, llm config, background session cleanup), and includes the domain
-routers in the original registration order. All route handlers and business
-logic live in the backend/ package (the only module outside it is this file):
-
-  backend/state.py         config/CFG, logging, the shared api/auth_router objects
-  backend/auth.py          session cookies, user dependencies, login throttle, /api/auth/*
-  backend/ssrf.py          bring-your-own endpoint validation
-  backend/prompt.py        build_system, sampling params, mood parsing, dice
-  backend/media.py         image validation/optimization, media file helpers
-  backend/chat_service.py  config/endpoint resolution, session ownership, SSE machinery, _run
-  backend/retrieval.py     lore/memory retrieval, per-turn memory extraction, remember()
-  backend/classify.py      NSFW image classification (sync + fire-and-forget background)
-  backend/ai_helpers.py    character/persona/image-prompt side-call generators
-  backend/routers/*        the /api/* route handlers, grouped by domain
-
-Run:  uvicorn server:app --port 8000
-"""
 import os
 import re
 import html
@@ -85,13 +65,7 @@ async def lifespan(app: FastAPI):
                 log.exception("session cleanup failed")
 
     async def _log_buffer_prune_loop():
-        # _log_buffer.emit() already prunes entries older than 24h from the
-        # in-memory buffer on every new log line, but the persisted JSONL
-        # file on disk only gets rewritten down to that buffer at startup
-        # (compact()) — without this, a quiet server could still grow the
-        # file unboundedly between restarts. Re-running compact() here keeps
-        # the on-disk file matching the 24h-pruned in-memory view even if
-        # the process runs for weeks without a restart.
+
         while True:
             await asyncio.sleep(3600)
             try:
@@ -110,13 +84,10 @@ async def lifespan(app: FastAPI):
     await db.close()
     await vectors.close()
 
-
 app = FastAPI(title="StoryHaven AI", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
-
 def _strip_ciphertext(value):
-    """Recursively blank any string still carrying the raw 'enc:' at-rest prefix."""
     if isinstance(value, str):
         return ("", True) if value.startswith("enc:") else (value, False)
     if isinstance(value, list):
@@ -137,14 +108,8 @@ def _strip_ciphertext(value):
         return out, changed
     return value, False
 
-
 @app.middleware("http")
 async def _ciphertext_leak_guard(request: Request, call_next):
-    """Defense-in-depth: if any route ever forgets to decrypt an at-rest field,
-    this scans outgoing JSON bodies and blanks any value still prefixed 'enc:'
-    (log-and-strip — a blank field is a safer failure than either leaking
-    ciphertext or hard-500'ing the page). Non-JSON and streaming (SSE) responses
-    pass through untouched."""
     response = await call_next(request)
     ctype = response.headers.get("content-type", "")
     if "application/json" not in ctype:
@@ -171,88 +136,64 @@ async def _ciphertext_leak_guard(request: Request, call_next):
     return Response(content=new_body, status_code=response.status_code,
                     headers=headers, media_type="application/json")
 
-
-# Importing these modules registers their routes onto the shared auth_router / api
-# objects (from state.py). The import order here fixes the /api route registration
-# order, which is kept identical to the original single-file server.
-from backend import auth  # noqa: F401  (registers /api/auth/* routes)
-import backend.routers.webauthn    # noqa: F401
-import backend.routers.oauth       # noqa: F401
-import backend.routers.characters  # noqa: F401
-import backend.routers.personas    # noqa: F401
-import backend.routers.lore        # noqa: F401
-import backend.routers.session_lore  # noqa: F401
-import backend.routers.sessions    # noqa: F401
-import backend.routers.chat        # noqa: F401
-import backend.routers.imagegen    # noqa: F401
-import backend.routers.model_previews  # noqa: F401
-import backend.routers.profile     # noqa: F401
-import backend.routers.settings    # noqa: F401
-import backend.routers.misc        # noqa: F401
-import backend.routers.admin       # noqa: F401
-import backend.routers.comments     # noqa: F401
-import backend.routers.notifications  # noqa: F401
-import backend.routers.feature_flags  # noqa: F401
-import backend.routers.health       # noqa: F401
-import backend.routers.forum        # noqa: F401
-import backend.routers.emojis       # noqa: F401
-import backend.routers.multiplayer  # noqa: F401
-import backend.routers.lora_training  # noqa: F401
-import backend.routers.groups       # noqa: F401
+from backend import auth
+import backend.routers.webauthn
+import backend.routers.oauth
+import backend.routers.characters
+import backend.routers.personas
+import backend.routers.lore
+import backend.routers.session_lore
+import backend.routers.sessions
+import backend.routers.chat
+import backend.routers.imagegen
+import backend.routers.model_previews
+import backend.routers.profile
+import backend.routers.settings
+import backend.routers.misc
+import backend.routers.admin
+import backend.routers.comments
+import backend.routers.notifications
+import backend.routers.feature_flags
+import backend.routers.health
+import backend.routers.forum
+import backend.routers.emojis
+import backend.routers.multiplayer
+import backend.routers.lora_training
+import backend.routers.groups
+import backend.routers.announcements
 
 app.include_router(auth_router)
 app.include_router(api)
-
 
 @app.get("/api/openapi-schema")
 async def get_openapi_schema(_user: dict = Depends(get_current_user)):
     return app.openapi()
 
-
 class _NosniffStaticFiles(StaticFiles):
-    """Adds X-Content-Type-Options: nosniff to every response. Uploaded files
-    are already restricted to a real-image extension allowlist and re-decoded
-    through PIL (see media.py), so this is defense-in-depth, not the primary
-    control — it closes the residual case of a legacy MIME-sniffing browser
-    guessing a different content type than the served extension for a file
-    that happened to survive re-optimization unchanged."""
     async def get_response(self, path, scope):
         response = await super().get_response(path, scope)
         response.headers["X-Content-Type-Options"] = "nosniff"
         return response
 
-
 app.mount("/media", _NosniffStaticFiles(directory=MEDIA_DIR), name="media")
-
 
 def _spa_shell_response():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"),
                         headers={"Cache-Control": "no-store, must-revalidate"})
 
-
 @app.get("/")
 async def index():
     return _spa_shell_response()
 
-
 def esc_html(s: str) -> str:
     return html.escape(str(s or ""), quote=True)
 
-
 def _og_excerpt(text: str, limit: int = 200) -> str:
-    """One-line, length-capped excerpt for og:description — link-preview crawlers
-    want a short single-line summary, not the entity's whole multi-paragraph body,
-    so newlines/runs of whitespace are collapsed and the text is cut on a word
-    boundary with an ellipsis."""
     s = " ".join((text or "").split())
     if len(s) <= limit:
         return s
     return s[:limit].rsplit(" ", 1)[0].rstrip() + "…"
 
-
-# Brand favicon for link-preview embeds (Discord/Slack/etc. show this small
-# icon next to the site name) — a gold "❖" on the app's dark surface, inlined
-# as a data URI so the share route needs no extra static asset.
 FAVICON_DATA_URI = (
     "data:image/svg+xml,"
     "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E"
@@ -261,7 +202,6 @@ FAVICON_DATA_URI = (
     "fill='%23E3BD6C' font-family='Georgia,serif'%3E%E2%9D%96%3C/text%3E"
     "%3C/svg%3E"
 )
-
 
 def _abs_media_url(request: Request, path: str) -> str | None:
     if not path:
@@ -272,16 +212,7 @@ def _abs_media_url(request: Request, path: str) -> str | None:
         return str(request.base_url).rstrip("/") + path
     return None
 
-
 def _blurred_media_path(rel_path: str) -> str | None:
-    """og:image is a raw URL a link-unfurler (Discord etc.) fetches directly —
-    there's no CSS/JS control over what it renders, so an NSFW image can't be
-    blurred client-side the way the in-app gallery does it. This generates
-    (once, then caches on disk next to the original) an actually-blurred copy
-    and returns its /media/... path, so the embed itself never exposes the
-    real content to someone who hasn't opted into mature content and may not
-    even have an account. Returns None if the source file is missing/unreadable
-    — callers should fall back to no image rather than a broken embed."""
     if not rel_path or not rel_path.startswith("/media/"):
         return None
     fname = rel_path[len("/media/"):]
@@ -300,7 +231,6 @@ def _blurred_media_path(rel_path: str) -> str | None:
         return None
     return f"/media/{blurred_name}"
 
-
 def _og_cover(img, w, h):
     ratio = max(w / img.width, h / img.height)
     resized = img.resize((max(1, round(img.width * ratio)), max(1, round(img.height * ratio))))
@@ -308,11 +238,9 @@ def _og_cover(img, w, h):
     top = (resized.height - h) // 2
     return resized.crop((left, top, left + w, top + h))
 
-
 def _og_contain(img, w, h):
     ratio = min(w / img.width, h / img.height)
     return img.resize((max(1, round(img.width * ratio)), max(1, round(img.height * ratio))))
-
 
 def _og_creator_footer(canvas, draw, name, avatar_rel, accent_hex, banner_hex):
     from PIL import ImageDraw
@@ -336,7 +264,6 @@ def _og_creator_footer(canvas, draw, name, avatar_rel, accent_hex, banner_hex):
         canvas.paste(av, (ax, ay), mask)
         text_x = ax + size + 20
     draw.text((text_x, ay + 14), (name or "")[:44], font=_og_font(_FONT_BODY, 30, 600), fill=_OG_GOLD)
-
 
 def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex):
     from PIL import ImageFilter, ImageDraw
@@ -375,7 +302,6 @@ def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex):
         return None
     return f"/media/{cache_name}"
 
-
 def _og_image_url(request: Request, art_rel_path, name=None, avatar_rel=None,
                   accent_hex=None, banner_hex=None) -> str:
     origin = str(request.base_url).rstrip("/")
@@ -384,13 +310,11 @@ def _og_image_url(request: Request, art_rel_path, name=None, avatar_rel=None,
         return f"{origin}{composite}"
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
 
-
 _FONT_DISPLAY = os.path.join(STATIC_DIR, "fonts", "Fraunces.ttf")
 _FONT_BODY = os.path.join(STATIC_DIR, "fonts", "Inter.ttf")
 _OG_GOLD = (227, 189, 108)
 _OG_MUTED = (183, 176, 160)
 _OG_PAPER = (12, 12, 14)
-
 
 def _og_hex_rgb(value, fallback):
     text = (value or "").strip().lstrip("#")
@@ -403,7 +327,6 @@ def _og_hex_rgb(value, fallback):
     except ValueError:
         return fallback
 
-
 def _og_diagonal_gradient(size, start_rgb, end_rgb):
     from PIL import Image as _Image
     grad = _Image.new("RGB", (size, size))
@@ -414,7 +337,6 @@ def _og_diagonal_gradient(size, start_rgb, end_rgb):
             t = (x + y) / span
             px[x, y] = tuple(round(start_rgb[i] + (end_rgb[i] - start_rgb[i]) * t) for i in range(3))
     return grad
-
 
 def _og_font(path, size, weight):
     from PIL import ImageFont
@@ -433,7 +355,6 @@ def _og_font(path, size, weight):
     except Exception:
         pass
     return font
-
 
 def _og_wrap(draw, text, font, max_width, max_lines):
     lines, current = [], ""
@@ -457,7 +378,6 @@ def _og_wrap(draw, text, font, max_width, max_lines):
         lines[-1] = (last.rstrip() + "…") if last else last
     return lines
 
-
 def _og_open_media(rel_path):
     if not rel_path or not rel_path.startswith("/media/"):
         return None
@@ -465,7 +385,6 @@ def _og_open_media(rel_path):
         return Image.open(os.path.join(MEDIA_DIR, rel_path[len("/media/"):].split("?")[0])).convert("RGB")
     except Exception:
         return None
-
 
 def _og_draw_tags(draw, x, y, tags, font):
     cx = x
@@ -477,7 +396,6 @@ def _og_draw_tags(draw, x, y, tags, font):
         draw.rounded_rectangle([cx, y, cx + pill_w, y + 36], radius=18, outline=_OG_GOLD, width=2)
         draw.text((cx + 13, y + 6), label, font=font, fill=_OG_GOLD)
         cx += pill_w + 10
-
 
 def _compose_profile_card(name, desc, avatar_rel, banner_rel, tags, cache_key,
                           accent_hex=None, banner_hex=None):
@@ -540,7 +458,6 @@ def _compose_profile_card(name, desc, avatar_rel, banner_rel, tags, cache_key,
         return None
     return f"/media/{cache_name}"
 
-
 def _og_profile_url(request: Request, name, desc, avatar_rel, banner_rel, tags, cache_key,
                     accent_hex=None, banner_hex=None) -> str:
     origin = str(request.base_url).rstrip("/")
@@ -550,16 +467,7 @@ def _og_profile_url(request: Request, name, desc, avatar_rel, banner_rel, tags, 
         return f"{origin}{card}"
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
 
-
 def _is_wide_enough_for_large_card(img_url: str | None) -> bool:
-    """Discord's summary_large_image card stretches og:image to a wide banner —
-    great for a landscape banner, but a tall portrait avatar gets rendered
-    huge and cropped oddly (see: a tall character-avatar embed looking like a
-    giant sliver). Only use the large-image card for images that are actually
-    landscape/near-square; portrait images fall back to the small `summary`
-    card, which uses a modest square thumbnail that looks fine at any source
-    aspect ratio. Defaults to True (large card) if the file can't be read —
-    fails open to the previous behavior rather than breaking the embed."""
     if not img_url:
         return False
     idx = img_url.find("/media/")
@@ -573,16 +481,10 @@ def _is_wide_enough_for_large_card(img_url: str | None) -> bool:
     except Exception:
         return True
 
-
 _SHELL_CACHE: dict = {}
 _OG_DEFAULT_RE = re.compile(r"<!-- og:default:start -->.*?<!-- og:default:end -->", re.S)
 
-
 def _load_shell() -> str:
-    """index.html read once and memoized, re-read only when its mtime changes —
-    so the share routes don't hit disk on every request, while a live edit under
-    uvicorn --reload still takes effect without a restart (matching the no-store
-    hot-reload contract the plain static shell already honors)."""
     path = os.path.join(STATIC_DIR, "index.html")
     mtime = os.path.getmtime(path)
     if _SHELL_CACHE.get("mtime") != mtime:
@@ -591,19 +493,9 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-
 _OG_IMG_VERSION = "5"
 
-
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
-    """Serve the real SPA shell (index.html) with link-unfurling <meta> tags
-    injected into its <head>. Under clean-path routing the SPA renders these
-    same URLs (/c/{cid}, /u/{username}) itself, so the old redirect-into-the-app
-    trick would just bounce back to this very route — an infinite loop. Instead
-    a real browser loads app.js from this shell and its router takes over from
-    location.pathname; bots that never run JS still scrape the injected tags.
-    Public/existing subjects only — otherwise a generic branded card, so a
-    private character's name/description never leaks to whoever holds the link."""
     brand_name = "StoryHaven AI"
     shell = _OG_DEFAULT_RE.sub("", _load_shell(), count=1)
     img_tag = (f'<meta property="og:image" content="{esc_html(img)}">\n'
@@ -629,13 +521,8 @@ def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"
     return Response(content=shell, media_type="text/html",
                     headers={"Cache-Control": "no-store, must-revalidate"})
 
-
 @app.get("/c/{cid}")
 async def character_share_card(cid: str, request: Request):
-    """SPA shell for the /c/{cid} character page, with link-unfurling <meta>
-    tags injected for bots (Discord, WhatsApp, Slack, Twitter/X...) that don't
-    run JS. Public characters only — private ones fall back to a generic branded
-    card. Real browsers boot the SPA, whose router renders the character view."""
     c = await db.get_character(cid)
     brand_name = "StoryHaven AI"
     brand_tagline = "Forge worlds. Remember everything."
@@ -654,12 +541,8 @@ async def character_share_card(cid: str, request: Request):
     canonical = f"{str(request.base_url).rstrip('/')}/c/{cid}"
     return _share_shell(title, desc, img, "website", canonical)
 
-
 @app.get("/u/{username}")
 async def user_share_card(username: str, request: Request):
-    """SPA shell for the /u/{username} profile page, with link-unfurling <meta>
-    tags injected for bots that never execute the SPA's JS. Real browsers boot
-    the SPA, whose router renders the profile view."""
     u = await user_repo.get_user_by_username(username)
     brand_name = "StoryHaven AI"
     brand_tagline = "Forge worlds. Remember everything."
@@ -675,16 +558,8 @@ async def user_share_card(username: str, request: Request):
     canonical = f"{str(request.base_url).rstrip('/')}/u/{username}"
     return _share_shell(title, desc, img, "profile", canonical)
 
-
 @app.get("/i/{iid}")
 async def image_share_card(iid: str, request: Request):
-    """SPA shell for the /i/{iid} standalone-image page, with link-unfurling
-    <meta> tags injected for bots that never run JS. Public images only —
-    private/unshared ones fall back to a generic branded card so nothing leaks.
-    An NSFW public image shows a blurred copy in the embed instead of the real
-    file — unlike the in-app Community feed, a link-unfurl preview is visible
-    to literally anyone who sees the link (Discord, Slack, etc.), including
-    people with no account here at all and no chance to opt into mature content."""
     rec = await db.get_standalone_image(iid)
     brand_name = "StoryHaven AI"
     brand_tagline = "Forge worlds. Remember everything."
@@ -710,13 +585,8 @@ async def image_share_card(iid: str, request: Request):
     canonical = f"{str(request.base_url).rstrip('/')}/i/{iid}"
     return _share_shell(title, desc, img, "website", canonical)
 
-
 @app.get("/settings-docs")
 async def docs_share_card(request: Request):
-    """SPA shell for the /settings-docs architecture page, with link-unfurling
-    <meta> tags for bots. The docs themselves need a login, so the embed says
-    so up front. Real browsers boot the SPA, whose router renders the docs view
-    (which prompts sign-in when signed out)."""
     origin = str(request.base_url).rstrip("/")
     title = "How StoryHaven Works"
     desc = ("The whole architecture in plain English. How it remembers your stories, "
@@ -725,22 +595,9 @@ async def docs_share_card(request: Request):
     canonical = f"{origin}/settings-docs"
     return _share_shell(title, desc, img, "website", canonical)
 
-
 @app.get("/version")
 async def frontend_version():
-    """Fingerprint of the served frontend (mtimes of the static files), polled by
-    the frontend so an already-open tab notices a deploy and offers a reload —
-    this is what makes cache-busting query strings unnecessary even for a SPA
-    tab that's been open across an edit: no-cache headers only help on the
-    *next* request, but a hash/history SPA doesn't naturally make one, so this
-    gives it a reason to. Public (no auth) since it must be checkable before
-    login too. Also carries the human-readable app version shown in the UI."""
-    # Discovered from disk, not hardcoded: a hardcoded list here already went
-    # stale once (still named two files deleted in a later split), which made
-    # every mtime lookup below raise OSError and silently fall back to a
-    # constant "0" stamp — the update-reload banner never fired for anyone,
-    # for as long as that list didn't match the real static/ tree. Globbing
-    # both directories means a future file split/rename can never repeat that.
+
     names = ["index.html"]
     for sub, exts in (("js", (".js",)), ("css", (".css",))):
         d = os.path.join(STATIC_DIR, sub)
@@ -752,15 +609,7 @@ async def frontend_version():
         stamp = "0"
     return {"v": hashlib.sha256(stamp.encode()).hexdigest()[:16], "app_version": APP_VERSION}
 
-
 class _RevalidateStaticFiles(StaticFiles):
-    """Force browsers to always revalidate the js/*.js/style.css bundle via a conditional GET
-    (ETag/Last-Modified, 304 when unchanged) instead of the heuristic caching a
-    browser applies by default when no Cache-Control header is present — that
-    heuristic can serve a stale script/stylesheet for hours after a deploy.
-    Cheap: a 304 round-trip, not a full re-download. Makes manual cache-busting
-    query strings (style.css?v=N) unnecessary — index.html itself is already
-    no-store above, so it always points at the plain filename."""
     def _is_spa_route(self, path):
         return not os.path.splitext(path)[1] and not path.startswith(("api/", "media/"))
 
@@ -776,6 +625,5 @@ class _RevalidateStaticFiles(StaticFiles):
         if path.endswith((".js", ".css")):
             response.headers["Cache-Control"] = "no-cache"
         return response
-
 
 app.mount("/", _RevalidateStaticFiles(directory=STATIC_DIR, html=True), name="static")

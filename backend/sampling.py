@@ -1,4 +1,3 @@
-"""LLM sampling parameter construction from user/global config."""
 import random
 
 RESPONSE_LENGTH_PRESETS = {
@@ -12,7 +11,6 @@ RESPONSE_LENGTH_PRESETS = {
     "epic": {"label": "Epic", "emoji": "📜", "max_tokens": 2600,
              "instruction": "Write an extensive, richly detailed reply — take your time with the scene."},
 }
-
 
 def build_sampling_params(cfg: dict) -> dict:
     g = lambda k, d: cfg.get(k, d)
@@ -43,13 +41,7 @@ def build_sampling_params(cfg: dict) -> dict:
     if g("xtc_probability", 0.0):
         p["xtc_threshold"] = g("xtc_threshold", 0.1)
         p["xtc_probability"] = g("xtc_probability", 0.0)
-    # -1 conventionally means "randomize" in llama.cpp/koboldcpp, but not every
-    # OpenAI-compatible backend agrees — some (e.g. DeepSeek's hosted API)
-    # validate seed as an unsigned int and reject -1 outright with a 400.
-    # Generating an actual random non-negative seed here works everywhere:
-    # backends that support seeding get a fresh value every call (so
-    # regenerate doesn't silently return the same cached output), and strict
-    # validators never see a value they'd reject.
+
     seed = g("seed", -1)
     if seed is not None:
         p["seed"] = random.randint(0, 2**31 - 1) if seed == -1 else seed

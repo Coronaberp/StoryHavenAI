@@ -1,8 +1,3 @@
-"""In-chat and standalone image generation: per-message ComfyUI generation,
-the standalone Image Gen page's streaming generate/upscale/save flow, the
-community/shared-image feed, and user model-download requests. Read-only
-ComfyUI option listings and admin preview/metadata curation for those same
-checkpoints/LoRAs/samplers/schedulers/upscalers live in model_previews.py."""
 import os
 import json
 import uuid
@@ -20,6 +15,7 @@ from backend.repositories import chat_sessions
 from backend.repositories import model_requests as model_request_repo
 from backend.repositories import notifications as notification_repo
 from backend import imagegen
+from backend.imagegen_providers import generate_via_provider
 from backend import guest_quota
 from backend.gpu_queue import gpu_queue
 from backend.state import api, CFG, MEDIA_DIR, MAX_UPLOAD_BYTES, log
@@ -33,20 +29,19 @@ from backend.schemas import (ImageGenIn, ImageGenStandaloneIn, ImageGenSaveIn, I
                      ImageShareIn, ModelRequestIn, ImageRatingReportIn, ImagePromptFromDescriptionIn,
                      ImageGenInpaintIn, ImageGenVideoIn)
 
-# One image generation per user at a time — these all hit a single shared GPU, and
-# a user with a request already rendering cannot usefully start another. Simple
-# in-flight tracking is more robust here than a per-minute window: it naturally
-# bounds GPU contention regardless of how long a render takes.
+def _provider_active() -> bool:
+    return CFG.get("image_provider", "comfyui") != "comfyui"
+
+def _require_comfyui_backend():
+    if _provider_active():
+        raise HTTPException(400, "Only available with the ComfyUI backend")
+
 _IMAGEGEN_INFLIGHT = InFlight(
     "You already have an image generating — please wait for it to finish")
 _IMAGE_REPORT_LIMIT = SlidingWindow(
     20, 60, "Too many reports — please slow down and try again shortly")
 
-
 async def _build_image_prompt_for_message(sid: str, mid: str, current_user: dict) -> tuple[dict, dict, dict, str]:
-    """Shared setup for both the prompt-preview and the actual generation endpoint:
-    resolves the session/message/character and returns the auto-generated (positive,
-    negative) tags — see _generate_image_prompt for what feeds into them."""
     s = await _own_session(sid, current_user)
     msgs = await chat_sessions.list_messages(sid)
     msg = next((m for m in msgs if m["id"] == mid), None)
@@ -60,16 +55,6 @@ async def _build_image_prompt_for_message(sid: str, mid: str, current_user: dict
     chat_model = _eff_cfg(user_overrides).get("chat_model") or CFG["chat_model"]
     ep = await _endpoints(user_overrides, current_user["id"], current_user.get("is_admin", False))
 
-    # Same keyword-trigger lookup retrieve() uses for chat context — pulls in any lore
-    # entry whose keys appear in the scene, plus the main character's own established
-    # look, so the model describes named characters/places consistently instead of
-    # inventing new appearances every generation.
-    #
-    # Optional opt-in: any lore entry with its own appearance_tags field (pre-written
-    # Danbooru tags, entered alongside that entry's image) has those tags injected into
-    # the positive prompt verbatim instead of being paraphrased by the LLM rewrite —
-    # entries that leave the field blank behave exactly as before (prose, rewritten
-    # each time).
     appearance_lines = []
     direct_tags = []
     direct_negative_tags = []
@@ -94,10 +79,7 @@ async def _build_image_prompt_for_message(sid: str, mid: str, current_user: dict
         chat_base=ep["chat_base"], chat_key=ep["chat_key"])
     return s, msg, char, positive, negative
 
-
 def _decode_reference_image(data_url: str | None) -> bytes | None:
-    """Decodes an optional data:image/...;base64,... reference image for img2img.
-    Returns None (txt2img, unchanged behavior) if no reference was supplied."""
     if not data_url:
         return None
     if not data_url.startswith("data:image/"):
@@ -110,15 +92,11 @@ def _decode_reference_image(data_url: str | None) -> bytes | None:
     except Exception:
         raise HTTPException(400, "invalid base64 reference image data")
 
-
 @api.post("/sessions/{sid}/messages/{mid}/image-prompt")
 async def preview_message_image_prompt(sid: str, mid: str,
                                        current_user: dict = Depends(get_current_user)):
-    """Runs just the tag-generation step so the UI can show the auto-generated positive/
-    negative prompts as separate editable fields before actually calling ComfyUI."""
     _, _, _, positive, negative = await _build_image_prompt_for_message(sid, mid, current_user)
     return {"positive": positive, "negative": negative}
-
 
 @api.post("/sessions/{sid}/messages/{mid}/image")
 async def generate_message_image(sid: str, mid: str, body: ImageGenIn,
@@ -127,29 +105,39 @@ async def generate_message_image(sid: str, mid: str, body: ImageGenIn,
     s, msg, char, auto_positive, auto_negative = await _build_image_prompt_for_message(sid, mid, current_user)
     positive = body.positive if body.positive is not None else auto_positive
     negative = body.negative if body.negative is not None else auto_negative
-    checkpoint = body.checkpoint or (CFG["comfyui_checkpoint"] if body.architecture != "anima" else None)
-    if not checkpoint:
-        raise HTTPException(400, "checkpoint is required for Anima generation")
+    provider_active = _provider_active()
+    checkpoint = None
+    if not provider_active:
+        checkpoint = body.checkpoint or (CFG["comfyui_checkpoint"] if body.architecture != "anima" else None)
+        if not checkpoint:
+            raise HTTPException(400, "checkpoint is required for Anima generation")
     reference_image = _decode_reference_image(body.reference_image)
-    log.info("imagegen: message image start user=%s session=%s mid=%s checkpoint=%s architecture=%s",
-             current_user["username"], sid, mid, checkpoint, body.architecture)
+    log.info("imagegen: message image start user=%s session=%s mid=%s provider=%s checkpoint=%s architecture=%s",
+             current_user["username"], sid, mid, CFG.get("image_provider", "comfyui"), checkpoint, body.architecture)
     _IMAGEGEN_INFLIGHT.acquire(current_user["id"])
-    await gpu_queue.acquire(current_user)
+    if not provider_active:
+        await gpu_queue.acquire(current_user)
     try:
-        image_bytes = await imagegen.generate_image(
-            positive, negative, CFG["comfyui_url"], checkpoint,
-            custom_workflow=CFG["comfyui_workflow"],
-            loras=[l.model_dump() for l in body.loras],
-            reference_image=reference_image, denoise=body.denoise,
-            width=body.width, height=body.height,
-            sampler=body.sampler or "dpmpp_2m_sde_gpu", scheduler=body.scheduler or "karras",
-            steps=body.steps, cfg=body.cfg, architecture=body.architecture)
+        if provider_active:
+            image_bytes = await generate_via_provider(
+                positive, negative, _clamp_dim(body.width), _clamp_dim(body.height),
+                _clamp_steps(body.steps), body.cfg, None)
+        else:
+            image_bytes = await imagegen.generate_image(
+                positive, negative, CFG["comfyui_url"], checkpoint,
+                custom_workflow=CFG["comfyui_workflow"],
+                loras=[l.model_dump() for l in body.loras],
+                reference_image=reference_image, denoise=body.denoise,
+                width=body.width, height=body.height,
+                sampler=body.sampler or "dpmpp_2m_sde_gpu", scheduler=body.scheduler or "karras",
+                steps=body.steps, cfg=body.cfg, architecture=body.architecture)
     except Exception as e:
         log.warning("imagegen: message image failed user=%s session=%s mid=%s: %s",
                     current_user["username"], sid, mid, e)
         raise HTTPException(502, f"Image generation failed: {e}")
     finally:
-        gpu_queue.release()
+        if not provider_active:
+            gpu_queue.release()
         _IMAGEGEN_INFLIGHT.release(current_user["id"])
 
     await guest_quota.record(current_user, "images")
@@ -165,11 +153,9 @@ async def generate_message_image(sid: str, mid: str, body: ImageGenIn,
                               lambda: chat_sessions.set_message_image_explicit(sid, mid))
     return {"image": url}
 
-
 @api.get("/me/images")
 async def list_my_images(current_user: dict = Depends(get_current_user)):
     return await standalone_image_repo.list_all_for_user(current_user["id"])
-
 
 @api.delete("/me/images/{mid}")
 async def delete_my_image(mid: str, current_user: dict = Depends(get_current_user)):
@@ -181,7 +167,6 @@ async def delete_my_image(mid: str, current_user: dict = Depends(get_current_use
     await chat_sessions.set_message_image(img["sid"], mid, "")
     return {"deleted": True}
 
-
 def _clamp_dim(v: int) -> int:
     try:
         v = int(v)
@@ -190,7 +175,6 @@ def _clamp_dim(v: int) -> int:
     v = max(256, min(2048, v))
     return v - (v % 8)
 
-
 def _clamp_steps(v: int) -> int:
     try:
         v = int(v)
@@ -198,14 +182,9 @@ def _clamp_steps(v: int) -> int:
         return 20
     return max(1, min(60, v))
 
-
 @api.post("/imagegen/prompt-from-description")
 async def prompt_from_description(body: ImagePromptFromDescriptionIn,
                                    current_user: dict = Depends(get_current_user)):
-    """Simple-mode image generation: converts a plain-English description (no
-    chat/character context) into everything Simple mode needs — Danbooru tags
-    AND sampler/scheduler/cfg/steps — so that UI only has to expose checkpoint,
-    LoRAs, and a description field."""
     description = body.description.strip()
     if not description:
         raise HTTPException(400, "description is required")
@@ -225,30 +204,46 @@ async def prompt_from_description(body: ImagePromptFromDescriptionIn,
              current_user["username"], result["sampler"], result["scheduler"])
     return result
 
-
 @api.post("/imagegen/standalone/stream")
 async def stream_standalone_image(body: ImageGenStandaloneIn,
                                   current_user: dict = Depends(get_current_user)):
-    """Live-preview generation for the standalone Image Gen page — not tied to any
-    chat message. Nothing is written to disk or the DB here; the browser gets a
-    stream of in-progress preview frames followed by the final image as a data
-    URL, and only /imagegen/standalone/save persists anything, on explicit request."""
-    # The global default checkpoint is an SDXL model — never a sensible
-    # fallback for the unrelated Anima architecture, whose "checkpoint" is
-    # actually a UNet filename from a completely different ComfyUI list.
+
     guest_quota.check(current_user, "images")
     await guest_quota.record(current_user, "images")
-    checkpoint = body.checkpoint or (CFG["comfyui_checkpoint"] if body.architecture != "anima" else None)
-    if not checkpoint:
-        raise HTTPException(400, "No model selected")
+    provider_active = _provider_active()
+    checkpoint = None
+    if not provider_active:
+        checkpoint = body.checkpoint or (CFG["comfyui_checkpoint"] if body.architecture != "anima" else None)
+        if not checkpoint:
+            raise HTTPException(400, "No model selected")
     reference_image = _decode_reference_image(body.reference_image)
     width = _clamp_dim(body.width)
     height = _clamp_dim(body.height)
 
-    log.info("imagegen: standalone start user=%s checkpoint=%s arch=%s size=%sx%s",
-             current_user["username"], checkpoint, body.architecture, width, height)
+    log.info("imagegen: standalone start user=%s provider=%s checkpoint=%s arch=%s size=%sx%s",
+             current_user["username"], CFG.get("image_provider", "comfyui"), checkpoint,
+             body.architecture, width, height)
 
     _IMAGEGEN_INFLIGHT.acquire(current_user["id"])
+
+    async def gen_provider():
+        try:
+            image_bytes = await generate_via_provider(
+                body.positive, body.negative, width, height,
+                _clamp_steps(body.steps), body.cfg, None)
+            b64 = base64.b64encode(image_bytes).decode()
+            yield "data: " + json.dumps({
+                "type": "done", "image": f"data:image/png;base64,{b64}",
+            }) + "\n\n"
+            log.info("imagegen: standalone done user=%s", current_user["username"])
+        except Exception as e:
+            log.warning("imagegen: standalone failed user=%s: %s", current_user["username"], e)
+            yield "data: " + json.dumps({"type": "error", "message": str(e)}) + "\n\n"
+        finally:
+            _IMAGEGEN_INFLIGHT.release(current_user["id"])
+
+    if provider_active:
+        return StreamingResponse(gen_provider(), media_type="text/event-stream")
 
     async def gen():
         queue_state = gpu_queue.status()
@@ -280,17 +275,14 @@ async def stream_standalone_image(body: ImageGenStandaloneIn,
 
     return StreamingResponse(gen(), media_type="text/event-stream")
 
-
 @api.get("/imagegen/queue")
 async def imagegen_queue_status(current_user: dict = Depends(get_current_user)):
     return gpu_queue.status()
 
-
 @api.post("/imagegen/standalone/stream/stop")
 async def stop_standalone_image(current_user: dict = Depends(get_current_user)):
-    """Cancel the in-progress standalone generation: aborting the client-side
-    stream alone leaves ComfyUI rendering in the background, so this pokes
-    ComfyUI's /interrupt to actually stop the GPU job the client just abandoned."""
+    if _provider_active():
+        return {"stopped": False}
     try:
         await imagegen.interrupt(CFG["comfyui_url"])
     except Exception as e:
@@ -298,11 +290,9 @@ async def stop_standalone_image(current_user: dict = Depends(get_current_user)):
     log.info("imagegen: standalone interrupted user=%s", current_user["username"])
     return {"stopped": True}
 
-
 @api.post("/imagegen/inpaint")
 async def stream_inpaint_image(body: ImageGenInpaintIn, current_user: dict = Depends(get_current_user)):
-    """Live-preview inpaint generation for a caller-supplied image — nothing
-    persisted until /save, same shape as /imagegen/standalone/stream."""
+    _require_comfyui_backend()
     guest_quota.check(current_user, "images")
     await guest_quota.record(current_user, "images")
     image_bytes = _decode_reference_image(body.image)
@@ -345,7 +335,6 @@ async def stream_inpaint_image(body: ImageGenInpaintIn, current_user: dict = Dep
 
     return StreamingResponse(gen(), media_type="text/event-stream")
 
-
 @api.post("/imagegen/inpaint/save")
 async def save_inpaint_image(body: ImageGenSaveIn, current_user: dict = Depends(get_current_user)):
     image_bytes = _decode_reference_image(body.image)
@@ -381,13 +370,13 @@ async def save_inpaint_image(body: ImageGenSaveIn, current_user: dict = Depends(
                               on_low_confidence=_flag_low_confidence)
     return saved
 
-
 @api.post("/imagegen/video")
 async def stream_video(body: ImageGenVideoIn, current_user: dict = Depends(get_current_user)):
-    """Wan2.1 text-to-video generation. Unlike standalone image gen, the
-    result is persisted directly on the done event rather than via a
-    separate /save step — re-running a multi-minute video job just to save
-    it would waste real GPU time for no reason."""
+    _require_comfyui_backend()
+    if body.image is not None and not body.image.startswith("data:image/"):
+        raise HTTPException(400, "expected a data:image/... URL")
+    if body.image:
+        raise HTTPException(400, "image-to-video input is not available yet")
     guest_quota.check(current_user, "videos")
     await guest_quota.record(current_user, "videos")
     if body.fps < 1:
@@ -402,11 +391,7 @@ async def stream_video(body: ImageGenVideoIn, current_user: dict = Depends(get_c
         vaes = await imagegen.list_vaes(CFG["comfyui_url"])
         if not (unets and clips and vaes):
             raise HTTPException(400, "No Wan2.1 model files available in ComfyUI")
-        # ComfyUI's UNETLoader/CLIPLoader option lists are shared across every
-        # architecture that loads through them (Anima included) — with more
-        # than one candidate present, guessing index 0 silently picks a
-        # non-Wan file and fails deep inside KSampler with an opaque tensor
-        # shape mismatch instead of here, where the actual problem is clear.
+
         if not unet_name:
             if len(unets) > 1:
                 raise HTTPException(400,
@@ -474,16 +459,9 @@ async def stream_video(body: ImageGenVideoIn, current_user: dict = Depends(get_c
 
     return StreamingResponse(gen(), media_type="text/event-stream")
 
-
 @api.post("/imagegen/upscale")
 async def upscale_standalone_image(body: ImageGenUpscaleIn, current_user: dict = Depends(get_admin)):
-    """One-shot (non-streaming) upscale — used by the admin upscaler-preview
-    generator (openUpscalerPreviewModal), which just needs a single result
-    image back, not a live progress feed. This endpoint was dropped by
-    mistake during an earlier split of this router (the docstring on the
-    /stream version below already called it out as this endpoint's "old"
-    counterpart, but the route itself never got carried over), which silently
-    broke the admin preview flow with a 404/405 instead of a clean upscale."""
+    _require_comfyui_backend()
     image_bytes = _decode_reference_image(body.image)
     if not image_bytes:
         raise HTTPException(400, "image is required")
@@ -506,16 +484,9 @@ async def upscale_standalone_image(body: ImageGenUpscaleIn, current_user: dict =
     log.info("imagegen: one-shot upscale done by=%s upscaler=%s", current_user["username"], upscaler)
     return {"image": f"data:image/webp;base64,{b64}"}
 
-
 @api.post("/imagegen/upscale/stream")
 async def upscale_standalone_image_stream(body: ImageGenUpscaleIn, current_user: dict = Depends(get_current_user)):
-    """Live-preview counterpart to the old one-shot /imagegen/upscale — same
-    SSE shape as /imagegen/standalone/stream (preview/done/error events) via
-    imagegen.upscale_image_stream, so the client's existing sseEvents handling
-    for generation works unchanged here too. See that generator's docstring
-    for why a plain upscale-model pass may never actually emit a "preview"
-    event — the win here is the "done" event firing the instant ComfyUI's
-    websocket reports it, not up to 1s later off a poll."""
+    _require_comfyui_backend()
     image_bytes = _decode_reference_image(body.image)
     if not image_bytes:
         raise HTTPException(400, "image is required")
@@ -537,14 +508,10 @@ async def upscale_standalone_image_stream(body: ImageGenUpscaleIn, current_user:
         try:
             async for kind, data in imagegen.upscale_image_stream(image_bytes, CFG["comfyui_url"], upscaler):
                 if kind == "done":
-                    # A raw PNG straight out of a 4x upscale easily blows past
-                    # MAX_UPLOAD_BYTES for a detailed image, which then made the
-                    # result un-savable (413) — see media.reencode_webp.
+
                     data = await reencode_webp(data)
                     if len(data) > MAX_UPLOAD_BYTES * 3 // 4:
-                        # Headers are already committed once an SSE stream starts —
-                        # there's no real HTTP status left to raise, an "error"
-                        # event is the only way left to report this to the client.
+
                         raise RuntimeError(f"Upscaled image is too large to save (max {MAX_UPLOAD_BYTES // (1024 * 1024)}MB) — try a smaller source image or a less aggressive upscaler.")
                     mime = "image/webp"
                 else:
@@ -563,14 +530,12 @@ async def upscale_standalone_image_stream(body: ImageGenUpscaleIn, current_user:
 
     return StreamingResponse(gen(), media_type="text/event-stream")
 
-
 @api.post("/imagegen/standalone/save")
 async def save_standalone_image(body: ImageGenSaveIn, current_user: dict = Depends(get_current_user)):
     if not body.image.startswith("data:image/"):
         raise HTTPException(400, "expected a data:image/... URL")
     header, _, b64data = body.image.partition(",")
-    # cap the encoded payload before decoding — base64 inflates ~33%, so a 15MB
-    # image is ~20MB of base64; reject anything larger before allocating the decode.
+
     if len(b64data) > MAX_UPLOAD_BYTES * 4 // 3 + 256:
         raise HTTPException(413, f"image too large (max {MAX_UPLOAD_BYTES // (1024 * 1024)}MB)")
     try:
@@ -578,11 +543,7 @@ async def save_standalone_image(body: ImageGenSaveIn, current_user: dict = Depen
     except Exception:
         raise HTTPException(400, "invalid base64 image data")
     await validate_image(data)
-    # header is "data:image/png" or "data:image/webp" (see /imagegen/upscale,
-    # which now returns webp) — the saved file's extension has to match the
-    # actual encoded bytes, or the static route serves it with the wrong
-    # Content-Type (inferred from the filename) and some browsers refuse to
-    # render it.
+
     save_ext = ".webp" if "image/webp" in header else ".png"
     fname = f"img_{uuid.uuid4().hex[:10]}{save_ext}"
     await _write_file(os.path.join(MEDIA_DIR, fname), data)
@@ -611,11 +572,9 @@ async def save_standalone_image(body: ImageGenSaveIn, current_user: dict = Depen
     log.info("imagegen: standalone saved user=%s image=%s", current_user["username"], rec["id"])
     return rec
 
-
 @api.get("/imagegen/standalone")
 async def list_standalone_images(current_user: dict = Depends(get_current_user)):
     return await standalone_image_repo.list_for_user(current_user["id"])
-
 
 @api.post("/imagegen/standalone/{iid}/share")
 async def share_standalone_image(iid: str, body: ImageShareIn,
@@ -625,11 +584,7 @@ async def share_standalone_image(iid: str, body: ImageShareIn,
         raise HTTPException(404, "image not found")
     if not existing.get("classified"):
         raise HTTPException(409, "This image hasn't been rated yet — try again in a moment.")
-    # The classifier's result is authoritative and can never be downgraded by
-    # the sharer — body.is_explicit can only self-flag something the
-    # classifier missed as MORE explicit, never mark an already-NSFW image as
-    # SFW. Disputing a real classification goes through the report/admin-
-    # review flow (lodge a report), not a checkbox at share time.
+
     final_explicit = bool(existing.get("is_explicit")) or body.is_explicit
     rec = await standalone_image_repo.set_public(iid, current_user["id"], True, final_explicit)
     if rec is None:
@@ -638,7 +593,6 @@ async def share_standalone_image(iid: str, body: ImageShareIn,
              iid, current_user["username"], final_explicit, existing.get("is_explicit"), body.is_explicit)
     return rec
 
-
 @api.post("/imagegen/standalone/{iid}/unshare")
 async def unshare_standalone_image(iid: str, current_user: dict = Depends(get_current_user)):
     rec = await standalone_image_repo.set_public(iid, current_user["id"], False)
@@ -646,7 +600,6 @@ async def unshare_standalone_image(iid: str, current_user: dict = Depends(get_cu
         raise HTTPException(404, "image not found")
     log.info("image unshared: id=%s by=%s", iid, current_user["username"])
     return rec
-
 
 @api.post("/imagegen/standalone/{iid}/report")
 async def report_standalone_image_rating(iid: str, body: ImageRatingReportIn,
@@ -659,11 +612,7 @@ async def report_standalone_image_rating(iid: str, body: ImageRatingReportIn,
     rep = await image_rating_report_repo.create(
         iid, current_user["id"], body.claimed_explicit, note)
     claim = "NSFW" if body.claimed_explicit else "SFW"
-    # No exclude_user_id here, unlike other admin_* notifications — a rating
-    # report is a moderation queue item every admin needs visibility into,
-    # including one who reported it themselves (e.g. an admin/dev spotting a
-    # misclassification while browsing as a regular member). Self-excluding
-    # would make the report invisible to the one admin who just flagged it.
+
     await notification_repo.notify_admins(
         "admin_image_report", f"Image rating report: should be {claim}",
         f"{current_user['username']} reported an image should be rated {claim}.",
@@ -672,7 +621,6 @@ async def report_standalone_image_rating(iid: str, body: ImageRatingReportIn,
              iid, current_user["username"], body.claimed_explicit)
     return {"ok": True}
 
-
 @api.get("/imagegen/standalone/{iid}")
 async def get_shared_standalone_image(iid: str, current_user: dict | None = Depends(get_current_user_optional)):
     rec = await standalone_image_repo.get_public(iid)
@@ -680,21 +628,12 @@ async def get_shared_standalone_image(iid: str, current_user: dict | None = Depe
         raise HTTPException(404, "image not found")
     return rec
 
-
 @api.get("/imagegen/community")
 async def community_images(current_user: dict | None = Depends(get_current_user_optional)):
     hidden = await db.hidden_user_ids(current_user["id"]) if current_user else set()
     return await standalone_image_repo.list_community(hidden)
 
-
 def _match_model_request_host(url: str) -> dict | None:
-    """Checked here at submit time, and again by admin.py at approve/retry
-    time — the URL itself is never fetched here (see ssrf.py's rationale for
-    why untrusted-URL fetching is dangerous); this just gates which links are
-    even accepted into the pending-request queue, and later which ones the
-    admin can approve with server-side auto-download. Returns the matching
-    {"host","api_key"} entry from CFG['model_request_hosts'], or None if the
-    URL's host isn't on the allowlist."""
     try:
         host = (urlparse(url).hostname or "").lower()
     except ValueError:
@@ -707,14 +646,12 @@ def _match_model_request_host(url: str) -> dict | None:
             return entry
     return None
 
-
 def _valid_http_url(url: str) -> bool:
     try:
         host = urlparse(url).hostname or ""
     except ValueError:
         host = ""
     return (url.startswith("http://") or url.startswith("https://")) and bool(host)
-
 
 @api.post("/imagegen/model-requests")
 async def create_model_request(body: ModelRequestIn, current_user: dict = Depends(get_current_user)):
@@ -744,13 +681,9 @@ async def create_model_request(body: ModelRequestIn, current_user: dict = Depend
              current_user["username"], request_type, name, bool(host_allowed))
     return req
 
-
 @api.get("/imagegen/model-requests")
 async def list_my_model_requests(current_user: dict = Depends(get_current_user)):
-    """Always scoped to the caller's own requests — there is no 'view anyone
-    else's requests' case for a non-admin, regardless of query params."""
     return await model_request_repo.list(user_id=current_user["id"])
-
 
 @api.delete("/imagegen/standalone/{iid}")
 async def delete_standalone_image(iid: str, current_user: dict = Depends(get_current_user)):

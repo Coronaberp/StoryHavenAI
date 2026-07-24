@@ -1,11 +1,3 @@
-"""Custom emoji and stickers — any signed-in user can upload one, same as any
-other user-generated image content in the app (comment attachments, avatars):
-extension-validated, size-capped, background-NSFW-classified, and rate
-limited. "emoji" is typed inline as :shortcode: and rendered small within
-comment text; "sticker" is sent as its own standalone attachment, never
-inline. A shortcode belongs to whoever claimed it first — anyone else
-uploading the same shortcode is rejected rather than silently overwriting
-someone else's already-in-use emoji (see db.create_custom_emoji)."""
 import os
 import uuid
 
@@ -25,18 +17,14 @@ from backend.schemas import EmojiUpdateIn
 
 _MAX_EMOJI_DIM = 160
 _MAX_STICKER_DIM = 512
-# Tighter than the app-wide MAX_UPLOAD_BYTES (15MB) — these render tiny
-# inline in text or as a small attachment, and animated GIFs in particular
-# can be surprisingly large for how little visual real estate they get.
+
 _MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 _UPLOAD_LIMIT = SlidingWindow(
     10, 300, "You're uploading too fast — please wait a moment and try again")
 
-
 @api.get("/emojis")
 async def list_emojis(current_user: dict = Depends(get_current_user)):
     return await custom_emoji_repo.list_all()
-
 
 @api.post("/emojis")
 async def upload_emoji(shortcode: str = Form(...), kind: str = Form("emoji"),
@@ -59,14 +47,7 @@ async def upload_emoji(shortcode: str = Form(...), kind: str = Form("emoji"),
     with open(full_path, "rb") as fh:
         file_data = fh.read()
     is_admin = current_user.get("is_admin", False)
-    # Animated GIFs are never trusted to the classifier at all (see
-    # chat_service.classify_image_nsfw — it only ever sees one static frame of
-    # an animation) and never auto-approved, even for the uploader's own use:
-    # they're stored pre-flagged NSFW with a blurred single-frame stand-in
-    # served in place of the real file until an admin reviews it directly and
-    # approves it (or deletes it, if the review confirms it's actually NSFW).
-    # Admins uploading their own GIF are trusted the same way they're trusted
-    # elsewhere in the app (e.g. the SSRF private-IP exemption) — skipped here.
+
     if not is_admin and _is_animated_image(file_data):
         preview_bytes = await gif_blurred_preview(file_data, max_dim=max_dim)
         preview_basename = f"{basename}_prev.webp"
@@ -87,15 +68,7 @@ async def upload_emoji(shortcode: str = Form(...), kind: str = Form("emoji"),
         log.info("%s uploaded by=%s shortcode=%s (animated GIF, pending admin review)",
                  kind, current_user["username"], row["shortcode"])
         return row
-    # Unlike a one-off comment attachment, an emoji/sticker becomes a small,
-    # widely-reused piece of chrome (typed inline, offered to everyone in the
-    # picker) — so this blocks on the classifier synchronously rather than the
-    # usual fire-and-forget flow. A flagged static image is never silently
-    # rejected/discarded outright, though (that gave the uploader no path
-    # forward besides guessing at a different image) — it's saved the same
-    # way an animated GIF is: pre-flagged NSFW, blurred in the public picker
-    # via the normal is_explicit blur treatment, and queued for an admin to
-    # actually look at and approve or delete.
+
     mime = "image/gif" if image.endswith(".gif") else "image/webp" if image.endswith(".webp") else "image/png"
     explicit, _confidence = await classify_image_nsfw(file_data, mime, current_user["id"], is_admin)
     row = await custom_emoji_repo.create(shortcode, image, kind, current_user["id"], is_explicit=explicit)
@@ -114,7 +87,6 @@ async def upload_emoji(shortcode: str = Form(...), kind: str = Form("emoji"),
         log.info("%s uploaded by=%s shortcode=%s", kind, current_user["username"], row["shortcode"])
     return row
 
-
 @api.delete("/emojis/{eid}")
 async def delete_emoji(eid: str, current_user: dict = Depends(get_current_user)):
     row = await custom_emoji_repo.get(eid, admin_view=True)
@@ -128,13 +100,9 @@ async def delete_emoji(eid: str, current_user: dict = Depends(get_current_user))
     log.info("custom emoji/sticker deleted id=%s by=%s", eid, current_user["username"])
     return {"deleted": True}
 
-
 @api.get("/admin/emojis")
 async def admin_list_emojis(_: dict = Depends(get_admin)):
-    """True (unblurred) images, for the admin review panel — see
-    db._shape_custom_emoji for why the regular GET /emojis doesn't return these."""
     return await custom_emoji_repo.list_all(admin_view=True)
-
 
 @api.post("/admin/emojis/{eid}/approve")
 async def admin_approve_emoji(eid: str, current_user: dict = Depends(get_admin)):
@@ -145,7 +113,6 @@ async def admin_approve_emoji(eid: str, current_user: dict = Depends(get_admin))
     _delete_media_file(row.get("preview_image"))
     log.info("admin: emoji/sticker approved by=%s shortcode=%s", current_user["username"], row["shortcode"])
     return {"approved": True}
-
 
 @api.patch("/admin/emojis/{eid}")
 async def admin_update_emoji(eid: str, body: EmojiUpdateIn, current_user: dict = Depends(get_admin)):

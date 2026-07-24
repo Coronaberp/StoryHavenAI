@@ -23,11 +23,9 @@ _challenges: dict[str, tuple[bytes, str, str | None, float]] = {}
 _LOGIN_CEREMONY_LIMIT = SlidingWindow(
     10, 60, "Too many passkey attempts - please wait a moment and try again")
 
-
 def _limit_login_ceremony(request: Request) -> None:
     _LOGIN_CEREMONY_LIMIT.prune()
     _LOGIN_CEREMONY_LIMIT.check_and_record(request.client.host if request.client else "unknown")
-
 
 def _store_challenge(challenge: bytes, purpose: str, user_id: str | None) -> str:
     now = time.time()
@@ -37,17 +35,14 @@ def _store_challenge(challenge: bytes, purpose: str, user_id: str | None) -> str
     _challenges[challenge_id] = (challenge, purpose, user_id, now + CHALLENGE_TTL)
     return challenge_id
 
-
 def _take_challenge(challenge_id: str, purpose: str) -> tuple[bytes, str | None]:
     entry = _challenges.pop(challenge_id or "", None)
     if not entry or entry[1] != purpose or entry[3] < time.time():
         raise HTTPException(400, "Challenge expired - please try again")
     return entry[0], entry[2]
 
-
 def _rp_id(request: Request) -> str:
     return (CFG.get("webauthn_rp_id") or "").strip() or request.url.hostname
-
 
 def _expected_origin(request: Request) -> str:
     configured = (CFG.get("webauthn_origin") or "").strip()
@@ -55,7 +50,6 @@ def _expected_origin(request: Request) -> str:
         return configured
     port = f":{request.url.port}" if request.url.port else ""
     return f"{request.url.scheme}://{request.url.hostname}{port}"
-
 
 @api.post("/auth/webauthn/register/options")
 async def register_options(request: Request, current_user: dict = Depends(get_current_user)):
@@ -74,7 +68,6 @@ async def register_options(request: Request, current_user: dict = Depends(get_cu
     challenge_id = _store_challenge(options.challenge, "register", current_user["id"])
     log.info("webauthn: register options issued user=%s", current_user["username"])
     return {"challenge_id": challenge_id, "options": options_to_json(options)}
-
 
 @api.post("/auth/webauthn/register/verify")
 async def register_verify(body: WebauthnRegisterVerifyIn, request: Request,
@@ -105,7 +98,6 @@ async def register_verify(body: WebauthnRegisterVerifyIn, request: Request,
         (body.nickname or "").strip()[:60])
     return {"id": cid}
 
-
 @auth_router.post("/webauthn/login/options")
 async def login_options(request: Request):
     _limit_login_ceremony(request)
@@ -114,7 +106,6 @@ async def login_options(request: Request):
         user_verification=UserVerificationRequirement.REQUIRED)
     challenge_id = _store_challenge(options.challenge, "login", None)
     return {"challenge_id": challenge_id, "options": options_to_json(options)}
-
 
 @auth_router.post("/webauthn/login/verify")
 async def login_verify(body: WebauthnLoginVerifyIn, request: Request, response: Response):
@@ -158,13 +149,11 @@ async def login_verify(body: WebauthnLoginVerifyIn, request: Request, response: 
             "refresh_token": tokens["refresh_token"],
             "token_type": "bearer"}
 
-
 @api.get("/me/passkeys")
 async def list_passkeys(current_user: dict = Depends(get_current_user)):
     return [{"id": c["id"], "nickname": c["nickname"], "created": c["created"],
              "last_used": c["last_used"], "transports": c["transports"]}
             for c in await cred_repo.list_for_user(current_user["id"])]
-
 
 @api.delete("/me/passkeys/{cid}")
 async def delete_passkey(cid: str, current_user: dict = Depends(get_current_user)):
@@ -175,7 +164,6 @@ async def delete_passkey(cid: str, current_user: dict = Depends(get_current_user
     if not await cred_repo.delete(cid, current_user["id"]):
         raise HTTPException(404, "Passkey not found")
     return {"deleted": True}
-
 
 @api.put("/me/passkey-required")
 async def set_passkey_required(body: PasskeyRequiredIn,

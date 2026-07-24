@@ -1,4 +1,3 @@
-"""Admin routes: user management, flagged endpoints, purge, logs."""
 import re
 import secrets
 
@@ -25,34 +24,13 @@ from backend.schemas import (UserCreateIn, SuspendUserIn, AdminNoteIn, IdentityL
 
 _KNOWN_MODEL_EXTS = (".safetensors", ".ckpt", ".pt", ".pth")
 
-
 def _model_request_slug(name: str) -> str:
-    """Same slugify rule the frontend's copy-curl button uses (static/app.js)
-    to build the suggested -o filename — kept in lockstep so fulfillment
-    detection actually recognizes files downloaded via that command."""
     return re.sub(r"[^a-z0-9]+", "_", (name or "").lower()).strip("_") or "model"
 
-
 def _alnum_only(s: str) -> str:
-    """Letters/digits only, no separators at all — used just for the fuzzy
-    fulfillment comparison below. The real downloaded filename essentially
-    never uses the same word-separator convention as the request's slugified
-    display name (e.g. request slug "miao_miao_harem" vs. an actual file
-    like "MiaoMiaoHaremAnimaV1.safetensors" -> "miaomiaoharemanimav1") — an
-    underscore-preserving substring check fails on that mismatch alone even
-    though the names are obviously the same model, so both sides are
-    stripped down to bare alphanumerics before comparing."""
     return re.sub(r"[^a-z0-9]", "", (s or "").lower())
 
-
 async def _fulfilled_model_slugs(request_type: str) -> set[str]:
-    """Bare filenames (no extension) currently visible to ComfyUI for a given
-    request type — used to auto-detect a manually-downloaded model without
-    needing the dev to click a separate "mark as done" button. A "checkpoint"
-    request can end up satisfied by either a standard all-in-one checkpoint
-    (checkpoints/, CheckpointLoaderSimple) or an Anima-style UNET-only model
-    (diffusion_models/, UNETLoader) — the request itself doesn't say which
-    architecture the download turned out to be, so both lists are checked."""
     base_url = CFG["comfyui_url"]
     try:
         if request_type in ("checkpoint", "anima"):
@@ -78,11 +56,9 @@ async def _fulfilled_model_slugs(request_type: str) -> set[str]:
                 break
     return slugs
 
-
 @api.get("/admin/users")
 async def admin_list_users(_: dict = Depends(get_admin)):
     return await user_repo.list_users()
-
 
 @api.get("/admin/invite-codes")
 async def admin_list_invite_codes(current_user: dict = Depends(get_admin)):
@@ -90,7 +66,6 @@ async def admin_list_invite_codes(current_user: dict = Depends(get_admin)):
     for c in codes:
         c["redeemed_by"] = await invite_code_repo.redeemer_usernames(c["id"])
     return codes
-
 
 @api.post("/admin/invite-codes")
 async def admin_create_invite_code(body: InviteCodeIn,
@@ -101,7 +76,6 @@ async def admin_create_invite_code(body: InviteCodeIn,
     log.info("admin: invite code created id=%s by=%s", code["id"], current_user["username"])
     return code
 
-
 @api.post("/admin/invite-codes/{cid}/disable")
 async def admin_disable_invite_code(cid: str, current_user: dict = Depends(get_admin)):
     if not await invite_code_repo.disable(cid):
@@ -109,13 +83,11 @@ async def admin_disable_invite_code(cid: str, current_user: dict = Depends(get_a
     log.info("admin: invite code disabled id=%s by=%s", cid, current_user["username"])
     return {"disabled": True}
 
-
 @api.delete("/admin/invite-codes/{cid}")
 async def admin_delete_invite_code(cid: str, current_user: dict = Depends(get_admin)):
     await invite_code_repo.delete(cid)
     log.info("admin: invite code deleted id=%s by=%s", cid, current_user["username"])
     return {"deleted": True}
-
 
 @api.put("/admin/users/{uid}/tier")
 async def admin_set_user_tier(uid: str, body: UserTierIn,
@@ -129,7 +101,6 @@ async def admin_set_user_tier(uid: str, body: UserTierIn,
     log.info("admin: tier=%s uid=%s by=%s", body.tier, uid, current_user["username"])
     return {"id": uid, "tier": body.tier}
 
-
 @api.get("/admin/model-requests")
 async def admin_list_model_requests(current_user: dict = Depends(get_admin)):
     rows = [r for r in await model_request_repo.list(pending_only=False)
@@ -137,11 +108,7 @@ async def admin_list_model_requests(current_user: dict = Depends(get_admin)):
     is_dev = current_user.get("role") == "dev"
     fulfilled_cache: dict[str, set[str]] = {}
     for r in rows:
-        # Only the platform dev sees the actual curl/API-key material — that's
-        # genuinely sensitive. Whether a request has already been downloaded
-        # is not: gating it behind is_dev too meant every other admin always
-        # saw approved-and-installed requests as still "pending", forever,
-        # since fulfillment was never even checked for them.
+
         match = _match_model_request_host(r["source_url"]) if is_dev else None
         r["resolved_api_key"] = match["api_key"] if match and match.get("api_key") else None
         vae_match = _match_model_request_host(r["vae_url"]) if is_dev and r.get("vae_url") else None
@@ -154,17 +121,11 @@ async def admin_list_model_requests(current_user: dict = Depends(get_admin)):
         if r["status"] == "approved" and r["request_type"] in ("checkpoint", "lora", "upscaler", "anima", "wan"):
             if r["request_type"] not in fulfilled_cache:
                 fulfilled_cache[r["request_type"]] = await _fulfilled_model_slugs(r["request_type"])
-            # Alnum-only substring match, not exact — the real downloaded
-            # filename essentially never matches the request's slugified
-            # display name using the same word-separator convention (version
-            # suffixes, publisher prefixes, underscores vs. none at all —
-            # see _alnum_only), which left genuinely installed models stuck
-            # showing as unfulfilled forever.
+
             req_norm = _alnum_only(r["model_name"])
             r["fulfilled"] = any(req_norm in _alnum_only(slug) or _alnum_only(slug) in req_norm
                                  for slug in fulfilled_cache[r["request_type"]])
     return rows
-
 
 @api.post("/admin/model-requests/{rid}/approve")
 async def admin_approve_model_request(rid: str, current_user: dict = Depends(get_admin)):
@@ -178,7 +139,6 @@ async def admin_approve_model_request(rid: str, current_user: dict = Depends(get
              current_user["username"], r["model_name"], r["source_url"])
     return {"status": "approved"}
 
-
 @api.post("/admin/model-requests/{rid}/reject")
 async def admin_reject_model_request(rid: str, current_user: dict = Depends(get_admin)):
     r = await model_request_repo.get(rid)
@@ -189,13 +149,8 @@ async def admin_reject_model_request(rid: str, current_user: dict = Depends(get_
              current_user["username"], r["model_name"], r["source_url"])
     return {"status": "rejected"}
 
-
 @api.post("/admin/model-requests/{rid}/complete")
 async def admin_complete_model_request(rid: str, current_user: dict = Depends(get_admin)):
-    """Marks an approved request as implemented — a genuinely distinct terminal
-    status from "rejected" (which the admin UI's "Done" button used to reuse,
-    mislabeling every actually-installed model as REJECTED in every history
-    view, including the requester's own "my requests" list)."""
     r = await model_request_repo.get(rid)
     if not r:
         raise HTTPException(404, "not found")
@@ -204,11 +159,9 @@ async def admin_complete_model_request(rid: str, current_user: dict = Depends(ge
              current_user["username"], r["model_name"])
     return {"status": "implemented"}
 
-
 @api.get("/admin/image-reports")
 async def admin_list_image_reports(_: dict = Depends(get_admin)):
     return await image_rating_report_repo.list(pending_only=True)
-
 
 @api.post("/admin/image-reports/{report_id}/resolve")
 async def admin_resolve_image_report(report_id: str, body: ImageReportResolveIn,
@@ -222,18 +175,15 @@ async def admin_resolve_image_report(report_id: str, body: ImageReportResolveIn,
              current_user["username"], rep["image_id"], body.is_explicit)
     return {"status": "resolved", "is_explicit": body.is_explicit}
 
-
 _CONTENT_REPORT_SETTERS = {
     "avatar": user_repo.set_explicit, "banner": user_repo.set_explicit, "profile": user_repo.set_explicit,
     "character": characters.set_explicit,
     "lore": lore.set_explicit,
 }
 
-
 @api.get("/admin/content-reports")
 async def admin_list_content_reports(_: dict = Depends(get_admin)):
     return await content_report_repo.list(pending_only=True)
-
 
 @api.post("/admin/content-reports/{report_id}/resolve")
 async def admin_resolve_content_report(report_id: str, body: ContentReportResolveIn,
@@ -249,7 +199,6 @@ async def admin_resolve_content_report(report_id: str, body: ContentReportResolv
              current_user["username"], report_id, rep["kind"], body.is_explicit)
     return {"status": "resolved", "is_explicit": body.is_explicit}
 
-
 @api.post("/admin/users")
 async def admin_create_user(body: UserCreateIn, current_user: dict = Depends(get_admin)):
     username = normalize_username(body.username)
@@ -261,7 +210,6 @@ async def admin_create_user(body: UserCreateIn, current_user: dict = Depends(get
     created = await user_repo.create_user(username, body.password, is_admin=body.is_admin)
     log.info("admin: user created by=%s new_user=%s admin=%s", current_user["username"], username, body.is_admin)
     return created
-
 
 @api.delete("/admin/users/{uid}")
 async def admin_delete_user(uid: str, current_user: dict = Depends(get_admin)):
@@ -276,7 +224,6 @@ async def admin_delete_user(uid: str, current_user: dict = Depends(get_admin)):
     log.info("admin: user deleted by=%s target=%s", current_user["username"], target["username"])
     return {"deleted": True}
 
-
 @api.put("/admin/users/{uid}/password")
 async def admin_reset_password(uid: str, body: UserCreateIn, current_user: dict = Depends(get_admin)):
     target = await user_repo.get_user_by_id(uid)
@@ -289,7 +236,6 @@ async def admin_reset_password(uid: str, body: UserCreateIn, current_user: dict 
     log.info("admin: password reset by=%s target=%s", current_user["username"], target["username"])
     return {"ok": True}
 
-
 @api.put("/admin/users/{uid}/role")
 async def admin_update_role(uid: str, body: UserCreateIn, current_user: dict = Depends(get_admin)):
     if uid == current_user["id"]:
@@ -297,22 +243,15 @@ async def admin_update_role(uid: str, body: UserCreateIn, current_user: dict = D
     target = await user_repo.get_user_by_id(uid)
     if not target:
         raise HTTPException(404, "User not found")
-    # A Dev-tier account is protected from demotion by any other admin — it's
-    # a normal admin account in every other respect, just never demotable by
-    # someone else. Demoting to non-admin implies losing Dev too (Dev requires
-    # is_admin), so that's the one case this blocks; role="dev" -> role="user"
-    # (still admin, no longer Dev) is a separate action, see /dev-role below.
+
     if not body.is_admin and target.get("role") == "dev":
         raise HTTPException(400, "This account cannot be demoted")
     await user_repo.update_user_role(uid, body.is_admin)
     log.info("admin: role changed by=%s target=%s admin=%s", current_user["username"], target["username"], body.is_admin)
     return await user_repo.get_user_by_id(uid)
 
-
 @api.put("/admin/users/{uid}/dev-role")
 async def admin_update_dev_role(uid: str, body: DevRoleIn, current_user: dict = Depends(get_dev)):
-    """Grant/revoke the Dev tier — only an existing Dev can do this, so a
-    regular admin can never self-escalate to Dev."""
     if uid == current_user["id"]:
         raise HTTPException(400, "Cannot change your own Dev status")
     target = await user_repo.get_user_by_id(uid)
@@ -325,7 +264,6 @@ async def admin_update_dev_role(uid: str, body: DevRoleIn, current_user: dict = 
              current_user["username"], target["username"], body.is_dev)
     return await user_repo.get_user_by_id(uid)
 
-
 @api.post("/admin/users/{uid}/approve")
 async def admin_approve_user(uid: str, current_user: dict = Depends(get_admin)):
     target = await user_repo.get_user_by_id(uid)
@@ -334,7 +272,6 @@ async def admin_approve_user(uid: str, current_user: dict = Depends(get_admin)):
     await user_repo.update_user_status(uid, "active")
     log.info("admin: user approved by=%s target=%s", current_user["username"], target["username"])
     return await user_repo.get_user_by_id(uid)
-
 
 @api.post("/admin/users/{uid}/deny")
 async def admin_deny_user(uid: str, current_user: dict = Depends(get_admin)):
@@ -346,7 +283,6 @@ async def admin_deny_user(uid: str, current_user: dict = Depends(get_admin)):
     await user_repo.delete_user(uid)
     log.info("admin: user denied by=%s target=%s", current_user["username"], target["username"])
     return {"denied": True}
-
 
 @api.post("/admin/users/{uid}/suspend")
 async def admin_suspend_user(uid: str, body: SuspendUserIn, current_user: dict = Depends(get_admin)):
@@ -362,7 +298,6 @@ async def admin_suspend_user(uid: str, body: SuspendUserIn, current_user: dict =
     log.info("admin: user suspended by=%s target=%s", current_user["username"], target["username"])
     return await user_repo.get_user_by_id(uid)
 
-
 @api.post("/admin/users/{uid}/unsuspend")
 async def admin_unsuspend_user(uid: str, current_user: dict = Depends(get_admin)):
     target = await user_repo.get_user_by_id(uid)
@@ -371,7 +306,6 @@ async def admin_unsuspend_user(uid: str, current_user: dict = Depends(get_admin)
     await user_repo.unsuspend_user(uid)
     log.info("admin: user unsuspended by=%s target=%s", current_user["username"], target["username"])
     return await user_repo.get_user_by_id(uid)
-
 
 @api.post("/admin/users/{uid}/totp/clear")
 async def admin_clear_user_totp(uid: str, current_user: dict = Depends(get_admin)):
@@ -383,14 +317,12 @@ async def admin_clear_user_totp(uid: str, current_user: dict = Depends(get_admin
     log.info("admin: totp cleared by=%s target=%s", current_user["username"], target["username"])
     return await user_repo.get_user_by_id(uid)
 
-
 @api.get("/admin/users/{uid}/notes")
 async def admin_list_user_notes(uid: str, _: dict = Depends(get_admin)):
     target = await user_repo.get_user_by_id(uid)
     if not target:
         raise HTTPException(404, "User not found")
     return await admin_note_repo.list_for_user(uid)
-
 
 @api.post("/admin/users/{uid}/notes")
 async def admin_add_user_note(uid: str, body: AdminNoteIn, current_user: dict = Depends(get_admin)):
@@ -405,13 +337,11 @@ async def admin_add_user_note(uid: str, body: AdminNoteIn, current_user: dict = 
     created["author_username"] = current_user["username"]
     return created
 
-
 @api.delete("/admin/notes/{note_id}")
 async def admin_delete_user_note(note_id: str, current_user: dict = Depends(get_admin)):
     await admin_note_repo.delete(note_id)
     log.info("admin: note deleted by=%s note=%s", current_user["username"], note_id)
     return {"deleted": True}
-
 
 @api.put("/admin/users/{uid}/identity")
 async def admin_set_identity_label(uid: str, body: IdentityLabelIn, current_user: dict = Depends(get_admin)):
@@ -423,11 +353,9 @@ async def admin_set_identity_label(uid: str, body: IdentityLabelIn, current_user
     log.info("admin: identity label set by=%s target=%s", current_user["username"], target["username"])
     return {"identity_label": label}
 
-
 @api.get("/admin/flagged-endpoints")
 async def admin_list_flagged_endpoints(_: dict = Depends(get_admin)):
     return await flagged_endpoint_repo.list(pending_only=True)
-
 
 @api.post("/admin/flagged-endpoints/{fid}/block")
 async def admin_block_flagged_endpoint(fid: str, current_user: dict = Depends(get_admin)):
@@ -439,12 +367,8 @@ async def admin_block_flagged_endpoint(fid: str, current_user: dict = Depends(ge
              current_user["username"], entry["user_id"], entry["url"])
     return {"status": "blocked"}
 
-
 @api.post("/admin/flagged-endpoints/{fid}/allow")
 async def admin_allow_flagged_endpoint(fid: str, current_user: dict = Depends(get_admin)):
-    """Approves the endpoint despite it failing automatic verification (e.g. a
-    self-hosted server on a legitimately private IP) and applies it to the
-    requesting user's settings now, on the admin's authority."""
     entry = await flagged_endpoint_repo.get(fid)
     if not entry:
         raise HTTPException(404, "not found")
@@ -457,11 +381,9 @@ async def admin_allow_flagged_endpoint(fid: str, current_user: dict = Depends(ge
              current_user["username"], entry["user_id"], entry["url"])
     return {"status": "allowed"}
 
-
 @api.get("/admin/password-reset-requests")
 async def admin_list_password_reset_requests(_: dict = Depends(get_admin)):
     return await password_reset_request_repo.list(pending_only=True)
-
 
 @api.post("/admin/password-reset-requests/{rid}/approve")
 async def admin_approve_password_reset(rid: str, current_user: dict = Depends(get_admin)):
@@ -482,7 +404,6 @@ async def admin_approve_password_reset(rid: str, current_user: dict = Depends(ge
              current_user["username"], target["username"])
     return {"ok": True, "username": target["username"], "password": new_password}
 
-
 @api.post("/admin/password-reset-requests/{rid}/deny")
 async def admin_deny_password_reset(rid: str, current_user: dict = Depends(get_admin)):
     req = await password_reset_request_repo.get(rid)
@@ -493,11 +414,9 @@ async def admin_deny_password_reset(rid: str, current_user: dict = Depends(get_a
              current_user["username"], req["username"])
     return {"ok": True}
 
-
 @api.get("/admin/title-requests")
 async def admin_list_title_requests(_: dict = Depends(get_admin)):
     return await content_report_repo.list_title_requests()
-
 
 @api.post("/admin/title-requests/{uid}/approve")
 async def admin_approve_title_request(uid: str, current_user: dict = Depends(get_admin)):
@@ -511,7 +430,6 @@ async def admin_approve_title_request(uid: str, current_user: dict = Depends(get
              current_user["username"], target["username"], target.get("title"))
     return {"status": "approved"}
 
-
 @api.post("/admin/title-requests/{uid}/reject")
 async def admin_reject_title_request(uid: str, current_user: dict = Depends(get_admin)):
     target = await user_repo.get_user_by_id(uid)
@@ -524,16 +442,10 @@ async def admin_reject_title_request(uid: str, current_user: dict = Depends(get_
              current_user["username"], target["username"], target.get("title"))
     return {"status": "rejected"}
 
-
 _LOG_LEVELS = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40, "CRITICAL": 50}
-
 
 @api.get("/admin/logs")
 async def admin_logs(level: str = "INFO", limit: int = 200, _: dict = Depends(get_admin)):
-    """Recent server activity for debugging. Only ever contains what this app
-    explicitly logs — IDs, roles, counts — never chat/character content, API
-    keys, or endpoint URLs. See the _RingBufferHandler comment above for why
-    raw request logs are deliberately excluded."""
     floor = _LOG_LEVELS.get(level.upper(), 20)
     entries = [e for e in _log_buffer.buffer if _LOG_LEVELS.get(e["level"], 20) >= floor]
     return {"logs": entries[-max(1, min(limit, 500)):]}

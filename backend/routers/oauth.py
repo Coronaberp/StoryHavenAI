@@ -17,7 +17,6 @@ from backend.repositories import users as user_repo
 from backend.repositories import webauthn_credentials as webauthn_credential_repo
 from backend.schemas import OauthProvidersPutIn
 
-
 @api.get("/admin/oauth-providers")
 async def admin_list_oauth_providers(current_user: dict = Depends(get_admin)):
     configured = {row["provider"]: row for row in await provider_repo.list_all()}
@@ -34,7 +33,6 @@ async def admin_list_oauth_providers(current_user: dict = Depends(get_admin)):
         })
     return {"providers": out}
 
-
 @api.put("/admin/oauth-providers")
 async def admin_put_oauth_providers(body: OauthProvidersPutIn,
                                     current_user: dict = Depends(get_admin)):
@@ -48,10 +46,8 @@ async def admin_put_oauth_providers(body: OauthProvidersPutIn,
              current_user["username"], ",".join(sorted(body.providers)))
     return {"ok": True}
 
-
 OAUTH_STATE_TTL_SECONDS = 300
 SUPPORTED_PROTOCOLS = {"oauth2"}
-
 
 @auth_router.get("/oauth/providers")
 async def list_public_oauth_providers():
@@ -61,15 +57,12 @@ async def list_public_oauth_providers():
         for r in rows if r["provider"] in PROVIDER_REGISTRY
         and PROVIDER_REGISTRY[r["provider"]]["protocol"] in SUPPORTED_PROTOCOLS]}
 
-
 def _origin(request: Request) -> str:
     port = f":{request.url.port}" if request.url.port else ""
     return f"{request.url.scheme}://{request.url.hostname}{port}"
 
-
 def _callback_url(request: Request, provider: str) -> str:
     return f"{_origin(request)}/api/auth/oauth/{provider}/callback"
-
 
 async def _start_oauth_flow(request: Request, provider: str, mode: str,
                             user_id: str | None) -> RedirectResponse:
@@ -103,11 +96,9 @@ async def _start_oauth_flow(request: Request, provider: str, mode: str,
     log.info("oauth: start provider=%s mode=%s", provider, mode)
     return RedirectResponse(url=f"{entry['authorize_url']}?{query}", status_code=307)
 
-
 @auth_router.get("/oauth/{provider}/start")
 async def start_oauth(request: Request, provider: str):
     return await _start_oauth_flow(request, provider, "login", None)
-
 
 async def _exchange_code_for_token(request: Request, provider: str, entry: dict, code: str,
                                    code_verifier: str | None) -> str:
@@ -132,7 +123,6 @@ async def _exchange_code_for_token(request: Request, provider: str, entry: dict,
         payload = resp.json()
     return payload["access_token"]
 
-
 async def _fetch_identity(provider: str, entry: dict, access_token: str) -> dict:
     async with httpx.AsyncClient(timeout=15) as client:
         resp = await client.get(entry["userinfo_url"],
@@ -140,12 +130,10 @@ async def _fetch_identity(provider: str, entry: dict, access_token: str) -> dict
         resp.raise_for_status()
         return resp.json()
 
-
 _LOGIN_ERROR_REDIRECT = "/login?oauth_error=1"
 _LINK_ERROR_REDIRECT = "/settings-account?oauth_error=1"
 _LINK_SUCCESS_REDIRECT = "/settings-account?oauth_linked=1"
 _LOGIN_SUCCESS_REDIRECT = "/"
-
 
 @auth_router.get("/oauth/{provider}/callback")
 async def oauth_callback(request: Request, provider: str, code: str, state: str):
@@ -216,13 +204,11 @@ async def oauth_callback(request: Request, provider: str, code: str, state: str)
     log.info("oauth: login provider=%s user=%s", provider, user["id"])
     return redirect
 
-
 @auth_router.get("/oauth/{provider}/start-link")
 async def start_oauth_link(request: Request, provider: str, current_user: dict = Depends(get_current_user)):
     if not current_user.get("id"):
         raise HTTPException(401, "Not authenticated")
     return await _start_oauth_flow(request, provider, "link", current_user["id"])
-
 
 @api.get("/me/oauth-identities")
 async def list_my_oauth_identities(current_user: dict = Depends(get_current_user)):
@@ -231,7 +217,6 @@ async def list_my_oauth_identities(current_user: dict = Depends(get_current_user
              "label": PROVIDER_REGISTRY.get(r["provider"], {}).get("label", r["provider"]),
              "display_name": r["display_name"], "created": r["created"]}
             for r in rows]
-
 
 @api.delete("/me/oauth-identities/{iid}")
 async def unlink_oauth_identity(iid: str, current_user: dict = Depends(get_current_user)):

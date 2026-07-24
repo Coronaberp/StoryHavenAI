@@ -1,8 +1,3 @@
-"""Side-call generators that turn free-form text into structured output via a
-single instruct call each: image generation prompts, full character definitions
-from a description, and persona expansion. Same pattern as the turn-signal
-extractor in retrieval.py, but these aren't part of the chat turn itself —
-they're invoked directly from routers (characters, personas, imagegen)."""
 import json
 
 from fastapi import HTTPException
@@ -10,10 +5,8 @@ from fastapi import HTTPException
 from backend import llm
 from backend.state import log, _sanitize_exc
 
-
 _DEFAULT_NEGATIVE_TAGS = "worst quality, low quality, blurry, watermark, signature, bad anatomy, extra limbs, deformed"
 _QUALITY_PREFIX_TAGS = "masterpiece, best quality, absurdres, highly detailed"
-
 
 async def _generate_image_prompt(scene_text: str, char_name: str, chat_model: str,
                                  appearance_lines: list[str] | None = None,
@@ -21,21 +14,6 @@ async def _generate_image_prompt(scene_text: str, char_name: str, chat_model: st
                                  direct_negative_tags: list[str] | None = None,
                                  chat_base: str | None = None,
                                  chat_key: str | None = None) -> tuple[str, str]:
-    """SDXL/Illustrious-family checkpoints are trained on Danbooru-style comma-separated
-    tags, not prose — so the scene text is run through a dedicated instruct call that
-    distills it into positive and negative tag lists, the same side-call pattern as
-    _extract_turn_signal.
-
-    appearance_lines carries any lore entries whose keyword(s) matched the scene (same
-    keyword-trigger logic as retrieve()'s chat-context lore lookup) plus the character's
-    own persona/description — without this, the model has to guess what a named character
-    or place actually looks like instead of using what's already been established.
-
-    direct_tags/direct_negative_tags carry pre-written Danbooru tags (from each lore
-    entry's own Appearance tags fields) that are prepended verbatim ahead of the model's
-    own tags — earlier tags carry more weight in most SD samplers, so when an author has
-    hand-written the exact tags for a character, those take priority over the model's
-    paraphrase."""
     context_block = ""
     if appearance_lines:
         context_block = ("\nEstablished appearance/setting details — use these, don't invent "
@@ -84,15 +62,10 @@ async def _generate_image_prompt(scene_text: str, char_name: str, chat_model: st
         negative = ", ".join(direct_negative_tags) + (", " + negative if negative else "")
     return positive, negative
 
-
 async def generate_image_prompt_and_params(description: str, chat_model: str,
                                            samplers: list[str], schedulers: list[str],
                                            chat_base: str | None = None,
                                            chat_key: str | None = None) -> dict:
-    """Simple-mode image generation: expands a plain-English description into
-    Danbooru-style prompt tags (same side-call as _generate_image_prompt) plus a
-    sensible sampler/scheduler/cfg/steps combo, so Simple mode only needs a
-    checkpoint, LoRAs, and a description field from the caller."""
     positive, negative = await _generate_image_prompt(
         description, "the subject", chat_model, chat_base=chat_base, chat_key=chat_key)
     sampler = "dpmpp_2m_sde_gpu" if "dpmpp_2m_sde_gpu" in samplers else (samplers[0] if samplers else "")
@@ -107,14 +80,9 @@ async def generate_image_prompt_and_params(description: str, chat_model: str,
         "steps": 20,
     }
 
-
 async def generate_character_from_description(description: str, chat_model: str,
                                               chat_base: str | None = None,
                                               chat_key: str | None = None) -> dict:
-    """Expand a free-form plaintext character description into structured
-    editor fields via one instruct call, same side-call pattern as
-    _generate_image_prompt. No lore/lorebook entries are produced. Raises
-    HTTPException(502) if the model's reply can't be parsed as JSON."""
     instruct = (
         "You are a character designer for a roleplay platform. Expand the "
         "user's free-form description below into a complete, structured "
@@ -179,7 +147,6 @@ async def generate_character_from_description(description: str, chat_model: str,
         "mode": mode,
     }
 
-
 def _normalize_dialogue(raw) -> str:
     if isinstance(raw, list):
         return "\n".join(str(line).strip() for line in raw if str(line).strip())
@@ -193,16 +160,9 @@ def _normalize_dialogue(raw) -> str:
             pass
     return text
 
-
 async def expand_persona_description(text: str, chat_model: str,
                                      chat_base: str | None = None,
                                      chat_key: str | None = None) -> str:
-    """Expand/normalize a persona description via one instruct call. The input
-    may already be a full, well-formed persona OR just a handful of short
-    descriptor keywords/phrases; either way the model returns a single complete
-    persona description as plain text — no JSON. Same side-call pattern as
-    generate_character_from_description. Returns the expanded text with any
-    stray code-fence/quote wrapper stripped."""
     instruct = (
         "You write player-character personas for a roleplay platform. A persona "
         "is the profile of the person the user is playing as; it is fed to the "
@@ -241,7 +201,6 @@ async def expand_persona_description(text: str, chat_model: str,
     if not result:
         raise HTTPException(502, "The model did not return a usable persona. Try again or rephrase.")
     return result
-
 
 async def extract_lore_secrets(content: str, chat_model: str,
                                chat_base: str | None = None,

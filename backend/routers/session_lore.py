@@ -13,7 +13,6 @@ from backend import lore_memory
 from backend import ai_helpers
 from backend.schemas import SessionLoreOverrideIn
 
-
 async def _translate_for_session(text: str, session: dict, current_user: dict) -> str:
     if not text or not session.get("language"):
         return text
@@ -30,7 +29,6 @@ async def _translate_for_session(text: str, session: dict, current_user: dict) -
                     session["id"], type(e).__name__, e)
         return text
 
-
 async def _session_scoped_entry(session: dict, lid: str, current_user: dict) -> dict:
     entry = await lore.get(lid)
     if not entry:
@@ -42,7 +40,6 @@ async def _session_scoped_entry(session: dict, lid: str, current_user: dict) -> 
                     session["id"], lid, current_user["id"])
         raise HTTPException(404, "lore entry not found")
     return entry
-
 
 async def _ensure_secrets(entry: dict) -> list[dict]:
     existing = await ls.secrets_for(entry["id"])
@@ -58,7 +55,6 @@ async def _ensure_secrets(entry: dict) -> list[dict]:
         return []
     return await ls.set_secrets(entry["id"], texts)
 
-
 async def _revealed_content(sid: str, entry: dict) -> str | None:
     secrets = await _ensure_secrets(entry)
     if not secrets:
@@ -67,7 +63,6 @@ async def _revealed_content(sid: str, entry: dict) -> str | None:
     if not revealed:
         return None
     return "\n".join(f"- {s['text']}" for s in secrets if s["id"] in revealed)
-
 
 async def _entry_with_session_state(sid: str, entry: dict, state: dict | None) -> dict | None:
     effective = dict(entry)
@@ -82,7 +77,6 @@ async def _entry_with_session_state(sid: str, entry: dict, state: dict | None) -
         return None
     effective["content"] = revealed
     return effective
-
 
 @api.get("/sessions/{sid}/lore")
 async def list_session_lore(sid: str, current_user: dict = Depends(get_current_user)):
@@ -102,7 +96,6 @@ async def list_session_lore(sid: str, current_user: dict = Depends(get_current_u
                       for link in outgoing.get(e["id"], []) if link["target_id"] in visible_ids]
     return result
 
-
 @api.get("/sessions/{sid}/lore/hidden")
 async def list_hidden_session_lore(sid: str, current_user: dict = Depends(get_current_user)):
     session = await _own_session(sid, current_user)
@@ -119,7 +112,6 @@ async def list_hidden_session_lore(sid: str, current_user: dict = Depends(get_cu
             result.append({"id": e["id"], "name": e["name"], "category": e["category"]})
     return result
 
-
 @api.get("/sessions/{sid}/lore/{lid}/secrets")
 async def get_lore_secrets(sid: str, lid: str, current_user: dict = Depends(get_current_user)):
     session = await _own_session(sid, current_user)
@@ -133,7 +125,6 @@ async def get_lore_secrets(sid: str, lid: str, current_user: dict = Depends(get_
             text = await _translate_for_session(text, session, current_user)
         result.append({"id": s["id"], "revealed": s["id"] in revealed, "text": text})
     return result
-
 
 @api.post("/sessions/{sid}/lore/{lid}/secrets/{secret_id}/reveal")
 async def reveal_lore_secret(sid: str, lid: str, secret_id: str,
@@ -149,7 +140,6 @@ async def reveal_lore_secret(sid: str, lid: str, secret_id: str,
              sid, lid, secret_id, current_user["username"])
     display_text = await _translate_for_session(match["text"], session, current_user)
     return {"id": secret_id, "revealed": True, "text": display_text}
-
 
 @api.put("/sessions/{sid}/lore/{lid}/override")
 async def set_session_lore_override(sid: str, lid: str, body: SessionLoreOverrideIn,

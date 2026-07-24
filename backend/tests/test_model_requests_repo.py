@@ -6,12 +6,10 @@ from backend.repositories import model_requests as model_request_repo
 
 pytestmark = pytest.mark.asyncio
 
-
 @pytest.fixture(autouse=True)
 def _ensure_fernet():
     if db._fernet is None:
         db._fernet = Fernet(Fernet.generate_key())
-
 
 async def test_model_request_create_get_list_set_status(db_conn):
     req = await model_request_repo.create("user-1", "cool-model", "http://host/model.safetensors", "please")
@@ -34,12 +32,7 @@ async def test_model_request_create_get_list_set_status(db_conn):
     assert updated["resolved"] is not None
     assert await model_request_repo.get("nonexistent") is None
 
-
 async def test_model_request_implemented_is_a_distinct_terminal_status(db_conn):
-    """"implemented" (set by the admin UI's "Done" button, see
-    routers/admin.py's admin_complete_model_request) must never collapse into
-    "rejected" — that bug once mislabeled every genuinely-installed model as
-    REJECTED in every history view, including the requester's own."""
     req = await model_request_repo.create("user-1", "some-lora", "http://host/lora.safetensors", "")
     rid = req["id"]
     await model_request_repo.set_status(rid, "approved")

@@ -1,20 +1,3 @@
-"""Admin-only image LoRA training on a Modal GPU (modal_app/lora_train.py).
-
-POST /admin/lora-training/jobs validates the request, creates the job row,
-and launches _execute_training_job as a fully decoupled asyncio.create_task —
-it returns {"job_id": ...} immediately, not a stream. The browser never
-drives the actual training call to Modal; it only ever polls GET .../jobs
-(see personas.js's watchTrainingJob), so closing every tab, a page reload, or
-this original POST's own connection dropping has zero effect on the run —
-it keeps going until Modal itself finishes/errors or an admin hits Abort.
-_execute_training_job persists status/progress/log/metrics straight to the
-DB as it goes, which is what both a live poller and a reload-recovered one
-read from — there's no separate "live" code path anymore. On the final
-"done" event the finished .safetensors is decoded and written directly into
-ComfyUI's loras volume (LORA_OUTPUT_DIR, bind-mounted read-write into this
-container), then chowned to COMFYUI_OWNER_UID so ComfyUI's rootless user can
-read it — see state.py.
-"""
 import asyncio
 import json
 import os
@@ -43,23 +26,17 @@ os.makedirs(LORA_OUTPUT_DIR, exist_ok=True)
 
 _CKPT_EXTS = (".safetensors", ".ckpt", ".pt", ".pth")
 
-
 def _lora_filename_slug(name: str) -> str:
     slug = re.sub(r"[^A-Za-z0-9_-]+", "_", name.strip()).strip("_")
     return slug or "lora"
 
-
 def _iso8601_compact() -> str:
-    # Basic (no ":"/"-") ISO 8601 — still a valid ISO 8601 representation,
-    # just filesystem-safe (colons are illegal in Windows paths and awkward
-    # to shell-escape everywhere else).
-    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 @api.get("/admin/lora-training/jobs")
 async def list_lora_training_jobs(current_user: dict = Depends(get_admin)):
     return await lora_training_repo.list_jobs()
-
 
 @api.get("/admin/lora-training/checkpoints")
 async def list_local_checkpoints(current_user: dict = Depends(get_admin)):
@@ -69,7 +46,6 @@ async def list_local_checkpoints(current_user: dict = Depends(get_admin)):
         log.warning("lora_training: could not list checkpoints dir=%s: %s", CHECKPOINTS_DIR, e)
         names = []
     return {"checkpoints": names}
-
 
 @api.delete("/admin/lora-training/jobs/{jid}")
 async def delete_lora_training_job(jid: str, current_user: dict = Depends(get_admin)):
@@ -93,11 +69,9 @@ async def delete_lora_training_job(jid: str, current_user: dict = Depends(get_ad
     log.info("lora_training: job deleted by=%s job=%s", current_user["username"], jid)
     return {"deleted": True}
 
-
 @api.get("/admin/lora-training/jobs/{jid}/checkpoints")
 async def list_job_checkpoints(jid: str, current_user: dict = Depends(get_admin)):
     return await lora_training_repo.list_checkpoints(jid)
-
 
 @api.delete("/admin/lora-training/checkpoints/{cid}")
 async def delete_job_checkpoint(cid: str, current_user: dict = Depends(get_admin)):
@@ -112,16 +86,8 @@ async def delete_job_checkpoint(cid: str, current_user: dict = Depends(get_admin
     log.info("lora_training: checkpoint deleted by=%s checkpoint=%s", current_user["username"], cid)
     return {"deleted": True}
 
-
 @api.post("/admin/lora-training/jobs/{jid}/checkpoint")
 async def request_lora_checkpoint(jid: str, current_user: dict = Depends(get_admin)):
-    """Asks the still-running Modal training call for `jid` to save and
-    stream an extra checkpoint right now (see modal_client.request_checkpoint
-    / modal_app/lora_train.py's request_checkpoint endpoint). Only meaningful
-    while the job is actively training — the actual .safetensors bytes arrive
-    later via a "progress" event _execute_training_job picks up from the
-    still-running background task (see manual_checkpoint handling there),
-    not in this response."""
     job = await lora_training_repo.get_job(jid)
     if not job:
         raise HTTPException(404, "not found")
@@ -136,66 +102,35 @@ async def request_lora_checkpoint(jid: str, current_user: dict = Depends(get_adm
     log.info("lora_training: checkpoint requested by=%s job=%s", current_user["username"], jid)
     return {"requested": True}
 
-
-# Job ids the admin has asked to abort. create_and_stream_lora_training_job's
-# gen() loop (running in this same process, since run.sh starts a single
-# uvicorn worker) polls this set on every SSE event it relays from Modal and
-# stops as soon as a job it's streaming is found in it — this is the actual
-# kill switch for an abort request that arrives on a *different* connection
-# than the one running the job (a second tab, or the original tab having been
-# closed without hitting abort first): closing the browser's own SSE stream
-# only stops the run when that same stream is still open, so this in-process
-# flag is what makes /abort work regardless of which connection asks for it.
 _aborted_jobs: set[str] = set()
 
 MAX_AUTO_RETRIES = 3
 _UNRECOVERABLE_RE = re.compile(r"not found in Modal's model cache|checkpoint not found|CLIP/VAE not found")
 
-
 class _JobAborted(Exception):
     pass
 
-# Strong references to in-flight background training tasks — asyncio doesn't
-# keep a task alive on its own if nothing holds a reference to it, and
-# fire-and-forget asyncio.create_task() calls are a well-known way to have a
-# task silently garbage-collected mid-run. Training now runs fully decoupled
-# from the HTTP request that started it (see create_and_stream_lora_training_
-# job) specifically so closing every browser tab has zero effect on it — it
-# keeps running until Modal itself finishes/errors or an admin hits Abort.
 _running_jobs: set[asyncio.Task] = set()
 _running_job_tasks: dict[str, asyncio.Task] = {}
 
-# Only one training run at a time — a rented GPU is billed per job, and
-# running two at once on the same Modal deployment has no benefit here (each
-# job already gets its own container). _training_queue[0] is whichever job is
-# currently allowed to actually provision/train; every other id in it is
-# waiting its turn. gen() below appends itself, polls whether it's at index 0,
-# and pops itself out in a finally so the next queued job becomes active
-# regardless of whether this one finished, errored, or was aborted.
 _training_queue: list[str] = []
 _queue_lock = asyncio.Lock()
-
 
 async def _queue_join(job_id: str):
     async with _queue_lock:
         _training_queue.append(job_id)
-
 
 async def _queue_leave(job_id: str):
     async with _queue_lock:
         if job_id in _training_queue:
             _training_queue.remove(job_id)
 
-
 async def _queue_status(job_id: str) -> tuple[bool, int]:
-    """Returns (is_active, position) — position is 0 for the active job,
-    else how many jobs are ahead of it."""
     async with _queue_lock:
         if job_id not in _training_queue:
             return False, 0
         idx = _training_queue.index(job_id)
         return idx == 0, idx
-
 
 @api.post("/admin/lora-training/jobs/{jid}/abort")
 async def abort_lora_training_job(jid: str, current_user: dict = Depends(get_admin)):
@@ -211,13 +146,11 @@ async def abort_lora_training_job(jid: str, current_user: dict = Depends(get_adm
     log.info("lora_training: aborted by=%s job=%s", current_user["username"], jid)
     return {"status": "failed"}
 
-
 def _chown(path: str):
     try:
         os.chown(path, COMFYUI_OWNER_UID, COMFYUI_OWNER_UID)
     except OSError:
-        pass  # not running as root (e.g. local dev outside the container) — harmless
-
+        pass
 
 @api.post("/admin/lora-training/jobs")
 async def create_and_stream_lora_training_job(
@@ -235,10 +168,7 @@ async def create_and_stream_lora_training_job(
                              resolution=resolution, rank=rank, alpha=alpha,
                              learning_rate=learning_rate, steps=steps, batch_size=batch_size,
                              noise_offset=noise_offset, network_dropout=network_dropout)
-    # Every submission spins up a real rented GPU on Modal — bounds-check
-    # everything server-side too (the frontend validates the same ranges,
-    # but this endpoint must not trust it: a malformed/absurd request here
-    # burns real money on a run that's guaranteed to fail or misbehave).
+
     if not name.strip():
         raise HTTPException(400, "name is required")
     if not trigger_word.strip() or " " in trigger_word.strip():
@@ -266,13 +196,6 @@ async def create_and_stream_lora_training_job(
     if architecture not in ("sdxl", "anima"):
         raise HTTPException(400, "architecture must be 'sdxl' or 'anima'")
 
-    # Base checkpoints are huge (SDXL/Illustrious ~7GB, Anima's UNet ~4GB) —
-    # they get uploaded to Modal's model-cache Volume once (streamed straight
-    # from disk in modal_client.ensure_model_cached, never buffered fully in
-    # memory here) and referenced by name from then on, instead of being
-    # re-read into memory and re-uploaded on every single training job (the
-    # original design, and the reason large-checkpoint jobs used to fail
-    # with an httpx.ReadError/ClientDisconnect partway through the transfer).
     clip_name = vae_name = None
     if architecture == "anima":
         ckpt_path = os.path.join(DIFFUSION_MODELS_DIR, os.path.basename(local_checkpoint))
@@ -336,11 +259,6 @@ async def create_and_stream_lora_training_job(
              "trigger_word": body.trigger_word, "resume_from_lora_name": resume_lora_name,
              "noise_offset": body.noise_offset, "network_dropout": body.network_dropout}
 
-    # Runs fully decoupled from this request/response — see _running_jobs'
-    # own comment for why. The browser only ever polls GET .../jobs from here
-    # on; closing every tab (or this request timing out, or a page reload)
-    # has zero effect on the actual training run, which only stops via
-    # Modal itself finishing/erroring or an explicit POST .../abort.
     log.info("lora_training: queued by=%s job=%s name=%s architecture=%s steps=%s",
              current_user["username"], job["id"], job["name"], architecture, body.steps)
     task = asyncio.create_task(_execute_training_job(
@@ -355,7 +273,6 @@ async def create_and_stream_lora_training_job(
     task.add_done_callback(lambda t, jid=job["id"]: _running_job_tasks.pop(jid, None))
     return {"job_id": job["id"]}
 
-
 async def _persist_transfer_progress(jid: str, phase: str, name: str, sent: int, total: int | None, speed_mb_s: float | None):
     pct = f" ({sent * 100 // total}%)" if total else ""
     speed_txt = f" — {speed_mb_s:.1f} MB/s" if speed_mb_s else ""
@@ -367,7 +284,6 @@ async def _persist_transfer_progress(jid: str, phase: str, name: str, sent: int,
             "speed_mb_s": speed_mb_s, "t": time.time()}),
         log=f"{verb} {name}: {sent // (1024 * 1024)}"
             f"{f'/{total // (1024 * 1024)}' if total else ''} MB{pct}{speed_txt}")
-
 
 async def _execute_training_job(job: dict, config: dict, dataset_dir: str, current_user: dict, architecture: str,
                                 ckpt_name: str, ckpt_path: str, clip_name: str | None, vae_name: str | None,
@@ -390,11 +306,7 @@ async def _execute_training_job(job: dict, config: dict, dataset_dir: str, curre
 
         await lora_training_repo.update_job(job["id"], status="provisioning", log="Checking Modal deployment…",
                                              billing_started=time.time())
-        # ensure_deployed can take a couple minutes (image build) the first
-        # time — stream its own output line by line into the DB instead of
-        # sitting silent, so the persisted job.log (which is all any poller,
-        # live or reload-recovered, ever reads) shows real progress instead
-        # of a frozen "Checking Modal deployment…".
+
         log_queue: asyncio.Queue = asyncio.Queue()
         deploy_task = asyncio.create_task(
             modal_provision.ensure_deployed(on_log=lambda line: log_queue.put(line)))
@@ -406,7 +318,7 @@ async def _execute_training_job(job: dict, config: dict, dataset_dir: str, curre
             await lora_training_repo.update_job(job["id"], log=deploy_line)
         while not log_queue.empty():
             await lora_training_repo.update_job(job["id"], log=log_queue.get_nowait())
-        await deploy_task  # re-raises ModalProvisionError, if any
+        await deploy_task
 
         to_cache = [("base checkpoint", ckpt_name, ckpt_path)]
         if architecture == "anima":
@@ -444,14 +356,7 @@ async def _execute_training_job(job: dict, config: dict, dataset_dir: str, curre
                                f"{type(e).__name__}: {e}", "/images/training", related_id=job["id"])
         return
     finally:
-        # Every exit from this block except successfully reaching the
-        # training loop below must give up this job's queue slot — the
-        # queued-wait loop returning early (aborted) and the provisioning
-        # except clause above both count, or a job that fails before ever
-        # training would wedge every job queued behind it forever (a real
-        # bug this once had: it only checked _aborted_jobs here, so a
-        # provisioning failure left its slot stuck at the front of
-        # _training_queue permanently).
+
         if not reached_training:
             await _queue_leave(job["id"])
             shutil.rmtree(dataset_dir, ignore_errors=True)
@@ -510,12 +415,11 @@ async def _execute_training_job(job: dict, config: dict, dataset_dir: str, curre
         except Exception as e:
             log.warning("lora_training: could not clean up remote dataset job=%s: %s", job["id"], e)
 
-
 async def _stream_one_attempt(job, modal_events, config, current_user) -> str | None:
     await lora_training_repo.update_job(job["id"], status="training")
     async for event in modal_events:
         if job["id"] in _aborted_jobs:
-            await modal_events.aclose()  # actually tears down the httpx stream to Modal
+            await modal_events.aclose()
             await lora_training_repo.update_job(job["id"], status="failed", error="Aborted by admin.")
             raise _JobAborted()
         etype = event.get("type")
@@ -523,12 +427,7 @@ async def _stream_one_attempt(job, modal_events, config, current_user) -> str | 
             return event.get("message", "")
         if etype == "progress":
             fields = {"status": event.get("status", "training"), "progress": float(event.get("progress") or 0)}
-            # Keep-alive heartbeats (see modal_app/lora_train.py's
-            # _stream_subprocess) send an empty log on purpose during
-            # silent stretches — persisting that blank string wiped out
-            # the last real log line in the DB almost immediately, which
-            # is why a reload/refresh-recovery showed nothing at all even
-            # mid-run.
+
             if event.get("log"):
                 fields["log"] = event["log"]
             if event.get("loss_history"):
@@ -541,11 +440,7 @@ async def _stream_one_attempt(job, modal_events, config, current_user) -> str | 
                         "progress": fields["progress"], "t": time.time()})
             ckpt_name = event.pop("checkpoint_name", None)
             if ckpt_name and event.pop("manual_checkpoint", False):
-                # An explicitly requested checkpoint (Test LoRA's
-                # "Request checkpoint" button) — kept as its own
-                # never-overwritten snapshot instead of the job's
-                # continuously-updated output_file, so an admin can
-                # A/B test several points in the same run.
+
                 out_name = f"{_lora_filename_slug(job['name'])}_{_iso8601_compact()}.safetensors"
                 out_path = os.path.join(LORA_OUTPUT_DIR, out_name)
                 await lora_training_repo.update_job(job["id"], log=f"Downloading requested checkpoint {out_name}…")
@@ -556,11 +451,7 @@ async def _stream_one_attempt(job, modal_events, config, current_user) -> str | 
                 await lora_repo.gate_visibility(out_name, current_user["id"])
                 await lora_training_repo.create_checkpoint(job["id"], out_name)
             elif ckpt_name:
-                # A scheduled mid-run checkpoint — written under the
-                # job's own filename (same name "done" uses) so an admin
-                # who aborts partway through still has a real, already-
-                # gated LoRA on disk to test/publish instead of nothing,
-                # per the "test early, stop early" workflow.
+
                 out_name = f"{job['id']}.safetensors"
                 out_path = os.path.join(LORA_OUTPUT_DIR, out_name)
                 await lora_training_repo.update_job(job["id"], log=f"Downloading checkpoint {out_name}…")
@@ -583,9 +474,7 @@ async def _stream_one_attempt(job, modal_events, config, current_user) -> str | 
             await asyncio.get_running_loop().run_in_executor(None, _chown, out_path)
             await lora_training_repo.update_job(job["id"], status="done", progress=1.0, output_file=out_name,
                                               log="Download complete — LoRA saved.")
-            # Hidden from regular users' LoRA picker until an admin
-            # explicitly publishes it (Admin > Model previews) — see
-            # lora_repo.gate_visibility and /api/imagegen/loras' filter.
+
             await lora_repo.gate_visibility(out_name, current_user["id"])
             log.info("lora_training: done by=%s job=%s file=%s",
                      current_user["username"], job["id"], out_name)
@@ -593,15 +482,7 @@ async def _stream_one_attempt(job, modal_events, config, current_user) -> str | 
                                    f"{out_name} is ready to test/publish.", "/images/training",
                                    related_id=job["id"])
             return None
-    # Modal's own httpx stream can end cleanly (connection closed, no
-    # exception raised) without ever sending a final "done" or "error"
-    # SSE event — happened for real once already: the GPU function fully
-    # finished training on Modal's side (confirmed via `modal app
-    # logs`/`modal container list` — 0 active containers, no errors) but
-    # this loop's `async for` just silently ran out of events, leaving
-    # the job frozen at status="training" forever with nothing to
-    # explain why. Treated as recoverable so the caller retries/resumes
-    # instead of leaving it stuck.
+
     log.warning("lora_training: stream ended without terminal event job=%s", job["id"])
     return ("Training stream ended without a final result — check the Modal dashboard's App Logs "
             "for this deploy to see whether it actually finished or crashed.")

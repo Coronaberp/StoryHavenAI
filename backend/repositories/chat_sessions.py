@@ -12,7 +12,6 @@ from backend.db import (
 from backend.repositories import session_characters as session_char_repo
 from backend.state import log
 
-
 async def _with_preview(rows) -> list[dict]:
     out = [dict(row) for row in rows]
     if not out:
@@ -49,7 +48,6 @@ async def _with_preview(rows) -> list[dict]:
         s["message_count"] = counts.get(s["id"], 0)
     return out
 
-
 async def create(char_id, persona_id, title, user_name, user_id=None) -> str:
     sid = nid("s")
     now = time.time()
@@ -60,7 +58,6 @@ async def create(char_id, persona_id, title, user_name, user_id=None) -> str:
         created=now, updated=now))
     log.info("chat_sessions: created id=%s char=%s user=%s", sid, char_id, user_id)
     return sid
-
 
 async def create_group(user_id, name, char_ids, persona_id=None, user_name="You", mode="roleplay",
                        source_group_id=None) -> str:
@@ -77,7 +74,6 @@ async def create_group(user_id, name, char_ids, persona_id=None, user_name="You"
     log.info("chat_sessions: created GROUP id=%s chars=%d mode=%s user=%s", sid, len(char_ids), mode, user_id)
     return sid
 
-
 async def get(sid: str) -> dict | None:
     s = await _q1(select(sessions).where(sessions.c.id == sid))
     if not s:
@@ -93,7 +89,6 @@ async def get(sid: str) -> dict | None:
     s["messages"] = await list_messages(sid)
     return s
 
-
 async def list_all(limit: int = 40, user_id: str | None = None,
                     char_id: str | None = None) -> list[dict]:
     conditions = []
@@ -107,61 +102,50 @@ async def list_all(limit: int = 40, user_id: str | None = None,
             .order_by(sessions.c.updated.desc()).limit(limit))
     return await _with_preview(await _q(stmt))
 
-
 async def list_for_char(cid: str) -> list[dict]:
     stmt = (select(sessions).where(sessions.c.char_id == cid)
             .order_by(sessions.c.updated.desc()))
     return await _with_preview(await _q(stmt))
 
-
 async def touch(sid: str):
     await _w(sa_update(sessions).where(sessions.c.id == sid).values(updated=time.time()))
-
 
 async def rename(sid: str, title: str):
     await _w(sa_update(sessions).where(sessions.c.id == sid).values(
         title=_encrypt_secret(title or "")))
     log.info("chat_sessions: renamed id=%s", sid)
 
-
 async def set_style(sid: str, key: str, prompt: str | None):
     await _w(sa_update(sessions).where(sessions.c.id == sid).values(
         style_key=key, style_prompt=_encrypt_secret(prompt or "") or None))
     log.info("chat_sessions: style set id=%s key=%s", sid, key)
 
-
 async def set_length(sid: str, key: str):
     await _w(sa_update(sessions).where(sessions.c.id == sid).values(length_key=key))
     log.info("chat_sessions: length set id=%s key=%s", sid, key)
-
 
 async def set_explicit_mode(sid: str, enabled: bool):
     await _w(sa_update(sessions).where(sessions.c.id == sid).values(explicit_mode=1 if enabled else 0))
     log.info("chat_sessions: explicit_mode set id=%s enabled=%s", sid, enabled)
 
-
 async def set_language(sid: str, language: str | None):
     await _w(sa_update(sessions).where(sessions.c.id == sid).values(language=language))
     log.info("chat_sessions: language set id=%s language=%s", sid, language)
-
 
 async def set_persona(sid: str, persona_id: str | None, user_name: str):
     await _w(sa_update(sessions).where(sessions.c.id == sid).values(
         persona_id=persona_id, user_name=_encrypt_secret(user_name)))
     log.info("chat_sessions: persona switched id=%s persona=%s", sid, persona_id)
 
-
 async def set_glossary(sid: str, glossary: str):
     await _w(sa_update(sessions).where(sessions.c.id == sid).values(
         glossary=_encrypt_secret(glossary or "")))
     log.info("chat_sessions: glossary set id=%s", sid)
 
-
 async def set_author_note(sid: str, note: str | None):
     await _w(sa_update(sessions).where(sessions.c.id == sid).values(
         author_note=_encrypt_secret(note) if note else note))
     log.info("chat_sessions: author note set id=%s", sid)
-
 
 async def set_char_state(sid: str, doing: str | None, location: str | None,
                           known_names: list[str]):
@@ -171,13 +155,11 @@ async def set_char_state(sid: str, doing: str | None, location: str | None,
         known_names=_encrypt_secret(json.dumps(known_names))))
     log.info("chat_sessions: char state set id=%s", sid)
 
-
 async def delete(sid: str):
     async with engine().begin() as conn:
         await conn.execute(sa_delete(messages).where(messages.c.session_id == sid))
         await conn.execute(sa_delete(sessions).where(sessions.c.id == sid))
     log.info("chat_sessions: deleted id=%s", sid)
-
 
 async def add_message(sid: str, role: str, content: str, lang: str | None = None,
                       mood: str | None = None, user_name: str | None = None,
@@ -196,7 +178,6 @@ async def add_message(sid: str, role: str, content: str, lang: str | None = None
     return {"id": mid, "role": role, "content": content, "ts": ts, "lang": lang, "mood": mood,
             "user_name": user_name, "persona_avatar": persona_avatar,
             "char_id": char_id, "turn_group": turn_group, "sender_user_id": sender_user_id}
-
 
 async def branch(sid: str, mid: str, user_id: str | None) -> str | None:
     src = await get(sid)
@@ -224,7 +205,6 @@ async def branch(sid: str, mid: str, user_id: str | None) -> str | None:
     log.info("chat_sessions: branched id=%s from=%s at=%s", new_sid, sid, mid)
     return new_sid
 
-
 async def _branch_destination(src: dict, user_id: str | None) -> str:
     title = f'{src["title"]} (branch)'
     if not src.get("is_group"):
@@ -239,7 +219,6 @@ async def _branch_destination(src: dict, user_id: str | None) -> str:
          "is_narrator": member.get("is_narrator")}
         for member in cast])
     return new_sid
-
 
 async def list_messages(sid: str) -> list[dict]:
     stmt = (select(messages.c.id, messages.c.role, messages.c.content,
@@ -256,7 +235,6 @@ async def list_messages(sid: str) -> list[dict]:
         del r["swipes"]
     return rows
 
-
 async def set_message_image(sid: str, mid: str, url: str, positive: str = None,
                              negative: str = None, is_explicit: bool = False):
     await _w(sa_update(messages).where(and_(
@@ -266,12 +244,10 @@ async def set_message_image(sid: str, mid: str, url: str, positive: str = None,
         image_is_explicit=1 if (url and is_explicit) else 0))
     log.info("chat_sessions: message image set session=%s message=%s", sid, mid)
 
-
 async def set_message_image_explicit(sid: str, mid: str):
     await _w(sa_update(messages).where(and_(
         messages.c.session_id == sid, messages.c.id == mid)).values(image_is_explicit=1))
     log.info("chat_sessions: message image marked explicit session=%s message=%s", sid, mid)
-
 
 async def edit_message(sid: str, mid: str, content: str):
     await _w(sa_update(messages).where(and_(
@@ -279,12 +255,10 @@ async def edit_message(sid: str, mid: str, content: str):
         content=_encrypt_secret(content or "")))
     log.info("chat_sessions: message edited session=%s message=%s", sid, mid)
 
-
 async def delete_message(sid: str, mid: str):
     await _w(sa_delete(messages).where(and_(
         messages.c.session_id == sid, messages.c.id == mid)))
     log.info("chat_sessions: message deleted session=%s message=%s", sid, mid)
-
 
 async def add_swipe(sid: str, mid: str, new_content: str) -> dict:
     row = await _q1(select(messages.c.content, messages.c.swipes).where(and_(
@@ -298,7 +272,6 @@ async def add_swipe(sid: str, mid: str, new_content: str) -> dict:
         content=_encrypt_secret(new_content), swipes=_encrypt_json_list(swipes)))
     log.info("chat_sessions: swipe added session=%s message=%s count=%d", sid, mid, len(swipes))
     return {"index": len(swipes) - 1, "count": len(swipes)}
-
 
 async def swipe(sid: str, mid: str, direction: str) -> dict:
     row = await _q1(select(messages.c.content, messages.c.swipes).where(and_(
@@ -315,7 +288,6 @@ async def swipe(sid: str, mid: str, direction: str) -> dict:
     log.info("chat_sessions: swiped session=%s message=%s index=%d", sid, mid, new_idx)
     return {"index": new_idx, "count": len(swipes)}
 
-
 async def prune_last_swipes(sid: str) -> None:
     row = await _q1(select(messages.c.seq, messages.c.id, messages.c.swipes)
                     .where(messages.c.session_id == sid)
@@ -325,5 +297,4 @@ async def prune_last_swipes(sid: str) -> None:
     await _w(sa_update(messages).where(and_(
         messages.c.session_id == sid, messages.c.id == row["id"])).values(swipes=None))
     log.info("chat_sessions: swipes pruned session=%s message=%s", sid, row["id"])
-
 

@@ -10,7 +10,6 @@ from backend.repositories import blocks
 
 pytestmark = pytest.mark.asyncio
 
-
 async def test_publish_blocks_owned_private_char(db_conn):
     owner = "gtest_owner1"
     priv = await characters.create({"name": "Secret1", "is_public": False, "owner_id": owner})
@@ -25,7 +24,6 @@ async def test_publish_blocks_owned_private_char(db_conn):
     assert exc.value.status_code == 400
     assert priv["id"] in exc.value.detail
 
-
 async def test_publish_succeeds_when_owned_chars_public(db_conn):
     owner = "gtest_owner2"
     a = await characters.create({"name": "A2", "is_public": True, "owner_id": owner})
@@ -37,7 +35,6 @@ async def test_publish_succeeds_when_owned_chars_public(db_conn):
         GroupPublishIn(session_id=sid),
         current_user={"id": owner, "username": "t", "is_admin": False})
     assert result["id"].startswith("g")
-
 
 async def test_get_detail_visibility_and_cast(db_conn):
     owner = "gtest_owner3"
@@ -58,7 +55,6 @@ async def test_get_detail_visibility_and_cast(db_conn):
         await groups_router.get_group("gdoesnotexist", current_user=None)
     assert exc.value.status_code == 404
 
-
 async def test_get_detail_hides_private_group_from_non_owner(db_conn):
     owner = "gtest_owner7"
     a = await characters.create({"name": "A7", "is_public": True, "owner_id": owner})
@@ -76,7 +72,6 @@ async def test_get_detail_hides_private_group_from_non_owner(db_conn):
     assert exc.value.status_code == 404
     detail = await groups_router.get_group(gid, current_user=owner_user)
     assert detail["is_owner"] is True
-
 
 async def test_edit_revalidates_and_updates(db_conn):
     owner = "gtest_owner4"
@@ -102,7 +97,6 @@ async def test_edit_revalidates_and_updates(db_conn):
             current_user=current_user)
     assert exc.value.status_code == 400
 
-
 async def test_start_chat_from_template(db_conn):
     owner = "gtest_owner6"
     a = await characters.create({"name": "A6", "is_public": True, "owner_id": owner})
@@ -117,7 +111,6 @@ async def test_start_chat_from_template(db_conn):
     assert r["session_id"]
     cast = await session_characters.list_cast(r["session_id"])
     assert {m["char_id"] for m in cast} == {a["id"], b["id"]}
-
 
 async def test_delete_owner_only(db_conn):
     owner = "gtest_owner5"
@@ -134,7 +127,6 @@ async def test_delete_owner_only(db_conn):
     with pytest.raises(HTTPException) as exc:
         await groups_router.get_group(gid, current_user=None)
     assert exc.value.status_code == 404
-
 
 async def test_community_feed_includes_groups(db_conn):
     owner = "gtest_owner6"
@@ -153,7 +145,6 @@ async def test_community_feed_includes_groups(db_conn):
     assert one["name"] == "FeedG6"
     assert len(one["cast_preview"]) == 2
 
-
 async def test_char_featuring_groups(db_conn):
     owner = "gtest_owner7"
     a = await characters.create({"name": "Ag7", "is_public": True, "owner_id": owner})
@@ -166,7 +157,6 @@ async def test_char_featuring_groups(db_conn):
     gid = result["id"]
     featuring = await characters_router.character_groups(a["id"], current_user=None)
     assert gid in [x["id"] for x in featuring]
-
 
 async def test_community_feed_unauth_includes_groups(db_conn):
     owner = "gtest_owner8"
@@ -181,7 +171,6 @@ async def test_community_feed_unauth_includes_groups(db_conn):
     feed = await characters_router.list_characters(scope="community", current_user=None)
     groups_in = [x for x in feed if x.get("kind") == "group"]
     assert gid in [x["id"] for x in groups_in]
-
 
 async def test_start_chat_drops_inaccessible_cast(db_conn):
     owner1 = "gtest_leak_owner1"
@@ -205,7 +194,6 @@ async def test_start_chat_drops_inaccessible_cast(db_conn):
     assert r["session_id"]
     cast = await session_characters.list_cast(r["session_id"])
     assert {m["char_id"] for m in cast} == {a["id"], b["id"]}
-
 
 async def test_detail_hides_private_cast_member(db_conn):
     owner1 = "gtest_leak_owner3"
@@ -233,7 +221,6 @@ async def test_detail_hides_private_cast_member(db_conn):
     assert entry_a_owner["hidden"] is False
     assert entry_a_owner["name"] == "LeakDA"
 
-
 async def test_feed_preview_excludes_private_cast(db_conn):
     owner1 = "gtest_leak_owner5"
     owner2 = "gtest_leak_owner6"
@@ -252,7 +239,6 @@ async def test_feed_preview_excludes_private_cast(db_conn):
     preview_ids = {m["char_id"] for m in one["cast_preview"]}
     assert a["id"] not in preview_ids
     assert b["id"] in preview_ids
-
 
 async def test_community_feed_excludes_blocked_owner_groups(db_conn):
     viewer = "gtest_viewer9"

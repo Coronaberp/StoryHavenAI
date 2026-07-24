@@ -6,12 +6,10 @@ from backend.repositories import password_reset_requests as password_reset_reque
 
 pytestmark = pytest.mark.asyncio
 
-
 @pytest.fixture(autouse=True)
 def _ensure_fernet():
     if db._fernet is None:
         db._fernet = Fernet(Fernet.generate_key())
-
 
 async def test_password_reset_request_create_get_list_set_status(db_conn):
     rid = await password_reset_request_repo.create("user-1", "someuser")
