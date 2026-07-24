@@ -1,6 +1,9 @@
+import io
+import wave
+
 import pytest
 
-from backend.tts import segment_speech
+from backend.tts import concat_wavs, segment_speech, speech_cache_key
 
 def test_segment_pure_narration():
     assert segment_speech("She walks to the door and knocks.") == [
@@ -42,3 +45,35 @@ def test_segment_empty_input():
 def test_segment_empty_quotes_dropped():
     assert segment_speech('Before "" after.') == [
         ("narration", "Before"), ("narration", "after.")]
+
+def _make_wav(freq_frames: bytes, rate=24000, channels=1, width=2):
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(channels)
+        w.setsampwidth(width)
+        w.setframerate(rate)
+        w.writeframes(freq_frames)
+    return buf.getvalue()
+
+def test_concat_wavs_joins_frames():
+    a = _make_wav(b"\x01\x02" * 10)
+    b = _make_wav(b"\x03\x04" * 5)
+    joined = concat_wavs([a, b])
+    with wave.open(io.BytesIO(joined)) as w:
+        assert w.getnframes() == 15
+        assert w.getframerate() == 24000
+
+def test_concat_wavs_mismatch_raises():
+    a = _make_wav(b"\x01\x02" * 4, rate=24000)
+    b = _make_wav(b"\x01\x02" * 4, rate=22050)
+    with pytest.raises(ValueError):
+        concat_wavs([a, b])
+
+def test_speech_cache_key_sensitivity():
+    base = speech_cache_key("hi", "af_bella", "af_heart", "kokoro:8880")
+    assert base == speech_cache_key("hi", "af_bella", "af_heart", "kokoro:8880")
+    assert base != speech_cache_key("hi!", "af_bella", "af_heart", "kokoro:8880")
+    assert base != speech_cache_key("hi", "af_sky", "af_heart", "kokoro:8880")
+    assert base != speech_cache_key("hi", "af_bella", "af_sky", "kokoro:8880")
+    assert base != speech_cache_key("hi", "af_bella", "af_heart", "other:1")
+    assert len(base) == 64
