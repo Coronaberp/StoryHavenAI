@@ -1173,6 +1173,8 @@ async def get_user_settings(user_id: str) -> dict:
             out[r["key"]] = r["value"]
     if out.get("api_key"):
         out["api_key"] = _decrypt_secret(out["api_key"])
+    if out.get("tts_api_key"):
+        out["tts_api_key"] = _decrypt_secret(out["tts_api_key"])
     return out
 
 def _char_row(row) -> dict:

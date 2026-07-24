@@ -17,6 +17,8 @@ def _scrub_api_key(overrides: dict) -> dict:
     out = dict(overrides)
     if "api_key" in out:
         out["has_api_key"] = bool(out.pop("api_key"))
+    if "tts_api_key" in out:
+        out["has_tts_api_key"] = bool(out.pop("tts_api_key"))
     return out
 
 @api.get("/me/settings")
@@ -32,6 +34,8 @@ async def put_my_settings(body: UserSettingsIn,
 
     if "base_url" in data and isinstance(data["base_url"], str) and not data["base_url"].strip():
         del data["base_url"]
+    if "tts_base_url" in data and isinstance(data["tts_base_url"], str) and not data["tts_base_url"].strip():
+        del data["tts_base_url"]
 
     if data.get("base_url"):
         url = data["base_url"].strip()
@@ -47,6 +51,11 @@ async def put_my_settings(body: UserSettingsIn,
                 exclude_user_id=current_user["id"])
             raise HTTPException(400, f"That endpoint couldn't be verified ({reason}) and has been "
                                       "flagged for admin review. It has not been saved.")
+    if data.get("tts_base_url"):
+        url = data["tts_base_url"].strip()
+        issue = await _resolve_host_ip_issue(url, current_user.get("is_admin", False))
+        if issue:
+            raise HTTPException(400, f"That TTS endpoint couldn't be verified ({issue}). It has not been saved.")
     if data:
         await user_repo.set_user_settings(current_user["id"], data)
         log.info("settings: per-user endpoint override changed by=%s", current_user["username"])
@@ -95,6 +104,7 @@ async def get_settings(_: dict = Depends(get_current_user)):
     out["has_modal_shared_secret"] = bool(CFG.get("modal_shared_secret"))
     out["has_giphy_api_key"] = bool(CFG.get("giphy_api_key"))
     out["has_image_provider_key"] = bool(CFG.get("image_provider_key"))
+    out["has_tts_api_key"] = bool(CFG.get("tts_api_key"))
     return out
 
 @api.put("/settings")
@@ -106,7 +116,8 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
     persist = {}
     _str_keys = {"chat_model", "embed_model", "base_url", "api_key", "embed_api_key", "embed_base_url",
                 "modal_train_url", "modal_shared_secret", "modal_checkpoint_url", "giphy_api_key",
-                "image_provider", "image_provider_url", "image_provider_key", "image_provider_model"}
+                "image_provider", "image_provider_url", "image_provider_key", "image_provider_model",
+                "tts_base_url", "tts_api_key", "tts_narrator_voice"}
     if "model_request_hosts" in data:
         existing_by_host = {e.get("host"): e.get("api_key", "")
                             for e in CFG.get("model_request_hosts", [])}
@@ -117,7 +128,7 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
     for k, v in data.items():
         if isinstance(v, str) and k in _str_keys:
             v = v.strip()
-            if not v and k in ("chat_model", "embed_model", "base_url", "embed_base_url"):
+            if not v and k in ("chat_model", "embed_model", "base_url", "embed_base_url", "tts_base_url"):
                 continue
         if k == "embed_base_url" and isinstance(v, str) and v:
             v = llm._mk_root_embed(v)
@@ -140,6 +151,7 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
     out["has_modal_shared_secret"] = bool(CFG.get("modal_shared_secret"))
     out["has_giphy_api_key"] = bool(CFG.get("giphy_api_key"))
     out["has_image_provider_key"] = bool(CFG.get("image_provider_key"))
+    out["has_tts_api_key"] = bool(CFG.get("tts_api_key"))
     out["reindexed"] = changed_dim
     return out
 

@@ -2,6 +2,7 @@ import hashlib
 import io
 import os
 import re
+import uuid
 import wave
 
 import httpx
@@ -116,7 +117,7 @@ async def synthesize_message(content: str, char_voice: str, narrator_voice: str,
         raise TTSUnavailable(f"tts backend unreachable: {type(exc).__name__}") from exc
     audio = concat_wavs(blobs)
     os.makedirs(os.path.dirname(abs_path), exist_ok=True)
-    tmp_path = abs_path + ".tmp"
+    tmp_path = abs_path + "." + uuid.uuid4().hex + ".tmp"
     with open(tmp_path, "wb") as f:
         f.write(audio)
     os.replace(tmp_path, abs_path)
