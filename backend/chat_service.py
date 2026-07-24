@@ -85,6 +85,13 @@ async def _own_session(sid: str, current_user: dict) -> dict:
         return s
     raise HTTPException(404, "session not found")
 
+def participant_display_name(persona: dict | None, user_row: dict | None) -> str:
+    if persona and persona.get("name"):
+        return persona["name"]
+    if user_row:
+        return user_row.get("display_name") or user_row.get("username") or "You"
+    return "You"
+
 async def _resolve_sender_persona(s: dict, current_user: dict | None) -> tuple[dict | None, str]:
     if current_user:
         rows = await session_participants.list_for_session(s["id"])
