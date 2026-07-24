@@ -145,6 +145,10 @@ class AdminOverviewView {
         <div class="font-display font-semibold text-base text-ink">${t("admin_section_feature_flags", "Feature Flags")}</div>
         <span class="font-mono text-xs cursor-pointer" style="color:var(--color-accent)" onclick="navigate('/admin-features')">${t("admin_open")}</span>
       </div>
+      <div class="flex items-center justify-between mt-5 mb-3">
+        <div class="font-display font-semibold text-base text-ink">${t("admin_section_announcements", "Announcements")}</div>
+        <span class="font-mono text-xs cursor-pointer" style="color:var(--color-accent)" onclick="navigate('/admin-announce')">${t("admin_open")}</span>
+      </div>
       </div>
     `;
   }

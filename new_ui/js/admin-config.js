@@ -331,6 +331,9 @@ Object.assign(AdminConfigView.prototype, {
       embed_dim: newEmbedDim,
       comfyui_url: strOrNull("cfg_comfy_url"),
       comfyui_checkpoint: strOrNull("cfg_comfy_ckpt"),
+      image_provider: document.getElementById("cfg_image_provider").value,
+      image_provider_url: document.getElementById("cfg_image_provider_url").value.trim(),
+      image_provider_model: document.getElementById("cfg_image_provider_model").value.trim(),
       wan_unet_name: strOrNull("cfg_wan_unet") || "",
       wan_clip_name: strOrNull("cfg_wan_clip") || "",
       wan_vae_name: strOrNull("cfg_wan_vae") || "",
@@ -339,6 +342,7 @@ Object.assign(AdminConfigView.prototype, {
       history_turns: this.intOrFallback("cfg_hist", 16),
       max_tokens: this.intOrFallback("cfg_max", 4096),
       enable_thinking: !!document.getElementById("cfg_think").checked,
+      nsfw_classification: !!document.getElementById("cfg_nsfw_classify").checked,
       temperature: this.numOrFallback("cfg_temperature", 0.85),
       top_p: this.numOrFallback("cfg_top_p", 0.9),
       top_k: this.intOrFallback("cfg_top_k", 0),
@@ -373,6 +377,8 @@ Object.assign(AdminConfigView.prototype, {
     if (ekey) body.embed_api_key = ekey;
     const gkey = document.getElementById("cfg_giphy_key").value.trim();
     if (gkey) body.giphy_api_key = gkey;
+    const ipkey = document.getElementById("cfg_image_provider_key").value.trim();
+    if (ipkey) body.image_provider_key = ipkey;
 
     const newApiBase = document.getElementById("cfg_api").value.trim();
     if (newApiBase) {
@@ -451,6 +457,22 @@ AdminConfigView.prototype.render = function () {
     </div>
 
     <div class="rounded-[13px] border border-line bg-surface p-3.5 mb-4">
+      <div class="font-display font-semibold text-sm text-ink mb-1">${t("admin_config_image_provider_title", "Image generation backend")}</div>
+      <p class="text-xs text-muted mb-2">${t("admin_config_image_provider_description", "Pick which service generates images. ComfyUI is the self-hosted default. Hosted providers use the URL, model and key below.")}</p>
+      <select id="cfg_image_provider" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+        ${[["comfyui", t("admin_config_image_provider_comfyui", "ComfyUI (self-hosted)")],
+           ["openai", t("admin_config_image_provider_openai", "OpenAI-compatible API")],
+           ["stability", t("admin_config_image_provider_stability", "Stability AI")],
+           ["novelai", t("admin_config_image_provider_novelai", "NovelAI")],
+           ["a1111", t("admin_config_image_provider_a1111", "AUTOMATIC1111")]]
+          .map(([v, label]) => `<option value="${v}" ${st.image_provider === v || (!st.image_provider && v === "comfyui") ? "selected" : ""}>${label}</option>`).join("")}
+      </select>
+      <input type="text" id="cfg_image_provider_url" value="${_attr(st.image_provider_url || "")}" placeholder="${t("admin_config_image_provider_url_placeholder", "Provider API URL")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+      <input type="text" id="cfg_image_provider_model" value="${_attr(st.image_provider_model || "")}" placeholder="${t("admin_config_image_provider_model_placeholder", "Model name (optional)")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+      <input type="password" autocomplete="new-password" id="cfg_image_provider_key" placeholder="${st.has_image_provider_key ? t("admin_config_key_set_placeholder") : t("admin_config_image_provider_key_placeholder", "Provider API key")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+    </div>
+
+    <div class="rounded-[13px] border border-line bg-surface p-3.5 mb-4">
       <div class="font-display font-semibold text-sm text-ink mb-3">${t("admin_config_wan_video_model")}</div>
       <p class="text-xs text-muted mb-2">${t("admin_config_wan_video_model_description")}</p>
       <label class="block text-xs text-sec mb-1">${t("admin_config_unet_file")}</label>
@@ -489,9 +511,13 @@ AdminConfigView.prototype.render = function () {
         <input type="text" id="cfg_max" value="${_attr(st.max_tokens ?? 4096)}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
       </div>
     </div>
-    <label class="flex items-center gap-2.5 mb-5 text-sm text-ink">
+    <label class="flex items-center gap-2.5 mb-3 text-sm text-ink">
       <input type="checkbox" id="cfg_think" ${st.enable_thinking ? "checked" : ""}>
       ${t("admin_config_enable_thinking_by_default")}
+    </label>
+    <label class="flex items-center gap-2.5 mb-5 text-sm text-ink">
+      <input type="checkbox" id="cfg_nsfw_classify" ${st.nsfw_classification !== false ? "checked" : ""}>
+      ${t("admin_config_nsfw_classification", "Automatic NSFW image classification (unchecking hides the privacy eye button for everyone)")}
     </label>
 
     ${this.extraSectionsHtml()}

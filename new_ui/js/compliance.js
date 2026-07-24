@@ -1,13 +1,5 @@
 "use strict";
 
-// "No external links allowed in custom cards — only the placeholders
-// ({{share}}, {{edit}}, {{comments}}, {{block}}, {{report}}, {{links}}) can
-// create working links." This scans for a user-written <a href="..."> (or
-// any href) pointing off-origin and returns the first offending URL, or null
-// if the markup is clean. Font @import/url() inside a <style> block is a
-// separate, explicitly allowed exception (see ALLOWED_FONT_HOSTS in
-// card-sandbox.js) — strip <style> blocks before scanning so a legitimate
-// Google Fonts stylesheet import never trips this check.
 function findExternalCardLink(html) {
   const withoutStyle = String(html || "").replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
   const hrefRe = /\bhref\s*=\s*(['"])([^'"]*)\1/gi;

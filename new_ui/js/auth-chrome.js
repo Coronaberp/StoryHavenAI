@@ -183,8 +183,6 @@ function _startAuthGlitter(container) {
   const REPEL_RADIUS = 90;
   const REPEL_STRENGTH = 420;
 
-  // pre-rendered soft-glow sprites keyed by rounded size, reused across every
-  // particle draw instead of paying canvas's expensive per-call shadowBlur cost
   const sprites = new Map();
   function spriteFor(size) {
     const key = Math.round(size * 4);
