@@ -93,6 +93,14 @@ async def embed(text: str, model: str,
         raise RuntimeError(f"embedding endpoint returned no data. Response: {j}")
     return data[0]["embedding"]
 
+_QUERY_INSTRUCTION = ("Given the current roleplay moment, retrieve character facts, "
+                      "relationships, unresolved commitments, and world details needed "
+                      "to stay consistent.")
+
+async def embed_query(text: str, model: str,
+                      base_url: str = None, api_key: str = None) -> list[float]:
+    return await embed(f"Instruct: {_QUERY_INSTRUCTION}\nQuery: {text}", model, base_url, api_key)
+
 _CLASSIFY_PROMPT = (
     "You are a content-safety classifier. The test: would someone sitting next to a "
     "stranger on a train be embarrassed if this image were on their screen? Answer "

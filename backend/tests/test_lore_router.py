@@ -30,7 +30,7 @@ async def test_delete_lore_removes_orphaned_chunks(db_conn, monkeypatch):
     from backend.repositories import lore_chunks as lore_chunks_repo
 
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
 
     monkeypatch.setattr("backend.llm.embed", fake_embed)
     from backend import vectors

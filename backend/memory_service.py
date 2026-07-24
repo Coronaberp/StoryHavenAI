@@ -182,7 +182,7 @@ async def retrieve_block(session: dict, char: dict, user_name: str, query: str,
     qvec = None
     if query:
         try:
-            qvec = await llm.embed(query, CFG["embed_model"], base_url=embed_base, api_key=embed_key)
+            qvec = await llm.embed_query(query, CFG["embed_model"], base_url=embed_base, api_key=embed_key)
         except Exception as e:
             log.warning("memory v2 query embedding failed: session=%s error=%s", sid, e)
     lore_candidates = await lore_memory.fetch_lore_candidates(

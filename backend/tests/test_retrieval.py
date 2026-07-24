@@ -81,17 +81,17 @@ pytestmark = pytest.mark.asyncio
 
 async def test_index_lore_under_threshold_creates_no_chunks(db_conn, monkeypatch):
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
-    vectors._build_tables(768)
+    vectors._build_tables(1024)
     await index_lore("l-idx-short", None, "A short entry.", "Short", "")
     assert await lore_chunks_repo.chunks_for("l-idx-short") == []
 
 async def test_index_lore_over_threshold_creates_chunks(db_conn, monkeypatch):
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
-    vectors._build_tables(768)
+    vectors._build_tables(1024)
     paragraph = ("This is a long sentence about the kingdom and its ancient history. " * 20).strip()
     content = "\n\n".join([paragraph] * 6)
     await index_lore("l-idx-long", None, content, "Long", "")
@@ -100,9 +100,9 @@ async def test_index_lore_over_threshold_creates_chunks(db_conn, monkeypatch):
 
 async def test_index_lore_reindex_replaces_not_accumulates(db_conn, monkeypatch):
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
-    vectors._build_tables(768)
+    vectors._build_tables(1024)
     paragraph = ("This is a long sentence about the kingdom and its ancient history. " * 20).strip()
     content = "\n\n".join([paragraph] * 6)
     await index_lore("l-idx-reindex", None, content, "Long", "")
@@ -120,9 +120,9 @@ async def _count_lore_vectors(lore_id):
 
 async def test_index_lore_shrink_removes_orphaned_vectors(db_conn, monkeypatch):
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
-    vectors._build_tables(768)
+    vectors._build_tables(1024)
     paragraph = ("This is a long sentence about the kingdom and its ancient history. " * 20).strip()
     long_content = "\n\n".join([paragraph] * 6)
     await index_lore("l-idx-shrink", None, long_content, "Long", "")
@@ -140,10 +140,10 @@ async def test_index_lore_isolates_single_chunk_embed_failure(db_conn, monkeypat
         calls.append(text)
         if len(calls) == 2:
             raise RuntimeError("embed server rejected batch")
-        return [0.1] * 768
+        return [0.1] * 1024
 
     monkeypatch.setattr("backend.llm.embed", flaky_embed)
-    vectors._build_tables(768)
+    vectors._build_tables(1024)
     paragraph = ("This is a long sentence about the kingdom and its ancient history. " * 20).strip()
     content = "\n\n".join([paragraph] * 6)
     chunks_expected = chunk_lore_content(content)

@@ -6,7 +6,7 @@ from backend import vectors
 
 pytestmark = pytest.mark.asyncio
 
-_EMBED_DIM = int(os.environ.get("EMBED_DIM", "768"))
+_EMBED_DIM = int(os.environ.get("EMBED_DIM", "1024"))
 
 async def test_store_and_search_single_chunk(db_conn):
     vectors._build_tables(_EMBED_DIM)

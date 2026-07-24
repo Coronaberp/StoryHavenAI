@@ -7,12 +7,12 @@ from backend.repositories import memory_facts
 pytestmark = pytest.mark.asyncio
 
 def _fake_vec(dim=None):
-    dim = dim or int(os.environ.get("EMBED_DIM", "768"))
+    dim = dim or int(os.environ.get("EMBED_DIM", "1024"))
     return [0.1] * dim
 
 @pytest.fixture(autouse=True)
 def _ensure_memory_facts_table():
-    memory_facts.build_tables(int(os.environ.get("EMBED_DIM", "768")))
+    memory_facts.build_tables(int(os.environ.get("EMBED_DIM", "1024")))
 
 async def test_insert_pinned_true_persists(db_conn):
     fid = await memory_facts.insert({

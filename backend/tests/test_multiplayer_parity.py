@@ -8,7 +8,7 @@ from backend.repositories import chat_sessions, characters, memory_facts, person
 
 pytestmark = pytest.mark.asyncio
 
-_EMBED_DIM = int(os.environ.get("EMBED_DIM", "768"))
+_EMBED_DIM = int(os.environ.get("EMBED_DIM", "1024"))
 
 @pytest.fixture(autouse=True)
 def _ensure_memory_facts_table():
