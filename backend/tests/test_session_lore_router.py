@@ -9,7 +9,7 @@ from backend.schemas import SessionLoreOverrideIn
 
 pytestmark = pytest.mark.asyncio
 
-_EMBED_DIM = int(os.environ.get("EMBED_DIM", "768"))
+_EMBED_DIM = int(os.environ.get("EMBED_DIM", "1024"))
 
 @pytest.fixture(autouse=True)
 def _ensure_memory_facts_table():
@@ -127,7 +127,7 @@ async def test_override_works_regardless_of_memory_v2_flag(db_conn, monkeypatch)
     from backend.routers.session_lore import set_session_lore_override
 
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
 
     char, sid, visible_id, hidden_id = await _make_session(db_conn)

@@ -540,8 +540,8 @@ other sessions see.
 | `EMBED_BASE_URL` | `http://llamacpp-embed:5002/v1` | llama.cpp serves one model per instance, so chat and embeddings are separate containers |
 | `LLM_API_KEY` | _(empty)_ | sent as `Authorization: Bearer …` if set |
 | `CHAT_MODEL` | `Gemma-4-E4B-Uncensored-HauhauCS-Aggressive` | generation model |
-| `EMBED_MODEL` | `nomic-embed-text` | embedding model |
-| `EMBED_DIM` | `768` | must match the embedding model |
+| `EMBED_MODEL` | `Qwen3-Embedding-0.6B` | embedding model (multilingual, instruction-aware retrieval) |
+| `EMBED_DIM` | `1024` | must match the embedding model |
 | `DATABASE_URL` | _(required)_ | `postgresql+asyncpg://user:pass@host:5432/dbname` — startup fails fast if unset |
 | `HISTORY_TURNS` | `16` | recent messages kept verbatim |
 | `TOP_K_MEMORY` / `TOP_K_LORE` | `4` / `6` | items retrieved per turn |

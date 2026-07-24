@@ -70,11 +70,11 @@ def build_tables(dim: int):
 async def ensure_tables(dim: int):
     build_tables(dim)
     async with _engine().begin() as conn:
+        await conn.run_sync(_meta.create_all)
         await conn.execute(sa.text(
             "ALTER TABLE memory_facts ADD COLUMN IF NOT EXISTS location TEXT"))
         await conn.execute(sa.text(
             "ALTER TABLE memory_facts ADD COLUMN IF NOT EXISTS batch_id TEXT"))
-        await conn.run_sync(_meta.create_all)
         await conn.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_memfacts_hnsw ON memory_facts "
             "USING hnsw (embedding vector_cosine_ops)"))

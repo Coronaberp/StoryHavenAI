@@ -8,7 +8,7 @@ from backend.repositories import memory_facts
 
 pytestmark = pytest.mark.asyncio
 
-_EMBED_DIM = int(os.environ.get("EMBED_DIM", "768"))
+_EMBED_DIM = int(os.environ.get("EMBED_DIM", "1024"))
 
 @pytest.fixture(autouse=True)
 def _ensure_memory_facts_table():
@@ -26,7 +26,7 @@ async def test_retrieve_block_returns_empty_for_blank_query(db_conn):
 
 async def test_retrieve_block_includes_keyword_lore_in_meta_lines(db_conn, monkeypatch):
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
     entry = {"id": "l-rb-1", "content": "The gate is sealed.", "category": "", "name": ""}
     block, used, lore_lines, mem_lines = await memory_service.retrieve_block(
@@ -51,7 +51,7 @@ async def test_extract_batch_calls_lore_update_detection(db_conn, monkeypatch):
                           importance=3, valence=0)], CharStateDraft()
     monkeypatch.setattr("backend.memory_service.run_extract", fake_run_extract)
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
     async def fake_reconcile(*args, **kwargs):
         from backend.memory_extraction import ReconcileDecision
@@ -73,7 +73,7 @@ async def test_extract_batch_tags_new_fact_with_resolved_location(db_conn, monke
                 CharStateDraft(doing="", location="the abandoned mill", npcs=[]))
     monkeypatch.setattr("backend.memory_service.run_extract", fake_run_extract)
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
     async def fake_reconcile(*args, **kwargs):
         from backend.memory_extraction import ReconcileDecision
@@ -97,14 +97,14 @@ async def test_extract_batch_tags_new_fact_with_resolved_location(db_conn, monke
 
 async def test_retrieve_block_demotes_active_fact_from_different_location(db_conn, monkeypatch):
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
     await memory_facts.insert({
         "session_id": "sess-loc-rb-1", "char_id": "char-loc-rb-1",
         "text": "the bridge is guarded", "fact_type": "state",
         "participants": [], "importance": memory_ranking.ACTIVE_STATE_IMPORTANCE_FLOOR,
         "valence": 0, "turn": 1, "location": "the mountain pass",
-    }, [0.1] * 768)
+    }, [0.1] * 1024)
 
     block, used, lore_lines, mem_lines = await memory_service.retrieve_block(
         session={"id": "sess-loc-rb-1", "known_names": "[]", "char_location": "the tavern"},
@@ -117,14 +117,14 @@ async def test_retrieve_block_demotes_active_fact_from_different_location(db_con
 
 async def test_retrieve_block_keeps_active_fact_from_matching_location(db_conn, monkeypatch):
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
     await memory_facts.insert({
         "session_id": "sess-loc-rb-2", "char_id": "char-loc-rb-2",
         "text": "the tavern keeper is nervous", "fact_type": "state",
         "participants": [], "importance": memory_ranking.ACTIVE_STATE_IMPORTANCE_FLOOR,
         "valence": 0, "turn": 1, "location": "the tavern",
-    }, [0.1] * 768)
+    }, [0.1] * 1024)
 
     block, used, lore_lines, mem_lines = await memory_service.retrieve_block(
         session={"id": "sess-loc-rb-2", "known_names": "[]", "char_location": "the tavern"},
@@ -136,7 +136,7 @@ async def test_retrieve_block_keeps_active_fact_from_matching_location(db_conn, 
 
 async def test_retrieve_block_caps_active_facts_at_max_reserved(db_conn, monkeypatch):
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
     for index in range(memory_ranking.MAX_ACTIVE_RESERVED_FACTS + 3):
         await memory_facts.insert({
@@ -144,7 +144,7 @@ async def test_retrieve_block_caps_active_facts_at_max_reserved(db_conn, monkeyp
             "text": f"ongoing detail number {index}", "fact_type": "state",
             "participants": [], "importance": memory_ranking.ACTIVE_STATE_IMPORTANCE_FLOOR,
             "valence": 0, "turn": index + 1, "location": "the tavern",
-        }, [0.1] * 768)
+        }, [0.1] * 1024)
 
     later_turn_message_count = memory_ranking.MAX_ACTIVE_RESERVED_FACTS + 3 + 5
     block, used, lore_lines, mem_lines = await memory_service.retrieve_block(
@@ -172,7 +172,7 @@ def _patch_extraction_pipeline(monkeypatch, recorded_turns):
         return []
     monkeypatch.setattr("backend.memory_service.run_reconcile", fake_reconcile)
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
     async def fake_detect_lore(*args, **kwargs):
         return {"checked": 0, "applied": 0}
@@ -278,7 +278,7 @@ def _patch_extraction_pipeline_with_fact(monkeypatch):
         return [ReconcileDecision(index=0, action="add")]
     monkeypatch.setattr("backend.memory_service.run_reconcile", fake_reconcile)
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
     async def fake_detect_lore(*args, **kwargs):
         return {"checked": 0, "applied": 0}

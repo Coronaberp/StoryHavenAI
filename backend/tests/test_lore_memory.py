@@ -70,12 +70,12 @@ async def test_fetch_lore_candidates_applies_session_override_content(db_conn):
 
 async def test_fetch_lore_candidates_includes_knn_matches_and_dedupes(db_conn):
     from backend.repositories import lore as lore_repo
-    await vectors.ensure_indexes(768)
+    await vectors.ensure_indexes(1024)
     kw_id = await lore_repo.create("char-lm-4", ["gate"], "The gate is sealed.", always=True, owner_id="user-1")
     knn_id = await lore_repo.create("char-lm-4", [], "A hidden vault below the gate.", always=False, owner_id="user-1")
     kw_entry = await lore_repo.get(kw_id)
     knn_entry = await lore_repo.get(knn_id)
-    query_vec = [0.1] * 768
+    query_vec = [0.1] * 1024
     await vectors.store_lore_vector(knn_entry["id"], "char-lm-4", query_vec)
     await vectors.store_lore_vector(kw_entry["id"], "char-lm-4", query_vec)
     candidates = await lore_memory.fetch_lore_candidates(
@@ -92,8 +92,8 @@ async def test_fetch_lore_candidates_includes_knn_matches_and_dedupes(db_conn):
 
 async def test_fetch_lore_candidates_knn_pool_not_capped_at_top_k_lore(db_conn):
     from backend.repositories import lore as lore_repo
-    await vectors.ensure_indexes(768)
-    query_vec = [0.1] * 768
+    await vectors.ensure_indexes(1024)
+    query_vec = [0.1] * 1024
     for i in range(10):
         eid = await lore_repo.create(
             "char-wide-1", [], f"Entry number {i} about the wide pool test.",
@@ -108,7 +108,7 @@ async def test_fetch_lore_candidates_knn_pool_not_capped_at_top_k_lore(db_conn):
 async def test_apply_session_lore_override_creates_pinned_fact_and_state(db_conn, monkeypatch):
     from backend.repositories import session_lore_state
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
     fact_id = await lore_memory.apply_session_lore_override(
         "sess-apply-1", "char-apply-1", "lore-apply-1", "The government was overthrown.")
@@ -120,7 +120,7 @@ async def test_apply_session_lore_override_creates_pinned_fact_and_state(db_conn
 async def test_apply_session_lore_override_updates_existing_override(db_conn, monkeypatch):
     from backend.repositories import session_lore_state
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
     first_id = await lore_memory.apply_session_lore_override(
         "sess-apply-2", "char-apply-2", "lore-apply-2", "first version")
@@ -136,7 +136,7 @@ async def test_apply_secret_reveal_marks_revealed_and_inserts_memory_fact(db_con
     from backend.repositories import memory_facts
 
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
 
     lid = await lore_repo.create("char-reveal-1", ["chest"], "A locked chest.", always=True, owner_id="user-1")
@@ -156,7 +156,7 @@ async def test_apply_secret_reveal_is_idempotent(db_conn, monkeypatch):
     from backend.repositories import lore_secrets
 
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
 
     lid = await lore_repo.create("char-reveal-2", ["door"], "A sealed door.", always=True, owner_id="user-1")

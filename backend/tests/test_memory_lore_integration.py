@@ -8,9 +8,9 @@ async def test_oversized_always_entry_actually_reaches_the_rendered_block(db_con
     from backend.repositories import lore
 
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
-    await vectors.ensure_indexes(768)
+    await vectors.ensure_indexes(1024)
 
     char_id = "char-integ-1"
     paragraph = ("The lost kingdom of Aurelia fell after a century of war. " * 20).strip()
@@ -37,9 +37,9 @@ async def test_oversized_entry_chunks_are_capped_and_demoted_not_dropped(db_conn
     from backend.repositories import lore
 
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
-    await vectors.ensure_indexes(768)
+    await vectors.ensure_indexes(1024)
 
     char_id = "char-integ-4"
     paragraphs = [
@@ -70,9 +70,9 @@ async def test_semantic_knn_chunk_path_resolves_real_chunk_content(db_conn, monk
     from backend.repositories import lore
 
     async def fake_embed(*args, **kwargs):
-        return [0.1] * 768
+        return [0.1] * 1024
     monkeypatch.setattr("backend.llm.embed", fake_embed)
-    await vectors.ensure_indexes(768)
+    await vectors.ensure_indexes(1024)
 
     char_id = "char-integ-5"
     paragraph = ("The Iron Concord bound the northern clans after decades of raiding. " * 20).strip()
@@ -80,7 +80,7 @@ async def test_semantic_knn_chunk_path_resolves_real_chunk_content(db_conn, monk
     lid = await lore.create(char_id, ["concord"], content, False)
     await index_lore(lid, char_id, content, "Iron Concord", "")
 
-    query_vec = [0.1] * 768
+    query_vec = [0.1] * 1024
     candidates = await lore_memory.fetch_lore_candidates(
         char_id, "sess-integ-5", [], query_vec, {}, current_turn=1)
 
