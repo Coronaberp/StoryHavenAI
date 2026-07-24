@@ -4,10 +4,12 @@ Self-hosted character chat with real per-character **lorebooks**, unlimited
 long-term **memory**, multi-user accounts with an **admin/permissions** model,
 and optional **ComfyUI image generation**. You run the model, you own the data;
 characters import from the community card ecosystem (SillyTavern / chub.ai /
-RisuAI / SpicyChat).
+RisuAI / SpicyChat). It installs as an all-in-one stack — one setup script
+stands up the app, database, model servers, and image generation together
+(see "Setup" below).
 
 ```
-  browser ──►  server.py (FastAPI, also serves the SPA from static/)
+  browser ──►  server.py (FastAPI, also serves the SPA from new_ui/)
                   │
                   ├─► PostgreSQL + pgvector (see "Storage")
                   │             users · characters · personas · lorebooks · sessions · messages
@@ -35,10 +37,11 @@ ai-frontend/
 │   ├── media.py           Image upload validation/optimization/save
 │   ├── chat_service.py    The core SSE generation loop (splits out retrieval.py — lore/memory
 │   │                       KNN, classify.py — turn-signal extraction, ai_helpers.py — side LLM calls)
-│   ├── routers/           One file per domain: characters, personas, lore, profile, settings,
-│   │                       admin, comments, emojis, forum, health, notifications, misc, and
-│   │                       sessions split into chat.py, imagegen.py, model_previews.py,
-│   │                       lora_training.py — every route lives here, server.py just wires them up
+│   ├── routers/           One file per domain: characters, personas, lore, session_lore,
+│   │                       sessions, chat, imagegen, model_previews, lora_training, profile,
+│   │                       settings, admin, announcements, feature_flags, comments, emojis,
+│   │                       forum, groups, multiplayer, health, notifications, webauthn, oauth,
+│   │                       misc — every route lives here, server.py just wires them up
 │   ├── repositories/      One file per domain (users, characters, personas, lore, sessions,
 │   │                       messages, settings, forum, comments, emojis, lora_training, model
 │   │                       requests, …) — plain async functions wrapping the CRUD for that domain
@@ -60,10 +63,16 @@ ai-frontend/
 ├── docs/              SETUP.md, MIGRATION_POSTGRES.md, features.md
 ├── VersionReports/    Per-release audit reports
 ├── requirements.txt
-└── static/
-    ├── index.html     app shell (nav, layout)
-    ├── js/            the whole SPA's JS, one file per feature area — vanilla JS, no build step
-    └── css/           one stylesheet per feature area
+├── setup.sh           All-in-one installer for Linux/macOS (setup.ps1 for Windows)
+├── installer/         Inno Setup source for the Windows wizard .exe
+├── rebuild.sh         Tailwind CSS build for new_ui (./rebuild.sh --once after editing source CSS)
+├── new_ui/            the live SPA — Tailwind CSS, mobile-first
+│   ├── index.html     app shell (nav, layout)
+│   ├── js/            one file per feature area — vanilla JS, no JS build step
+│   └── css/           cards.css/themes.css/input.css are hand-written sources,
+│                       app.css is compiled Tailwind output (never edit it directly)
+├── legacy_ui/         the original vanilla-JS SPA, kept for reference only — not served
+└── static/            the old maintenance page shown during the UI rebuild — not served
 ```
 
 `server.py` only assembles the app and includes the routers — it doesn't contain
@@ -73,10 +82,9 @@ bare `import x`), since `server.py` at the root sits outside the `backend` packa
 Every router module only calls into `db`/`vectors`/`chat_service` functions, never raw SQL directly, so the
 storage layer can change underneath without touching routes.
 
-There is no local `docker-compose.yml`/`compose.yaml` in *this* repo — this
-checkout is bind-mounted into a container managed by a compose stack that lives
-elsewhere (see `CLAUDE.md` for exactly how). The setup below is written for
-running this standalone, e.g. for development or a from-scratch deployment.
+There is no `docker-compose.yml` checked into this repo — the installer below
+generates one for your machine (the original development deployment is
+bind-mounted into a compose stack that lives outside the repo).
 
 ### Why there's a `legacy/` and a `VersionReports/`
 
@@ -96,6 +104,32 @@ Two directories exist purely for history, not for the running app:
   up-to-date; check the live code for that instead.
 
 ## Setup
+
+### The easy way — the all-in-one installer
+
+StoryHaven deploys like an all-in-one appliance (think Nextcloud AIO): one
+installer detects Docker or Podman (offering to install Docker if neither is
+present), detects an NVIDIA or AMD GPU and picks the right acceleration
+(CUDA, ROCm, or Vulkan on Linux, ZLUDA guidance on Windows AMD), gathers or
+generates every secret, writes a working `docker-compose.yml` + `.env` for
+the full stack (the app, Postgres+pgvector, llama.cpp chat and embed servers,
+ComfyUI) on its own isolated network, brings it all up, and waits for it to
+become healthy.
+
+| You have… | Run |
+|---|---|
+| Linux or macOS shell | `./setup.sh` |
+| Windows PowerShell | `.\setup.ps1` |
+| A fresh Windows box, want a wizard | the compiled `.exe` built from `installer/setup.iss` |
+
+`./setup.sh --dry-run` detects and generates files without starting anything;
+`--yes` runs non-interactively with defaults. Re-running is idempotent and
+never destroys data: named volumes persist and existing compose/env values are
+reused. See `docs/SETUP.md` for details, including the warning about hosts
+that already run this stack (container names and the shared network would
+collide — add services to the existing compose file by hand there instead).
+
+### The manual way
 
 You need somewhere for the models to actually run. The simplest self-hosted
 option is [llama.cpp's server](https://github.com/ggml-org/llama.cpp), which
@@ -167,7 +201,13 @@ the *initial* values on first run.
 
 - **Sessions** are an HttpOnly cookie (`persona_session`), `SameSite=Lax`, and
   `Secure` whenever the request actually arrived over https (scheme-aware, so
-  it still works over plain `http://localhost` during local dev).
+  it still works over plain `http://localhost` during local dev). Login issues
+  HS256 **JWT access/refresh tokens** signed with `JWT_SECRET_KEY` (auto-generated
+  and stored in the `settings` table if unset); every token's `jti` is also
+  whitelisted server-side, so deleting the whitelist row revokes that one token
+  immediately regardless of its stated expiry.
+- **Passkeys (WebAuthn) and OAuth** logins are supported alongside passwords
+  (`backend/routers/webauthn.py` / `oauth.py`).
 - New signups land in a **pending** state until an admin approves them (or an
   admin creates the account directly).
 - **Admins** manage users and review flagged bring-your-own endpoints (below).
@@ -181,6 +221,13 @@ the *initial* values on first run.
 - A third role, **Dev**, sits above Admin (`users.role`, additive to the older
   `is_admin` flag) — it's needed to grant/revoke Dev on other accounts, so an
   Admin alone can't self-escalate.
+- Admins can **disable individual features platform-wide** (chat, forum,
+  comments, uploads, …) from the Feature Flags panel — affected users get a
+  notification with an optional message and ETA, and another when it's restored.
+- Admins can also send a free-form **announcement** (title, message, optional
+  link) to every active user, including devs, from the Announcements panel or
+  `POST /api/admin/announce` — useful for degraded-service or incident notices
+  that don't warrant disabling anything.
 
 ## Storage
 
@@ -344,10 +391,11 @@ mirroring SillyTavern's post-history block. Both support `{{char}}`/`{{user}}`.
 
 ### Appearance (this device)
 
-Beyond the Light/Dark theme, a per-device **Appearance** panel lets you override
-the font, text color, accent/tab color, base font size, app background, and chat
-background (color or `url(...)`). It previews live and is stored in the browser
-(localStorage), independent of the server.
+The UI ships 6 accent presets × 2 chrome bases (dark/light), 12 theme
+combinations total — each preset tints the whole page chrome, not just the
+accent color, with per-mode legibility handling. The choice persists per
+device, independent of the server. A fuller Settings screen for this is
+specced and in progress.
 
 ### Languages
 
@@ -374,7 +422,18 @@ in the chat or in memory) and tells the UI which mood to show, swapping
 background/sprite/music to match the character's reaction. If the model omits the
 tag, the scene simply stays on the last mood.
 
-## Image generation (ComfyUI)
+## Image generation (ComfyUI or a hosted provider)
+
+The image backend is admin-selectable in Server configuration: self-hosted
+ComfyUI (the default, full feature set), or a hosted provider for instances
+without a GPU to spare. Supported providers: any OpenAI-compatible images API,
+Stability AI, NovelAI, and AUTOMATIC1111 SD WebUI, each configured with a URL,
+model, and write-only API key (`image_provider*` settings or `IMAGE_PROVIDER*`
+env vars). Under a hosted provider, per-message and standalone generation work
+the same (NSFW classification of results included), while ComfyUI-specific
+features (upscaling, inpainting, video, live denoising previews, and
+checkpoint/LoRA listing) return a clear "Only available with the ComfyUI
+backend" response instead.
 
 Optional per-message or standalone image generation against a ComfyUI backend
 (`COMFYUI_URL`, admin-configured):
@@ -454,18 +513,24 @@ off (the per-chat toggle still overrides).
 ## How memory stays "unlimited"
 
 Your whole history is never stuffed into the prompt — context windows are finite.
-Each exchange becomes one vector; each turn pulls back only the few most relevant
-memories (`TOP_K_MEMORY`) plus the recent verbatim turns (`HISTORY_TURNS`).
-Hundreds of chats is tens of MB of vectors and the prompt size never grows.
+Settled exchanges are batched through an extraction pass that distills them into
+**typed facts** (event / state / relationship / world / profile), reconciled
+against what's already known (new facts are added, repeated ones reinforced,
+contradicted ones superseded rather than deleted). Each turn embeds the current
+context and pulls back a token-budgeted memory block: pinned and active state
+facts first, then the highest-scoring candidates from decay-weighted retention
+ranking over both facts and lore, plus the recent verbatim turns
+(`HISTORY_TURNS`). Regenerating a reply rolls back the discarded turn's
+extracted facts exactly, so an abandoned generation is never remembered.
 
 Memory is **scoped to the session**: each chat keeps its own recollections, so two
 separate chats with the same character don't bleed into one another. Browse or
 clear a chat's memory from the **◷ memory** button in the chat header. (Deleting a
 session also clears its memory; deleting a character clears all of its sessions'.)
-Each memory is keyed to the user turn that produced it. A reply never recalls its
-own turn (the current turn is excluded from retrieval), and **regenerating a reply
-drops the discarded answer's memory** and re-stores only the kept one — so an
-abandoned generation is never remembered.
+The story can also **update established lore mid-session**: when extraction
+detects that events changed something a lorebook entry asserts, a session-scoped
+override of that entry is proposed and applied without touching the shared entry
+other sessions see.
 
 ## Configuration (environment variables)
 
@@ -485,6 +550,7 @@ abandoned generation is never remembered.
 | `ENABLE_THINKING` | `true` | default thinking toggle |
 | `DEFAULT_LANGUAGE` | `English` | instance-wide default display language |
 | `SECRET_ENCRYPTION_KEY` | _(auto-generated, stored in the DB)_ | see "Encryption" above |
+| `JWT_SECRET_KEY` | _(auto-generated, stored in the DB)_ | signs login access/refresh JWTs — see "Accounts, auth & permissions" above |
 
 `COMFYUI_URL`, `COMFYUI_CHECKPOINT`, `COMFYUI_WORKFLOW` are admin-settings-only
 (no env-var default worth documenting here — configure them from Settings).
@@ -506,6 +572,6 @@ DROP TABLE IF EXISTS lore_vectors;
   JSON card with the character's lorebook embedded as `character_book`, so it
   re-imports cleanly into Tavern, chub, RisuAI, or back into StoryHaven AI. Export
   is owner-only unless the character explicitly allows others to download it.
-- Static assets (`static/js/*.js`, `static/css/*.css`) are served with `Cache-Control:
+- Static assets (`new_ui/js/*.js`, `new_ui/css/*.css`) are served with `Cache-Control:
   no-cache`, so front-end edits show up without a container restart; an
   in-app update banner polls `/version` to prompt a refresh when they change.
