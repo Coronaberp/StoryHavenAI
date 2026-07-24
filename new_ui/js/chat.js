@@ -763,6 +763,7 @@ class ChatView {
           <span style="width:22px;height:22px;border-radius:999px;display:grid;place-items:center;font-family:var(--font-display);font-weight:600;font-size:10.5px;color:var(--color-paper-base);background:${colors[i % colors.length]};overflow:hidden">${avatarInner}</span>
           <span style="line-height:1.25">
             <span style="display:block;font-size:12px;color:${isMe ? "var(--color-accent)" : "var(--color-ink)"}">${_esc(name)}${isMe ? ` ${t("chat_you_fallback_name_suffix", "(you)")}` : ""}</span>
+            ${hasPersona ? `<span style="display:block;font-size:10px;color:var(--color-muted)">${_esc(isMe ? (ME?.display_name || ME?.username) : (p.user_display_name || p.username))}</span>` : ""}
           </span>
         </button>
       `;
