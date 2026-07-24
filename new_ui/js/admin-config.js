@@ -235,8 +235,8 @@ Object.assign(AdminConfigView.prototype, {
     return `
       <div class="mb-2 font-display font-semibold text-base text-ink">${t("admin_config_sampling_defaults")}</div>
       <p class="text-xs text-muted mb-3">${t("admin_config_sampling_defaults_description")}</p>
-      <div class="grid grid-cols-2 gap-x-4 mb-3">${sliderRows}</div>
-      <div class="grid grid-cols-2 gap-3 mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 mb-3">${sliderRows}</div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
         <div>
           <label class="block text-xs text-sec mb-1">${t("admin_config_mirostat_mode")}</label>
           <input type="text" id="cfg_mirostat_mode" value="${_attr(st.mirostat_mode ?? 0)}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
@@ -271,9 +271,11 @@ Object.assign(AdminConfigView.prototype, {
         <input type="text" id="cfg_api" value="${_attr(store.get("apiBase", ""))}" placeholder="${t("admin_config_same_origin_placeholder")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
       </div>
 
-      <button type="button" onclick="adminConfigView.save()" class="w-full py-3 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark">
-        ${t("admin_config_save_configuration")}
-      </button>
+      <div class="sticky bottom-0 md:static bg-paper md:bg-transparent pt-2 pb-2 -mx-0 md:pt-0 md:pb-0">
+        <button type="button" onclick="adminConfigView.save()" class="w-full py-3 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark">
+          ${t("admin_config_save_configuration")}
+        </button>
+      </div>
     `;
   },
 
@@ -407,6 +409,7 @@ AdminConfigView.prototype.render = function () {
   const st = this.st;
   this.main.innerHTML = `
     <div class="content-col">
+    ${adminScreenSwitcherHtml("admin-config", window._adminSwitcherBadges || {})}
     ${backLinkHtml("Admin")}
     ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_config_title"), t("ph_admin_config_sub"))}
 
@@ -443,7 +446,7 @@ AdminConfigView.prototype.render = function () {
       <div class="font-display font-semibold text-sm text-ink mb-3">${t("admin_config_embed_endpoint")} <span class="text-xs text-muted font-normal">${t("admin_config_blank_reuse_chat_endpoint")}</span></div>
       <input type="text" id="cfg_embed_base" value="${_attr(st.embed_base_url || "")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
       <input type="password" autocomplete="new-password" id="cfg_embed_key" placeholder="${st.has_embed_api_key ? t("admin_config_key_set_placeholder") : t("admin_config_api_key_optional_placeholder")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      <div class="grid grid-cols-2 gap-2 mb-2">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
         <input type="text" id="cfg_embed_model" value="${_attr(st.embed_model || "")}" placeholder="nomic-embed-text" class="px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
         <input type="text" id="cfg_dim" value="${_attr(st.embed_dim ?? 768)}" class="px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
       </div>
@@ -501,7 +504,7 @@ AdminConfigView.prototype.render = function () {
       <textarea id="cfg_embed_hosts" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm font-mono" style="min-height:60px">${_esc((st.embed_link_hosts || []).join("\n"))}</textarea>
     </div>
 
-    <div class="grid grid-cols-2 gap-3 mb-3">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
       <div>
         <label class="block text-xs text-sec mb-1">${t("admin_config_past_messages_remembered")}</label>
         <input type="text" id="cfg_hist" value="${_attr(st.history_turns ?? 16)}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
@@ -529,6 +532,7 @@ AdminConfigView.prototype.render = function () {
     document.querySelectorAll("[data-identity-provider-copy-callback]").forEach((btn) => {
       btn.onclick = () => this.copyIdentityProviderCallbackUrl(parseInt(btn.dataset.identityProviderCopyCallback, 10));
     });
+    adminAttachScreenSwitcher(this.main);
 };
 
 if (typeof window !== "undefined") {
