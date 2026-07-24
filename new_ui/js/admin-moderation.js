@@ -9,8 +9,8 @@ function adminQueueSectionHtml(title, count, rows) {
         ${count > 0 ? `<span class="font-mono text-[10px] px-1.5 py-0.5 rounded-full" style="background:var(--color-warn);color:var(--color-paper)">${count}</span>` : ""}
       </div>
       ${empty ? `<p class="text-sm text-muted py-1">${t("admin_moderation_nothing_pending")}</p>` : `
-        <div class="lg:hidden">${rows.map((r) => r.card).join("")}</div>
-        <div class="hidden lg:block overflow-x-auto">
+        <div class="md:hidden">${rows.map((r) => r.card).join("")}</div>
+        <div class="hidden md:block overflow-x-auto">
           <table class="w-full text-left border-collapse">
             <tbody>${rows.map((r) => r.tr).join("")}</tbody>
           </table>
@@ -20,14 +20,17 @@ function adminQueueSectionHtml(title, count, rows) {
   `;
 }
 
-function adminQueueRowHtml(bodyHtml, actionsHtml) {
-  return {
-    card: `
+function adminQueueRowHtml(bodyHtml, actionsHtml, cardOpts) {
+  const cardMarkup = cardOpts
+    ? `<div data-admin-card-id="${_attr(cardOpts.id)}" data-admin-queue="${_attr(cardOpts.queue)}" class="mb-2">${adminCardHtml(cardOpts)}</div>`
+    : `
       <div class="flex items-start justify-between gap-3 p-3 rounded-[13px] border border-line bg-surface mb-2">
         <div class="min-w-0 flex-1">${bodyHtml}</div>
         <div class="flex flex-wrap gap-1.5 flex-none">${actionsHtml}</div>
       </div>
-    `,
+    `;
+  return {
+    card: cardMarkup,
     tr: `
       <tr class="border-b border-line align-top">
         <td class="py-2.5 pr-4">${bodyHtml}</td>
@@ -76,7 +79,17 @@ class AdminModerationView {
     const rows = this.pending.map((u) => adminQueueRowHtml(
       `<div class="font-display font-semibold text-sm text-ink">${_esc(u.username)}</div><div class="text-xs text-muted mt-0.5">${t("admin_moderation_awaiting_approval")}</div>`,
       `<button type="button" onclick="adminModerationView.approveUser('${_attr(u.id)}')" class="px-2.5 py-1 rounded-md text-xs text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_moderation_approve")}</button>
-       <button type="button" onclick="adminModerationView.denyUser('${_attr(u.id)}')" class="px-2.5 py-1 rounded-md border text-xs" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_moderation_deny")}</button>`
+       <button type="button" onclick="adminModerationView.denyUser('${_attr(u.id)}')" class="px-2.5 py-1 rounded-md border text-xs" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_moderation_deny")}</button>`,
+      {
+        id: u.id,
+        queue: "pending",
+        title: u.username,
+        facts: t("admin_moderation_awaiting_approval"),
+        actions: [
+          { id: "approve", label: t("admin_moderation_approve"), primary: true },
+          { id: "deny", label: t("admin_moderation_deny") },
+        ],
+      }
     ));
     return adminQueueSectionHtml(t("admin_moderation_pending_signups"), this.pending.length, rows);
   }
@@ -173,7 +186,17 @@ class AdminModerationView {
        <div class="text-xs text-muted mt-1">${_esc(fl.username || fl.user_id)} · ${_esc(fl.reason)}</div>
        ${fl.detail ? `<pre class="font-mono text-[11px] whitespace-pre-wrap break-words mt-2 p-2 rounded-md max-h-[220px] overflow-auto" style="background:var(--color-surface-2)">${_esc(fl.detail)}</pre>` : ""}`,
       `<button type="button" onclick="adminModerationView.allowEndpoint('${_attr(fl.id)}')" class="px-2.5 py-1 rounded-md border border-line text-xs text-ink">${t("admin_moderation_allow")}</button>
-       <button type="button" onclick="adminModerationView.blockEndpoint('${_attr(fl.id)}')" class="px-2.5 py-1 rounded-md border text-xs" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_moderation_block")}</button>`
+       <button type="button" onclick="adminModerationView.blockEndpoint('${_attr(fl.id)}')" class="px-2.5 py-1 rounded-md border text-xs" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_moderation_block")}</button>`,
+      {
+        id: fl.id,
+        queue: "flagged",
+        title: fl.url,
+        facts: `${fl.username || fl.user_id} · ${fl.reason}`,
+        actions: [
+          { id: "allow", label: t("admin_moderation_allow") },
+          { id: "block", label: t("admin_moderation_block"), primary: true },
+        ],
+      }
     ));
     return adminQueueSectionHtml(t("admin_moderation_flagged_endpoints"), this.flagged.length, rows);
   }
@@ -259,7 +282,17 @@ Object.assign(AdminModerationView.prototype, {
       `<div class="font-display font-semibold text-sm text-ink">${_esc(r.username)}</div>
        <div class="font-mono text-xs text-muted mt-0.5">${t("admin_moderation_requested")} ${_esc(new Date(r.created * 1000).toLocaleString())}</div>`,
       `<button type="button" onclick="adminModerationView.approveResetRequest('${_attr(r.id)}')" class="px-2.5 py-1 rounded-md text-xs text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_moderation_approve")}</button>
-       <button type="button" onclick="adminModerationView.denyResetRequest('${_attr(r.id)}')" class="px-2.5 py-1 rounded-md border text-xs" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_moderation_deny")}</button>`
+       <button type="button" onclick="adminModerationView.denyResetRequest('${_attr(r.id)}')" class="px-2.5 py-1 rounded-md border text-xs" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_moderation_deny")}</button>`,
+      {
+        id: r.id,
+        queue: "resets",
+        title: r.username,
+        facts: `${t("admin_moderation_requested")} ${new Date(r.created * 1000).toLocaleString()}`,
+        actions: [
+          { id: "approve", label: t("admin_moderation_approve"), primary: true },
+          { id: "deny", label: t("admin_moderation_deny") },
+        ],
+      }
     ));
     return adminQueueSectionHtml(t("admin_moderation_password_reset_requests"), this.resetReqs.length, rows);
   },
@@ -278,13 +311,32 @@ Object.assign(AdminModerationView.prototype, {
       if (mr.status === "approved") {
         actions.push(`<button type="button" onclick="adminModerationView.completeModelRequest('${_attr(mr.id)}')" class="px-2.5 py-1 rounded-md border border-line text-xs text-ink">${t("admin_moderation_done")}</button>`);
       }
+      const cardActions = [];
+      if (mr.status === "pending") {
+        cardActions.push({ id: "approve", label: t("admin_moderation_approve"), primary: true });
+        cardActions.push({ id: "reject", label: t("admin_moderation_reject") });
+      }
+      if (ME.role === "dev" && mr.status === "approved") {
+        cardActions.push({ id: "copy_curl", label: t("admin_moderation_copy_curl") });
+      }
+      if (mr.status === "approved") {
+        cardActions.push({ id: "complete", label: t("admin_moderation_done") });
+      }
       return adminQueueRowHtml(
         `<div class="font-display font-semibold text-sm text-ink">
            <span class="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded-md mr-1" style="background:var(--color-surface-2);color:var(--color-muted)">${_esc(typeLabel)}</span>
            ${_esc(mr.model_name)}
          </div>
          <div class="text-xs text-muted mt-1">${_esc(mr.username || mr.user_id)} · <a href="${_attr(mr.source_url)}" target="_blank" rel="noopener noreferrer" class="font-mono underline">${_esc(mr.source_url)}</a>${mr.note ? ` · ${_esc(mr.note)}` : ""}</div>`,
-        actions.join("")
+        actions.join(""),
+        {
+          id: mr.id,
+          queue: "models",
+          title: mr.model_name,
+          pill: typeLabel,
+          facts: `${mr.username || mr.user_id} · ${mr.source_url}${mr.note ? " · " + mr.note : ""}`,
+          actions: cardActions,
+        }
       );
     });
     return adminQueueSectionHtml(t("admin_moderation_model_requests"), this.modelReqs.filter((r) => r.status === "pending").length, rows);
@@ -375,7 +427,17 @@ Object.assign(AdminModerationView.prototype, {
       `<div class="font-display font-semibold text-sm text-ink">"${_esc(tr.title || "")}" - ${_esc(tr.display_name || tr.username)}</div>
        <div class="text-xs text-muted mt-0.5">${t("admin_moderation_requested_by")} @${_esc(tr.username)}</div>`,
       `<button type="button" onclick="adminModerationView.approveTitleRequest('${_attr(tr.id)}')" class="px-2.5 py-1 rounded-md text-xs text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_moderation_approve")}</button>
-       <button type="button" onclick="adminModerationView.rejectTitleRequest('${_attr(tr.id)}')" class="px-2.5 py-1 rounded-md border text-xs" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_moderation_reject")}</button>`
+       <button type="button" onclick="adminModerationView.rejectTitleRequest('${_attr(tr.id)}')" class="px-2.5 py-1 rounded-md border text-xs" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_moderation_reject")}</button>`,
+      {
+        id: tr.id,
+        queue: "titles",
+        title: `"${tr.title || ""}" - ${tr.display_name || tr.username}`,
+        facts: `${t("admin_moderation_requested_by")} @${tr.username}`,
+        actions: [
+          { id: "approve", label: t("admin_moderation_approve"), primary: true },
+          { id: "reject", label: t("admin_moderation_reject") },
+        ],
+      }
     ));
     return adminQueueSectionHtml(t("admin_moderation_title_requests"), this.titleReqs.length, rows);
   },
@@ -389,7 +451,15 @@ Object.assign(AdminModerationView.prototype, {
            <div class="text-xs text-muted mt-0.5">${_esc(ir.reporter_username || ir.reporter_id)}${ir.note ? ` · ${_esc(ir.note)}` : ""}</div>
          </div>
        </div>`,
-      `<button type="button" onclick="adminModerationView.reviewImageReport('${_attr(ir.id)}')" class="px-2.5 py-1 rounded-md text-xs text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_moderation_review")}</button>`
+      `<button type="button" onclick="adminModerationView.reviewImageReport('${_attr(ir.id)}')" class="px-2.5 py-1 rounded-md text-xs text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_moderation_review")}</button>`,
+      {
+        id: ir.id,
+        queue: "imageReports",
+        title: `${t("admin_moderation_claimed")}: ${ir.claimed_explicit ? t("admin_moderation_nsfw") : t("admin_moderation_sfw")}`,
+        pill: ir.current_explicit ? t("admin_moderation_nsfw") : t("admin_moderation_sfw"),
+        facts: `${ir.reporter_username || ir.reporter_id}${ir.note ? " · " + ir.note : ""}`,
+        actions: [{ id: "review", label: t("admin_moderation_review"), primary: true }],
+      }
     ));
     return adminQueueSectionHtml(t("admin_moderation_image_reports"), this.imageReports.length, rows);
   },
@@ -403,7 +473,14 @@ Object.assign(AdminModerationView.prototype, {
            <div class="text-xs text-muted mt-0.5">${_esc(cr.reporter_username || cr.reporter_id)}${cr.note ? ` · ${_esc(cr.note)}` : ""}</div>
          </div>
        </div>`,
-      `<button type="button" onclick="adminModerationView.reviewContentReport('${_attr(cr.id)}')" class="px-2.5 py-1 rounded-md text-xs text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_moderation_review")}</button>`
+      `<button type="button" onclick="adminModerationView.reviewContentReport('${_attr(cr.id)}')" class="px-2.5 py-1 rounded-md text-xs text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_moderation_review")}</button>`,
+      {
+        id: cr.id,
+        queue: "contentReports",
+        title: cr.label || cr.kind,
+        facts: `${cr.reporter_username || cr.reporter_id}${cr.note ? " · " + cr.note : ""}`,
+        actions: [{ id: "review", label: t("admin_moderation_review"), primary: true }],
+      }
     ));
     return adminQueueSectionHtml(t("admin_moderation_content_reports"), this.contentReports.length, rows);
   },
@@ -486,9 +563,42 @@ Object.assign(AdminModerationView.prototype, {
   },
 });
 
+AdminModerationView.prototype.mobileCardActionMap = function () {
+  return {
+    pending: { approve: (id) => this.approveUser(id), deny: (id) => this.denyUser(id) },
+    flagged: { allow: (id) => this.allowEndpoint(id), block: (id) => this.blockEndpoint(id) },
+    resets: { approve: (id) => this.approveResetRequest(id), deny: (id) => this.denyResetRequest(id) },
+    models: {
+      approve: (id) => this.approveModelRequest(id),
+      reject: (id) => this.rejectModelRequest(id),
+      copy_curl: (id) => this.copyModelRequestCurl(id),
+      complete: (id) => this.completeModelRequest(id),
+    },
+    titles: { approve: (id) => this.approveTitleRequest(id), reject: (id) => this.rejectTitleRequest(id) },
+    imageReports: { review: (id) => this.reviewImageReport(id) },
+    contentReports: { review: (id) => this.reviewContentReport(id) },
+  };
+};
+
+AdminModerationView.prototype.attachMobileCardActions = function () {
+  const actionMap = this.mobileCardActionMap();
+  this.main.querySelectorAll("[data-admin-card-id]").forEach((card) => {
+    const queue = card.dataset.adminQueue;
+    const id = card.dataset.adminCardId;
+    const handlers = actionMap[queue];
+    if (!handlers) return;
+    card.querySelectorAll("[data-admin-action]").forEach((btn) => {
+      const handler = handlers[btn.dataset.adminAction];
+      if (!handler) return;
+      btn.onclick = () => handler(id);
+    });
+  });
+};
+
 AdminModerationView.prototype.render = function () {
   this.main.innerHTML = `
     <div class="content-col admin-moderation-content">
+    ${adminScreenSwitcherHtml("admin-moderation", window._adminSwitcherBadges || {})}
     ${backLinkHtml("Admin")}
     ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_moderation_title"), `${this.attentionTotal()} items need attention`)}
     ${this.pendingSignupsHtml()}
@@ -501,6 +611,8 @@ AdminModerationView.prototype.render = function () {
     ${this.contentReportsHtml()}
     </div>
   `;
+  adminAttachScreenSwitcher(this.main);
+  this.attachMobileCardActions();
 };
 
 if (typeof window !== "undefined") {
