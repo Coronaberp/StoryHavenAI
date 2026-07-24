@@ -99,6 +99,7 @@ class AdminTrainView {
   render() {
     this.main.innerHTML = `
       <div class="content-col">
+      ${adminScreenSwitcherHtml("admin-train", window._adminSwitcherBadges || {})}
       ${backLinkHtml("Admin")}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_train_title"), t("ph_admin_train_sub"))}
       ${this.tabBarHtml()}
@@ -108,6 +109,7 @@ class AdminTrainView {
       ${this.tab === "jobs" ? this.jobsTabHtml() : ""}
       </div>
     `;
+    adminAttachScreenSwitcher(this.main);
     this.wireTab();
   }
 
@@ -814,9 +816,13 @@ class AdminTrainView {
     };
     document.getElementById("lt_idle").style.display = "none";
     document.getElementById("lt_live").style.display = "";
-    this.watcher.watch(jobId, refs, async (job) => {
-      if (job.status === "done") this.jobs = await api("/api/admin/lora-training/jobs").catch(() => this.jobs);
-    });
+    if (this.watcher.isWatching && this.watcher.jobId === jobId) {
+      this.watcher.rebind(refs);
+    } else {
+      this.watcher.watch(jobId, refs, async (job) => {
+        if (job.status === "done") this.jobs = await api("/api/admin/lora-training/jobs").catch(() => this.jobs);
+      });
+    }
     const checkpointBtn = document.getElementById("lt_checkpoint_now");
     if (checkpointBtn) checkpointBtn.onclick = async () => {
       checkpointBtn.disabled = true;
@@ -840,9 +846,17 @@ class TrainingJobWatcher {
     this.consecutiveFailures = 0;
     this.onVisible = null;
     this.chart = null;
+    this.refs = null;
+    this.onSettled = null;
+    this._poll = null;
   }
 
   get isWatching() { return this.interval != null; }
+
+  rebind(refs) {
+    this.refs = refs;
+    if (this._poll) this._poll();
+  }
 
   stop() {
     clearInterval(this.interval);
@@ -943,9 +957,9 @@ class TrainingJobWatcher {
   watch(jobId, refs, onSettled) {
     this.stop();
     this.jobId = jobId;
-    const { statusLabel, bar, logEl, costBanner, metricsTable, chart, metricsWrap, finalizing, doneTile,
-            uploadWrap, uploadTable, downloadWrap, downloadTable } = refs;
-    const poll = async () => {
+    this.refs = refs;
+    this.onSettled = onSettled;
+    this._poll = async () => {
       let job;
       try {
         job = (await api("/api/admin/lora-training/jobs")).find((j) => j.id === jobId);
@@ -956,6 +970,8 @@ class TrainingJobWatcher {
         return;
       }
       if (!job) return;
+      const { statusLabel, bar, logEl, costBanner, metricsTable, chart, metricsWrap, finalizing, doneTile,
+              uploadWrap, uploadTable, downloadWrap, downloadTable } = this.refs;
       const refsAttached = statusLabel && statusLabel.isConnected;
       if (refsAttached) {
         statusLabel.textContent = `${t("admin_train_status_label_prefix")}: ${job.status}` + (job.resume_from_lora ? ` · ${t("admin_train_resumed_from")} ${job.resume_from_lora}` : "");
@@ -985,12 +1001,12 @@ class TrainingJobWatcher {
       this.jobId = null;
       if (job.status === "failed") errorToast(`${t("admin_train_training_failed")}: ${job.error || t("admin_train_unknown_error")}`);
       else if (job.status === "done") toast(`${t("admin_train_lora_training_complete")}: ${job.output_file || ""}`);
-      onSettled && onSettled(job);
+      this.onSettled && this.onSettled(job);
     };
-    this.interval = setInterval(poll, 5000);
-    this.onVisible = () => { if (document.visibilityState === "visible") poll(); };
+    this.interval = setInterval(this._poll, 5000);
+    this.onVisible = () => { if (document.visibilityState === "visible") this._poll(); };
     document.addEventListener("visibilitychange", this.onVisible);
-    poll();
+    this._poll();
   }
 }
 
