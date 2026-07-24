@@ -34,6 +34,7 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=Output
 OutputBaseFilename=StoryHavenAI-Setup
+SetupIconFile=..\storyhaven_logo.ico
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -57,15 +58,16 @@ Source: "..\setup.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\setup.sh"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README-INSTALLER.txt"; DestDir: "{app}"; Flags: ignoreversion isreadme
 Source: "models.manifest.tsv"; DestDir: "{app}\app\installer"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\storyhaven_logo.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Run StoryHaven AI setup"; Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\app\setup.ps1"""; \
-  WorkingDir: "{app}\app"
-Name: "{group}\Open StoryHaven AI (browser)"; Filename: "http://localhost:3000"
+  WorkingDir: "{app}\app"; IconFilename: "{app}\storyhaven_logo.ico"
+Name: "{group}\Open StoryHaven AI (browser)"; Filename: "http://localhost:3000"; IconFilename: "{app}\storyhaven_logo.ico"
 Name: "{autodesktop}\StoryHaven AI setup"; Filename: "powershell.exe"; \
   Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\app\setup.ps1"""; \
-  WorkingDir: "{app}\app"; Tasks: desktopicon
+  WorkingDir: "{app}\app"; IconFilename: "{app}\storyhaven_logo.ico"; Tasks: desktopicon
 
 [Run]
 ; 1) Clone the app repo into {app}\app, or pull if it already exists (idempotent).

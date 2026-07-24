@@ -197,15 +197,6 @@ def _og_excerpt(text: str, limit: int = 200) -> str:
         return s
     return s[:limit].rsplit(" ", 1)[0].rstrip() + "…"
 
-FAVICON_DATA_URI = (
-    "data:image/svg+xml,"
-    "%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E"
-    "%3Crect width='64' height='64' rx='14' fill='%230C0C0E'/%3E"
-    "%3Ctext x='32' y='45' font-size='36' text-anchor='middle' "
-    "fill='%23E3BD6C' font-family='Georgia,serif'%3E%E2%9D%96%3C/text%3E"
-    "%3C/svg%3E"
-)
-
 def _abs_media_url(request: Request, path: str) -> str | None:
     if not path:
         return None
