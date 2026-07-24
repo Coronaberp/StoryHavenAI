@@ -1,3 +1,4 @@
+import asyncio
 import os
 
 import pytest
@@ -396,3 +397,27 @@ def test_transcript_falls_back_to_user_name_for_unknown_sender():
     ]
     out = memory_service._transcript(batch, "Narrator", "You", user_names_by_sender_id={"user-a": "Mira"})
     assert out == "You: I open the door.\nNarrator: It creaks open."
+
+async def test_concurrent_maybe_extract_processes_batch_once(db_conn, monkeypatch):
+    recorded_turns = []
+    _patch_extraction_pipeline(monkeypatch, recorded_turns)
+    slow_original = memory_service.extract_batch
+    async def slow_extract_batch(*args, **kwargs):
+        await asyncio.sleep(0.05)
+        return await slow_original(*args, **kwargs)
+    monkeypatch.setattr(memory_service, "extract_batch", slow_extract_batch)
+    msgs = []
+    for i in range(1, 7):
+        msgs.append(_msg(f"u{i}", "user", f"user message {i}"))
+        msgs.append(_msg(f"a{i}", "assistant", f"assistant reply {i}"))
+    async def fake_list_messages(sid):
+        return msgs
+    monkeypatch.setattr(memory_service.chat_sessions, "list_messages", fake_list_messages)
+    session = {"id": "sess-concurrent-1", "known_names": "[]"}
+    char = {"id": "char-concurrent-1", "name": "Char"}
+    await asyncio.gather(
+        memory_service.maybe_extract(session, char, "Player", "English", "test-model"),
+        memory_service.maybe_extract(session, char, "Player", "English", "test-model"))
+    cursor = await memory_service.memory_facts.get_cursor("sess-concurrent-1")
+    assert cursor == 5
+    assert recorded_turns == [5]
