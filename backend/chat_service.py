@@ -97,13 +97,11 @@ async def _resolve_sender_persona(s: dict, current_user: dict | None) -> tuple[d
         rows = await session_participants.list_for_session(s["id"])
         if rows:
             row = next((r for r in rows if r["user_id"] == current_user["id"]), None)
-            if row and row.get("persona_id"):
-                persona = await personas.get(row["persona_id"])
+            if row:
+                persona = await personas.get(row["persona_id"]) if row.get("persona_id") else None
                 if persona:
                     return persona, persona["name"]
-                return None, "You"
-            if row:
-                return None, "You"
+                return None, participant_display_name(None, current_user)
     persona = await personas.get(s["persona_id"]) if s.get("persona_id") else None
     user_name = (persona["name"] if persona else None) or s.get("user_name") or "You"
     return persona, user_name
