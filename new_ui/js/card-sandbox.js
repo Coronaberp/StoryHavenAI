@@ -26,6 +26,57 @@ function sanitizeCardCSS(css) {
   return out;
 }
 
+const SLOW_FRAME_MS = 20;
+const FRAME_SAMPLE_COUNT = 60;
+const SLOW_FRAME_RATIO = 0.25;
+const PROBE_DELAYS_MS = [600, 4000];
+
+function pauseSandboxAnimations(doc) {
+  if (doc.getElementById("animPause")) return;
+  const st = doc.createElement("style");
+  st.id = "animPause";
+  st.textContent = "*, *::before, *::after { animation-play-state: paused !important; }";
+  doc.head.appendChild(st);
+}
+
+function pauseAnimationsIfRenderingSlow(doc) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    pauseSandboxAnimations(doc);
+    return;
+  }
+  let probing = false;
+  const probe = () => {
+    if (!doc.defaultView || doc.getElementById("animPause")) {
+      window.removeEventListener("scroll", probe);
+      return;
+    }
+    if (probing) return;
+    probing = true;
+    let slow = 0;
+    let sampled = 0;
+    let last = performance.now();
+    const sample = (now) => {
+      if (!doc.defaultView) return;
+      if (now - last > SLOW_FRAME_MS) slow++;
+      last = now;
+      if (slow >= FRAME_SAMPLE_COUNT * SLOW_FRAME_RATIO) {
+        probing = false;
+        pauseSandboxAnimations(doc);
+        window.removeEventListener("scroll", probe);
+        return;
+      }
+      if (++sampled < FRAME_SAMPLE_COUNT) {
+        requestAnimationFrame(sample);
+        return;
+      }
+      probing = false;
+    };
+    requestAnimationFrame(sample);
+  };
+  PROBE_DELAYS_MS.forEach((delay) => setTimeout(probe, delay));
+  window.addEventListener("scroll", probe, { passive: true });
+}
+
 function mountSandboxedHTML(container, html, { autoHeight = true, onReady } = {}) {
   const ifr = document.createElement("iframe");
   ifr.sandbox = "allow-same-origin";
@@ -59,6 +110,7 @@ function mountSandboxedHTML(container, html, { autoHeight = true, onReady } = {}
     try {
       if (autoHeight) ifr.style.height = ifr.contentDocument.body.scrollHeight + "px";
       wireCardInternalLinks(ifr.contentDocument);
+      pauseAnimationsIfRenderingSlow(ifr.contentDocument);
       onReady && onReady(ifr.contentDocument);
     } catch {}
   };

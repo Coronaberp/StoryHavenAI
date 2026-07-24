@@ -249,10 +249,14 @@ def parse_secret_reveals(raw: str, fact_count: int, valid_secret_ids: set[str]) 
             raise ValueError(f"unknown secret_id {d.secret_id}")
     return decisions
 
+_EXTRACTION_PARAMS = {"chat_template_kwargs": {"thinking": False, "enable_thinking": False}}
+
+
 async def _call(prompt: str, model: str, base_url: str | None, api_key: str | None) -> str:
     out = []
     async for channel, chunk in llm.chat_stream(
-            [{"role": "user", "content": prompt}], model, parse_think=True,
+            [{"role": "user", "content": prompt}], model,
+            params=_EXTRACTION_PARAMS, parse_think=True,
             base_url=base_url, api_key=api_key, pin_host=True):
         if channel == "content":
             out.append(chunk)
