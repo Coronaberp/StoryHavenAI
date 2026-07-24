@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
-# StoryHaven AI — fresh-machine installer (Linux / macOS)
-#
-# Detects Docker or Podman + a Compose implementation, checks for an NVIDIA
-# GPU, gathers/generates secrets, writes a working docker-compose.yml and .env,
-# then brings the whole stack up and waits for it to become healthy.
-#
-#   ./setup.sh              full install (idempotent — safe to re-run)
-#   ./setup.sh --dry-run    detect + generate files, but DO NOT start anything
-#   ./setup.sh --check-only alias for --dry-run
-#   ./setup.sh --yes        non-interactive: accept all defaults, auto-generate
-#
-# Re-running never destroys data: named volumes persist, and existing
-# docker-compose.yml/.env values are reused unless you choose to change them.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="$REPO_DIR/docker-compose.yml"
 ENV_FILE="$REPO_DIR/.env"
+
+usage() {
+  cat <<'EOF'
+StoryHaven AI installer for a fresh Linux or macOS machine.
+
+Detects Docker or Podman plus a Compose implementation, checks for an NVIDIA
+or AMD GPU, gathers or generates secrets, writes a working docker-compose.yml
+and .env, then brings the whole stack up and waits for it to become healthy.
+
+  ./setup.sh              full install, idempotent and safe to re-run
+  ./setup.sh --dry-run    detect and generate files but start nothing
+  ./setup.sh --check-only alias for --dry-run
+  ./setup.sh --yes        non-interactive, accept all defaults
+
+Re-running never destroys data: named volumes persist, and existing
+docker-compose.yml and .env values are reused unless you choose to change them.
+EOF
+}
 
 DRY_RUN=0
 ASSUME_YES=0
@@ -24,12 +29,11 @@ for arg in "$@"; do
   case "$arg" in
     --dry-run|--check-only) DRY_RUN=1 ;;
     --yes|-y) ASSUME_YES=1 ;;
-    -h|--help) grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $arg" >&2; exit 2 ;;
   esac
 done
 
-# ---------------------------------------------------------------- output helpers
 if [ -t 1 ]; then
   B=$'\033[1m'; R=$'\033[0m'; GRN=$'\033[32m'; YLW=$'\033[33m'; RED=$'\033[31m'; CYN=$'\033[36m'
 else
@@ -39,7 +43,7 @@ info()  { printf '%s\n' "${CYN}==>${R} $*"; }
 ok()    { printf '%s\n' "${GRN}  ok${R} $*"; }
 warn()  { printf '%s\n' "${YLW}  warning:${R} $*"; }
 err()   { printf '%s\n' "${RED}  error:${R} $*" >&2; }
-ask() { # ask "prompt" "default"  -> echoes answer
+ask() {
   local prompt="$1" default="${2:-}" reply
   if [ "$ASSUME_YES" = 1 ]; then printf '%s' "$default"; return; fi
   if [ -n "$default" ]; then
@@ -50,14 +54,13 @@ ask() { # ask "prompt" "default"  -> echoes answer
     printf '%s' "$reply"
   fi
 }
-confirm() { # confirm "question"  -> 0 if yes
+confirm() {
   local reply
   if [ "$ASSUME_YES" = 1 ]; then return 0; fi
   read -r -p "$1 [y/N]: " reply </dev/tty || true
   case "$reply" in [yY]|[yY][eE][sS]) return 0 ;; *) return 1 ;; esac
 }
 
-# ---------------------------------------------------------------- OS detection
 OS="$(uname -s)"
 case "$OS" in
   Linux)  PLATFORM="linux" ;;
@@ -65,20 +68,22 @@ case "$OS" in
   *)      PLATFORM="other" ;;
 esac
 
-# ---------------------------------------------------------------- engine detection
-ENGINE=""; COMPOSE=""
+ENGINE=""; COMPOSE=""; DOCKER_NEEDS_SUDO=0
 detect_engine() {
-  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-    ENGINE="docker"
-    if docker compose version >/dev/null 2>&1; then COMPOSE="docker compose";
-    elif command -v docker-compose >/dev/null 2>&1; then COMPOSE="docker-compose"; fi
+  local docker_prefix=""
+  if ! docker info >/dev/null 2>&1 && [ "$DOCKER_NEEDS_SUDO" = 1 ] && sudo docker info >/dev/null 2>&1; then
+    docker_prefix="sudo "
+  fi
+  if command -v docker >/dev/null 2>&1 && ${docker_prefix}docker info >/dev/null 2>&1; then
+    ENGINE="${docker_prefix}docker"
+    if ${docker_prefix}docker compose version >/dev/null 2>&1; then COMPOSE="${docker_prefix}docker compose";
+    elif command -v docker-compose >/dev/null 2>&1; then COMPOSE="${docker_prefix}docker-compose"; fi
   fi
   if [ -z "$ENGINE" ] && command -v podman >/dev/null 2>&1; then
     ENGINE="podman"
     if command -v podman-compose >/dev/null 2>&1; then COMPOSE="podman-compose";
     elif podman compose version >/dev/null 2>&1; then COMPOSE="podman compose"; fi
   fi
-  # docker CLI may be an alias/shim over podman (as in this dev environment)
   if [ -z "$ENGINE" ] && command -v podman >/dev/null 2>&1; then
     ENGINE="podman"
   fi
@@ -108,15 +113,57 @@ print_install_help() {
   echo "  After installing, re-run: ./setup.sh"
 }
 
-# ---------------------------------------------------------------- GPU detection
+install_docker_linux() {
+  command -v curl >/dev/null 2>&1 || { err "curl is required to auto-install Docker."; return 1; }
+  command -v sudo >/dev/null 2>&1 || { err "sudo is required to auto-install Docker."; return 1; }
+  info "Installing Docker Engine (get.docker.com)"
+  curl -fsSL https://get.docker.com | sudo sh || return 1
+  sudo systemctl enable --now docker >/dev/null 2>&1 || true
+  sudo usermod -aG docker "$USER" >/dev/null 2>&1 || true
+  DOCKER_NEEDS_SUDO=1
+  ok "Docker Engine installed (this shell isn't in the docker group yet — using sudo for the rest of this run; log out and back in afterward to drop sudo going forward)"
+}
+
+install_docker_macos() {
+  command -v brew >/dev/null 2>&1 || { err "Homebrew is required to auto-install Docker Desktop."; return 1; }
+  info "Installing Docker Desktop (Homebrew cask)"
+  brew install --cask docker || return 1
+  open -a Docker
+  info "Waiting for Docker Desktop to finish starting..."
+  local waited=0
+  while [ "$waited" -lt 120 ]; do
+    docker info >/dev/null 2>&1 && return 0
+    sleep 2
+    waited=$((waited + 2))
+  done
+  err "Docker Desktop did not become ready within 2 minutes."
+  return 1
+}
+
+attempt_docker_autoinstall() {
+  case "$PLATFORM" in
+    linux) install_docker_linux ;;
+    macos) install_docker_macos ;;
+    *) err "Automatic Docker install is only supported on Linux and macOS."; return 1 ;;
+  esac
+}
+
 GPU="none"
 detect_gpu() {
   if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then
-    GPU="nvidia"
+    GPU="nvidia"; return
+  fi
+  if command -v rocm-smi >/dev/null 2>&1 && rocm-smi >/dev/null 2>&1; then
+    GPU="amd-rocm"; return
+  fi
+  if [ -d /sys/module/amdgpu ]; then
+    GPU="amd-vulkan"; return
+  fi
+  if command -v lspci >/dev/null 2>&1 && lspci -d ::0300 2>/dev/null | grep -qiE "AMD|ATI|Advanced Micro Devices"; then
+    GPU="amd-vulkan"
   fi
 }
 
-# ---------------------------------------------------------------- secret helpers
 gen_fernet() {
   if command -v python3 >/dev/null 2>&1; then
     python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" 2>/dev/null && return 0
@@ -129,13 +176,11 @@ gen_password() {
   fi
   head -c 18 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32; echo
 }
-# read KEY=value out of an existing .env, empty if absent
 env_get() {
   [ -f "$ENV_FILE" ] || return 0
   grep -E "^$1=" "$ENV_FILE" | head -n1 | cut -d= -f2- || true
 }
 
-# ================================================================ main
 echo
 echo "${B}StoryHaven AI — installer${R}"
 echo "repo: $REPO_DIR"
@@ -144,36 +189,60 @@ echo
 
 info "Detecting container engine"
 detect_engine
+if [ -z "$ENGINE" ] && [ "$DRY_RUN" = 0 ]; then
+  warn "No working container engine found. Docker needs to be installed."
+  echo
+  echo "  ${B}This is safe to allow. Here is exactly what happens and why:${R}"
+  echo "    - Your password (sudo) is needed ONLY to install Docker, the standard"
+  echo "      container runtime, using Docker's own official install script"
+  echo "      (get.docker.com)."
+  echo "    - Nothing else in this setup needs or uses elevated rights. Everything"
+  echo "      else this script does is write two config files (docker-compose.yml"
+  echo "      and .env) into this folder and start containers."
+  echo "    - It never deletes data, never touches files outside this folder, and"
+  echo "      re-running it is always safe."
+  echo
+  if confirm "Install Docker automatically now?"; then
+    attempt_docker_autoinstall && detect_engine
+  fi
+fi
 if [ -z "$ENGINE" ]; then print_install_help; exit 1; fi
 ok "engine: $ENGINE"
 if [ -z "$COMPOSE" ]; then
   warn "no Compose implementation found for $ENGINE"
   case "$ENGINE" in
-    docker) echo "  Install the Compose plugin: https://docs.docker.com/compose/install/" ;;
-    podman) echo "  Install podman-compose:     pipx install podman-compose   (or: pip install podman-compose)" ;;
+    *docker) echo "  Install the Compose plugin: https://docs.docker.com/compose/install/" ;;
+    *podman) echo "  Install podman-compose:     pipx install podman-compose   (or: pip install podman-compose)" ;;
   esac
   [ "$DRY_RUN" = 1 ] || exit 1
   COMPOSE="$ENGINE compose"
 fi
 ok "compose: $COMPOSE"
 
-info "Detecting NVIDIA GPU"
+info "Detecting GPU"
 detect_gpu
-if [ "$GPU" = nvidia ]; then
-  ok "nvidia-smi found — GPU acceleration available"
-else
-  warn "No NVIDIA GPU detected (nvidia-smi missing or non-functional)."
-  echo "  The chat model (llamacpp-chat), embeddings (llamacpp-embed) and image"
-  echo "  generation (comfyui) will run CPU-bound and be VERY slow."
-  echo "  The generated compose file still declares GPU reservations; on a"
-  echo "  CPU-only host those services fall back to CPU (llama.cpp) — expect"
-  echo "  minutes-per-reply latency and heavy RAM use."
-  if [ "$DRY_RUN" = 0 ]; then
-    confirm "Continue anyway on a machine without a detected GPU?" || { err "Aborted."; exit 1; }
-  fi
-fi
+case "$GPU" in
+  nvidia)
+    ok "NVIDIA GPU found (nvidia-smi) — CUDA acceleration for chat, embeddings, and image gen" ;;
+  amd-rocm)
+    ok "AMD GPU with working ROCm found (rocm-smi) — ROCm acceleration for chat, embeddings, and image gen"
+    echo "  llama.cpp uses the official ROCm server image, ComfyUI uses a ROCm build."
+    echo "  ROCm containers need a supported card (roughly RX 6000 series and newer)." ;;
+  amd-vulkan)
+    ok "AMD GPU found (no working rocm-smi) — llama.cpp will run on Vulkan (/dev/kfd + /dev/dri passed through)"
+    warn "Without ROCm, image generation (comfyui) runs on CPU."
+    echo "  Chat and embeddings still get full GPU offload via llama.cpp's Vulkan backend."
+    echo "  To get GPU image gen instead, install ROCm (rocm-smi must work) and re-run this installer." ;;
+  *)
+    warn "No GPU detected (neither nvidia-smi nor an AMD GPU is visible)."
+    echo "  The chat model (llamacpp-chat), embeddings (llamacpp-embed) and image"
+    echo "  generation (comfyui) will run CPU-bound and be VERY slow — expect"
+    echo "  minutes-per-reply latency and heavy RAM use."
+    if [ "$DRY_RUN" = 0 ]; then
+      confirm "Continue anyway on a machine without a detected GPU?" || { err "Aborted."; exit 1; }
+    fi ;;
+esac
 
-# ---------------------------------------------------------------- gather config
 echo
 info "Configuration (press Enter to accept defaults / reuse existing values)"
 
@@ -203,10 +272,87 @@ CHAT_GGUF="$(ask "Chat model GGUF filename (in the models volume)" "$CHAT_GGUF")
 EMBED_MODEL="$(ask "Embedding model name (EMBED_MODEL)" "$EMBED_MODEL")"
 EMBED_GGUF="$(ask "Embedding model GGUF filename" "$EMBED_GGUF")"
 EMBED_DIM="$(ask "Embedding dimension (EMBED_DIM)" "$EMBED_DIM")"
-if [ "$GPU" = nvidia ]; then
+if [ "$GPU" != none ]; then
   GPU_LAYERS="$(ask "GPU layers to offload (LLAMA_ARG_N_GPU_LAYERS)" "$GPU_LAYERS")"
 else
   GPU_LAYERS="0"
+fi
+
+AMD_DEVICES='    devices:
+      - "/dev/kfd"
+      - "/dev/dri"
+    group_add:
+      - video
+      - render'
+case "$GPU" in
+  nvidia)
+    LLAMA_IMAGE="ghcr.io/ggml-org/llama.cpp:server-cuda"
+    LLAMA_DEVICES='    devices:
+      - "nvidia.com/gpu=all"' ;;
+  amd-rocm)
+    LLAMA_IMAGE="ghcr.io/ggml-org/llama.cpp:server-rocm"
+    LLAMA_DEVICES="$AMD_DEVICES" ;;
+  amd-vulkan)
+    LLAMA_IMAGE="ghcr.io/ggml-org/llama.cpp:server-vulkan"
+    LLAMA_DEVICES="$AMD_DEVICES" ;;
+  *)
+    LLAMA_IMAGE="ghcr.io/ggml-org/llama.cpp:server"
+    LLAMA_DEVICES="" ;;
+esac
+
+if [ "$GPU" = amd-rocm ]; then
+  COMFY_SERVICE='  comfyui:
+    container_name: comfyui
+    hostname: comfyui
+    image: corundex/comfyui-rocm:latest
+    restart: unless-stopped
+    networks:
+      - storyhaven_isolated_net
+    devices:
+      - "/dev/kfd"
+      - "/dev/dri"
+    group_add:
+      - video
+      - render
+    environment:
+      - HIP_VISIBLE_DEVICES=0
+      - MODEL_DOWNLOAD=none
+    ports:
+      - "0.0.0.0:8188:8188"
+    volumes:
+      - comfyui_custom_nodes:/workspace/ComfyUI/custom_nodes
+      - comfyui_models:/workspace/ComfyUI/models
+      - comfyui_input:/workspace/ComfyUI/input
+      - comfyui_output:/workspace/ComfyUI/output
+      - comfyui_profiles:/workspace/ComfyUI/user'
+else
+  if [ "$GPU" = nvidia ]; then
+    COMFY_DEVICES='    devices:
+      - "nvidia.com/gpu=all"'
+  else
+    COMFY_DEVICES=""
+  fi
+  COMFY_SERVICE="  comfyui:
+    container_name: comfyui
+    hostname: comfyui
+    image: bigbrozer/comfyture:latest
+    restart: unless-stopped
+    networks:
+      - storyhaven_isolated_net
+${COMFY_DEVICES}
+    command: [\"--listen\", \"0.0.0.0\"]
+    environment:
+      - PUID=1000
+      - PGID=1000
+    ports:
+      - \"0.0.0.0:8188:8188\"
+    volumes:
+      - comfyui_python:/opt/comfyui/python
+      - comfyui_custom_nodes:/opt/comfyui/app/custom_nodes
+      - comfyui_models:/opt/comfyui/app/models
+      - comfyui_input:/opt/comfyui/app/input
+      - comfyui_output:/opt/comfyui/app/output
+      - comfyui_profiles:/opt/comfyui/app/user"
 fi
 
 if [ -z "$FERNET_KEY" ]; then
@@ -227,17 +373,13 @@ fi
 
 DATABASE_URL="postgresql+asyncpg://${PG_USER}:${PG_PASS}@storyhaven-postgres:5432/${PG_DB}"
 
-# ---------------------------------------------------------------- write .env
 info "Writing $ENV_FILE"
 umask 077
 cat > "$ENV_FILE" <<EOF
-# Generated by setup.sh on $(date -u +%Y-%m-%dT%H:%M:%SZ). Safe to edit and re-run.
-# --- PostgreSQL (storyhaven-postgres) ---
 POSTGRES_USER=${PG_USER}
 POSTGRES_PASSWORD=${PG_PASS}
 POSTGRES_DB=${PG_DB}
 
-# --- StoryHaven app (story-game) ---
 DATABASE_URL=${DATABASE_URL}
 LLM_BASE_URL=http://llamacpp-chat:5001/v1
 EMBED_BASE_URL=http://llamacpp-embed:5002/v1
@@ -248,7 +390,6 @@ EMBED_DIM=${EMBED_DIM}
 DEFAULT_LANGUAGE=English
 SECRET_ENCRYPTION_KEY=${FERNET_KEY}
 
-# --- llama.cpp model files (must exist inside the shared models volume) ---
 CHAT_GGUF=${CHAT_GGUF}
 EMBED_GGUF=${EMBED_GGUF}
 CHAT_CTX=${CHAT_CTX}
@@ -257,16 +398,9 @@ EOF
 umask 022
 ok ".env written (permissions 600)"
 
-# ---------------------------------------------------------------- write compose
 info "Writing $COMPOSE_FILE"
 cat > "$COMPOSE_FILE" <<EOF
-# Generated by setup.sh — StoryHaven AI full stack.
-# Re-running setup.sh regenerates this file; named volumes below persist data.
 services:
-  # NOTE: alpine:latest, pgvector/pgvector:pg16, ghcr.io/ggml-org/llama.cpp:server-cuda,
-  # and bigbrozer/comfyture:latest below are mutable tags with no digest pinning or
-  # signature verification. If you need supply-chain guarantees, pin to a specific
-  # digest yourself (image@sha256:...) after generation.
   story-game:
     container_name: story-game
     image: alpine:latest
@@ -277,7 +411,7 @@ services:
     volumes:
       - ${REPO_DIR}:/app/ai-frontend
     networks:
-      - sillytavern_net
+      - storyhaven_isolated_net
     depends_on:
       - postgres
     environment:
@@ -303,7 +437,7 @@ services:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
     networks:
-      - sillytavern_net
+      - storyhaven_isolated_net
     environment:
       - POSTGRES_USER=\${POSTGRES_USER}
       - POSTGRES_PASSWORD=\${POSTGRES_PASSWORD}
@@ -320,14 +454,13 @@ services:
 
   llamacpp-chat:
     container_name: llamacpp-chat
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    image: ${LLAMA_IMAGE}
     restart: unless-stopped
     networks:
-      - sillytavern_net
+      - storyhaven_isolated_net
     volumes:
       - kcpp-data:/models:ro
-    devices:
-      - "nvidia.com/gpu=all"
+${LLAMA_DEVICES}
     environment:
       - LLAMA_ARG_MODEL=/models/\${CHAT_GGUF}
       - LLAMA_ARG_CTX_SIZE=\${CHAT_CTX}
@@ -345,14 +478,13 @@ services:
 
   llamacpp-embed:
     container_name: llamacpp-embed
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    image: ${LLAMA_IMAGE}
     restart: unless-stopped
     networks:
-      - sillytavern_net
+      - storyhaven_isolated_net
     volumes:
       - kcpp-data:/models:ro
-    devices:
-      - "nvidia.com/gpu=all"
+${LLAMA_DEVICES}
     environment:
       - LLAMA_ARG_MODEL=/models/\${EMBED_GGUF}
       - LLAMA_ARG_EMBEDDINGS=true
@@ -367,28 +499,7 @@ services:
       start_period: 60s
       retries: 3
 
-  comfyui:
-    container_name: comfyui
-    hostname: comfyui
-    image: bigbrozer/comfyture:latest
-    restart: unless-stopped
-    networks:
-      - sillytavern_net
-    devices:
-      - "nvidia.com/gpu=all"
-    command: ["--listen", "0.0.0.0"]
-    environment:
-      - PUID=1000
-      - PGID=1000
-    ports:
-      - "0.0.0.0:8188:8188"
-    volumes:
-      - comfyui_python:/opt/comfyui/python
-      - comfyui_custom_nodes:/opt/comfyui/app/custom_nodes
-      - comfyui_models:/opt/comfyui/app/models
-      - comfyui_input:/opt/comfyui/app/input
-      - comfyui_output:/opt/comfyui/app/output
-      - comfyui_profiles:/opt/comfyui/app/user
+${COMFY_SERVICE}
 
 volumes:
   kcpp-data:
@@ -401,12 +512,11 @@ volumes:
   comfyui_profiles:
 
 networks:
-  sillytavern_net:
+  storyhaven_isolated_net:
     driver: bridge
 EOF
 ok "docker-compose.yml written"
 
-# ---------------------------------------------------------------- validate
 info "Validating generated compose file"
 err_file="$(mktemp)"
 trap 'rm -f "$err_file"' EXIT
@@ -418,7 +528,6 @@ else
   err "compose file failed validation:"; cat "$err_file" >&2; exit 1
 fi
 
-# ---------------------------------------------------------------- ensure venv
 ensure_venv() {
   [ -x "$REPO_DIR/venv/bin/uvicorn" ] && { ok "python venv present"; return; }
   warn "story-game's venv (with app dependencies) is missing."
@@ -445,18 +554,15 @@ fi
 
 ensure_venv
 
-# ---------------------------------------------------------------- bring up
 echo
 info "Starting the stack: $COMPOSE up -d"
 $COMPOSE -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
 
-# ---------------------------------------------------------------- wait healthy
 info "Waiting for story-game to answer on http://localhost:3000/api/health"
 deadline=$(( $(date +%s) + 300 ))
 healthy=0
 while [ "$(date +%s)" -lt "$deadline" ]; do
   code="$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/health 2>/dev/null || echo 000)"
-  # 401 = server up but unauthenticated (expected); 200 = up
   if [ "$code" = "401" ] || [ "$code" = "200" ]; then healthy=1; break; fi
   printf '.'; sleep 5
 done

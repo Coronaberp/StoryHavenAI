@@ -1,22 +1,7 @@
-<#
-    StoryHaven AI - fresh-machine installer (Windows PowerShell)
-
-    Detects Docker Desktop, checks for an NVIDIA GPU, gathers/generates secrets,
-    writes a working docker-compose.yml and .env, then brings the stack up and
-    waits for it to become healthy.
-
-    Usage:
-        .\setup.ps1              full install (idempotent - safe to re-run)
-        .\setup.ps1 -DryRun      detect + generate files, but do NOT start anything
-        .\setup.ps1 -Yes         non-interactive: accept defaults, auto-generate
-
-    Re-running never destroys data: named volumes persist, and existing
-    docker-compose.yml/.env values are reused unless you choose to change them.
-#>
 [CmdletBinding()]
 param(
     [switch]$DryRun,
-    [Alias('CheckOnly')][switch]$CheckOnly,
+    [switch]$CheckOnly,
     [Alias('Y')][switch]$Yes
 )
 
@@ -64,7 +49,6 @@ Write-Host "repo: $RepoDir"
 if ($DryRun) { Write-Warn2 'DRY RUN - files will be generated, but the stack will NOT be started.' }
 Write-Host ''
 
-# ---------------------------------------------------------------- engine detection
 Write-Info 'Detecting container engine'
 $Engine  = ''
 $Compose = ''
@@ -85,19 +69,79 @@ if (-not $Engine) {
     }
 }
 
+function Test-IsAdmin {
+    $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object System.Security.Principal.WindowsPrincipal($identity)
+    return $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Wait-DockerReady {
+    Write-Info 'Waiting for Docker Desktop to finish starting (this can take a few minutes on first launch)...'
+    $deadline = (Get-Date).AddMinutes(5)
+    while ((Get-Date) -lt $deadline) {
+        try { docker info *> $null; if ($LASTEXITCODE -eq 0) { return $true } } catch {}
+        Start-Sleep -Seconds 5
+    }
+    return $false
+}
+
 if (-not $Engine) {
-    Write-Err 'No working container engine found.'
+    Write-Warn2 'No working container engine found. Docker Desktop needs to be installed.'
     Write-Host ''
-    Write-Host '  Install Docker Desktop for Windows:'
-    Write-Host '    https://www.docker.com/products/docker-desktop/'
-    Write-Host '  or via winget:'
-    Write-Host '    winget install -e --id Docker.DockerDesktop'
+    Write-Host '  This is safe to allow. Here is exactly what happens and why:' -ForegroundColor White
+    Write-Host '    - Administrator rights are needed ONLY to install Docker Desktop, the'
+    Write-Host '      standard Windows container runtime from Docker Inc, via winget'
+    Write-Host '      (Microsoft''s own package manager), which verifies the package.'
+    Write-Host '    - Nothing else in this setup needs or uses admin rights. Everything'
+    Write-Host '      else this script does is write two config files (docker-compose.yml'
+    Write-Host '      and .env) into this folder and start containers.'
+    Write-Host '    - It never deletes data, never touches files outside this folder, and'
+    Write-Host '      re-running it is always safe.'
     Write-Host ''
-    Write-Host '  Docker Desktop bundles Compose. Enable the WSL2 backend and,'
-    Write-Host '  for GPU acceleration, install a recent NVIDIA driver with WSL2 CUDA support.'
-    Write-Host ''
-    Write-Host '  After installing and starting Docker Desktop, re-run: .\setup.ps1'
-    exit 1
+    if (Test-IsAdmin) {
+        if (Confirm2 'Install Docker Desktop now via winget?') {
+            $winget = Get-Command winget -ErrorAction SilentlyContinue
+            if (-not $winget) {
+                Write-Err 'winget is not available. Install Docker Desktop manually:'
+                Write-Host '    https://www.docker.com/products/docker-desktop/'
+                exit 1
+            }
+            winget install -e --id Docker.DockerDesktop --accept-source-agreements --accept-package-agreements
+            if ($LASTEXITCODE -ne 0) {
+                Write-Err 'winget install failed. Install Docker Desktop manually and re-run: .\setup.ps1'
+                exit 1
+            }
+            $dockerExe = "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe"
+            if (Test-Path $dockerExe) { Start-Process $dockerExe }
+            if (Wait-DockerReady) {
+                Write-Ok 'Docker Desktop installed and running'
+                $Engine = 'docker'
+                try { docker compose version *> $null; if ($LASTEXITCODE -eq 0) { $Compose = 'docker compose' } } catch {}
+            } else {
+                Write-Err 'Docker Desktop did not become ready. Start it from the Start menu, then re-run: .\setup.ps1'
+                exit 1
+            }
+        } else {
+            Write-Host '  Install Docker Desktop manually, then re-run: .\setup.ps1'
+            exit 1
+        }
+    } else {
+        Write-Host '  To allow one-click setup, this script can relaunch itself with admin'
+        Write-Host '  rights (you will see the standard Windows UAC prompt, that prompt is'
+        Write-Host '  this script asking to install Docker Desktop, nothing more).'
+        Write-Host ''
+        if (Confirm2 'Relaunch elevated now to install Docker Desktop?') {
+            $argList = @('-NoProfile', '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', "`"$($MyInvocation.MyCommand.Path)`"")
+            if ($DryRun) { $argList += '-DryRun' }
+            if ($Yes)    { $argList += '-Yes' }
+            Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList $argList
+            Write-Ok 'Continuing in the elevated window.'
+            exit 0
+        }
+        Write-Host '  Or install Docker Desktop yourself, then re-run: .\setup.ps1'
+        Write-Host '    https://www.docker.com/products/docker-desktop/'
+        exit 1
+    }
 }
 Write-Ok "engine: $Engine"
 if (-not $Compose) {
@@ -107,24 +151,32 @@ if (-not $Compose) {
 }
 Write-Ok "compose: $Compose"
 
-# ---------------------------------------------------------------- GPU detection
-Write-Info 'Detecting NVIDIA GPU'
+Write-Info 'Detecting GPU'
 $Gpu = 'none'
 $smi = Get-Command nvidia-smi.exe -ErrorAction SilentlyContinue
 if (-not $smi) { $smi = Get-Command nvidia-smi -ErrorAction SilentlyContinue }
 if ($smi) {
     try { & $smi.Source *> $null; if ($LASTEXITCODE -eq 0) { $Gpu = 'nvidia' } } catch {}
 }
-if ($Gpu -ne 'nvidia') {
-    try {
-        $vids = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue
-        if ($vids | Where-Object { $_.Name -match 'NVIDIA' }) { $Gpu = 'nvidia' }
-    } catch {}
-}
+$vids = $null
+try { $vids = Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue } catch {}
+if ($Gpu -ne 'nvidia' -and ($vids | Where-Object { $_.Name -match 'NVIDIA' })) { $Gpu = 'nvidia' }
+if ($Gpu -ne 'nvidia' -and ($vids | Where-Object { $_.Name -match 'AMD|Radeon' })) { $Gpu = 'amd-zluda' }
 if ($Gpu -eq 'nvidia') {
     Write-Ok 'NVIDIA GPU detected - GPU acceleration available'
+} elseif ($Gpu -eq 'amd-zluda') {
+    Write-Ok 'AMD GPU detected - the ZLUDA path applies on Windows'
+    Write-Warn2 'Windows containers cannot access AMD GPUs, so llama.cpp and ComfyUI will NOT run in the stack.'
+    Write-Host '  The stack will contain only the app and its database, with the chat,'
+    Write-Host '  embedding, and image endpoints pointed at services you run natively'
+    Write-Host '  on this machine with ZLUDA:'
+    Write-Host '    ZLUDA:                 https://github.com/vosen/ZLUDA'
+    Write-Host '    ComfyUI with ZLUDA:    https://github.com/patientx/ComfyUI-Zluda   (serve on port 8188)'
+    Write-Host '    llama.cpp with ZLUDA:  run llama-server.exe under ZLUDA, chat on port 5001,'
+    Write-Host '                           a second instance with --embeddings on port 5002'
+    Write-Host '  Ports expected by the generated config: 5001 (chat), 5002 (embeddings), 8188 (ComfyUI).'
 } else {
-    Write-Warn2 'No NVIDIA GPU detected (nvidia-smi missing and no NVIDIA adapter found).'
+    Write-Warn2 'No GPU detected (no NVIDIA or AMD adapter found).'
     Write-Host '  The chat model, embeddings and image generation will run CPU-bound'
     Write-Host '  and be VERY slow (minutes per reply, heavy RAM use).'
     if (-not $DryRun) {
@@ -134,7 +186,6 @@ if ($Gpu -eq 'nvidia') {
     }
 }
 
-# ---------------------------------------------------------------- gather config
 Write-Host ''
 Write-Info 'Configuration (press Enter to accept defaults / reuse existing values)'
 
@@ -172,6 +223,14 @@ if ($Gpu -eq 'nvidia') {
     $GpuLayers = '0'
 }
 
+if ($Gpu -eq 'amd-zluda') {
+    $LlmBaseUrl   = 'http://host.docker.internal:5001/v1'
+    $EmbedBaseUrl = 'http://host.docker.internal:5002/v1'
+} else {
+    $LlmBaseUrl   = 'http://llamacpp-chat:5001/v1'
+    $EmbedBaseUrl = 'http://llamacpp-embed:5002/v1'
+}
+
 if (-not $Fernet) {
     if (Confirm2 'Auto-generate a SECRET_ENCRYPTION_KEY now? (recommended)') {
         $py = Get-Command python -ErrorAction SilentlyContinue
@@ -185,7 +244,6 @@ if (-not $Fernet) {
         if ($Fernet) {
             Write-Ok 'generated SECRET_ENCRYPTION_KEY'
         } else {
-            # Fernet key = 32 random bytes, url-safe base64 encoded.
             $kb = New-Object 'System.Byte[]' 32
             [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($kb)
             $Fernet = [Convert]::ToBase64String($kb).Replace('+','-').Replace('/','_')
@@ -198,27 +256,20 @@ if (-not $Fernet) {
 
 $DatabaseUrl = "postgresql+asyncpg://${PgUser}:${PgPass}@storyhaven-postgres:5432/${PgDb}"
 
-# ---------------------------------------------------------------- write .env
 Write-Info "Writing $EnvFile"
 $envContent = @"
-# Generated by setup.ps1 on $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')). Safe to edit and re-run.
-# --- PostgreSQL (storyhaven-postgres) ---
 POSTGRES_USER=$PgUser
 POSTGRES_PASSWORD=$PgPass
 POSTGRES_DB=$PgDb
-
-# --- StoryHaven app (story-game) ---
 DATABASE_URL=$DatabaseUrl
-LLM_BASE_URL=http://llamacpp-chat:5001/v1
-EMBED_BASE_URL=http://llamacpp-embed:5002/v1
+LLM_BASE_URL=$LlmBaseUrl
+EMBED_BASE_URL=$EmbedBaseUrl
 LLM_API_KEY=
 CHAT_MODEL=$ChatModel
 EMBED_MODEL=$EmbedModel
 EMBED_DIM=$EmbedDim
 DEFAULT_LANGUAGE=English
 SECRET_ENCRYPTION_KEY=$Fernet
-
-# --- llama.cpp model files (must exist inside the shared models volume) ---
 CHAT_GGUF=$ChatGguf
 EMBED_GGUF=$EmbedGguf
 CHAT_CTX=$ChatCtx
@@ -229,18 +280,19 @@ icacls $EnvFile /inheritance:r *> $null
 icacls $EnvFile /grant:r "$($env:USERNAME):(R,W)" *> $null
 Write-Ok '.env written (ACL restricted to current user)'
 
-# ---------------------------------------------------------------- write compose
 Write-Info "Writing $ComposeFile"
-# story-game bind-mounts this repo dir; Docker Desktop accepts Windows paths.
 $RepoMount = $RepoDir -replace '\\', '/'
-$composeContent = @"
-# Generated by setup.ps1 - StoryHaven AI full stack.
-# Re-running setup.ps1 regenerates this file; named volumes below persist data.
+if ($Gpu -eq 'nvidia') {
+    $GpuDevices = @"
+
+    devices:
+      - "nvidia.com/gpu=all"
+"@
+} else {
+    $GpuDevices = ''
+}
+$coreServices = @"
 services:
-  # NOTE: alpine:latest, pgvector/pgvector:pg16, ghcr.io/ggml-org/llama.cpp:server-cuda,
-  # and bigbrozer/comfyture:latest below are mutable tags with no digest pinning or
-  # signature verification. If you need supply-chain guarantees, pin to a specific
-  # digest yourself (image@sha256:...) after generation.
   story-game:
     container_name: story-game
     image: alpine:latest
@@ -251,7 +303,7 @@ services:
     volumes:
       - "${RepoMount}:/app/ai-frontend"
     networks:
-      - sillytavern_net
+      - storyhaven_isolated_net
     depends_on:
       - postgres
     environment:
@@ -277,7 +329,7 @@ services:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
     networks:
-      - sillytavern_net
+      - storyhaven_isolated_net
     environment:
       - POSTGRES_USER=`${POSTGRES_USER}
       - POSTGRES_PASSWORD=`${POSTGRES_PASSWORD}
@@ -291,17 +343,18 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+"@
+
+$modelServices = @"
 
   llamacpp-chat:
     container_name: llamacpp-chat
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
     restart: unless-stopped
     networks:
-      - sillytavern_net
+      - storyhaven_isolated_net
     volumes:
-      - kcpp-data:/models:ro
-    devices:
-      - "nvidia.com/gpu=all"
+      - kcpp-data:/models:ro$GpuDevices
     environment:
       - LLAMA_ARG_MODEL=/models/`${CHAT_GGUF}
       - LLAMA_ARG_CTX_SIZE=`${CHAT_CTX}
@@ -322,11 +375,9 @@ services:
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
     restart: unless-stopped
     networks:
-      - sillytavern_net
+      - storyhaven_isolated_net
     volumes:
-      - kcpp-data:/models:ro
-    devices:
-      - "nvidia.com/gpu=all"
+      - kcpp-data:/models:ro$GpuDevices
     environment:
       - LLAMA_ARG_MODEL=/models/`${EMBED_GGUF}
       - LLAMA_ARG_EMBEDDINGS=true
@@ -347,9 +398,7 @@ services:
     image: bigbrozer/comfyture:latest
     restart: unless-stopped
     networks:
-      - sillytavern_net
-    devices:
-      - "nvidia.com/gpu=all"
+      - storyhaven_isolated_net$GpuDevices
     command: ["--listen", "0.0.0.0"]
     environment:
       - PUID=1000
@@ -363,25 +412,34 @@ services:
       - comfyui_input:/opt/comfyui/app/input
       - comfyui_output:/opt/comfyui/app/output
       - comfyui_profiles:/opt/comfyui/app/user
+"@
 
-volumes:
+$modelVolumes = @"
+
   kcpp-data:
-  postgres_data:
   comfyui_python:
   comfyui_custom_nodes:
   comfyui_models:
   comfyui_input:
   comfyui_output:
   comfyui_profiles:
+"@
+
+$tail = @"
 
 networks:
-  sillytavern_net:
+  storyhaven_isolated_net:
     driver: bridge
 "@
+
+if ($Gpu -eq 'amd-zluda') {
+    $composeContent = $coreServices + "`n`nvolumes:`n  postgres_data:" + $tail
+} else {
+    $composeContent = $coreServices + $modelServices + "`n`nvolumes:`n  postgres_data:" + $modelVolumes + $tail
+}
 Set-Content -Path $ComposeFile -Value $composeContent -Encoding ASCII
 Write-Ok 'docker-compose.yml written'
 
-# ---------------------------------------------------------------- validate
 Write-Info 'Validating generated compose file'
 $composeArgs = $Compose.Split(' ')
 $cmd  = $composeArgs[0]
@@ -402,7 +460,6 @@ if ($DryRun) {
     exit 0
 }
 
-# ---------------------------------------------------------------- ensure venv
 if (-not (Test-Path (Join-Path $RepoDir 'venv/bin/uvicorn'))) {
     Write-Warn2 "story-game's venv (with app dependencies) is missing."
     Write-Host '  run.sh execs venv/bin/uvicorn, so the venv must exist with requirements installed.'
@@ -415,12 +472,10 @@ if (-not (Test-Path (Join-Path $RepoDir 'venv/bin/uvicorn'))) {
     }
 }
 
-# ---------------------------------------------------------------- bring up
 Write-Host ''
 Write-Info "Starting the stack: $Compose up -d"
 & $cmd @pre -f $ComposeFile --env-file $EnvFile up -d
 
-# ---------------------------------------------------------------- wait healthy
 Write-Info 'Waiting for story-game to answer on http://localhost:3000/api/health'
 $deadline = (Get-Date).AddMinutes(5)
 $healthy = $false
@@ -451,8 +506,14 @@ Write-Host '  password to story-game stdout. Retrieve it with:'
 Write-Host "    $Engine logs story-game | Select-String -Pattern 'admin' -Context 0,1" -ForegroundColor Cyan
 Write-Host ''
 Write-Host 'Open the app: http://localhost:3000' -ForegroundColor White
-Write-Host '  ComfyUI:        http://localhost:8188'
-Write-Host '  Chat model API: http://localhost:5001/v1'
-Write-Host '  Embed API:      http://localhost:5002/v1'
+if ($Gpu -eq 'amd-zluda') {
+    Write-Host '  Chat, embeddings, and ComfyUI are expected as native ZLUDA services on'
+    Write-Host '  this machine: ports 5001 (chat), 5002 (embeddings), 8188 (ComfyUI).'
+    Write-Host '  The app reaches them via host.docker.internal, start them before chatting.'
+} else {
+    Write-Host '  ComfyUI:        http://localhost:8188'
+    Write-Host '  Chat model API: http://localhost:5001/v1'
+    Write-Host '  Embed API:      http://localhost:5002/v1'
+}
 Write-Host ''
 Write-Ok 'Done.'
