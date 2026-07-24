@@ -259,3 +259,33 @@ async def test_character_voice_roundtrip(db_conn):
     assert fetched["voice"] == "af_heart"
     updated = await characters.update(c["id"], {"name": "Voice Test", "persona": "a persona", "voice": None})
     assert updated["voice"] is None
+
+def test_normalize_voice_entries_mixed():
+    from backend.routers.tts import normalize_voice_entries
+    result = normalize_voice_entries([{"id": "a"}, {"name": "b"}, "c", {}, None, ""])
+    assert result == ["a", "b", "c"]
+
+def test_normalize_voice_entries_dict_with_id():
+    from backend.routers.tts import normalize_voice_entries
+    result = normalize_voice_entries([{"id": "af_alloy", "name": "Alloy"}])
+    assert result == ["af_alloy"]
+
+def test_normalize_voice_entries_dict_with_name_only():
+    from backend.routers.tts import normalize_voice_entries
+    result = normalize_voice_entries([{"name": "Alloy"}])
+    assert result == ["Alloy"]
+
+def test_normalize_voice_entries_string_ids():
+    from backend.routers.tts import normalize_voice_entries
+    result = normalize_voice_entries(["af_alloy", "af_bella", "af_heart"])
+    assert result == ["af_alloy", "af_bella", "af_heart"]
+
+def test_normalize_voice_entries_empty():
+    from backend.routers.tts import normalize_voice_entries
+    result = normalize_voice_entries([])
+    assert result == []
+
+def test_normalize_voice_entries_drops_non_string_values():
+    from backend.routers.tts import normalize_voice_entries
+    result = normalize_voice_entries([{"id": 123}, {"id": None}, 42])
+    assert result == []

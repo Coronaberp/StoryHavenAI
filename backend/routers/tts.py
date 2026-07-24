@@ -35,6 +35,18 @@ def _clean_voice(value: str | None) -> str | None:
         raise HTTPException(400, "Voice id is too long.")
     return value
 
+def normalize_voice_entries(entries: list) -> list[str]:
+    result = []
+    for entry in entries:
+        voice_id = None
+        if isinstance(entry, dict):
+            voice_id = entry.get("id") or entry.get("name")
+        elif isinstance(entry, str):
+            voice_id = entry
+        if isinstance(voice_id, str) and voice_id:
+            result.append(voice_id)
+    return result
+
 async def _resolve_voices(session: dict, message: dict) -> tuple[str, str]:
     overrides = session.get("voice_overrides") or {}
     narrator = _clean_voice(overrides.get("narrator_voice")) or CFG.get("tts_narrator_voice") or "af_heart"
@@ -96,7 +108,8 @@ async def list_voices(current_user: dict = Depends(get_current_user)):
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             response = await client.get(f"{base_url}/audio/voices", headers=headers)
-        voices = response.json().get("voices", []) if response.status_code == 200 else []
+        raw_voices = response.json().get("voices", []) if response.status_code == 200 else []
+        voices = normalize_voice_entries(raw_voices)
     except (httpx.HTTPError, ValueError) as exc:
         log.warning("tts: voice list failed: %s", type(exc).__name__)
         voices = []
