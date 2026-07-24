@@ -38,6 +38,7 @@ class AdminOverviewView {
   render() {
     const attentionTotal = this.pending.length + this.flagged.length + this.resetReqs.length + this.pendingModelReqs.length
       + this.contentReports.length + this.imageReports.length + this.pendingTitleReqs.length + this.pendingEmojis.length;
+    window._adminSwitcherBadges = { "admin-moderation": attentionTotal };
 
     const healthTile = (svc) => `
       <div class="flex-1 min-w-0 p-3 rounded-[13px] border border-line bg-surface">
@@ -75,6 +76,7 @@ class AdminOverviewView {
 
     this.main.innerHTML = `
       <div class="content-col">
+      ${adminScreenSwitcherHtml("admin", window._adminSwitcherBadges || {})}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_title"), t("ph_admin_sub"))}
       <div class="flex gap-2.5 mb-3 flex-wrap">${this.health.map(healthTile).join("")}</div>
       <div class="flex gap-2.5 mb-3 flex-wrap">
@@ -151,6 +153,7 @@ class AdminOverviewView {
       </div>
       </div>
     `;
+    adminAttachScreenSwitcher(this.main);
   }
 }
 
