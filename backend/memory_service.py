@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 from backend import llm
@@ -130,10 +131,35 @@ async def extract_batch(sid: str, char_id: str, char_name: str, user_name: str,
              stats["lore_updates_applied"], stats["secrets_revealed"])
     return stats
 
+_extract_locks: dict[str, asyncio.Lock] = {}
+
+
+def _extract_lock(sid: str) -> asyncio.Lock:
+    lock = _extract_locks.get(sid)
+    if lock is None:
+        lock = asyncio.Lock()
+        _extract_locks[sid] = lock
+    return lock
+
+
 async def maybe_extract(session: dict, char: dict, user_name: str, language: str, model: str,
                         chat_base: str | None = None, chat_key: str | None = None,
                         embed_base: str | None = None, embed_key: str | None = None,
                         names_by_id: dict | None = None, cast_names: list[str] | None = None):
+    sid = session["id"]
+    lock = _extract_lock(sid)
+    async with lock:
+        await _extract_settled(session, char, user_name, language, model,
+                               chat_base, chat_key, embed_base, embed_key,
+                               names_by_id, cast_names)
+    if not lock.locked() and _extract_locks.get(sid) is lock:
+        _extract_locks.pop(sid, None)
+
+
+async def _extract_settled(session: dict, char: dict, user_name: str, language: str, model: str,
+                           chat_base: str | None, chat_key: str | None,
+                           embed_base: str | None, embed_key: str | None,
+                           names_by_id: dict | None, cast_names: list[str] | None):
     sid = session["id"]
     msgs = await chat_sessions.list_messages(sid)
     pairs = exchanges(msgs, group=bool(names_by_id))
