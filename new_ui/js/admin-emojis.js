@@ -43,9 +43,9 @@ class AdminEmojisView {
     const approved = this.emojis.filter((e) => !e.is_explicit);
     this.main.innerHTML = `
       <div class="content-col">
-      ${adminScreenSwitcherHtml("admin-emojis", window._adminSwitcherBadges || {})}
       ${backLinkHtml("Admin")}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_emojis_title"), `${this.emojis.length} ${t("admin_emojis_total")}`)}
+      ${adminScreenSwitcherHtml("admin-emojis", window._adminSwitcherBadges || {})}
       <div class="mb-5 p-3.5 rounded-[13px] border border-line bg-surface">
         <div class="font-display font-semibold text-sm text-ink mb-3">${t("admin_emojis_add_new")}</div>
         <input type="text" id="ae_shortcode" placeholder="${t("admin_emojis_shortcode_placeholder")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">

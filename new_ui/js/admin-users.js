@@ -200,9 +200,9 @@ class AdminUsersView {
 
     this.main.innerHTML = `
       <div class="content-col admin-users-content">
-      ${adminScreenSwitcherHtml("admin-users", window._adminSwitcherBadges || {})}
       ${backLinkHtml("Admin")}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_users_title"), `${this.users.length} ${t("admin_users_users_count_suffix")}`)}
+      ${adminScreenSwitcherHtml("admin-users", window._adminSwitcherBadges || {})}
       <button type="button" onclick="adminUsersView.createUser()" class="w-full mb-4 py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark lg:w-auto">
         ${t("admin_users_new_user")}
       </button>
