@@ -8,6 +8,7 @@ from backend import tts
 from backend.auth import get_current_user
 from backend.chat_service import _own_session
 from backend.feature_flags import require_feature_enabled
+from backend.prompt import strip_think
 from backend.ratelimit import SlidingWindow
 from backend.repositories import characters as characters_repo
 from backend.repositories import chat_sessions
@@ -67,12 +68,17 @@ async def speak_message(sid: str, mid: str, current_user: dict = Depends(get_cur
         raise HTTPException(404, "Message not found.")
     if message["role"] != "assistant":
         raise HTTPException(400, "Only character messages can be spoken.")
-    if len(message["content"]) > tts.MAX_TTS_CHARS:
+    spoken = strip_think(message["content"])
+    if "<think>" in spoken:
+        spoken = spoken.split("<think>")[0].strip()
+    if not spoken:
+        raise HTTPException(400, "There is nothing to speak in this message.")
+    if len(spoken) > tts.MAX_TTS_CHARS:
         raise HTTPException(413, "This message is too long to speak.")
     char_voice, narrator_voice = await _resolve_voices(session, message)
     started = time.time()
     try:
-        url, cached = await tts.synthesize_message(message["content"], char_voice,
+        url, cached = await tts.synthesize_message(spoken, char_voice,
                                                    narrator_voice, current_user["id"])
     except tts.TTSUnavailable as exc:
         log.warning("tts: synthesis failed sid=%s mid=%s: %s", sid, mid, exc)
