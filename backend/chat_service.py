@@ -92,6 +92,16 @@ def participant_display_name(persona: dict | None, user_row: dict | None) -> str
         return user_row.get("display_name") or user_row.get("username") or "You"
     return "You"
 
+async def _other_player_names(participant_rows: list[dict], sender_id: str | None) -> list[str]:
+    names = []
+    for row in participant_rows:
+        if row["user_id"] == sender_id:
+            continue
+        row_persona = await personas.get(row["persona_id"]) if row.get("persona_id") else None
+        user_row = await user_repo.get_user_by_id(row["user_id"])
+        names.append(participant_display_name(row_persona, user_row))
+    return names
+
 async def _resolve_sender_persona(s: dict, current_user: dict | None) -> tuple[dict | None, str]:
     if current_user:
         rows = await session_participants.list_for_session(s["id"])
@@ -636,12 +646,8 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
     eff_chat_base, eff_api_key = ep["chat_base"], ep["chat_key"]
     other_player_names = []
     if is_multiplayer:
-        for row in participant_rows:
-            if not row.get("persona_id") or row["user_id"] == (current_user["id"] if current_user else None):
-                continue
-            row_persona = await personas.get(row["persona_id"])
-            if row_persona:
-                other_player_names.append(row_persona["name"])
+        other_player_names = await _other_player_names(
+            participant_rows, current_user["id"] if current_user else None)
     persona, user_name = await _resolve_sender_persona(s, current_user)
     generating_payload = {"sender_user_id": current_user["id"] if current_user else None}
     if is_multiplayer and user_content is not None and not regenerate and not continue_mode:
