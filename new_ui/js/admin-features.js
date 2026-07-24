@@ -25,6 +25,7 @@ class AdminFeaturesPanel {
   renderShell() {
     this.main.innerHTML = `
       <div class="content-col">
+      ${adminScreenSwitcherHtml("admin-features", window._adminSwitcherBadges || {})}
       ${backLinkHtml("Admin")}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_features_title", "Feature Flags"), t("ph_admin_features_sub", "Disable or restore features platform-wide."))}
       <div data-admin-features-container></div>
@@ -32,6 +33,7 @@ class AdminFeaturesPanel {
     `;
     const container = this.main.querySelector("[data-admin-features-container]");
     this.render(container);
+    adminAttachScreenSwitcher(this.main);
   }
 
   render(container) {
@@ -48,9 +50,9 @@ class AdminFeaturesPanel {
       </label>
     `).join("");
     container.innerHTML = `
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <button type="button" id="adminFeaturesDisableSelected" class="pe-gen-btn">${t("admin_features_disable_selected", "Disable selected")}</button>
-        <button type="button" id="adminFeaturesEnableSelected" class="pe-gen-btn">${t("admin_features_enable_selected", "Enable selected")}</button>
+      <div class="sticky bottom-0 md:static bg-paper md:bg-transparent pt-2 pb-2 md:pt-0 md:pb-0" style="display:flex;gap:8px;margin-bottom:14px">
+        <button type="button" id="adminFeaturesDisableSelected" class="pe-gen-btn flex-1 md:flex-none">${t("admin_features_disable_selected", "Disable selected")}</button>
+        <button type="button" id="adminFeaturesEnableSelected" class="pe-gen-btn flex-1 md:flex-none">${t("admin_features_enable_selected", "Enable selected")}</button>
       </div>
       <div>${rows}</div>
     `;

@@ -9,28 +9,30 @@ class AdminAnnouncePanel {
   render() {
     this.main.innerHTML = `
       <div class="content-col">
+      ${adminScreenSwitcherHtml("admin-announce", window._adminSwitcherBadges || {})}
       ${backLinkHtml("Admin")}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_announce_title", "Announcements"), t("ph_admin_announce_sub", "Send a notification to every active user."))}
       <div class="flex flex-col gap-3">
         <label class="flex flex-col gap-1.5">
           <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_title", "Title")}</span>
-          <input type="text" id="announceTitle" maxlength="120" class="px-3 py-2 rounded-[10px] border border-line bg-surface text-sm text-ink" placeholder="${_attr(t("admin_announce_title_placeholder", "Service degraded"))}">
+          <input type="text" id="announceTitle" maxlength="120" class="w-full px-3 py-2 rounded-[10px] border border-line bg-surface text-sm text-ink" placeholder="${_attr(t("admin_announce_title_placeholder", "Service degraded"))}">
         </label>
         <label class="flex flex-col gap-1.5">
           <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_message", "Message")}</span>
-          <textarea id="announceBody" rows="4" maxlength="1000" class="px-3 py-2 rounded-[10px] border border-line bg-surface text-sm text-ink" placeholder="${_attr(t("admin_announce_body_placeholder", "What happened, what still works, and when you expect it fixed."))}"></textarea>
+          <textarea id="announceBody" rows="4" maxlength="1000" class="w-full px-3 py-2 rounded-[10px] border border-line bg-surface text-sm text-ink" placeholder="${_attr(t("admin_announce_body_placeholder", "What happened, what still works, and when you expect it fixed."))}"></textarea>
         </label>
         <label class="flex flex-col gap-1.5">
           <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_link", "Link (optional)")}</span>
-          <input type="text" id="announceLink" maxlength="300" class="px-3 py-2 rounded-[10px] border border-line bg-surface text-sm text-ink" placeholder="/forum">
+          <input type="text" id="announceLink" maxlength="300" class="w-full px-3 py-2 rounded-[10px] border border-line bg-surface text-sm text-ink" placeholder="/forum">
         </label>
-        <div class="flex justify-end">
-          <button type="button" id="announceSend" class="pe-gen-btn">${t("admin_announce_send", "Send to all users")}</button>
+        <div class="flex justify-end sticky bottom-0 md:static bg-paper md:bg-transparent pt-2 pb-2 md:pt-0 md:pb-0">
+          <button type="button" id="announceSend" class="pe-gen-btn w-full md:w-auto">${t("admin_announce_send", "Send to all users")}</button>
         </div>
       </div>
       </div>
     `;
     this.main.querySelector("#announceSend").onclick = () => this.confirmAndSend();
+    adminAttachScreenSwitcher(this.main);
   }
 
   async confirmAndSend() {
