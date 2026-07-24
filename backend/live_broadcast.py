@@ -4,21 +4,17 @@ import json
 _subs: dict[str, list[tuple[str | None, asyncio.Queue]]] = {}
 _CLOSE_STREAM = object()
 
-
 def broadcast(sid: str, event_type: str, data: dict) -> None:
     payload = "data: " + json.dumps({"type": event_type, **data}) + "\n\n"
     for _, q in _subs.get(sid, []):
         q.put_nowait(payload)
-
 
 def disconnect_user(sid: str, user_id: str) -> None:
     for subscriber_user_id, q in _subs.get(sid, []):
         if subscriber_user_id == user_id:
             q.put_nowait(_CLOSE_STREAM)
 
-
 HEARTBEAT_SECONDS = 20
-
 
 async def stream(sid: str, user_id: str | None = None):
     q: asyncio.Queue = asyncio.Queue()

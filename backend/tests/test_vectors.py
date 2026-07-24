@@ -8,13 +8,11 @@ pytestmark = pytest.mark.asyncio
 
 _EMBED_DIM = int(os.environ.get("EMBED_DIM", "768"))
 
-
 async def test_store_and_search_single_chunk(db_conn):
     vectors._build_tables(_EMBED_DIM)
     await vectors.store_lore_vector("l-vec-1", None, [0.1] * _EMBED_DIM, part_id=0)
     ids = await vectors.search_lore_ids(None, [0.1] * _EMBED_DIM, 5, 0.8)
     assert "l-vec-1" in ids
-
 
 async def test_search_lore_ids_dedups_multiple_chunks_to_one_entry(db_conn):
     vectors._build_tables(_EMBED_DIM)
@@ -22,7 +20,6 @@ async def test_search_lore_ids_dedups_multiple_chunks_to_one_entry(db_conn):
     await vectors.store_lore_vector("l-vec-2", None, [0.1] * _EMBED_DIM, part_id=1)
     ids = await vectors.search_lore_ids(None, [0.1] * _EMBED_DIM, 5, 0.8)
     assert ids.count("l-vec-2") == 1
-
 
 async def test_search_lore_chunks_returns_part_level_hits(db_conn):
     vectors._build_tables(_EMBED_DIM)

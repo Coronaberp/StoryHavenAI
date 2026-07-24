@@ -99,7 +99,6 @@ PROVIDER_REGISTRY = {
     },
 }
 
-
 def extract_user_id(provider: str, payload: dict) -> str | None:
     entry = PROVIDER_REGISTRY.get(provider)
     if not entry:

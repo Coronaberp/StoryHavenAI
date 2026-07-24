@@ -17,7 +17,6 @@ CATCHUP_MIN_PAIRS = 15
 NEIGHBOR_K = 8
 CANDIDATE_K = 32
 
-
 def exchanges(msgs: list[dict], group: bool = False) -> list[tuple[dict, dict]]:
     out, pending_user = [], None
     for m in msgs:
@@ -29,10 +28,8 @@ def exchanges(msgs: list[dict], group: bool = False) -> list[tuple[dict, dict]]:
                 pending_user = None
     return out
 
-
 def current_turn(msgs: list[dict]) -> int:
     return sum(1 for m in msgs if m["role"] == "user")
-
 
 def user_turn_ordinals(msgs: list[dict]) -> dict[str, int]:
     ordinals, count = {}, 0
@@ -42,14 +39,12 @@ def user_turn_ordinals(msgs: list[dict]) -> dict[str, int]:
             ordinals[m["id"]] = count
     return ordinals
 
-
 def present_participants(char_name: str, user_names: list[str], known_names: list[str],
                          recent: str) -> list[str]:
     lowered = (recent or "").lower()
     present = list(user_names) + [char_name]
     present += [n for n in known_names if n and n.lower() in lowered and n not in present]
     return present
-
 
 def _transcript(batch: list[tuple[dict, dict]], char_name: str, user_name: str,
                 names_by_id: dict | None = None,
@@ -70,7 +65,6 @@ def _transcript(batch: list[tuple[dict, dict]], char_name: str, user_name: str,
             char_line += f" [mood: {mood}]"
         lines.append(char_line)
     return "\n".join(lines)
-
 
 async def extract_batch(sid: str, char_id: str, char_name: str, user_name: str,
                         batch: list[tuple[dict, dict]], turn: int, language: str, model: str,
@@ -136,7 +130,6 @@ async def extract_batch(sid: str, char_id: str, char_name: str, user_name: str,
              stats["lore_updates_applied"], stats["secrets_revealed"])
     return stats
 
-
 async def maybe_extract(session: dict, char: dict, user_name: str, language: str, model: str,
                         chat_base: str | None = None, chat_key: str | None = None,
                         embed_base: str | None = None, embed_key: str | None = None,
@@ -164,7 +157,6 @@ async def maybe_extract(session: dict, char: dict, user_name: str, language: str
     if len(pairs) >= CATCHUP_MIN_PAIRS and settled - cursor >= 1:
         await process(cursor, settled)
 
-
 async def rollback_discarded_turn(session_id: str, msgs: list[dict], message_id: str,
                                   names_by_id: dict | None = None) -> dict | None:
     pairs = exchanges(msgs, group=bool(names_by_id))
@@ -178,7 +170,6 @@ async def rollback_discarded_turn(session_id: str, msgs: list[dict], message_id:
                  "rewound_cursor=%s", session_id, message_id, result["batches_rolled_back"],
                  result["facts_deleted"], result["rewound_cursor"])
     return result
-
 
 async def retrieve_block(session: dict, char: dict, user_name: str, query: str,
                          msgs: list[dict], cfg: dict, keyword_lore_entries: list[dict],

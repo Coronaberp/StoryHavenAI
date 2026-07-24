@@ -10,12 +10,10 @@ from backend.state import log
 
 CODE_BYTES = 6
 
-
 def _row(row) -> dict:
     d = dict(row)
     d["disabled"] = bool(d.get("disabled"))
     return d
-
 
 async def create(created_by: str, max_uses: int = 1, expires_days: float | None = None,
                  note: str = "", tier: str = "full") -> dict:
@@ -29,16 +27,13 @@ async def create(created_by: str, max_uses: int = 1, expires_days: float | None 
              cid, created_by, tier, max_uses, expires_days)
     return await get(cid)
 
-
 async def get(cid: str) -> dict | None:
     row = await _q1(select(invite_codes).where(invite_codes.c.id == cid))
     return _row(row) if row else None
 
-
 async def list_all() -> list[dict]:
     rows = await _q(select(invite_codes).order_by(invite_codes.c.created.desc()))
     return [_row(r) for r in rows]
-
 
 async def redeem(code: str) -> dict | None:
     row = await _q1(select(invite_codes).where(invite_codes.c.code == code.strip()))
@@ -61,7 +56,6 @@ async def redeem(code: str) -> dict | None:
     log.info("invite_codes: redeemed id=%s use=%s/%s", entry["id"], entry["uses"] + 1, entry["max_uses"])
     return entry
 
-
 async def disable(cid: str) -> bool:
     if not await get(cid):
         return False
@@ -69,11 +63,9 @@ async def disable(cid: str) -> bool:
     log.info("invite_codes: disabled id=%s", cid)
     return True
 
-
 async def delete(cid: str) -> None:
     await _w(sa_delete(invite_codes).where(invite_codes.c.id == cid))
     log.info("invite_codes: deleted id=%s", cid)
-
 
 async def redeemer_usernames(cid: str) -> list[str]:
     rows = await _q(select(users.c.username).where(users.c.invite_code_id == cid))

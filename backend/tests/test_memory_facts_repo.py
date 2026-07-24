@@ -6,16 +6,13 @@ from backend.repositories import memory_facts
 
 pytestmark = pytest.mark.asyncio
 
-
 def _fake_vec(dim=None):
     dim = dim or int(os.environ.get("EMBED_DIM", "768"))
     return [0.1] * dim
 
-
 @pytest.fixture(autouse=True)
 def _ensure_memory_facts_table():
     memory_facts.build_tables(int(os.environ.get("EMBED_DIM", "768")))
-
 
 async def test_insert_pinned_true_persists(db_conn):
     fid = await memory_facts.insert({
@@ -26,7 +23,6 @@ async def test_insert_pinned_true_persists(db_conn):
     match = next(r for r in reserved if r["id"] == fid)
     assert match["pinned"] is True
 
-
 async def test_insert_pinned_default_false(db_conn):
     fid = await memory_facts.insert({
         "session_id": "sess-2", "char_id": "char-1", "text": "ordinary fact",
@@ -34,7 +30,6 @@ async def test_insert_pinned_default_false(db_conn):
     }, _fake_vec())
     reserved = await memory_facts.reserved("sess-2")
     assert fid not in [r["id"] for r in reserved]
-
 
 async def test_update_text_changes_text_keeps_reinforcements(db_conn):
     fid = await memory_facts.insert({
@@ -48,7 +43,6 @@ async def test_update_text_changes_text_keeps_reinforcements(db_conn):
     assert match["text"] == "after"
     assert match["reinforcements"] == 1
 
-
 async def test_expire_removes_from_live_results(db_conn):
     fid = await memory_facts.insert({
         "session_id": "sess-4", "char_id": "char-1", "text": "expiring fact",
@@ -57,7 +51,6 @@ async def test_expire_removes_from_live_results(db_conn):
     await memory_facts.expire(fid)
     reserved = await memory_facts.reserved("sess-4")
     assert fid not in [r["id"] for r in reserved]
-
 
 async def test_list_live_excludes_expired(db_conn):
     live_id = await memory_facts.insert({
@@ -74,7 +67,6 @@ async def test_list_live_excludes_expired(db_conn):
     assert live_id in ids
     assert expired_id not in ids
 
-
 async def test_list_live_orders_newest_last_turn_first(db_conn):
     older = await memory_facts.insert({
         "session_id": "sess-order", "char_id": "char-1", "text": "older",
@@ -87,7 +79,6 @@ async def test_list_live_orders_newest_last_turn_first(db_conn):
     result = await memory_facts.list_live("sess-order")
     ids = [r["id"] for r in result]
     assert ids.index(newer) < ids.index(older)
-
 
 async def test_purge_char_removes_facts_across_sessions(db_conn):
     fid_a = await memory_facts.insert({
@@ -104,7 +95,6 @@ async def test_purge_char_removes_facts_across_sessions(db_conn):
     assert fid_a not in [r["id"] for r in remaining_a]
     assert fid_b not in [r["id"] for r in remaining_b]
 
-
 async def test_insert_stores_location(db_conn):
     fid = await memory_facts.insert({
         "session_id": "sess-loc-1", "char_id": "char-1", "text": "at the mill",
@@ -114,7 +104,6 @@ async def test_insert_stores_location(db_conn):
     reserved = await memory_facts.reserved("sess-loc-1")
     match = next(r for r in reserved if r["id"] == fid)
     assert match["location"] == "the abandoned mill"
-
 
 async def test_similar_current_excludes_superseded_facts(db_conn):
     original_id = await memory_facts.insert({
@@ -130,7 +119,6 @@ async def test_similar_current_excludes_superseded_facts(db_conn):
     assert new_id in ids
     assert original_id not in ids
 
-
 async def test_similar_live_still_includes_superseded_facts(db_conn):
     original_id = await memory_facts.insert({
         "session_id": "sess-current-2", "char_id": "char-1", "text": "old worry",
@@ -144,7 +132,6 @@ async def test_similar_live_still_includes_superseded_facts(db_conn):
     ids = [r["id"] for r in live]
     assert new_id in ids
     assert original_id in ids
-
 
 async def test_rollback_from_pair_index_deletes_batch_facts_and_rewinds_cursor(db_conn):
     session_id = "sess-rollback-1"
@@ -165,7 +152,6 @@ async def test_rollback_from_pair_index_deletes_batch_facts_and_rewinds_cursor(d
     assert fact_id not in [f["id"] for f in live]
     assert await memory_facts.get_cursor(session_id) == 0
 
-
 async def test_rollback_from_pair_index_before_batch_start_is_noop(db_conn):
     session_id = "sess-rollback-2"
     fact_id = await memory_facts.insert({
@@ -184,7 +170,6 @@ async def test_rollback_from_pair_index_before_batch_start_is_noop(db_conn):
     live = await memory_facts.list_live(session_id)
     assert fact_id in [f["id"] for f in live]
     assert await memory_facts.get_cursor(session_id) == 5
-
 
 async def test_rollback_restores_superseded_fact_to_live(db_conn):
     session_id = "sess-rollback-3"
@@ -213,7 +198,6 @@ async def test_rollback_restores_superseded_fact_to_live(db_conn):
     assert restored["valid_until_turn"] is None
     assert restored["superseded_by"] is None
 
-
 async def test_rollback_restores_reinforcement_counters(db_conn):
     session_id = "sess-rollback-reinforce"
     fid = await memory_facts.insert({
@@ -235,7 +219,6 @@ async def test_rollback_restores_reinforcement_counters(db_conn):
     assert after["reinforcements"] == 0
     assert after["last_turn"] == 1
 
-
 async def test_rollback_keeps_reinforcement_from_surviving_batch(db_conn):
     session_id = "sess-rollback-reinforce-2"
     fid = await memory_facts.insert({
@@ -256,7 +239,6 @@ async def test_rollback_keeps_reinforcement_from_surviving_batch(db_conn):
     after = next(f for f in await memory_facts.list_live(session_id) if f["id"] == fid)
     assert after["reinforcements"] == 1
     assert after["last_turn"] == 6
-
 
 async def test_insert_without_location_stores_none(db_conn):
     fid = await memory_facts.insert({

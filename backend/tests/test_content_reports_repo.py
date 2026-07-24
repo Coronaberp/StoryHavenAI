@@ -6,12 +6,10 @@ from backend.repositories import content_reports as content_report_repo
 
 pytestmark = pytest.mark.asyncio
 
-
 @pytest.fixture(autouse=True)
 def _ensure_fernet():
     if db._fernet is None:
         db._fernet = Fernet(Fernet.generate_key())
-
 
 async def test_content_report_create_get_list_resolve(db_conn):
     rep = await content_report_repo.create("character", "some char", "char-1", "", "user-1", "note text")

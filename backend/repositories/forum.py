@@ -1,5 +1,3 @@
-"""Community forum threads — replies are handled by the comments domain
-(target_type="thread"), not stored here."""
 from __future__ import annotations
 import time
 
@@ -12,7 +10,6 @@ from backend.db import (
     nid, _q, _q1, _w, _encrypt_secret, _decrypt_secret,
 )
 from backend.state import log
-
 
 def _shape_thread(r, scores, my_votes, reply_counts) -> dict:
     return {
@@ -29,7 +26,6 @@ def _shape_thread(r, scores, my_votes, reply_counts) -> dict:
         "reply_count": reply_counts.get(r["id"], 0),
     }
 
-
 async def create(author_id: str, title: str, content: str, category: str = "") -> str:
     tid = nid("th")
     await _w(insert(forum_threads).values(
@@ -39,7 +35,6 @@ async def create(author_id: str, title: str, content: str, category: str = "") -
     log.info("forum: thread created id=%s author=%s", tid, author_id)
     return tid
 
-
 async def delete(tid: str):
     async with db._engine.begin() as conn:
         await conn.execute(sa_delete(comments).where(and_(
@@ -47,7 +42,6 @@ async def delete(tid: str):
         await conn.execute(sa_delete(thread_likes).where(thread_likes.c.thread_id == tid))
         await conn.execute(sa_delete(forum_threads).where(forum_threads.c.id == tid))
     log.info("forum: thread deleted id=%s", tid)
-
 
 async def _vote_maps(ids, viewer_id):
     scores, my_votes = {}, {}
@@ -63,7 +57,6 @@ async def _vote_maps(ids, viewer_id):
         my_votes = {r["thread_id"]: r["value"] for r in mv}
     return scores, my_votes
 
-
 async def _reply_counts(ids):
     if not ids:
         return {}
@@ -71,7 +64,6 @@ async def _reply_counts(ids):
                     .where(and_(comments.c.target_type == "thread", comments.c.target_id.in_(ids)))
                     .group_by(comments.c.target_id))
     return {r["target_id"]: r["n"] for r in rows}
-
 
 async def list_all(hidden_ids: set, sort: str = "new", category: str = "",
                    limit: int = 50, offset: int = 0, viewer_id: str | None = None) -> list[dict]:
@@ -93,7 +85,6 @@ async def list_all(hidden_ids: set, sort: str = "new", category: str = "",
         shaped.sort(key=lambda t: (t["pinned"], t["created"]), reverse=True)
     return shaped[offset:offset + limit]
 
-
 async def get(tid: str, viewer_id: str | None = None) -> dict | None:
     j = forum_threads.join(users, users.c.id == forum_threads.c.author_id)
     r = await _q1(select(forum_threads, users.c.username, users.c.display_name, users.c.avatar)
@@ -104,7 +95,6 @@ async def get(tid: str, viewer_id: str | None = None) -> dict | None:
     reply_counts = await _reply_counts([tid])
     return _shape_thread(r, scores, my_votes, reply_counts)
 
-
 async def vote(tid: str, user_id: str, value: int):
     stmt = pg_insert(thread_likes).values(thread_id=tid, user_id=user_id, value=value)
     stmt = stmt.on_conflict_do_update(
@@ -112,7 +102,6 @@ async def vote(tid: str, user_id: str, value: int):
         set_={"value": value})
     await _w(stmt)
     log.info("forum: thread id=%s voted by=%s value=%s", tid, user_id, value)
-
 
 async def unvote(tid: str, user_id: str):
     await _w(sa_delete(thread_likes).where(and_(

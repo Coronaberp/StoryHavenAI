@@ -6,15 +6,12 @@ from backend.repositories import notifications as notification_repo
 
 pytestmark = pytest.mark.asyncio
 
-
 async def _current_status_for(role: str | None) -> dict:
     from backend.routers.feature_flags import _public_status
     return await _public_status(role)
 
-
 def _admin_user() -> dict:
     return {"id": "u1", "username": "claude", "role": "admin"}
-
 
 async def test_public_status_empty_for_dev(db_conn):
     await feature_flags_repo.apply_batch(
@@ -25,7 +22,6 @@ async def test_public_status_empty_for_dev(db_conn):
     await feature_flags_repo.apply_batch(
         keys=["comments"], enabled=True, message=None, eta_minutes=None,
         updated_by="u1", updated_by_name="claude", updated_by_role="admin")
-
 
 async def test_public_status_shows_disabled_features_for_non_dev(db_conn):
     await feature_flags_repo.apply_batch(
@@ -39,11 +35,9 @@ async def test_public_status_shows_disabled_features_for_non_dev(db_conn):
         keys=["forum"], enabled=True, message=None, eta_minutes=None,
         updated_by="u1", updated_by_name="claude", updated_by_role="admin")
 
-
 async def test_public_status_omits_enabled_features(db_conn):
     status = await _current_status_for("user")
     assert "chat" not in status
-
 
 async def test_admin_batch_rejects_unknown_key(db_conn):
     from backend.routers.feature_flags import FeatureFlagsBatchIn, admin_batch_feature_flags
@@ -54,7 +48,6 @@ async def test_admin_batch_rejects_unknown_key(db_conn):
         await admin_batch_feature_flags(body, _admin_user())
     assert exc_info.value.status_code == 400
     assert "not_a_real_feature" in exc_info.value.detail
-
 
 async def test_admin_batch_fires_exactly_one_notification_per_call(db_conn, monkeypatch):
     from backend.routers.feature_flags import FeatureFlagsBatchIn, admin_batch_feature_flags
@@ -74,7 +67,6 @@ async def test_admin_batch_fires_exactly_one_notification_per_call(db_conn, monk
     assert len(calls) == 1
     assert calls[0][3] == "comments,forum"
 
-
 async def test_admin_batch_updates_flag_state(db_conn):
     from backend.routers.feature_flags import FeatureFlagsBatchIn, admin_batch_feature_flags
 
@@ -92,7 +84,6 @@ async def test_admin_batch_updates_flag_state(db_conn):
                                         message=None, eta_minutes=None)
     await admin_batch_feature_flags(restore_body, _admin_user())
 
-
 async def test_admin_list_synthesizes_default_for_untouched_key(db_conn):
     from backend.routers.feature_flags import admin_list_feature_flags
 
@@ -104,7 +95,6 @@ async def test_admin_list_synthesizes_default_for_untouched_key(db_conn):
     assert entry["eta_minutes"] is None
     assert entry["disabled_at"] is None
     assert entry["impact"] == feature_flags.FEATURE_IMPACT_DESCRIPTIONS.get("chat")
-
 
 async def test_admin_list_reflects_toggled_flag_and_impact(db_conn):
     from backend.routers.feature_flags import admin_list_feature_flags

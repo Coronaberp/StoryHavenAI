@@ -6,9 +6,7 @@ import pytest
 from backend import modal_client
 from backend.state import CFG
 
-
 pytestmark = pytest.mark.asyncio
-
 
 class _FakeResponse:
     def __init__(self, status_code=200, text=""):
@@ -21,7 +19,6 @@ class _FakeResponse:
     @property
     def text(self):
         return self._text
-
 
 class _FakePostClient:
     def __init__(self, response):
@@ -38,20 +35,17 @@ class _FakePostClient:
         self.calls.append((url, headers, json))
         return self._response
 
-
 async def test_request_checkpoint_raises_when_url_missing(monkeypatch):
     monkeypatch.setitem(CFG, "modal_checkpoint_url", "")
     monkeypatch.setitem(CFG, "modal_shared_secret", "secret")
     with pytest.raises(modal_client.ModalNotConfigured):
         await modal_client.request_checkpoint("job-1")
 
-
 async def test_request_checkpoint_raises_when_secret_missing(monkeypatch):
     monkeypatch.setitem(CFG, "modal_checkpoint_url", "https://x.modal.run")
     monkeypatch.setitem(CFG, "modal_shared_secret", "")
     with pytest.raises(modal_client.ModalNotConfigured):
         await modal_client.request_checkpoint("job-1")
-
 
 async def test_request_checkpoint_posts_with_bearer_auth(monkeypatch):
     monkeypatch.setitem(CFG, "modal_checkpoint_url", "https://x.modal.run")
@@ -64,7 +58,6 @@ async def test_request_checkpoint_posts_with_bearer_auth(monkeypatch):
     assert headers == {"Authorization": "Bearer secret-value"}
     assert body == {"job_id": "job-1"}
 
-
 async def test_request_checkpoint_raises_on_non_200(monkeypatch):
     monkeypatch.setitem(CFG, "modal_checkpoint_url", "https://x.modal.run")
     monkeypatch.setitem(CFG, "modal_shared_secret", "secret-value")
@@ -73,13 +66,11 @@ async def test_request_checkpoint_raises_on_non_200(monkeypatch):
     with pytest.raises(RuntimeError, match="500"):
         await modal_client.request_checkpoint("job-1")
 
-
 async def test_require_deploy_urls_raises_when_train_url_missing(monkeypatch):
     monkeypatch.setitem(CFG, "modal_train_url", "")
     monkeypatch.setitem(CFG, "modal_shared_secret", "secret")
     with pytest.raises(modal_client.ModalNotConfigured, match="train"):
         modal_client._require_deploy_urls()
-
 
 async def test_require_deploy_urls_raises_when_secret_missing(monkeypatch):
     monkeypatch.setitem(CFG, "modal_train_url", "https://x.modal.run")
@@ -87,14 +78,12 @@ async def test_require_deploy_urls_raises_when_secret_missing(monkeypatch):
     with pytest.raises(modal_client.ModalNotConfigured, match="modal_shared_secret"):
         modal_client._require_deploy_urls()
 
-
 async def test_require_deploy_urls_returns_urls_and_secret_when_set(monkeypatch):
     monkeypatch.setitem(CFG, "modal_train_url", "https://x.modal.run")
     monkeypatch.setitem(CFG, "modal_shared_secret", "secret-value")
     urls, secret = modal_client._require_deploy_urls()
     assert urls == {"train": "https://x.modal.run"}
     assert secret == "secret-value"
-
 
 class _FakeStreamResponse:
     def __init__(self, status_code=200, text_chunks=None, error_text=""):
@@ -115,7 +104,6 @@ class _FakeStreamResponse:
     async def aread(self):
         return self._error_text.encode()
 
-
 class _FakeStreamClient:
     def __init__(self, response):
         self._response = response
@@ -130,7 +118,6 @@ class _FakeStreamClient:
     def stream(self, method, url, headers=None, data=None):
         self.calls.append((method, url, headers, data))
         return self._response
-
 
 async def test_stream_training_job_sends_config_as_json_string(monkeypatch):
     monkeypatch.setitem(CFG, "modal_train_url", "https://x.modal.run")
@@ -147,7 +134,6 @@ async def test_stream_training_job_sends_config_as_json_string(monkeypatch):
     assert headers == {"Authorization": "Bearer secret-value"}
     assert json.loads(data["config"]) == config
 
-
 async def test_stream_training_job_parses_sse_data_events(monkeypatch):
     monkeypatch.setitem(CFG, "modal_train_url", "https://x.modal.run")
     monkeypatch.setitem(CFG, "modal_shared_secret", "secret-value")
@@ -160,7 +146,6 @@ async def test_stream_training_job_parses_sse_data_events(monkeypatch):
     monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: fake_client)
     events = [event async for event in modal_client.stream_training_job({})]
     assert events == [{"phase": "training", "step": 1}, {"phase": "done"}]
-
 
 async def test_stream_training_job_handles_split_chunks(monkeypatch):
     monkeypatch.setitem(CFG, "modal_train_url", "https://x.modal.run")
@@ -176,7 +161,6 @@ async def test_stream_training_job_handles_split_chunks(monkeypatch):
     events = [event async for event in modal_client.stream_training_job({})]
     assert events == [{"phase": "training"}]
 
-
 async def test_stream_training_job_ignores_non_data_lines(monkeypatch):
     monkeypatch.setitem(CFG, "modal_train_url", "https://x.modal.run")
     monkeypatch.setitem(CFG, "modal_shared_secret", "secret-value")
@@ -189,7 +173,6 @@ async def test_stream_training_job_ignores_non_data_lines(monkeypatch):
     events = [event async for event in modal_client.stream_training_job({})]
     assert events == [{"phase": "training"}]
 
-
 async def test_stream_training_job_raises_on_non_200(monkeypatch):
     monkeypatch.setitem(CFG, "modal_train_url", "https://x.modal.run")
     monkeypatch.setitem(CFG, "modal_shared_secret", "secret-value")
@@ -200,12 +183,10 @@ async def test_stream_training_job_raises_on_non_200(monkeypatch):
         async for _ in modal_client.stream_training_job({}):
             pass
 
-
 class _FakeIterEntry:
     def __init__(self, path, size):
         self.path = path
         self.size = size
-
 
 class _FakeBatchUpload:
     def __init__(self, recorder):
@@ -219,7 +200,6 @@ class _FakeBatchUpload:
 
     def put_file(self, local_path, remote_name):
         self._recorder.append((local_path, remote_name))
-
 
 class _FakeVolume:
     def __init__(self, cached_entries):
@@ -244,7 +224,6 @@ class _FakeVolume:
     def batch_upload(self, force=True):
         return _FakeBatchUpload(self.uploaded)
 
-
 async def test_ensure_models_cached_skips_already_cached_matching_size(monkeypatch, tmp_path):
     local_file = tmp_path / "model.safetensors"
     local_file.write_bytes(b"x" * 100)
@@ -253,7 +232,6 @@ async def test_ensure_models_cached_skips_already_cached_matching_size(monkeypat
     await modal_client.ensure_models_cached([("model.safetensors", str(local_file))])
     assert fake_volume.uploaded == []
 
-
 async def test_ensure_models_cached_uploads_when_size_differs(monkeypatch, tmp_path):
     local_file = tmp_path / "model.safetensors"
     local_file.write_bytes(b"x" * 100)
@@ -261,7 +239,6 @@ async def test_ensure_models_cached_uploads_when_size_differs(monkeypatch, tmp_p
     monkeypatch.setattr(modal_client, "_get_volume", lambda: fake_volume)
     await modal_client.ensure_models_cached([("model.safetensors", str(local_file))])
     assert fake_volume.uploaded == [(str(local_file), "model.safetensors")]
-
 
 async def test_ensure_models_cached_uploads_when_not_cached_at_all(monkeypatch, tmp_path):
     local_file = tmp_path / "model.safetensors"

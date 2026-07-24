@@ -4,7 +4,6 @@ from backend.repositories import checkpoints
 
 pytestmark = pytest.mark.asyncio
 
-
 async def test_checkpoint_preview_and_meta(db_conn):
     name = "checkpoint-1.safetensors"
     assert await checkpoints.get_preview(name) is None

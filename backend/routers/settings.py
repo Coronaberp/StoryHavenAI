@@ -1,4 +1,3 @@
-"""Per-user settings, global settings (admin), config, and models routes."""
 from fastapi import HTTPException, Depends
 
 from backend import db
@@ -15,14 +14,10 @@ from backend.schemas import UserSettingsIn, SettingsIn, NsfwAllowedIn, Experimen
 from backend.prompt import DIRECTIVE_COMMANDS
 
 def _scrub_api_key(overrides: dict) -> dict:
-    """api_key is write-only by design — never echo the plaintext value back
-    over the wire, even to the owning user (it's still in the response body/
-    devtools otherwise). Replace it with a has_api_key boolean instead."""
     out = dict(overrides)
     if "api_key" in out:
         out["has_api_key"] = bool(out.pop("api_key"))
     return out
-
 
 @api.get("/me/settings")
 async def get_my_settings(current_user: dict = Depends(get_current_user)):
@@ -30,19 +25,14 @@ async def get_my_settings(current_user: dict = Depends(get_current_user)):
     defaults = _scrub_api_key({k: CFG[k] for k in USER_CFG_KEYS if k in CFG})
     return {"overrides": overrides, "defaults": defaults, "has_override": bool(overrides)}
 
-
 @api.put("/me/settings")
 async def put_my_settings(body: UserSettingsIn,
                           current_user: dict = Depends(get_current_user)):
     data = body.model_dump(exclude_unset=True)
-    # Strip an empty base_url so it doesn't shadow the global one
+
     if "base_url" in data and isinstance(data["base_url"], str) and not data["base_url"].strip():
         del data["base_url"]
-    # Bring-your-own chat endpoint only ever takes effect after it passes the
-    # SSRF guard — a failure doesn't just error, it's logged for admin review.
-    # base_url can be None here (clearing the override, e.g. "use own
-    # endpoint" toggled off) rather than a string to validate — only run the
-    # guard when there's an actual URL being set.
+
     if data.get("base_url"):
         url = data["base_url"].strip()
         key = data.get("api_key") or (await user_repo.get_user_settings(current_user["id"])).get("api_key")
@@ -63,13 +53,11 @@ async def put_my_settings(body: UserSettingsIn,
     overrides = _scrub_api_key(await user_repo.get_user_settings(current_user["id"]))
     return {"overrides": overrides, "has_override": bool(overrides)}
 
-
 @api.delete("/me/settings")
 async def delete_my_settings(current_user: dict = Depends(get_current_user)):
     await user_repo.clear_user_settings(current_user["id"])
     log.info("settings: per-user endpoint override cleared by=%s", current_user["username"])
     return {"cleared": True}
-
 
 @api.put("/me/nsfw")
 async def put_my_nsfw(body: NsfwAllowedIn,
@@ -77,7 +65,6 @@ async def put_my_nsfw(body: NsfwAllowedIn,
     user = await user_repo.set_user_nsfw_allowed(current_user["id"], body.allowed)
     log.info("nsfw preference set: username=%s allowed=%s", current_user["username"], bool(user["nsfw_allowed"]))
     return {"nsfw_allowed": bool(user["nsfw_allowed"])}
-
 
 @api.put("/me/experimental-features")
 async def put_my_experimental_features(body: ExperimentalFeaturesIn,
@@ -87,10 +74,6 @@ async def put_my_experimental_features(body: ExperimentalFeaturesIn,
              current_user["username"], bool(user["experimental_features_enabled"]))
     return {"experimental_features_enabled": bool(user["experimental_features_enabled"])}
 
-
-# ----------------------------------------------------------------------------
-# Global settings (admin only)
-# ----------------------------------------------------------------------------
 @api.get("/config")
 async def config(_: dict = Depends(get_current_user)):
     return {"chat_model": CFG["chat_model"], "embed_model": CFG["embed_model"],
@@ -100,10 +83,8 @@ async def config(_: dict = Depends(get_current_user)):
             "directives": sorted(DIRECTIVE_COMMANDS - {"roll"}),
             "legacy_text_commands_supported": False}
 
-
 def _scrub_model_request_hosts(hosts: list) -> list[dict]:
     return [{"host": h.get("host"), "has_api_key": bool(h.get("api_key"))} for h in hosts]
-
 
 @api.get("/settings")
 async def get_settings(_: dict = Depends(get_current_user)):
@@ -113,16 +94,19 @@ async def get_settings(_: dict = Depends(get_current_user)):
     out["has_embed_api_key"] = bool(CFG.get("embed_api_key"))
     out["has_modal_shared_secret"] = bool(CFG.get("modal_shared_secret"))
     out["has_giphy_api_key"] = bool(CFG.get("giphy_api_key"))
+    out["has_image_provider_key"] = bool(CFG.get("image_provider_key"))
     return out
-
 
 @api.put("/settings")
 async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)):
     data = body.model_dump(exclude_none=True)
+    if "image_provider" in data and data["image_provider"] not in ("comfyui", "openai", "stability", "novelai", "a1111"):
+        raise HTTPException(400, "image_provider must be one of comfyui, openai, stability, novelai, a1111")
     changed_dim = "embed_dim" in data and data["embed_dim"] != CFG["embed_dim"]
     persist = {}
     _str_keys = {"chat_model", "embed_model", "base_url", "api_key", "embed_api_key", "embed_base_url",
-                "modal_train_url", "modal_shared_secret", "modal_checkpoint_url", "giphy_api_key"}
+                "modal_train_url", "modal_shared_secret", "modal_checkpoint_url", "giphy_api_key",
+                "image_provider", "image_provider_url", "image_provider_key", "image_provider_model"}
     if "model_request_hosts" in data:
         existing_by_host = {e.get("host"): e.get("api_key", "")
                             for e in CFG.get("model_request_hosts", [])}
@@ -134,7 +118,7 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
         if isinstance(v, str) and k in _str_keys:
             v = v.strip()
             if not v and k in ("chat_model", "embed_model", "base_url", "embed_base_url"):
-                continue  # never overwrite with empty string — would break the LLM client
+                continue
         if k == "embed_base_url" and isinstance(v, str) and v:
             v = llm._mk_root_embed(v)
         CFG[k] = v
@@ -154,18 +138,15 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
     out["has_api_key"] = bool(CFG.get("api_key"))
     out["has_embed_api_key"] = bool(CFG.get("embed_api_key"))
     out["has_modal_shared_secret"] = bool(CFG.get("modal_shared_secret"))
+    out["has_giphy_api_key"] = bool(CFG.get("giphy_api_key"))
+    out["has_image_provider_key"] = bool(CFG.get("image_provider_key"))
     out["reindexed"] = changed_dim
     return out
-
 
 @api.get("/models")
 async def models(base_url: str | None = None, api_key: str | None = None,
                  current_user: dict = Depends(get_current_user)):
-    # This convenience "test connection" endpoint must carry the same SSRF
-    # guard as PUT /me/settings — otherwise it's a bypass of that guard,
-    # letting any logged-in user probe the internal network via base_url.
-    # Admins are exempt (same as everywhere else this guard runs) since
-    # they're trusted to point at internal infra like llamacpp-chat.
+
     if base_url:
         issue = await _resolve_host_ip_issue(base_url, current_user.get("is_admin", False))
         if issue:

@@ -1,5 +1,3 @@
-"""Comments (with likes/reactions) on characters, profiles, images, and forum
-threads. Admin notes are a distinct concept, split out into admin_notes.py."""
 from __future__ import annotations
 import time
 
@@ -15,7 +13,6 @@ from backend.db import users
 from backend.state import log
 
 _MAX_REACTION_EMOJI_LEN = 8
-
 
 def _shape_comment(r, like_counts, liked_me, reaction_counts=None, my_reactions=None, reaction_supers=None) -> dict:
     return {
@@ -36,7 +33,6 @@ def _shape_comment(r, like_counts, liked_me, reaction_counts=None, my_reactions=
         "replies": [], "reply_count": 0,
     }
 
-
 async def create(target_type: str, target_id: str, author_id: str,
                  parent_id: str | None, content: str, image: str = "",
                  attachment_kind: str = "") -> str:
@@ -51,11 +47,9 @@ async def create(target_type: str, target_id: str, author_id: str,
              cid, author_id, target_type, target_id)
     return cid
 
-
 async def set_explicit(cid: str):
     await _w(sa_update(comments).where(comments.c.id == cid).values(image_is_explicit=1))
     log.info("comments: comment id=%s flagged explicit", cid)
-
 
 async def update(cid: str, content: str) -> float:
     edited_at = time.time()
@@ -64,13 +58,11 @@ async def update(cid: str, content: str) -> float:
     log.info("comments: comment id=%s edited", cid)
     return edited_at
 
-
 async def get(cid: str) -> dict | None:
     r = await _q1(select(comments).where(comments.c.id == cid))
     if r:
         r["content"] = _decrypt_secret(r.get("content") or "")
     return r
-
 
 async def _like_maps(ids, viewer_id):
     like_counts, liked_me = {}, set()
@@ -86,7 +78,6 @@ async def _like_maps(ids, viewer_id):
             comment_likes.c.user_id == viewer_id)))
         liked_me = {r["comment_id"] for r in lm}
     return like_counts, liked_me
-
 
 async def _reaction_maps(ids, viewer_id):
     counts, mine, supers = {}, {}, {}
@@ -107,7 +98,6 @@ async def _reaction_maps(ids, viewer_id):
         for r in mrows:
             mine.setdefault(r["comment_id"], []).append(r["emoji"])
     return counts, mine, supers
-
 
 async def list_for_target(target_type: str, target_id: str,
                           viewer_id: str | None = None, blocked: set | None = None) -> list[dict]:
@@ -145,7 +135,6 @@ async def list_for_target(target_type: str, target_id: str,
     top.reverse()
     return top
 
-
 async def get_view(cid: str, viewer_id: str | None = None) -> dict | None:
     j = comments.join(users, users.c.id == comments.c.author_id)
     r = await _q1(select(comments, users.c.username, users.c.display_name,
@@ -155,7 +144,6 @@ async def get_view(cid: str, viewer_id: str | None = None) -> dict | None:
     like_counts, liked_me = await _like_maps([cid], viewer_id)
     reaction_counts, my_reactions, reaction_supers = await _reaction_maps([cid], viewer_id)
     return _shape_comment(r, like_counts, liked_me, reaction_counts, my_reactions, reaction_supers)
-
 
 async def _descendant_ids(cid: str, target_type: str, target_id: str) -> list[str]:
     rows = await _q(select(comments.c.id, comments.c.parent_id).where(and_(
@@ -170,7 +158,6 @@ async def _descendant_ids(cid: str, target_type: str, target_id: str) -> list[st
         stack.extend(children.get(x, []))
     return out
 
-
 async def delete(cid: str):
     c = await _q1(select(comments).where(comments.c.id == cid))
     if not c:
@@ -183,7 +170,6 @@ async def delete(cid: str):
         await conn.execute(sa_delete(comments).where(comments.c.id.in_(ids)))
     log.info("comments: comment id=%s deleted with %d descendant(s)", cid, len(ids) - 1)
 
-
 async def like(cid: str, user_id: str):
     async with db._engine.begin() as conn:
         exists = (await conn.execute(select(comment_likes).where(and_(
@@ -194,17 +180,14 @@ async def like(cid: str, user_id: str):
                 comment_id=cid, user_id=user_id))
     log.info("comments: comment id=%s liked by=%s", cid, user_id)
 
-
 async def unlike(cid: str, user_id: str):
     await _w(sa_delete(comment_likes).where(and_(
         comment_likes.c.comment_id == cid, comment_likes.c.user_id == user_id)))
     log.info("comments: comment id=%s unliked by=%s", cid, user_id)
 
-
 async def like_count(cid: str) -> int:
     return await _scalar(select(func.count()).select_from(comment_likes)
                          .where(comment_likes.c.comment_id == cid)) or 0
-
 
 async def react(cid: str, user_id: str, emoji: str, is_super: bool = False):
     emoji = (emoji or "").strip()[:_MAX_REACTION_EMOJI_LEN]
@@ -218,13 +201,11 @@ async def react(cid: str, user_id: str, emoji: str, is_super: bool = False):
     await _w(stmt)
     log.info("comments: comment id=%s reacted by=%s emoji=%s super=%s", cid, user_id, emoji, is_super)
 
-
 async def unreact(cid: str, user_id: str, emoji: str):
     await _w(sa_delete(comment_reactions).where(and_(
         comment_reactions.c.comment_id == cid, comment_reactions.c.user_id == user_id,
         comment_reactions.c.emoji == emoji)))
     log.info("comments: comment id=%s unreacted by=%s emoji=%s", cid, user_id, emoji)
-
 
 async def delete_by_author_on_owner(author_id: str, owner_id: str,
                                     owner_username: str) -> int:

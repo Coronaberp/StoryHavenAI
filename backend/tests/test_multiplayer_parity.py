@@ -10,11 +10,9 @@ pytestmark = pytest.mark.asyncio
 
 _EMBED_DIM = int(os.environ.get("EMBED_DIM", "768"))
 
-
 @pytest.fixture(autouse=True)
 def _ensure_memory_facts_table():
     memory_facts.build_tables(_EMBED_DIM)
-
 
 @pytest.fixture(autouse=True)
 def _stub_memory_extraction(monkeypatch):
@@ -22,20 +20,17 @@ def _stub_memory_extraction(monkeypatch):
         return None
     monkeypatch.setattr(memory_service, "maybe_extract", _noop_maybe_extract)
 
-
 @pytest.fixture(autouse=True)
 def _stub_embed(monkeypatch):
     async def _no_embed(*args, **kwargs):
         raise RuntimeError("embed endpoint unreachable in tests")
     monkeypatch.setattr(chat_service.llm, "embed", _no_embed)
 
-
 async def test_solo_session_ownership_unaffected_by_multiplayer_code(db_conn):
     sid = await chat_sessions.create("char-1", None, "Solo", "You", user_id="owner-1")
     session = await chat_service._own_session(sid, {"id": "owner-1"})
     assert session["id"] == sid
     assert await sp.list_for_session(sid) == []
-
 
 async def test_solo_memory_extraction_shape_unaffected(db_conn):
     batch = [
@@ -46,7 +41,6 @@ async def test_solo_memory_extraction_shape_unaffected(db_conn):
     assert transcript == "You: I look around.\nNarrator: Dust hangs in still air."
     participants = present_participants("Narrator", ["You"], [], transcript)
     assert participants == ["You", "Narrator"]
-
 
 async def test_run_tags_each_user_message_with_speaker_name_for_llm(db_conn, monkeypatch):
     captured = {}
@@ -67,7 +61,6 @@ async def test_run_tags_each_user_message_with_speaker_name_for_llm(db_conn, mon
     await chat_service._active_gen[sid].task
     user_contents = [m["content"] for m in captured["messages"] if m["role"] == "user"]
     assert any(c.startswith("[Tanaki] ") for c in user_contents)
-
 
 async def test_run_bans_voicing_other_players_persona_in_system_prompt(db_conn, monkeypatch):
     captured = {}
@@ -90,7 +83,6 @@ async def test_run_bans_voicing_other_players_persona_in_system_prompt(db_conn, 
     system_content = captured["messages"][0]["content"]
     assert "Other real players in this scene control: Tanaki Honezuki" in system_content
     assert "never write their dialogue" in system_content.lower()
-
 
 async def test_run_solo_session_does_not_tag_speaker_name(db_conn, monkeypatch):
     captured = {}

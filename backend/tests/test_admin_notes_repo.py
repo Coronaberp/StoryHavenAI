@@ -9,12 +9,10 @@ pytestmark = pytest.mark.asyncio
 CLAUDE_ID = "u016863391b2a"
 TEST_ID = "ucb203e5d3fe9"
 
-
 @pytest_asyncio.fixture(autouse=True)
 async def _ensure_fernet():
     if db._fernet is None:
         await db.init()
-
 
 async def test_admin_note_create_list_delete(db_conn):
     note = await admin_note_repo.create(TEST_ID, CLAUDE_ID, "flagged for review")

@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 AVATAR_ALLOWED_PREFIXES = ("/media/", "http://", "https://", "data:image/")
 AVATAR_UNSAFE_CHARACTERS = re.compile(r"[\"'<>`\\\s\x00-\x1f]")
 
-
 def validate_avatar_reference(value: str) -> str:
     if not value:
         return value
@@ -15,7 +14,6 @@ def validate_avatar_reference(value: str) -> str:
     if AVATAR_UNSAFE_CHARACTERS.search(value):
         raise ValueError("avatar contains characters that are not allowed in a URL")
     return value
-
 
 class CharacterIn(BaseModel):
     name: str = "Unnamed"
@@ -54,14 +52,11 @@ class CharacterIn(BaseModel):
                 f"characters or fewer (currently {combined})")
         return self
 
-
 class GenerateCharacterIn(BaseModel):
     description: str = ""
 
-
 class ExpandPersonaIn(BaseModel):
     text: str = ""
-
 
 class PersonaIn(BaseModel):
     name: str = "You"
@@ -77,7 +72,6 @@ class PersonaIn(BaseModel):
     @classmethod
     def check_avatar(cls, value: str) -> str:
         return validate_avatar_reference(value)
-
 
 class LoreIn(BaseModel):
     content: str
@@ -95,33 +89,26 @@ class LoreIn(BaseModel):
     appearance_tags_negative: str = ""
     model_config = {"populate_by_name": True}
 
-
 class LoreChunkPreviewIn(BaseModel):
     content: str = ""
 
-
 class LorePersonaToggleIn(BaseModel):
     value: bool
-
 
 class LoreLinkIn(BaseModel):
     target_id: str
     label: str = Field("", max_length=60)
 
-
 class LoreLinksIn(BaseModel):
     links: list[LoreLinkIn] = []
 
-
 class SessionLoreOverrideIn(BaseModel):
     content: str | None = None
-
 
 class SessionIn(BaseModel):
     persona_id: str | None = None
     greeting_index: int = 0
     language: str | None = None
-
 
 class ChatIn(BaseModel):
     content: str = ""
@@ -129,27 +116,22 @@ class ChatIn(BaseModel):
     directive: Literal["ooc", "scene", "note", "time", "as"] | None = None
     directive_arg: str | None = None
 
-
 class RollIn(BaseModel):
     expr: str = "1d20"
     think: bool | None = None
     note: str = ""
 
-
 class ModelRequestHostIn(BaseModel):
     host: str
     api_key: str = ""
-
 
 class OauthProviderConfigIn(BaseModel):
     client_id: str = ""
     client_secret: str | None = None
     enabled: bool = False
 
-
 class OauthProvidersPutIn(BaseModel):
     providers: dict[str, OauthProviderConfigIn]
-
 
 class SettingsIn(BaseModel):
     base_url: str | None = None
@@ -196,6 +178,10 @@ class SettingsIn(BaseModel):
     comfyui_url: str | None = None
     comfyui_checkpoint: str | None = None
     comfyui_workflow: str | None = None
+    image_provider: str | None = None
+    image_provider_url: str | None = None
+    image_provider_key: str | None = None
+    image_provider_model: str | None = None
     model_request_hosts: list[ModelRequestHostIn] | None = None
     embed_link_hosts: list[str] | None = None
     modal_train_url: str | None = None
@@ -207,7 +193,6 @@ class SettingsIn(BaseModel):
     wan_unet_name: str | None = None
     wan_clip_name: str | None = None
     wan_vae_name: str | None = None
-
 
 class UserSettingsIn(BaseModel):
     base_url: str | None = None
@@ -246,36 +231,27 @@ class UserSettingsIn(BaseModel):
     post_history: str | None = None
     interface_language: str | None = None
 
-
-
 class StyleIn(BaseModel):
     key: str = "unspecified"
     prompt: str | None = None
 
-
 class LengthIn(BaseModel):
     key: str = "epic"
-
 
 class ExplicitModeIn(BaseModel):
     enabled: bool
 
-
 class LanguageIn(BaseModel):
     language: str | None = None
-
 
 class PersonaSwitchIn(BaseModel):
     persona_id: str | None = None
 
-
 class AuthorNoteIn(BaseModel):
     note: str | None = None
 
-
 class GlossaryIn(BaseModel):
     glossary: dict[str, str] = {}
-
 
 class ProfileIn(BaseModel):
     display_name: str | None = None
@@ -290,29 +266,23 @@ class ProfileIn(BaseModel):
     card_html: str | None = None
     title: str | None = None
 
-
 class UiTranslateIn(BaseModel):
     lang: str
     strings: dict[str, str]
 
-
 class ResyncUiTranslationsIn(BaseModel):
     strings: dict[str, str]
-
 
 class LocalizeIn(BaseModel):
     texts: list[str]
     lang: str | None = None
 
-
 class MessageEdit(BaseModel):
     content: str = ""
-
 
 class LoraSpec(BaseModel):
     name: str
     strength: float = 0.8
-
 
 class ImageGenIn(BaseModel):
     checkpoint: str | None = None
@@ -329,10 +299,8 @@ class ImageGenIn(BaseModel):
     steps: int = 20
     cfg: float = 7.0
 
-
 class ImagePromptFromDescriptionIn(BaseModel):
     description: str
-
 
 class ImageGenStandaloneIn(BaseModel):
     positive: str = ""
@@ -349,11 +317,9 @@ class ImageGenStandaloneIn(BaseModel):
     cfg: float = 7.0
     architecture: str = "sdxl"
 
-
 class ImageGenUpscaleIn(BaseModel):
     image: str
     upscaler: str | None = None
-
 
 class ImageGenSaveIn(BaseModel):
     image: str
@@ -369,7 +335,6 @@ class ImageGenSaveIn(BaseModel):
     upscaler: str = ""
     source_image_id: str | None = None
 
-
 class ImageGenInpaintIn(BaseModel):
     image: str
     mask: str
@@ -383,10 +348,10 @@ class ImageGenInpaintIn(BaseModel):
     cfg: float = 7.0
     architecture: str = "sdxl"
 
-
 class ImageGenVideoIn(BaseModel):
     positive: str = ""
     negative: str = ""
+    image: str | None = None
     unet_name: str | None = None
     clip_name: str | None = None
     vae_name: str | None = None
@@ -397,20 +362,16 @@ class ImageGenVideoIn(BaseModel):
     steps: int = 20
     cfg: float = 6.0
 
-
 class ImageShareIn(BaseModel):
     is_explicit: bool = False
-
 
 class ImageRatingReportIn(BaseModel):
     claimed_explicit: bool
     note: str | None = None
 
-
 class ImageReportResolveIn(BaseModel):
     is_explicit: bool
     admin_note: str | None = None
-
 
 class ContentReportIn(BaseModel):
     kind: str
@@ -419,14 +380,11 @@ class ContentReportIn(BaseModel):
     image: str | None = None
     note: str | None = None
 
-
 class ContentReportResolveIn(BaseModel):
     is_explicit: bool
 
-
 class LoraPublishIn(BaseModel):
     published: bool
-
 
 class ModelRequestIn(BaseModel):
     model_name: str
@@ -435,7 +393,6 @@ class ModelRequestIn(BaseModel):
     request_type: str = "checkpoint"
     vae_url: str | None = None
     text_encoder_url: str | None = None
-
 
 class LoraTrainingJobIn(BaseModel):
     name: str
@@ -450,21 +407,17 @@ class LoraTrainingJobIn(BaseModel):
     noise_offset: float = 0.0
     network_dropout: float = 0.0
 
-
 class RenameIn(BaseModel):
     title: str
-
 
 class EmojiUpdateIn(BaseModel):
     shortcode: str | None = None
     kind: str | None = None
 
-
 class LoginIn(BaseModel):
     username: str = Field(min_length=1, max_length=32)
     password: str = Field(min_length=1, max_length=128)
     totp_code: str | None = Field(default=None, min_length=6, max_length=10)
-
 
 class WebauthnRegisterVerifyIn(BaseModel):
     challenge_id: str = Field(min_length=1, max_length=64)
@@ -472,15 +425,12 @@ class WebauthnRegisterVerifyIn(BaseModel):
     nickname: str | None = Field(default=None, max_length=60)
     transports: list[str] | None = None
 
-
 class WebauthnLoginVerifyIn(BaseModel):
     challenge_id: str = Field(min_length=1, max_length=64)
     credential: dict
 
-
 class PasskeyRequiredIn(BaseModel):
     value: bool
-
 
 class RegisterIn(BaseModel):
     username: str = Field(min_length=1, max_length=32)
@@ -490,95 +440,75 @@ class RegisterIn(BaseModel):
     invite_code: str | None = Field(default=None, min_length=1, max_length=64)
     guest: bool = False
 
-
 class InviteCodeIn(BaseModel):
     max_uses: int = Field(default=1, ge=1, le=100)
     expires_days: float | None = Field(default=None, gt=0, le=365)
     note: str | None = Field(default=None, max_length=120)
     tier: Literal["full", "guest"] = "full"
 
-
 class UserTierIn(BaseModel):
     tier: Literal["full", "guest"]
-
 
 class TotpProvisionIn(BaseModel):
     username: str = Field(min_length=1, max_length=32)
 
-
 class TotpEnableIn(BaseModel):
     code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
-
 
 class TotpDisableIn(BaseModel):
     password: str = Field(min_length=1, max_length=128)
     code: str = Field(min_length=6, max_length=10)
-
 
 class TotpPasswordResetIn(BaseModel):
     username: str = Field(min_length=1, max_length=32)
     code: str = Field(min_length=6, max_length=10)
     new_password: str = Field(min_length=8, max_length=128)
 
-
 class TotpLoginEnforcementIn(BaseModel):
     required: bool
     code: str = Field(min_length=6, max_length=10)
-
 
 class UserCreateIn(BaseModel):
     username: str = Field(min_length=1, max_length=32)
     password: str = Field(min_length=1, max_length=128)
     is_admin: bool = False
 
-
 class PasswordChangeIn(BaseModel):
     old_password: str = Field(min_length=1, max_length=128)
     new_password: str = Field(min_length=8, max_length=128)
 
-
 class PasswordResetRequestIn(BaseModel):
     username: str = Field(min_length=1, max_length=32)
-
 
 class NsfwAllowedIn(BaseModel):
     allowed: bool
 
-
 class ExperimentalFeaturesIn(BaseModel):
     enabled: bool
-
 
 class MultiplayerJoinIn(BaseModel):
     token: str
     persona_id: str | None = None
 
-
 class MultiplayerAcceptIn(BaseModel):
     persona_id: str | None = None
-
 
 class PartyChatIn(BaseModel):
     content: str = ""
     image: str | None = None
     attachment_kind: str | None = None
 
-
 class SuspendUserIn(BaseModel):
     reason: str | None = None
-
 
 class DevRoleIn(BaseModel):
     is_dev: bool
 
-
 class AdminNoteIn(BaseModel):
     note: str
 
-
 class IdentityLabelIn(BaseModel):
     label: str | None = None
-
 
 class ModelMetaIn(BaseModel):
     display_name: str | None = None
@@ -590,7 +520,6 @@ class ModelMetaIn(BaseModel):
     anima_vae_name: str | None = None
     keywords: list[str] | None = None
 
-
 class CommentIn(BaseModel):
     target_type: str
     target_id: str
@@ -599,38 +528,30 @@ class CommentIn(BaseModel):
     image: str = ""
     attachment_kind: str = ""
 
-
 class CommentEditIn(BaseModel):
     content: str
-
 
 class CommentReactIn(BaseModel):
     emoji: str
     super: bool = False
 
-
 class GiphySendIn(BaseModel):
     id: str
-
 
 class ForumThreadIn(BaseModel):
     title: str
     content: str
     category: str = ""
 
-
 class ForumVoteIn(BaseModel):
     value: int
-
 
 class CustomEmojiIn(BaseModel):
     shortcode: str
     kind: str = "emoji"
 
-
 class BlockIn(BaseModel):
     reason: str = ""
-
 
 class GroupCreateIn(BaseModel):
     name: str = "Group"
@@ -638,17 +559,14 @@ class GroupCreateIn(BaseModel):
     char_ids: list[str] = []
     mode: str = "roleplay"
 
-
 class GroupPublishIn(BaseModel):
     session_id: str
-
 
 class GroupEditIn(BaseModel):
     name: str = "Group"
     opening: str = ""
     char_ids: list[str] = []
     mode: str = "roleplay"
-
 
 class MuteIn(BaseModel):
     muted: bool = True

@@ -10,7 +10,6 @@ from backend.db import (
 )
 from backend.state import log
 
-
 async def create_job(user_id: str, name: str, trigger_word: str, base_checkpoint: str,
                       resolution: int, rank: int, alpha: int, learning_rate: float,
                       steps: int, batch_size: int, image_count: int,
@@ -26,11 +25,9 @@ async def create_job(user_id: str, name: str, trigger_word: str, base_checkpoint
     log.info(f"lora training job created id={jid} user={user_id} name={name!r}")
     return await get_job(jid)
 
-
 async def get_job(jid: str) -> dict | None:
     row = await _q1(select(lora_training_jobs).where(lora_training_jobs.c.id == jid))
     return _decode_lora_job_metrics(row) if row else row
-
 
 async def append_metric(jid: str, metric: dict):
     row = await _q1(select(lora_training_jobs.c.metrics).where(lora_training_jobs.c.id == jid))
@@ -46,7 +43,6 @@ async def append_metric(jid: str, metric: dict):
     history = history[-500:]
     await _w(update(lora_training_jobs).where(lora_training_jobs.c.id == jid).values(metrics=json.dumps(history)))
 
-
 async def fail_stuck_jobs() -> int:
     now = time.time()
     async with db._engine.begin() as conn:
@@ -58,7 +54,6 @@ async def fail_stuck_jobs() -> int:
         log.warning(f"lora training marked stuck jobs failed count={result.rowcount}")
     return result.rowcount
 
-
 async def list_jobs(user_id: str | None = None) -> list[dict]:
     stmt = select(lora_training_jobs)
     if user_id:
@@ -67,7 +62,6 @@ async def list_jobs(user_id: str | None = None) -> list[dict]:
     rows = await _q(stmt)
     return [_decode_lora_job_metrics(r) for r in rows]
 
-
 async def update_job(jid: str, **fields):
     if "status" in fields and fields["status"] in ("done", "failed"):
         fields.setdefault("resolved", time.time())
@@ -75,11 +69,9 @@ async def update_job(jid: str, **fields):
     if "status" in fields:
         log.info(f"lora training job status change id={jid} status={fields['status']}")
 
-
 async def delete_job(jid: str):
     await _w(delete(lora_training_jobs).where(lora_training_jobs.c.id == jid))
     log.info(f"lora training job deleted id={jid}")
-
 
 async def create_checkpoint(job_id: str, filename: str) -> dict:
     cid = nid("ltc")
@@ -88,14 +80,12 @@ async def create_checkpoint(job_id: str, filename: str) -> dict:
     log.info(f"lora checkpoint created id={cid} job_id={job_id}")
     return values
 
-
 async def list_checkpoints(job_id: str | None = None) -> list[dict]:
     stmt = select(lora_checkpoints)
     if job_id:
         stmt = stmt.where(lora_checkpoints.c.job_id == job_id)
     stmt = stmt.order_by(lora_checkpoints.c.created.desc())
     return await _q(stmt)
-
 
 async def delete_checkpoint(cid: str) -> dict | None:
     row = await _q1(select(lora_checkpoints).where(lora_checkpoints.c.id == cid))

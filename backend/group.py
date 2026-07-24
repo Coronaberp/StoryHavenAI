@@ -2,7 +2,6 @@ import re
 
 _QUOTE_RE = re.compile(r'["“”]([^"“”]+)["“”]')
 
-
 def split_speech(raw: str) -> tuple[str, str]:
     text = (raw or "").strip()
     dialogue = " ".join(m.group(1).strip() for m in _QUOTE_RE.finditer(text)).strip()
@@ -12,10 +11,8 @@ def split_speech(raw: str) -> tuple[str, str]:
         action += "."
     return dialogue, action
 
-
 _NAME_TITLES = {"the", "a", "an", "de", "la", "le", "von", "van", "dr", "mr", "mrs", "ms", "sir", "lady", "lord", "miss"}
 _TOKEN_SPLIT_RE = re.compile(r"[\s\-–—_,./]+")
-
 
 def _name_variants(name: str) -> list[str]:
     name = (name or "").strip()
@@ -36,7 +33,6 @@ def _name_variants(name: str) -> list[str]:
             ordered.append(variant)
     return ordered
 
-
 def _find_mention(text: str, needle: str):
     if not needle:
         return None
@@ -45,7 +41,6 @@ def _find_mention(text: str, needle: str):
     else:
         match = re.search(r"\b" + re.escape(needle) + r"\b", text, re.IGNORECASE)
     return match.start() if match else None
-
 
 def mentioned_speakers(text: str, cast: list[dict]) -> list[dict]:
     low = text or ""

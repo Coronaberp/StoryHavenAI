@@ -8,10 +8,8 @@ from backend.auth import totp_provision, _TOTP_PROVISIONS, register
 from backend.schemas import RegisterIn, TotpProvisionIn
 from backend.repositories import users as user_repo
 
-
 def _fake_request(ip="127.0.0.1"):
     return types.SimpleNamespace(client=types.SimpleNamespace(host=ip))
-
 
 def test_register_in_totp_fields_are_optional():
     body_without = RegisterIn(username="kael", password="s3cret-pw")
@@ -22,16 +20,13 @@ def test_register_in_totp_fields_are_optional():
         totp_secret="JBSWY3DPEHPK3PXP", totp_code="123456")
     assert body_with_totp.totp_code == "123456"
 
-
 def test_register_in_rejects_malformed_totp_code():
     with pytest.raises(ValueError):
         RegisterIn(username="kael", password="s3cret-pw", totp_code="12a456")
 
-
 def test_totp_provision_in_requires_username():
     body = TotpProvisionIn(username="kael")
     assert body.username == "kael"
-
 
 @pytest.mark.asyncio
 async def test_totp_provision_returns_secret_and_uri():
@@ -40,7 +35,6 @@ async def test_totp_provision_returns_secret_and_uri():
     assert len(result["secret"]) >= 16
     assert result["otpauth_uri"].startswith("otpauth://totp/")
     assert pyotp.TOTP(result["secret"]).verify(pyotp.TOTP(result["secret"]).now())
-
 
 @pytest.mark.asyncio
 async def test_totp_provision_is_rate_limited_per_ip():
@@ -52,7 +46,6 @@ async def test_totp_provision_is_rate_limited_per_ip():
         await totp_provision(TotpProvisionIn(username="kael"), _fake_request(ip))
     assert excinfo.value.status_code == 429
 
-
 @pytest.mark.asyncio
 async def test_register_with_malformed_totp_secret_returns_400(db_conn):
     body = RegisterIn(username="onboard_test_malformed", password="s3cret-password",
@@ -61,7 +54,6 @@ async def test_register_with_malformed_totp_secret_returns_400(db_conn):
         await register(body, _fake_request("10.0.1.4"))
     assert excinfo.value.status_code == 400
     assert await user_repo.get_user_by_username("onboard_test_malformed") is None
-
 
 @pytest.mark.asyncio
 async def test_register_totp_attempts_are_rate_limited_per_ip_and_username(db_conn):
@@ -86,7 +78,6 @@ async def test_register_totp_attempts_are_rate_limited_per_ip_and_username(db_co
     assert excinfo.value.status_code == 429
     assert await user_repo.get_user_by_username("onboard_test_throttle") is None
 
-
 @pytest.mark.asyncio
 async def test_register_with_valid_totp_binds_and_returns_backup_codes(db_conn):
     secret = pyotp.random_base32()
@@ -100,7 +91,6 @@ async def test_register_with_valid_totp_binds_and_returns_backup_codes(db_conn):
     assert user["status"] == "pending"
     assert user["totp_enabled"]
 
-
 @pytest.mark.asyncio
 async def test_register_with_invalid_totp_code_creates_no_user(db_conn):
     secret = pyotp.random_base32()
@@ -111,7 +101,6 @@ async def test_register_with_invalid_totp_code_creates_no_user(db_conn):
     assert excinfo.value.status_code == 400
     assert await user_repo.get_user_by_username("onboard_test_bad") is None
 
-
 @pytest.mark.asyncio
 async def test_register_without_totp_creates_pending_user_without_totp(db_conn):
     from backend.repositories import users as user_repo
@@ -121,7 +110,6 @@ async def test_register_without_totp_creates_pending_user_without_totp(db_conn):
     user = await user_repo.get_user_by_username("onboard_test_skip")
     assert user["status"] == "pending"
     assert not user["totp_enabled"] and not user["totp_login_required"]
-
 
 @pytest.mark.asyncio
 async def test_register_with_valid_invite_code_is_active(db_conn):
@@ -136,7 +124,6 @@ async def test_register_with_valid_invite_code_is_active(db_conn):
     refreshed = await invite_code_repo.get(code["id"])
     assert refreshed["uses"] == 1
 
-
 @pytest.mark.asyncio
 async def test_register_with_bad_invite_code_400(db_conn):
     body = RegisterIn(username="onboard_test_badcode", password="s3cret-password",
@@ -145,7 +132,6 @@ async def test_register_with_bad_invite_code_400(db_conn):
         await register(body, _fake_request("10.9.9.3"))
     assert exc_info.value.status_code == 400
     assert await user_repo.get_user_by_username("onboard_test_badcode") is None
-
 
 @pytest.mark.asyncio
 async def test_invite_code_exhaustion_and_disable(db_conn):

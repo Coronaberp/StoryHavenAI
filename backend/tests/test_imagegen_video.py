@@ -7,11 +7,9 @@ from backend import imagegen
 
 pytestmark = pytest.mark.asyncio
 
-
 async def _fake_ws_iter(messages):
     for m in messages:
         yield m
-
 
 @patch("backend.imagegen.httpx.AsyncClient")
 @patch("backend.imagegen.websockets.connect")
@@ -50,7 +48,6 @@ async def test_generate_video_stream_text_to_video_yields_done(mock_ws_connect, 
         results.append((kind, data))
 
     assert ("done", b"MP4DATA") in results
-
 
 @patch("backend.imagegen.httpx.AsyncClient")
 @patch("backend.imagegen.websockets.connect")
@@ -95,14 +92,9 @@ async def test_generate_video_stream_reports_progress(mock_ws_connect, mock_clie
     assert status_msgs == ["sampling 1/20", "sampling 2/20"]
     assert ("done", b"MP4DATA2") in results
 
-
 @patch("backend.imagegen.httpx.AsyncClient")
 @patch("backend.imagegen.websockets.connect")
 async def test_generate_video_stream_finds_output_under_images_key(mock_ws_connect, mock_client_cls):
-    """SaveVideo's UI output reuses the "images" key from the existing
-    gallery convention rather than a video-specific key — a real run once
-    finished sampling successfully but was reported as "produced no video
-    output" because only "videos"/"gifs" were checked."""
     prompt_resp = MagicMock()
     prompt_resp.status_code = 200
     prompt_resp.json.return_value = {"prompt_id": "pid-vid3"}
@@ -137,7 +129,6 @@ async def test_generate_video_stream_finds_output_under_images_key(mock_ws_conne
         results.append((kind, data))
 
     assert ("done", b"MP4DATA3") in results
-
 
 @patch("backend.imagegen.httpx.AsyncClient")
 @patch("backend.imagegen.websockets.connect")

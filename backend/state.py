@@ -1,5 +1,3 @@
-"""Shared application state: config, logging, and the router objects that every
-route module decorates. Imported one-way by all other modules — never imports them."""
 import os
 import json
 import time
@@ -19,35 +17,21 @@ logging.basicConfig(level=logging.INFO,
 log = logging.getLogger("storyhavenai")
 log.setLevel(logging.INFO)
 
-
-
 def _sanitize_exc(e: Exception, *secrets: str | None) -> str:
-    """Stringifies an exception for logging with any known-sensitive values
-    (a user's bring-your-own base_url/api_key, which httpx errors often embed
-    verbatim, e.g. "Connection refused: http://host:port/v1/...") replaced by
-    a placeholder — keeps the actually-useful diagnostic detail (status code,
-    timeout, connection-refused, JSON-decode error, etc.) that an admin needs
-    to root-cause a failed generation, without leaking a user's private
-    endpoint into the server logs."""
     msg = f"{type(e).__name__}: {e}"
     for s in secrets:
         if s:
             msg = msg.replace(s, "[redacted]")
     return msg
 
-
 class _RingBufferHandler(logging.Handler):
-    """In-memory tail of the app's own log events, backed by a JSONL file so the
-    admin Logs panel survives server restarts (the buffer used to be memory-only,
-    which meant every restart wiped it). Same privacy rule as before: only what
-    the app explicitly logs — never raw request lines, chat content, or keys."""
     PERSIST = os.environ.get("LOG_BUFFER_PATH", "./storyhavenai.logs.jsonl")
     MAX_AGE_SECONDS = 24 * 3600
 
     def __init__(self, capacity=2000):
         super().__init__()
         self.buffer = collections.deque(maxlen=capacity)
-        try:  # reload the tail from the previous run(s)
+        try:
             with open(self.PERSIST, encoding="utf-8") as f:
                 for line in f.readlines()[-capacity:]:
                     try:
@@ -73,11 +57,7 @@ class _RingBufferHandler(logging.Handler):
         }
         self.buffer.append(entry)
         line = json.dumps(entry, ensure_ascii=False) + "\n"
-        # emit() is called synchronously by the logging framework, often from inside
-        # async request handlers — doing the file append inline would block the single
-        # event loop on disk I/O on every log call. When a loop is running, hand the
-        # append off to the default thread pool (fire-and-forget); otherwise (startup,
-        # non-async contexts) write inline.
+
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -95,7 +75,6 @@ class _RingBufferHandler(logging.Handler):
             pass
 
     def compact(self):
-        """Rewrite the persist file down to the in-memory tail (called at startup)."""
         try:
             with open(self.PERSIST, "w", encoding="utf-8") as f:
                 for e in self.buffer:
@@ -103,17 +82,10 @@ class _RingBufferHandler(logging.Handler):
         except OSError:
             pass
 
-
 _log_buffer = _RingBufferHandler()
 _log_buffer.compact()
 log.addHandler(_log_buffer)
 
-
-# ----------------------------------------------------------------------------
-# Config
-# ----------------------------------------------------------------------------
-# Required: db.py + vectors.py run against PostgreSQL + pgvector. db.init()
-# fails fast at startup if this is unset.
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 MEDIA_DIR  = os.environ.get("MEDIA_DIR", "./media")
 STATIC_DIR = os.environ.get("STATIC_DIR", "./static")
@@ -134,6 +106,7 @@ CFG = {
     "max_tokens":     int(os.environ.get("GEN_MAX_TOKENS", "4096")),
     "enable_thinking": os.environ.get("ENABLE_THINKING", "true").lower() in ("1", "true", "yes", "on"),
     "memory_v2": os.environ.get("MEMORY_V2", "false").lower() in ("1", "true", "yes", "on"),
+    "nsfw_classification": os.environ.get("NSFW_CLASSIFICATION", "true").lower() in ("1", "true", "yes", "on"),
     "memory_v2_budget_tokens": int(os.environ.get("MEMORY_V2_BUDGET_TOKENS", "1000")),
     "webauthn_rp_id": os.environ.get("WEBAUTHN_RP_ID", ""),
     "webauthn_origin": os.environ.get("WEBAUTHN_ORIGIN", ""),
@@ -149,102 +122,54 @@ CFG = {
     "xtc_threshold": 0.1, "xtc_probability": 0.0,
     "seed": -1, "stop": [], "extra_params": {},
     "system_suffix": "", "post_history": "",
-    # Instance-wide default display/generation language (what users read and what
-    # the model writes in when they haven't picked their own interface language).
+
     "default_language": os.environ.get("DEFAULT_LANGUAGE", "English"),
     "comfyui_url":        os.environ.get("COMFYUI_URL", "http://comfyui:8188"),
     "comfyui_checkpoint": os.environ.get("COMFYUI_CHECKPOINT", "v1-5-pruned-emaonly.safetensors"),
     "comfyui_workflow":   os.environ.get("COMFYUI_WORKFLOW", ""),
-    # Hosts a user-submitted "request a new model" source URL is allowed to
-    # point at (checked server-side, never auto-fetched — see routers/sessions.py
-    # _match_model_request_host). Admin-editable via PUT /api/settings so new
-    # hosts can be allow-listed without a code change.
+
+    "image_provider":       os.environ.get("IMAGE_PROVIDER", "comfyui"),
+    "image_provider_url":   os.environ.get("IMAGE_PROVIDER_URL", ""),
+    "image_provider_key":   os.environ.get("IMAGE_PROVIDER_KEY", ""),
+    "image_provider_model": os.environ.get("IMAGE_PROVIDER_MODEL", ""),
+
     "model_request_hosts": [
         {"host": "huggingface.co", "api_key": ""},
         {"host": "civitai.red", "api_key": ""},
     ],
-    # Hosts a comment/thread link is allowed to auto-embed as an inline
-    # image/gif preview (Discord-style), purely client-side — the server
-    # never fetches these URLs itself, the viewer's own browser does, same
-    # as any plain <img src>. Admin-editable via PUT /api/settings.
+
     "embed_link_hosts": [
         "tenor.com", "media.tenor.com", "giphy.com", "media.giphy.com",
         "media.discordapp.net", "cdn.discordapp.com", "imgur.com", "i.imgur.com",
     ],
-    # Modal (modal.com) GPU-backed LoRA training. modal_train_url is the single
-    # streaming web endpoint URL printed by `modal deploy modal_app/lora_train.py`
-    # (one open POST request carries the whole training run: progress, loss,
-    # preview images, and the finished LoRA, over one connection — no separate
-    # submit/poll/download round trips). modal_shared_secret is this app's own
-    # bearer token on top of that endpoint (set as the Modal Secret
-    # "lora-train-secret" value at deploy time — Modal web endpoints are
-    # otherwise public). Trained .safetensors files are written directly into
-    # ComfyUI's loras volume, bind-mounted read-write into this container at
-    # LORA_OUTPUT_DIR.
+
     "modal_train_url": os.environ.get("MODAL_LORA_TRAIN_URL", ""),
     "modal_shared_secret": os.environ.get("MODAL_LORA_SHARED_SECRET", ""),
-    # Second, lightweight (no-GPU) Modal endpoint from the same deploy —
-    # signals the in-progress `train` run to save+stream an extra checkpoint
-    # right now instead of waiting for the next scheduled one. See
-    # request_checkpoint in modal_app/lora_train.py and POST
-    # /admin/lora-training/jobs/{jid}/checkpoint.
+
     "modal_checkpoint_url": os.environ.get("MODAL_LORA_CHECKPOINT_URL", ""),
-    # Two more lightweight (no-GPU) endpoints from the same deploy, used to
-    # upload a base checkpoint to Modal's model-cache Volume once instead of
-    # re-uploading a multi-GB file on every training job — see
-    # backend/modal_client.py's ensure_model_cached and modal_app/lora_train.py's
-    # check_model_cached/upload_model.
+
     "modal_check_cached_url": os.environ.get("MODAL_LORA_CHECK_CACHED_URL", ""),
     "modal_upload_model_url": os.environ.get("MODAL_LORA_UPLOAD_MODEL_URL", ""),
-    # Streams a finished LoRA/checkpoint back as raw bytes after training —
-    # see modal_client.download_output and modal_app/lora_train.py's
-    # download_output/_publish_output.
+
     "modal_download_output_url": os.environ.get("MODAL_LORA_DOWNLOAD_OUTPUT_URL", ""),
-    # Server-side key for Giphy's search API (comments' GIF picker) — search
-    # requests are proxied through the backend so this key never reaches the
-    # browser; the GIF a user actually picks is then downloaded and re-hosted
-    # under /media/ like any other comment attachment (see routers/comments.py).
+
     "giphy_api_key": os.environ.get("GIPHY_API_KEY", ""),
-    # Pins which installed UNETLoader/CLIPLoader/VAELoader file Wan2.1 video
-    # generation uses. Left blank, /imagegen/video only auto-picks a file when
-    # ComfyUI reports exactly one Wan-capable candidate — with any other
-    # UNETLoader-loaded architecture installed alongside it (e.g. Anima), the
-    # unfiltered ComfyUI option list mixes them together and blind index-0
-    # selection silently loads the wrong file, producing incompatible tensor
-    # shapes at sample time instead of a clear error.
+
     "wan_unet_name": os.environ.get("WAN_UNET_NAME", ""),
     "wan_clip_name": os.environ.get("WAN_CLIP_NAME", ""),
     "wan_vae_name": os.environ.get("WAN_VAE_NAME", ""),
 }
 
-# ComfyUI's whole models volume, bind-mounted read-write into this container
-# (see ~/.sillytavern/compose.yaml's story-game volumes) so trained LoRAs can
-# be written straight into it and existing checkpoints can be read as a base
-# model for training. Files written here land owned by host UID 1000 by
-# default (this container's root maps to host UID 1000) — lora_training.py
-# chowns them to container-UID 1000 (== host UID 525287, the rootless-podman
-# remap ComfyUI's own files are already owned by) right after writing, same
-# fix the model_requests curl flow applies manually.
-# Absolute, not relative to STATIC_DIR/MEDIA_DIR's cwd convention — this volume
-# is mounted at the container root (a sibling of /app/ai-frontend), not inside
-# the ai-frontend bind mount itself (see ~/.sillytavern/compose.yaml).
 COMFYUI_MODELS_DIR = os.environ.get("COMFYUI_MODELS_DIR", "/app/comfyui_models")
 LORA_OUTPUT_DIR = os.path.join(COMFYUI_MODELS_DIR, "loras")
 CHECKPOINTS_DIR = os.path.join(COMFYUI_MODELS_DIR, "checkpoints")
 UPSCALE_MODELS_DIR = os.path.join(COMFYUI_MODELS_DIR, "upscale_models")
-# Anima's base model is a UNet-only file (no CheckpointLoaderSimple bundle) —
-# see imagegen.py's ANIMA_CLIP_NAME/ANIMA_VAE_NAME comment — so training it
-# needs these two extra directories the plain SDXL/Illustrious path doesn't.
+
 DIFFUSION_MODELS_DIR = os.path.join(COMFYUI_MODELS_DIR, "diffusion_models")
 TEXT_ENCODERS_DIR = os.path.join(COMFYUI_MODELS_DIR, "text_encoders")
 VAE_DIR = os.path.join(COMFYUI_MODELS_DIR, "vae")
 COMFYUI_OWNER_UID = int(os.environ.get("COMFYUI_OWNER_UID", "1000"))
 
-# Dedicated vision endpoint for automatic NSFW image classification. This is
-# intentionally NOT the general chat endpoint (which an admin may point at a
-# text-only cloud API like DeepSeek via Settings): classification needs the
-# local vision-capable Gemma served by llamacpp-chat, so it uses the env
-# defaults directly and is never overlaid from the settings table.
 VISION_CLASSIFY = {
     "base_url": os.environ.get("VISION_BASE_URL",
                                os.environ.get("LLM_BASE_URL", "http://llamacpp-chat:5001/v1")),
@@ -253,11 +178,11 @@ VISION_CLASSIFY = {
                                os.environ.get("CHAT_MODEL", "Gemma-4-E4B-Uncensored-HauhauCS-Aggressive")),
 }
 
-# Keys safe to expose/edit over the global settings API
 PUBLIC_CFG_KEYS = [
     "base_url", "embed_base_url", "chat_model", "embed_model", "embed_dim",
     "history_turns", "temperature", "top_p", "max_tokens", "enable_thinking",
     "memory_v2", "memory_v2_budget_tokens",
+    "nsfw_classification",
     "webauthn_rp_id", "webauthn_origin",
     "gpu_temp_limit", "gpu_temp_resume",
     "top_k", "min_p", "top_a", "typical_p", "tfs",
@@ -269,18 +194,14 @@ PUBLIC_CFG_KEYS = [
     "xtc_threshold", "xtc_probability", "seed", "stop", "extra_params",
     "system_suffix", "post_history", "default_language",
     "comfyui_url", "comfyui_checkpoint", "comfyui_workflow",
+    "image_provider", "image_provider_url", "image_provider_model",
     "model_request_hosts", "embed_link_hosts",
     "modal_train_url", "modal_checkpoint_url", "modal_check_cached_url", "modal_upload_model_url",
     "modal_download_output_url",
     "wan_unet_name", "wan_clip_name", "wan_vae_name",
-    # modal_shared_secret, giphy_api_key deliberately excluded — write-only,
-    # same treatment as api_key (see _scrub_api_key in routers/settings.py)
+
 ]
 
-# Keys that a regular user can override per-session (NOT embed_dim, embed_model,
-# embed_base_url, embed_api_key — embeddings always use the shared global endpoint;
-# only the chat endpoint is user-bring-your-own, and even that goes through
-# _validate_chat_endpoint before it's ever actually used, see PUT /me/settings)
 USER_CFG_KEYS = [
     "base_url", "api_key", "chat_model",
     "history_turns", "enable_thinking", "scene_style", "temperature", "top_p", "max_tokens",
@@ -297,25 +218,19 @@ USER_CFG_KEYS = [
 os.makedirs(MEDIA_DIR, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
 
-
 def apply_llm_config():
     llm.configure(CFG["base_url"], CFG["api_key"],
                   embed_url=CFG.get("embed_base_url") or None,
                   embed_key=CFG.get("embed_api_key") or None)
 
-
-# Auth cookie
 COOKIE_NAME = "persona_session"
-COOKIE_MAX_AGE = 60 * 60 * 24 * 30  # 30 days
+COOKIE_MAX_AGE = 60 * 60 * 24 * 30
 
-# Uploads
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
 ACCESS_COOKIE_NAME = "sh_access"
 REFRESH_COOKIE_NAME = "sh_refresh"
 
-# Routers — auth_router is public, api requires authentication. Route modules
-# import and decorate these; server.py includes them in section order.
 auth_router = APIRouter(prefix="/api/auth")
 api = APIRouter(prefix="/api")

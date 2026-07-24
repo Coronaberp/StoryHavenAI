@@ -12,7 +12,6 @@ PRIORITY_AGING_SECONDS = 60
 
 TIER_PRIORITIES = {"dev": 0, "admin": 1, "full": 2, "guest": 3}
 
-
 def priority_for(user: dict) -> int:
     if user.get("role") == "dev":
         return TIER_PRIORITIES["dev"]
@@ -22,7 +21,6 @@ def priority_for(user: dict) -> int:
         return TIER_PRIORITIES["guest"]
     return TIER_PRIORITIES["full"]
 
-
 def read_gpu_temp() -> int | None:
     try:
         if time.time() - TEMP_FILE.stat().st_mtime > TEMP_STALE_SECONDS:
@@ -30,7 +28,6 @@ def read_gpu_temp() -> int | None:
         return int(TEMP_FILE.read_text().strip())
     except (OSError, ValueError):
         return None
-
 
 class GpuQueue:
     def __init__(self):
@@ -108,6 +105,5 @@ class GpuQueue:
         cooling, temp = self._cooling, read_gpu_temp()
         return {"queued": sum(1 for _, _, _, fut in self._waiters if not fut.done()),
                 "busy": self._busy, "gpu_temp": temp, "cooling": cooling}
-
 
 gpu_queue = GpuQueue()

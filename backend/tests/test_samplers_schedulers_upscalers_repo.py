@@ -4,7 +4,6 @@ from backend.repositories import samplers, schedulers, upscalers
 
 pytestmark = pytest.mark.asyncio
 
-
 async def test_sampler_scheduler_upscaler_preview_and_meta(db_conn):
     for repo, name in ((samplers, "test-sampler-xyz"), (schedulers, "test-scheduler-xyz"),
                        (upscalers, "test-upscaler-xyz")):

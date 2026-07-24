@@ -1,5 +1,3 @@
-"""Admin moderation: user-submitted content reports, plus user title requests
-(kept here since both are reviewed from the same moderation queue)."""
 from __future__ import annotations
 import time
 
@@ -7,7 +5,6 @@ from sqlalchemy import select, insert, update as sa_update
 
 from backend.db import content_reports, users, nid, _q, _q1, _w, _encrypt_secret, _decrypt_secret
 from backend.state import log
-
 
 async def create(kind: str, label: str, target_id: str, image: str,
                   reporter_id: str, note: str = "") -> dict:
@@ -19,7 +16,6 @@ async def create(kind: str, label: str, target_id: str, image: str,
     log.info("content_reports: created id=%s kind=%s reporter=%s", rid, kind, reporter_id)
     return {"id": rid, "kind": kind, "label": label, "target_id": target_id or "", "image": image or "",
             "reporter_id": reporter_id, "note": note or "", "status": "pending", "created": created}
-
 
 async def list(pending_only: bool = True) -> list[dict]:
     j = content_reports.join(users, users.c.id == content_reports.c.reporter_id, isouter=True)
@@ -33,7 +29,6 @@ async def list(pending_only: bool = True) -> list[dict]:
         r["note"] = _decrypt_secret(r.get("note") or "")
     return rows
 
-
 async def get_pending_for(reporter_id: str, kind: str, target_id: str) -> dict | None:
     row = await _q1(select(content_reports).where(
         content_reports.c.reporter_id == reporter_id,
@@ -44,19 +39,16 @@ async def get_pending_for(reporter_id: str, kind: str, target_id: str) -> dict |
         row["note"] = _decrypt_secret(row.get("note") or "")
     return row
 
-
 async def get(rid: str) -> dict | None:
     row = await _q1(select(content_reports).where(content_reports.c.id == rid))
     if row:
         row["note"] = _decrypt_secret(row.get("note") or "")
     return row
 
-
 async def resolve(rid: str):
     await _w(sa_update(content_reports).where(content_reports.c.id == rid)
              .values(status="resolved", resolved_at=time.time()))
     log.info("content_reports: id=%s resolved", rid)
-
 
 async def list_title_requests() -> list[dict]:
     stmt = (select(users.c.id, users.c.username, users.c.display_name,
@@ -67,7 +59,6 @@ async def list_title_requests() -> list[dict]:
     for r in rows:
         r["display_name"] = _decrypt_secret(r.get("display_name") or "")
     return rows
-
 
 async def set_title_status(uid: str, status: str):
     await _w(sa_update(users).where(users.c.id == uid).values(title_status=status))

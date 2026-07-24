@@ -1,7 +1,3 @@
-"""Model-metadata administration: read-only ComfyUI option listings plus
-admin-curated preview images/descriptions for checkpoints, LoRAs, samplers,
-schedulers, and upscalers. Distinct from imagegen.py, which actually drives
-ComfyUI generation."""
 import os
 import time
 import hashlib
@@ -10,87 +6,64 @@ from fastapi import HTTPException, Depends, UploadFile, File
 
 from backend.repositories import checkpoints, loras, samplers, schedulers, upscalers
 from backend import imagegen
+from backend.routers.imagegen import _require_comfyui_backend
 from backend.state import (api, CFG, IMG_EXTS, log, CHECKPOINTS_DIR, LORA_OUTPUT_DIR,
                            UPSCALE_MODELS_DIR, MEDIA_DIR, MAX_UPLOAD_BYTES)
 from backend.auth import get_current_user, get_current_user_optional, get_admin
 from backend.media import _delete_media_file, _save_uploaded_image, _write_file
 from backend.schemas import ModelMetaIn, LoraPublishIn
 
-
 @api.get("/imagegen/checkpoints")
 async def get_imagegen_checkpoints(current_user: dict = Depends(get_current_user)):
+    _require_comfyui_backend()
     try:
         return await imagegen.list_checkpoints(CFG["comfyui_url"])
     except Exception as e:
         raise HTTPException(502, f"Could not reach ComfyUI: {e}")
 
-
 @api.get("/imagegen/anima-unets")
 async def get_imagegen_anima_unets(current_user: dict = Depends(get_current_user)):
-    """Anima is a second, unrelated architecture (see imagegen.ANIMA_WORKFLOW) —
-    its models live in ComfyUI's UNETLoader list, not CheckpointLoaderSimple's,
-    so they need their own listing endpoint rather than being merged into
-    /imagegen/checkpoints and silently sent through the wrong graph."""
+    _require_comfyui_backend()
     try:
         return await imagegen.list_anima_unets(CFG["comfyui_url"])
     except Exception as e:
         raise HTTPException(502, f"Could not reach ComfyUI: {e}")
 
-
 @api.get("/imagegen/wan-unets")
 async def get_imagegen_wan_unets(current_user: dict = Depends(get_current_user)):
-    """Same raw UNETLoader listing Anima's picker uses — Wan and Anima both
-    load through UNETLoader, so this is not filtered to Wan specifically.
-    Used to populate the wan_unet_name pin in Settings (see CFG's comment on
-    why blind index-0 selection at generation time is unsafe once more than
-    one UNETLoader-visible file is installed)."""
     try:
         return await imagegen.list_wan_unets(CFG["comfyui_url"])
     except Exception as e:
         raise HTTPException(502, f"Could not reach ComfyUI: {e}")
 
-
 @api.get("/imagegen/wan-clip-models")
 async def get_imagegen_wan_clip_models(current_user: dict = Depends(get_current_user)):
-    """Same raw CLIPLoader listing as /imagegen/clip-models — used to
-    populate the wan_clip_name pin in Settings."""
     try:
         return await imagegen.list_wan_clip_models(CFG["comfyui_url"])
     except Exception as e:
         raise HTTPException(502, f"Could not reach ComfyUI: {e}")
 
-
 @api.get("/imagegen/clip-models")
 async def get_imagegen_clip_models(current_user: dict = Depends(get_current_user)):
-    """CLIP text-encoder files ComfyUI can see — used to populate the
-    per-checkpoint Anima CLIP override picker in the admin meta editor."""
     try:
         return await imagegen.list_clip_models(CFG["comfyui_url"])
     except Exception as e:
         raise HTTPException(502, f"Could not reach ComfyUI: {e}")
 
-
 @api.get("/imagegen/vaes")
 async def get_imagegen_vaes(current_user: dict = Depends(get_current_user)):
-    """VAE files ComfyUI can see — used to populate the per-checkpoint Anima
-    VAE override picker in the admin meta editor."""
+    _require_comfyui_backend()
     try:
         return await imagegen.list_vaes(CFG["comfyui_url"])
     except Exception as e:
         raise HTTPException(502, f"Could not reach ComfyUI: {e}")
 
-
 @api.get("/imagegen/checkpoint-previews")
 async def get_checkpoint_previews(current_user: dict | None = Depends(get_current_user_optional)):
-    """{checkpoint_name: {image, display_name, description}} — admin-curated
-    metadata used by the Images page model grid in place of the raw filename
-    and the letter-avatar fallback."""
     return await checkpoints.list_previews()
-
 
 def _preview_basename(prefix: str, name: str) -> str:
     return f"{prefix}_" + hashlib.sha1(name.encode("utf-8")).hexdigest()[:16]
-
 
 async def _set_preview_image(name: str, file: UploadFile, prefix: str,
                              get_old, set_new) -> str:
@@ -108,19 +81,12 @@ async def _set_preview_image(name: str, file: UploadFile, prefix: str,
     await set_new(name, url)
     return url
 
-
-# The /meta routes must be registered before the {name:path} upload/delete
-# routes below — {name:path} is greedy and would otherwise swallow the
-# "/meta" suffix as part of the checkpoint name, since Starlette matches
-# route patterns in registration order.
 MODEL_CATEGORIES = ("flux_v2", "anima", "sdxl", "il", "pony")
-
 
 @api.put("/admin/checkpoint-previews/{name:path}/meta")
 async def set_checkpoint_meta_route(name: str, body: ModelMetaIn,
                                     current_user: dict = Depends(get_admin)):
-    # model_category is LoRA-only now (see set_lora_meta_route below) —
-    # checkpoints classify architecture via the free-text Type field only.
+
     await checkpoints.set_meta(name, body.display_name, body.description, body.model_type,
                                    body.default_steps, body.anima_clip_name, body.anima_vae_name)
     log.info("admin: checkpoint meta set by=%s checkpoint=%s", current_user["username"], name)
@@ -128,16 +94,9 @@ async def set_checkpoint_meta_route(name: str, body: ModelMetaIn,
             "description": body.description, "model_type": body.model_type,
             "anima_clip_name": body.anima_clip_name, "anima_vae_name": body.anima_vae_name}
 
-
 @api.put("/admin/checkpoint-previews/{name:path}/video")
 async def set_checkpoint_preview_video(name: str, file: UploadFile = File(...),
                                        current_user: dict = Depends(get_admin)):
-    """Vidgen (Wan) preview thumbnails are the actual generated .mp4, not a
-    still frame — the card grid renders <video autoplay loop muted> for these
-    instead of <img>. Bypasses _set_preview_image/_save_uploaded_image (image
-    validation/optimization) since the file is already a valid mp4 straight
-    from our own /imagegen/video pipeline, not arbitrary user upload. Must be
-    registered before the greedy {name:path} PUT below, same reason as /meta."""
     if (file.content_type or "") not in ("video/mp4", "video/webm"):
         raise HTTPException(400, "Preview must be an mp4 or webm video")
     data = await file.read()
@@ -155,7 +114,6 @@ async def set_checkpoint_preview_video(name: str, file: UploadFile = File(...),
     log.info("admin: checkpoint video preview set by=%s checkpoint=%s", current_user["username"], name)
     return {"checkpoint_name": name, "image": url}
 
-
 @api.put("/admin/checkpoint-previews/{name:path}")
 async def set_checkpoint_preview(name: str, file: UploadFile = File(...),
                                  current_user: dict = Depends(get_admin)):
@@ -163,7 +121,6 @@ async def set_checkpoint_preview(name: str, file: UploadFile = File(...),
                                    checkpoints.get_preview, checkpoints.set_preview)
     log.info("admin: checkpoint preview set by=%s checkpoint=%s", current_user["username"], name)
     return {"checkpoint_name": name, "image": url}
-
 
 @api.delete("/admin/checkpoint-previews/{name:path}")
 async def clear_checkpoint_preview(name: str, current_user: dict = Depends(get_admin)):
@@ -174,36 +131,29 @@ async def clear_checkpoint_preview(name: str, current_user: dict = Depends(get_a
     log.info("admin: checkpoint preview cleared by=%s checkpoint=%s", current_user["username"], name)
     return {"cleared": True}
 
-
 @api.get("/imagegen/loras")
 async def get_imagegen_loras(current_user: dict = Depends(get_current_user)):
+    _require_comfyui_backend()
     try:
         names = await imagegen.list_loras(CFG["comfyui_url"])
     except Exception as e:
         raise HTTPException(502, f"Could not reach ComfyUI: {e}")
     if current_user.get("is_admin"):
         return names
-    # LoRAs this app itself trained stay hidden from regular users until an
-    # admin explicitly publishes them (see loras.gate_visibility) — a name
-    # with no row in lora_visibility (every pre-existing LoRA) is unaffected.
+
     hidden = await loras.list_unpublished_names()
     return [n for n in names if n not in hidden]
 
-
 @api.get("/imagegen/samplers")
 async def get_imagegen_samplers(current_user: dict = Depends(get_current_user)):
+    _require_comfyui_backend()
     try:
         return await imagegen.list_samplers(CFG["comfyui_url"])
     except Exception as e:
         raise HTTPException(502, f"Could not reach ComfyUI: {e}")
 
-
 @api.get("/imagegen/lora-previews")
 async def get_lora_previews(current_user: dict = Depends(get_current_user)):
-    """{lora_name: {image, display_name, description}} — same shape and purpose
-    as /imagegen/checkpoint-previews, for LoRAs. Admins additionally get an
-    is_published bool on gated (self-trained, unpublished) entries so the
-    Model previews panel can show the Publish action."""
     out = await loras.list_previews()
     if not current_user.get("is_admin"):
         hidden = await loras.list_unpublished_names()
@@ -212,7 +162,6 @@ async def get_lora_previews(current_user: dict = Depends(get_current_user)):
     for name, is_published in visibility.items():
         out.setdefault(name, {})["is_published"] = is_published
     return out
-
 
 @api.put("/admin/lora-previews/{name:path}/meta")
 async def set_lora_meta_route(name: str, body: ModelMetaIn,
@@ -224,7 +173,6 @@ async def set_lora_meta_route(name: str, body: ModelMetaIn,
     return {"lora_name": name, "display_name": body.display_name, "description": body.description,
             "model_category": body.model_category, "keywords": body.keywords}
 
-
 @api.put("/admin/lora-previews/{name:path}/publish")
 async def publish_lora_route(name: str, body: LoraPublishIn, current_user: dict = Depends(get_admin)):
     if not await loras.get_visibility(name):
@@ -234,7 +182,6 @@ async def publish_lora_route(name: str, body: LoraPublishIn, current_user: dict 
              current_user["username"], name)
     return {"lora_name": name, "is_published": body.published}
 
-
 @api.put("/admin/lora-previews/{name:path}")
 async def set_lora_preview(name: str, file: UploadFile = File(...),
                            current_user: dict = Depends(get_admin)):
@@ -242,7 +189,6 @@ async def set_lora_preview(name: str, file: UploadFile = File(...),
                                    loras.get_preview, loras.set_preview)
     log.info("admin: lora preview set by=%s lora=%s", current_user["username"], name)
     return {"lora_name": name, "image": url}
-
 
 @api.delete("/admin/lora-previews/{name:path}")
 async def clear_lora_preview(name: str, current_user: dict = Depends(get_admin)):
@@ -253,16 +199,10 @@ async def clear_lora_preview(name: str, current_user: dict = Depends(get_admin))
     log.info("admin: lora preview cleared by=%s lora=%s", current_user["username"], name)
     return {"cleared": True}
 
-
 _DELETABLE_MODEL_DIRS = {"ckpt": CHECKPOINTS_DIR, "lora": LORA_OUTPUT_DIR, "upsc": UPSCALE_MODELS_DIR}
-
 
 @api.delete("/admin/models/{kind}/{name:path}")
 async def delete_model_file(kind: str, name: str, current_user: dict = Depends(get_admin)):
-    """Permanently deletes the actual model file from ComfyUI's models volume
-    — irreversible, unlike clear_*_preview above which only removes the admin-
-    curated preview image/metadata. Also cleans up any preview/visibility rows
-    for the deleted name so the admin UI doesn't keep a dangling entry."""
     base_dir = _DELETABLE_MODEL_DIRS.get(kind)
     if not base_dir:
         raise HTTPException(400, f"deleting {kind} files isn't supported")
@@ -280,13 +220,9 @@ async def delete_model_file(kind: str, name: str, current_user: dict = Depends(g
     log.info("admin: deleted %s file by=%s name=%s", kind, current_user["username"], name)
     return {"deleted": True}
 
-
 @api.get("/imagegen/sampler-previews")
 async def get_sampler_previews(current_user: dict = Depends(get_current_user)):
-    """{sampler_name: {image, display_name, description}} — same shape and purpose
-    as /imagegen/checkpoint-previews, for KSampler samplers."""
     return await samplers.list_previews()
-
 
 @api.put("/admin/sampler-previews/{name:path}/meta")
 async def set_sampler_meta_route(name: str, body: ModelMetaIn,
@@ -295,7 +231,6 @@ async def set_sampler_meta_route(name: str, body: ModelMetaIn,
     log.info("admin: sampler meta set by=%s sampler=%s", current_user["username"], name)
     return {"sampler_name": name, "display_name": body.display_name, "description": body.description}
 
-
 @api.put("/admin/sampler-previews/{name:path}")
 async def set_sampler_preview(name: str, file: UploadFile = File(...),
                               current_user: dict = Depends(get_admin)):
@@ -303,7 +238,6 @@ async def set_sampler_preview(name: str, file: UploadFile = File(...),
                                    samplers.get_preview, samplers.set_preview)
     log.info("admin: sampler preview set by=%s sampler=%s", current_user["username"], name)
     return {"sampler_name": name, "image": url}
-
 
 @api.delete("/admin/sampler-previews/{name:path}")
 async def clear_sampler_preview(name: str, current_user: dict = Depends(get_admin)):
@@ -314,13 +248,9 @@ async def clear_sampler_preview(name: str, current_user: dict = Depends(get_admi
     log.info("admin: sampler preview cleared by=%s sampler=%s", current_user["username"], name)
     return {"cleared": True}
 
-
 @api.get("/imagegen/scheduler-previews")
 async def get_scheduler_previews(current_user: dict = Depends(get_current_user)):
-    """{scheduler_name: {image, display_name, description}} — same shape and purpose
-    as /imagegen/checkpoint-previews, for KSampler schedulers."""
     return await schedulers.list_previews()
-
 
 @api.put("/admin/scheduler-previews/{name:path}/meta")
 async def set_scheduler_meta_route(name: str, body: ModelMetaIn,
@@ -329,7 +259,6 @@ async def set_scheduler_meta_route(name: str, body: ModelMetaIn,
     log.info("admin: scheduler meta set by=%s scheduler=%s", current_user["username"], name)
     return {"scheduler_name": name, "display_name": body.display_name, "description": body.description}
 
-
 @api.put("/admin/scheduler-previews/{name:path}")
 async def set_scheduler_preview(name: str, file: UploadFile = File(...),
                                 current_user: dict = Depends(get_admin)):
@@ -337,7 +266,6 @@ async def set_scheduler_preview(name: str, file: UploadFile = File(...),
                                    schedulers.get_preview, schedulers.set_preview)
     log.info("admin: scheduler preview set by=%s scheduler=%s", current_user["username"], name)
     return {"scheduler_name": name, "image": url}
-
 
 @api.delete("/admin/scheduler-previews/{name:path}")
 async def clear_scheduler_preview(name: str, current_user: dict = Depends(get_admin)):
@@ -348,21 +276,17 @@ async def clear_scheduler_preview(name: str, current_user: dict = Depends(get_ad
     log.info("admin: scheduler preview cleared by=%s scheduler=%s", current_user["username"], name)
     return {"cleared": True}
 
-
 @api.get("/imagegen/upscalers")
 async def get_imagegen_upscalers(current_user: dict = Depends(get_current_user)):
+    _require_comfyui_backend()
     try:
         return await imagegen.list_upscalers(CFG["comfyui_url"])
     except Exception as e:
         raise HTTPException(502, f"Could not reach ComfyUI: {e}")
 
-
 @api.get("/imagegen/upscaler-previews")
 async def get_upscaler_previews(current_user: dict = Depends(get_current_user)):
-    """{upscaler_name: {image, display_name, description}} — same shape and
-    purpose as /imagegen/checkpoint-previews, for upscale models."""
     return await upscalers.list_previews()
-
 
 @api.put("/admin/upscaler-previews/{name:path}/meta")
 async def set_upscaler_meta_route(name: str, body: ModelMetaIn,
@@ -371,7 +295,6 @@ async def set_upscaler_meta_route(name: str, body: ModelMetaIn,
     log.info("admin: upscaler meta set by=%s upscaler=%s", current_user["username"], name)
     return {"upscaler_name": name, "display_name": body.display_name, "description": body.description}
 
-
 @api.put("/admin/upscaler-previews/{name:path}")
 async def set_upscaler_preview(name: str, file: UploadFile = File(...),
                                current_user: dict = Depends(get_admin)):
@@ -379,7 +302,6 @@ async def set_upscaler_preview(name: str, file: UploadFile = File(...),
                                    upscalers.get_preview, upscalers.set_preview)
     log.info("admin: upscaler preview set by=%s upscaler=%s", current_user["username"], name)
     return {"upscaler_name": name, "image": url}
-
 
 @api.delete("/admin/upscaler-previews/{name:path}")
 async def clear_upscaler_preview(name: str, current_user: dict = Depends(get_admin)):

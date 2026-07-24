@@ -7,14 +7,12 @@ from backend.schemas import ImageGenSaveIn
 
 pytestmark = pytest.mark.asyncio
 
-
 def _tiny_png_b64():
     import io
     from PIL import Image
     buf = io.BytesIO()
     Image.new("RGB", (4, 4), (255, 0, 0)).save(buf, format="PNG")
     return base64.b64encode(buf.getvalue()).decode()
-
 
 async def test_inpaint_save_creates_variant_without_source_id(db_conn):
     user = {"id": "user-a", "username": "user-a", "is_admin": False}

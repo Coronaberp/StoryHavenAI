@@ -6,14 +6,11 @@ import pytest
 from backend import modal_provision
 from backend.state import CFG
 
-
 pytestmark = pytest.mark.asyncio
-
 
 class _FakeResponse:
     def __init__(self, status_code):
         self.status_code = status_code
-
 
 class _FakePostClient:
     def __init__(self, response=None, raise_exc=None):
@@ -33,25 +30,21 @@ class _FakePostClient:
             raise self._raise_exc
         return self._response
 
-
 @pytest.mark.parametrize("status_code", [200, 400, 401])
 async def test_is_alive_true_for_expected_status_codes(monkeypatch, status_code):
     fake_client = _FakePostClient(response=_FakeResponse(status_code))
     monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: fake_client)
     assert await modal_provision._is_alive("https://x.modal.run", "secret") is True
 
-
 async def test_is_alive_false_for_404_stopped_app(monkeypatch):
     fake_client = _FakePostClient(response=_FakeResponse(404))
     monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: fake_client)
     assert await modal_provision._is_alive("https://x.modal.run", "secret") is False
 
-
 async def test_is_alive_false_on_transport_error(monkeypatch):
     fake_client = _FakePostClient(raise_exc=httpx.ConnectError("refused"))
     monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: fake_client)
     assert await modal_provision._is_alive("https://x.modal.run", "secret") is False
-
 
 async def test_is_alive_sends_bearer_auth_and_empty_job_id(monkeypatch):
     fake_client = _FakePostClient(response=_FakeResponse(200))
@@ -62,7 +55,6 @@ async def test_is_alive_sends_bearer_auth_and_empty_job_id(monkeypatch):
     assert headers == {"Authorization": "Bearer secret-value"}
     assert body == {"job_id": ""}
 
-
 def _set_all_cached(monkeypatch, checkpoint_url="https://x-request-checkpoint.modal.run"):
     monkeypatch.setitem(CFG, "modal_train_url", "https://x-train.modal.run")
     monkeypatch.setitem(CFG, "modal_checkpoint_url", checkpoint_url)
@@ -70,7 +62,6 @@ def _set_all_cached(monkeypatch, checkpoint_url="https://x-request-checkpoint.mo
     monkeypatch.setitem(CFG, "modal_upload_model_url", "https://x-upload-model.modal.run")
     monkeypatch.setitem(CFG, "modal_download_output_url", "https://x-download-output.modal.run")
     monkeypatch.setitem(CFG, "modal_shared_secret", "secret-value")
-
 
 async def test_ensure_deployed_skips_deploy_when_cached_and_alive(monkeypatch):
     _set_all_cached(monkeypatch)
@@ -81,7 +72,6 @@ async def test_ensure_deployed_skips_deploy_when_cached_and_alive(monkeypatch):
         raise AssertionError("should not deploy when cached and alive")
     monkeypatch.setattr(asyncio, "create_subprocess_exec", fail_exec)
     await modal_provision.ensure_deployed()
-
 
 async def test_ensure_deployed_raises_when_tokens_missing(monkeypatch):
     monkeypatch.delitem(CFG, "modal_train_url", raising=False)
@@ -95,7 +85,6 @@ async def test_ensure_deployed_raises_when_tokens_missing(monkeypatch):
     monkeypatch.delenv("MODAL_TOKEN_SECRET", raising=False)
     with pytest.raises(modal_provision.ModalProvisionError, match="MODAL_TOKEN_ID"):
         await modal_provision.ensure_deployed()
-
 
 async def test_ensure_deployed_redeploys_when_not_alive(monkeypatch):
     _set_all_cached(monkeypatch, checkpoint_url="https://x-request-checkpoint.modal.run")
@@ -140,7 +129,7 @@ async def test_ensure_deployed_redeploys_when_not_alive(monkeypatch):
     fake_set_settings.called_with = None
 
     monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
-    monkeypatch.setattr(modal_provision.settings_repo, "set_settings", fake_set_settings)
+    monkeypatch.setattr(modal_provision.db, "set_settings", fake_set_settings)
 
     await modal_provision.ensure_deployed()
 
@@ -150,7 +139,6 @@ async def test_ensure_deployed_redeploys_when_not_alive(monkeypatch):
     assert CFG["modal_upload_model_url"] == "https://newapp-upload-model.modal.run"
     assert CFG["modal_download_output_url"] == "https://newapp-download-output.modal.run"
     assert fake_set_settings.called_with["modal_train_url"] == "https://newapp-train.modal.run"
-
 
 async def test_ensure_deployed_raises_when_deploy_command_fails(monkeypatch):
     _set_all_cached(monkeypatch)
@@ -184,7 +172,6 @@ async def test_ensure_deployed_raises_when_deploy_command_fails(monkeypatch):
 
     with pytest.raises(modal_provision.ModalProvisionError, match="Modal deploy failed"):
         await modal_provision.ensure_deployed()
-
 
 async def test_ensure_deployed_raises_when_urls_not_parseable(monkeypatch):
     _set_all_cached(monkeypatch)

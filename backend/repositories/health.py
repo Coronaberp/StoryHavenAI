@@ -1,6 +1,3 @@
-"""Service health pings: liveness/latency samples for each dependency
-(llama.cpp chat/embed, ComfyUI, Postgres, Modal, ...) polled by the admin
-health-history panel and its background sampler in routers/health.py."""
 from __future__ import annotations
 import time
 
@@ -9,7 +6,6 @@ from sqlalchemy import and_, delete, func, insert, select
 from backend import db
 from backend.db import service_health_pings, nid, _q, _q1, _w
 from backend.state import log
-
 
 async def record_ping(service: str, ok: bool, latency_ms: float | None,
                       error: str = "") -> None:
@@ -24,7 +20,6 @@ async def record_ping(service: str, ok: bool, latency_ms: float | None,
         else:
             log.warning(f"health_repo: service={service} status changed to {status}")
 
-
 async def prune_old_pings(older_than_days: int = 7) -> None:
     cutoff = time.time() - older_than_days * 86400
     async with db._engine.begin() as conn:
@@ -32,12 +27,10 @@ async def prune_old_pings(older_than_days: int = 7) -> None:
     if result.rowcount:
         log.info("health_repo: pruned %d ping(s) older than %d day(s)", result.rowcount, older_than_days)
 
-
 async def latest_ping(service: str) -> dict | None:
     stmt = (select(service_health_pings).where(service_health_pings.c.service == service)
             .order_by(service_health_pings.c.created.desc()).limit(1))
     return await _q1(stmt)
-
 
 async def history(service: str, limit: int = 60, since: float | None = None) -> list[dict]:
     conditions = [service_health_pings.c.service == service]
@@ -48,7 +41,6 @@ async def history(service: str, limit: int = 60, since: float | None = None) -> 
     rows = await _q(stmt)
     rows.reverse()
     return rows
-
 
 async def uptime_pct(service: str, hours: int = 24) -> float | None:
     since = time.time() - hours * 3600

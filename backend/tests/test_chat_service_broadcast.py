@@ -11,11 +11,9 @@ pytestmark = pytest.mark.asyncio
 
 _EMBED_DIM = int(os.environ.get("EMBED_DIM", "768"))
 
-
 @pytest.fixture(autouse=True)
 def _ensure_memory_facts_table():
     memory_facts.build_tables(_EMBED_DIM)
-
 
 def _fake_chat_stream(reply_text):
     async def _stream(messages, model, params=None, parse_think=False,
@@ -23,20 +21,17 @@ def _fake_chat_stream(reply_text):
         yield ("content", reply_text)
     return _stream
 
-
 @pytest.fixture(autouse=True)
 def _stub_memory_extraction(monkeypatch):
     async def _noop_maybe_extract(*args, **kwargs):
         return None
     monkeypatch.setattr(memory_service, "maybe_extract", _noop_maybe_extract)
 
-
 @pytest.fixture(autouse=True)
 def _stub_embed(monkeypatch):
     async def _no_embed(*args, **kwargs):
         raise RuntimeError("embed endpoint unreachable in tests")
     monkeypatch.setattr(llm, "embed", _no_embed)
-
 
 async def test_gen_handle_finish_broadcasts_done():
     sid = "sess-finish-1"
@@ -50,14 +45,12 @@ async def test_gen_handle_finish_broadcasts_done():
     assert json.loads(payload.removeprefix("data: ").strip())["type"] == "done"
     await gen.aclose()
 
-
 async def _make_rpg_session():
     char = await characters.create({"owner_id": "owner-1", "name": "Narrator", "mode": "rpg"})
     sid = await chat_sessions.create(char["id"], None, "Party", "Host", user_id="owner-1")
     await sp.add(sid, "owner-1", None, "host")
     await sp.add(sid, "friend-1", None, "member")
     return sid
-
 
 async def test_run_broadcasts_generating_with_sender_before_any_failure(db_conn, monkeypatch):
     monkeypatch.setattr(llm, "chat_stream", _fake_chat_stream("The scene continues."))
@@ -72,7 +65,6 @@ async def test_run_broadcasts_generating_with_sender_before_any_failure(db_conn,
     assert event["sender_user_id"] == "friend-1"
     await chat_service._active_gen[sid].task
     await gen.aclose()
-
 
 async def test_run_attributes_message_to_acting_participants_own_persona(db_conn, monkeypatch):
     monkeypatch.setattr(llm, "chat_stream", _fake_chat_stream("The scene continues."))

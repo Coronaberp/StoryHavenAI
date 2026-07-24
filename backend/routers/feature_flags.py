@@ -8,13 +8,11 @@ from backend.repositories import notifications as notification_repo
 from backend.repositories import users as user_repo
 from backend.state import api, log
 
-
 class FeatureFlagsBatchIn(BaseModel):
     keys: list[str]
     enabled: bool
     message: str | None = None
     eta_minutes: int | None = None
-
 
 def _public_fields(key: str, row: dict) -> dict:
     return {
@@ -26,14 +24,12 @@ def _public_fields(key: str, row: dict) -> dict:
         "updated_by_role": row.get("updated_by_role"),
     }
 
-
 async def _public_status(role: str | None) -> dict:
     if role == "dev":
         return {}
     all_flags = await feature_flags_repo.get_all()
     return {key: _public_fields(key, row) for key, row in all_flags.items()
             if not row["enabled"]}
-
 
 @api.get("/admin/feature-flags")
 async def admin_list_feature_flags(_: dict = Depends(get_admin)):
@@ -52,7 +48,6 @@ async def admin_list_feature_flags(_: dict = Depends(get_admin)):
             "updated_by_role": row.get("updated_by_role") if row else None,
         }
     return out
-
 
 @api.put("/admin/feature-flags/batch")
 async def admin_batch_feature_flags(body: FeatureFlagsBatchIn, current_user: dict = Depends(get_admin)):
@@ -81,11 +76,9 @@ async def admin_batch_feature_flags(body: FeatureFlagsBatchIn, current_user: dic
              current_user["username"], ",".join(body.keys), body.enabled)
     return rows
 
-
 @api.get("/admin/feature-flags/active-user-count")
 async def admin_feature_flags_active_user_count(_: dict = Depends(get_admin)):
     return {"count": len(await user_repo.list_active_non_dev_user_ids())}
-
 
 @api.get("/feature-status")
 async def get_feature_status(current_user: dict | None = Depends(get_current_user_optional)):

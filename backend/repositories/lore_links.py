@@ -7,10 +7,8 @@ from backend.state import log
 
 MAX_LABEL_LEN = 60
 
-
 def _clean_label(label: str | None) -> str:
     return (label or "").strip()[:MAX_LABEL_LEN]
-
 
 async def set_link(from_id: str, to_id: str, label: str = "") -> None:
     if from_id == to_id:
@@ -27,22 +25,18 @@ async def set_link(from_id: str, to_id: str, label: str = "") -> None:
         id=nid("ll"), lore_id_a=from_id, lore_id_b=to_id, label=_encrypt_secret(clean), created=time.time()))
     log.info("lore_links: linked from=%s to=%s", from_id, to_id)
 
-
 async def unlink(from_id: str, to_id: str) -> None:
     await _w(sa_delete(lore_links).where(
         and_(lore_links.c.lore_id_a == from_id, lore_links.c.lore_id_b == to_id)))
     log.info("lore_links: unlinked from=%s to=%s", from_id, to_id)
 
-
 async def outgoing_for(lore_id: str) -> list[dict]:
     rows = await _q(select(lore_links).where(lore_links.c.lore_id_a == lore_id))
     return [{"target_id": r["lore_id_b"], "label": _decrypt_secret(r["label"] or "")} for r in rows]
 
-
 async def incoming_for(lore_id: str) -> list[dict]:
     rows = await _q(select(lore_links).where(lore_links.c.lore_id_b == lore_id))
     return [{"source_id": r["lore_id_a"], "label": _decrypt_secret(r["label"] or "")} for r in rows]
-
 
 async def outgoing_for_many(lore_ids: list[str]) -> dict[str, list[dict]]:
     result = {lid: [] for lid in lore_ids}
@@ -53,7 +47,6 @@ async def outgoing_for_many(lore_ids: list[str]) -> dict[str, list[dict]]:
         result[r["lore_id_a"]].append({"target_id": r["lore_id_b"], "label": _decrypt_secret(r["label"] or "")})
     return result
 
-
 async def incoming_for_many(lore_ids: list[str]) -> dict[str, list[dict]]:
     result = {lid: [] for lid in lore_ids}
     if not lore_ids:
@@ -63,12 +56,10 @@ async def incoming_for_many(lore_ids: list[str]) -> dict[str, list[dict]]:
         result[r["lore_id_b"]].append({"source_id": r["lore_id_a"], "label": _decrypt_secret(r["label"] or "")})
     return result
 
-
 async def delete_all_for(lore_id: str) -> None:
     await _w(sa_delete(lore_links).where(
         or_(lore_links.c.lore_id_a == lore_id, lore_links.c.lore_id_b == lore_id)))
     log.info("lore_links: deleted all links for id=%s", lore_id)
-
 
 async def set_outgoing_links(lore_id: str, links: list[dict]) -> None:
     deduped: dict[str, str] = {}

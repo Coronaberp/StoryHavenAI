@@ -1,10 +1,7 @@
-"""Dice mechanics — parsing/rolling dice expressions and formatting/resolving
-them for the chat surface (the 🎲 lines and /roll slash command)."""
 import re
 import random
 
 DICE_TERM = re.compile(r'([+-]?)\s*(\d*)\s*[dD]\s*(\d+)|([+-]?\s*\d+)')
-
 
 def roll_dice(expr, max_dice=100, max_sides=1000):
     raw = (expr or "1d20").strip()
@@ -30,16 +27,13 @@ def roll_dice(expr, max_dice=100, max_sides=1000):
         raise ValueError("no dice found — try e.g. 2d6+3 or d20")
     return {"expr": raw, "total": total, "detail": " ".join(bits)}
 
-
 def format_roll(r, label=""):
     lbl = (label.strip() + ": ") if label.strip() else ""
     return f"🎲 {lbl}{r['detail']} = **{r['total']}**"
 
-
 ROLL_INLINE = re.compile(
     r'/r(?:oll)?\s+(\d*d\d+(?:\s*[+-]\s*\d*d?\d+)*)'
     r'|\{roll:\s*(\d*d\d+(?:\s*[+-]\s*\d*d?\d+)*)\s*([^}]*?)\s*\}', re.I)
-
 
 def resolve_inline_rolls(text):
     def repl(m):

@@ -29,7 +29,6 @@ from backend.schemas import (SessionIn, RenameIn, StyleIn, LengthIn, ExplicitMod
 
 MILESTONES = [10, 50, 100, 500, 1000]
 
-
 async def _maybe_notify_milestone(char: dict):
     owner_id = char.get("owner_id")
     if not owner_id or not char.get("is_public"):
@@ -46,7 +45,6 @@ async def _maybe_notify_milestone(char: dict):
             f"{char['name']} reached {threshold} chats",
             f"Your character {char['name']} has been started in {threshold} chats.",
             f"/c/{char['id']}", related_id=related_id)
-
 
 async def start_group_from_cast(owner_id: str, name: str, opening: str, mode: str,
                                 char_ids: list[str], chars: list[dict],
@@ -69,7 +67,6 @@ async def start_group_from_cast(owner_id: str, name: str, opening: str, mode: st
         opening_msg = macro(opening, primary["name"], user_name) if expand_opening else opening
         await chat_sessions.add_message(sid, "assistant", opening_msg, lang=language)
     return sid
-
 
 @api.post("/group-chats")
 async def create_group_session(body: GroupCreateIn, current_user: dict = Depends(get_current_user),
@@ -104,14 +101,12 @@ async def create_group_session(body: GroupCreateIn, current_user: dict = Depends
     log.info("group session created: id=%s group=%s chars=%d by=%s", sid, gid, len(char_ids), current_user["username"])
     return {"session_id": sid}
 
-
 @api.put("/sessions/{sid}/cast/{char_id}/mute")
 async def set_cast_mute(sid: str, char_id: str, body: MuteIn,
                         current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     await session_char_repo.set_muted(sid, char_id, body.muted)
     return {"ok": True}
-
 
 @api.post("/characters/{cid}/sessions")
 async def new_session(cid: str, body: SessionIn,
@@ -154,7 +149,6 @@ async def new_session(cid: str, body: SessionIn,
     await _maybe_notify_milestone(char)
     return await chat_sessions.get(sid)
 
-
 @api.post("/sessions/{sid}/greeting/{direction}")
 async def swap_greeting(sid: str, direction: str, current_user: dict = Depends(get_current_user)):
     if direction not in ("next", "prev"):
@@ -190,7 +184,6 @@ async def swap_greeting(sid: str, direction: str, current_user: dict = Depends(g
     live_broadcast.broadcast(sid, "session_updated", {})
     return {"greeting_index": new_idx, "greeting_count": len(greetings)}
 
-
 @api.get("/sessions")
 async def list_sessions(limit: int = 40, char_id: str | None = None,
                         current_user: dict = Depends(get_current_user)):
@@ -224,7 +217,6 @@ async def list_sessions(limit: int = 40, char_id: str | None = None,
         s["cast_avatars"] = cast_avatars
     return sessions
 
-
 @api.get("/sessions/{sid}")
 async def get_session(sid: str, current_user: dict = Depends(get_current_user)):
     s = await _own_session(sid, current_user)
@@ -241,14 +233,12 @@ async def get_session(sid: str, current_user: dict = Depends(get_current_user)):
         s["cast"] = cast
     return s
 
-
 @api.patch("/sessions/{sid}")
 async def rename_session(sid: str, body: RenameIn,
                          current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     await chat_sessions.rename(sid, body.title)
     return {"ok": True}
-
 
 @api.put("/sessions/{sid}/style")
 async def set_session_style(sid: str, body: StyleIn,
@@ -257,7 +247,6 @@ async def set_session_style(sid: str, body: StyleIn,
     await chat_sessions.set_style(sid, body.key, body.prompt or None)
     live_broadcast.broadcast(sid, "session_updated", {})
     return {"ok": True}
-
 
 @api.put("/sessions/{sid}/length")
 async def set_session_length(sid: str, body: LengthIn,
@@ -269,7 +258,6 @@ async def set_session_length(sid: str, body: LengthIn,
     live_broadcast.broadcast(sid, "session_updated", {})
     return {"ok": True}
 
-
 @api.put("/sessions/{sid}/explicit-mode")
 async def set_session_explicit_mode(sid: str, body: ExplicitModeIn,
                                     current_user: dict = Depends(get_current_user)):
@@ -280,7 +268,6 @@ async def set_session_explicit_mode(sid: str, body: ExplicitModeIn,
     await chat_sessions.set_explicit_mode(sid, body.enabled)
     live_broadcast.broadcast(sid, "session_updated", {})
     return {"ok": True}
-
 
 @api.put("/sessions/{sid}/persona")
 async def set_session_persona(sid: str, body: PersonaSwitchIn,
@@ -302,7 +289,6 @@ async def set_session_persona(sid: str, body: PersonaSwitchIn,
     log.info("sessions: persona switched session=%s persona=%s multiplayer=%s", sid, body.persona_id, is_multiplayer)
     return {"ok": True, "user_name": user_name}
 
-
 @api.put("/sessions/{sid}/glossary")
 async def set_session_glossary(sid: str, body: GlossaryIn,
                                current_user: dict = Depends(get_current_user)):
@@ -314,7 +300,6 @@ async def set_session_glossary(sid: str, body: GlossaryIn,
     await chat_sessions.set_glossary(sid, json.dumps(gl, ensure_ascii=False))
     return {"ok": True, "glossary": gl}
 
-
 @api.put("/sessions/{sid}/language")
 async def set_session_language(sid: str, body: LanguageIn,
                                current_user: dict = Depends(get_current_user)):
@@ -323,7 +308,6 @@ async def set_session_language(sid: str, body: LanguageIn,
     await chat_sessions.set_language(sid, lang)
     return {"ok": True, "language": lang}
 
-
 @api.put("/sessions/{sid}/note")
 async def set_session_author_note(sid: str, body: AuthorNoteIn,
                                   current_user: dict = Depends(get_current_user)):
@@ -331,7 +315,6 @@ async def set_session_author_note(sid: str, body: AuthorNoteIn,
     note = (body.note or "").strip() or None
     await chat_sessions.set_author_note(sid, note)
     return {"ok": True, "note": note}
-
 
 @api.get("/sessions/{sid}/state")
 async def get_char_state(sid: str, current_user: dict = Depends(get_current_user)):
@@ -352,7 +335,6 @@ async def get_char_state(sid: str, current_user: dict = Depends(get_current_user
         "known_names": display_names,
     }
 
-
 @api.delete("/sessions/{sid}")
 async def delete_session(sid: str, current_user: dict = Depends(get_current_user)):
     session = await _own_session(sid, current_user)
@@ -362,10 +344,8 @@ async def delete_session(sid: str, current_user: dict = Depends(get_current_user
     log.info("sessions: deleted id=%s by=%s", sid, current_user["username"])
     return {"deleted": True}
 
-
 _EDIT_SLASH_RE = re.compile(r'^/(ooc|scene|note|time|as)\b\s*([\s\S]*)$', re.I)
 _EDIT_ROLL_RE = re.compile(r'^/roll\s+(\S+)\s*([\s\S]*)$', re.I)
-
 
 def _reparse_user_edit(content: str) -> str:
     content = content or ""
@@ -385,7 +365,6 @@ def _reparse_user_edit(content: str) -> str:
         return apply_directive(resolve_inline_rolls(rest.strip()), directive, arg)
     return apply_inline_directives(resolve_inline_rolls(content))
 
-
 async def _require_message_author_or_host(session: dict, message: dict | None,
                                           current_user: dict) -> None:
     if not message:
@@ -394,7 +373,6 @@ async def _require_message_author_or_host(session: dict, message: dict | None,
     if sender_id is None or sender_id == current_user["id"]:
         return
     await _require_host(session, current_user)
-
 
 @api.patch("/sessions/{sid}/messages/{mid}")
 async def edit_message(sid: str, mid: str, body: MessageEdit,
@@ -413,7 +391,6 @@ async def edit_message(sid: str, mid: str, body: MessageEdit,
     log.info("sessions: message edited session=%s message=%s by=%s", sid, mid, current_user["username"])
     return {"ok": True}
 
-
 @api.post("/sessions/{sid}/messages/{mid}/branch")
 async def branch_session(sid: str, mid: str, current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
@@ -422,7 +399,6 @@ async def branch_session(sid: str, mid: str, current_user: dict = Depends(get_cu
         raise HTTPException(404, "message not found")
     log.info("sessions: branched id=%s from=%s by=%s", new_sid, sid, current_user["username"])
     return await chat_sessions.get(new_sid)
-
 
 @api.post("/sessions/{sid}/messages/{mid}/swipe/{direction}")
 async def swipe_message(sid: str, mid: str, direction: str,
@@ -437,7 +413,6 @@ async def swipe_message(sid: str, mid: str, direction: str,
     log.info("sessions: message swiped session=%s message=%s index=%s", sid, mid, result["index"])
     live_broadcast.broadcast(sid, "session_updated", {})
     return result
-
 
 @api.delete("/sessions/{sid}/messages/{mid}")
 async def delete_message(sid: str, mid: str, current_user: dict = Depends(get_current_user)):

@@ -33,7 +33,6 @@ FEATURE_IMPACT_DESCRIPTIONS = {
     "follows": "Users will be unable to follow other users or creators",
 }
 
-
 def require_feature_enabled(key: str):
     async def _check(current_user: dict = Depends(get_current_user)):
         if current_user.get("role") == "dev":

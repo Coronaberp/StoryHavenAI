@@ -1,11 +1,3 @@
-"""Admin service-health dashboard: live dependency checks + uptime history.
-
-Each dependency (database, chat LLM, embed LLM, ComfyUI) is pinged on demand
-when an admin opens the panel, and also on a periodic background loop (started
-in server.py's lifespan) so the uptime-% and sparkline have data even when no
-admin is looking. Pings are recorded in db.service_health_pings and pruned
-after a week.
-"""
 import time
 import asyncio
 
@@ -23,7 +15,6 @@ from backend.auth import get_admin, get_current_user
 
 SERVICES = ("database", "chat_llm", "embed_llm", "comfyui", "image_classify_llm", "modal")
 
-
 async def _check_database() -> tuple[bool, float | None, str]:
     t0 = time.monotonic()
     try:
@@ -33,7 +24,6 @@ async def _check_database() -> tuple[bool, float | None, str]:
     except Exception as e:
         return False, None, str(e)
 
-
 async def _check_chat_llm() -> tuple[bool, float | None, str]:
     t0 = time.monotonic()
     try:
@@ -41,7 +31,6 @@ async def _check_chat_llm() -> tuple[bool, float | None, str]:
         return True, (time.monotonic() - t0) * 1000, ""
     except Exception as e:
         return False, None, str(e)
-
 
 async def _check_embed_llm() -> tuple[bool, float | None, str]:
     t0 = time.monotonic()
@@ -51,19 +40,14 @@ async def _check_embed_llm() -> tuple[bool, float | None, str]:
     except Exception as e:
         return False, None, str(e)
 
-
 async def _check_image_classify_llm() -> tuple[bool, float | None, str]:
-    # The dedicated vision endpoint used for NSFW auto-classification
-    # (VISION_CLASSIFY) is deliberately decoupled from the general chat
-    # endpoint above — CFG["base_url"] can be overlaid to an unrelated cloud
-    # text-only API, so this checks the actual Gemma vision model directly.
+
     t0 = time.monotonic()
     try:
         await llm.list_models(VISION_CLASSIFY["base_url"], VISION_CLASSIFY["api_key"] or None)
         return True, (time.monotonic() - t0) * 1000, ""
     except Exception as e:
         return False, None, str(e)
-
 
 async def _check_comfyui() -> tuple[bool, float | None, str]:
     root = (CFG.get("comfyui_url") or "").rstrip("/")
@@ -78,14 +62,8 @@ async def _check_comfyui() -> tuple[bool, float | None, str]:
     except Exception as e:
         return False, None, str(e)
 
-
 async def _check_modal() -> tuple[bool, float | None, str]:
-    # Unlike every other dependency here, Modal is *supposed* to sit stopped
-    # whenever nothing is training — it isn't a always-on service, so
-    # reporting it DOWN with no active job would just be a permanent false
-    # alarm between runs. Only actually probe it (and only actually count a
-    # stopped app as unhealthy) while a job is queued/provisioning/training;
-    # otherwise report healthy regardless of the app's current state.
+
     active = await lora_training_repo.list_jobs()
     if not any(j["status"] in ("queued", "provisioning", "training") for j in active):
         return True, None, ""
@@ -101,7 +79,6 @@ async def _check_modal() -> tuple[bool, float | None, str]:
     except Exception as e:
         return False, None, str(e)
 
-
 _CHECKS = {
     "database": _check_database,
     "chat_llm": _check_chat_llm,
@@ -111,9 +88,7 @@ _CHECKS = {
     "modal": _check_modal,
 }
 
-
 _CHECK_TIMEOUT_SECONDS = 5.0
-
 
 async def _run_check_bounded(name: str, fn) -> tuple[bool, float | None, str]:
     try:
@@ -121,15 +96,8 @@ async def _run_check_bounded(name: str, fn) -> tuple[bool, float | None, str]:
     except asyncio.TimeoutError:
         return False, None, f"timed out after {_CHECK_TIMEOUT_SECONDS:.0f}s"
 
-
 async def run_all_checks_and_record() -> dict[str, tuple[bool, float | None, str]]:
-    # Each check is an independent I/O-bound network/DB call — running them
-    # concurrently turns total wall time into max(latencies) instead of
-    # sum(latencies), which is what made every admin page touching this
-    # (Overview, Health) block for 5+ seconds on a single slow dependency.
-    # A per-check timeout caps the worst case further: an unresolvable host
-    # or a hung dependency would otherwise block on llm.py's own generous
-    # 15-60s timeouts (sized for real generation calls, not a health probe).
+
     names = list(_CHECKS.keys())
     results = await asyncio.gather(*(_run_check_bounded(name, _CHECKS[name]) for name in names))
     out = {name: result for name, result in zip(names, results)}
@@ -143,7 +111,6 @@ async def run_all_checks_and_record() -> dict[str, tuple[bool, float | None, str
     await asyncio.gather(*(_record(name, *out[name]) for name in names))
     return out
 
-
 async def health_ping_loop():
     while True:
         try:
@@ -153,19 +120,15 @@ async def health_ping_loop():
             log.exception("service-health: background ping loop failed")
         await asyncio.sleep(5 * 60)
 
-
 @api.get("/media-gen-status")
 async def media_gen_status(_: dict = Depends(get_current_user)):
     ping = await health_repo.latest_ping("comfyui")
     available = True if ping is None else bool(ping["ok"])
     return {"available": available}
 
-
 @api.get("/admin/service-health")
 async def admin_service_health(hours: float = 24, _: dict = Depends(get_admin)):
-    # Ping cadence is one per 5 minutes (see the background loop below), so
-    # cap how many rows a wide range can pull back — 7 days at that cadence
-    # is ~2016 rows, comfortably under this limit.
+
     limit = min(int(hours * 60 / 5) + 5, 3000)
     since = time.time() - hours * 3600
     live = await run_all_checks_and_record()

@@ -1,14 +1,3 @@
-"""
-db.py — PostgreSQL persistence (async, via SQLAlchemy Core + asyncpg).
-
-All structured data lives here: characters, personas, lore, sessions, messages,
-settings, users, auth tokens, and per-user LLM overrides.
-Vector embeddings live in pgvector tables (vectors.py), sharing this engine.
-
-The query layer is written with SQLAlchemy Core (Table objects + expression API).
-The Fernet encryption layer (_encrypt_secret/_decrypt_secret) operates on plain
-Python strings before/after they touch SQL and is unaffected by the query builder.
-"""
 import os
 import json
 import re
@@ -25,17 +14,12 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
 
 _THINK_RE = re.compile(r"<think>.*?</think>\s*", re.S)
 
-
 def _preview(content: str, n: int = 80) -> str:
     return _THINK_RE.sub("", content or "").strip()[:n].replace("\n", " ")
-
 
 _engine: AsyncEngine | None = None
 _fernet: Fernet | None = None
 _jwt_secret: str | None = None
-
-
-# ── schema ──────────────────────────────────────────────────────────────────
 
 _meta = sa.MetaData()
 
@@ -64,20 +48,12 @@ users = sa.Table(
     sa.Column("title_status", sa.Text, nullable=False, server_default=text("'none'")),
     sa.Column("suspension_reason", sa.Text),
     sa.Column("identity_label", sa.Text),
-    # 'user' | 'admin' | 'dev' — a tier above admin for the platform's own
-    # operator: sees raw model-request download material (curl commands,
-    # API keys — see routers/admin.py's list_model_requests) that even other
-    # admins don't, and is protected from demotion/suspension/deletion by
-    # anyone. Additive to is_admin, not a replacement — every dev is still
-    # is_admin=1, this only gates the extra tier on top.
+
     sa.Column("role", sa.Text, nullable=False, server_default=text("'user'")),
     sa.Column("totp_secret", sa.Text),
     sa.Column("totp_enabled", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("totp_backup_codes", sa.Text),
-    # Separate from totp_enabled: having TOTP configured always enables it as an
-    # account-recovery path (POST /api/auth/password-reset/totp), but does NOT
-    # by itself force a code at login — that's this column, an explicit second
-    # opt-in a user must flip on top of totp_enabled.
+
     sa.Column("totp_login_required", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("passkey_required", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("invite_code_id", sa.Text),
@@ -94,7 +70,7 @@ auth_sessions = sa.Table(
     sa.Column("expires", sa.Float, nullable=False),
 )
 
-SESSION_TTL = 60 * 60 * 24 * 30   # 30 days
+SESSION_TTL = 60 * 60 * 24 * 30
 
 jwt_access_tokens = sa.Table(
     "jwt_access_tokens", _meta,
@@ -110,9 +86,7 @@ jwt_refresh_tokens = sa.Table(
     sa.Column("user_id", sa.Text, nullable=False),
     sa.Column("expires", sa.Float, nullable=False),
     sa.Column("created", sa.Float, nullable=False),
-    # Rotated-out (used) tokens are marked here rather than deleted, so a
-    # replay of an already-rotated refresh token can be recognized as theft
-    # (see /api/auth/refresh) instead of just looking like an unknown token.
+
     sa.Column("revoked", sa.Integer, nullable=False, server_default=text("0")),
 )
 
@@ -424,21 +398,12 @@ standalone_images = sa.Table(
     sa.Column("scheduler", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("steps", sa.Integer, nullable=False, server_default=text("20")),
     sa.Column("human_reviewed", sa.Integer, nullable=False, server_default=text("0")),
-    # NSFW classification runs as a fire-and-forget background task and only
-    # writes back when it flags something explicit (see
-    # chat_service.classify_image_background) — is_explicit alone can't tell
-    # "classified as SFW" apart from "not classified yet", which is exactly
-    # what gating sharing on an actual rating needs to know.
+
     sa.Column("classified", sa.Integer, nullable=False, server_default=text("0")),
-    # Whether this generation used a reference image (img2img) vs a plain
-    # text prompt (txt2img) — shown on the image detail view so viewers can
-    # tell the two apart instead of guessing from the prompt alone.
+
     sa.Column("is_img2img", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("cfg", sa.Float, nullable=False, server_default=text("7.0")),
-    # Blank when the saved image was never upscaled — the upscaler model name
-    # otherwise, shown on the detail view as "Upscaled: {model}" so a viewer
-    # can tell a saved image was run through a second upscale pass on top of
-    # the original generation.
+
     sa.Column("upscaler", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("media_type", sa.Text, nullable=False, server_default=text("'image'")),
     sa.Column("source_image_id", sa.Text, nullable=True),
@@ -454,20 +419,11 @@ checkpoint_previews = sa.Table(
     sa.Column("image", sa.Text, nullable=True),
     sa.Column("display_name", sa.Text, nullable=True),
     sa.Column("description", sa.Text, nullable=True),
-    # Some checkpoints (e.g. a distilled/turbo variant) produce a good result
-    # in far fewer steps than others — null means "no override, use whatever
-    # the caller's own default is".
+
     sa.Column("default_steps", sa.Integer, nullable=True),
-    # Coarse architecture family for the picker's filter selector — one of
-    # "flux_v2", "anima", "sdxl", "il" (Illustrious), or null/unset. Anima
-    # models are auto-tagged from the separate UNETLoader list rather than set
-    # here (see imagegen.list_anima_unets) — this column only matters for
-    # entries that come through CheckpointLoaderSimple.
+
     sa.Column("model_category", sa.Text, nullable=True),
-    # Per-checkpoint overrides for Anima's separate CLIP text-encoder/VAE —
-    # different Anima checkpoints from different creators can require
-    # different encoders (unlike SDXL/Illustrious, which bundle their own).
-    # Null means "no override, use imagegen.ANIMA_CLIP_NAME/ANIMA_VAE_NAME".
+
     sa.Column("anima_clip_name", sa.Text, nullable=True),
     sa.Column("anima_vae_name", sa.Text, nullable=True),
 )
@@ -478,24 +434,12 @@ lora_previews = sa.Table(
     sa.Column("image", sa.Text, nullable=True),
     sa.Column("display_name", sa.Text, nullable=True),
     sa.Column("description", sa.Text, nullable=True),
-    # Which base architecture this LoRA is trained against (a SDXL LoRA
-    # generally won't apply to an Anima/Flux checkpoint, etc.) — same
-    # admin-defined-only categories as checkpoint_previews.model_category,
-    # used to let users filter the LoRA picker down to just what actually
-    # applies to the model they've already picked.
+
     sa.Column("model_category", sa.Text, nullable=True),
-    # Prompt words that actually trigger this LoRA's trained concept (e.g. a
-    # trigger word for a trained character/style LoRA, or known activation
-    # tags for a downloaded one) — JSON array, same tolerant storage/parsing
-    # as model_category. Purely informational for whoever picks this LoRA.
+
     sa.Column("keywords", sa.Text, nullable=True),
 )
 
-# Gates visibility of LoRAs this app itself trained (see lora_training_jobs)
-# from regular users until an admin explicitly publishes them via the
-# "Publish" button in Model previews. A LoRA with no row here (i.e. every
-# pre-existing LoRA that was already on disk before this feature existed) is
-# always visible — this table only ever gates LoRAs this app wrote itself.
 lora_visibility = sa.Table(
     "lora_visibility", _meta,
     sa.Column("lora_name", sa.Text, primary_key=True),
@@ -574,39 +518,22 @@ comments = sa.Table(
     sa.Column("content", sa.Text, nullable=False),
     sa.Column("created", sa.Float, nullable=False),
     sa.Column("edited_at", sa.Float, nullable=True),
-    # A real uploaded attachment — goes through strict extension-allowlist +
-    # content validation (see routers/comments.py upload_comment_image).
-    # Distinct from a plain link the commenter typed in `content`, which is
-    # never fetched server-side at all (see the client-side embed allowlist).
-    # `image` holds the /media/... URL (images/video) or the on-disk filename
-    # (text/code, served only through the dedicated always-text/plain route —
-    # see attachment_text_route — never through the generic /media/ mount).
+
     sa.Column("image", sa.Text, nullable=True),
     sa.Column("image_is_explicit", sa.Integer, nullable=False, server_default=text("0")),
-    # "image" | "video" | "text" — how the frontend should render `image`.
-    # NULL for old rows predating this column means "image" (its original,
-    # only-ever-images meaning).
+
     sa.Column("attachment_kind", sa.Text, nullable=True),
 )
 
-# Discord-style emoji reactions — a user can put more than one different
-# emoji on the same comment (each is its own row), but only once each
-# (enforced by the composite primary key acting as a toggle: react/unreact
-# is just insert/delete of this exact row).
 comment_reactions = sa.Table(
     "comment_reactions", _meta,
     sa.Column("comment_id", sa.Text, primary_key=True),
     sa.Column("user_id", sa.Text, primary_key=True),
     sa.Column("emoji", sa.Text, primary_key=True),
-    # A "super" reaction is the same emoji, just flagged for a distinct
-    # highlighted/animated pill — same row, not a separate reaction type.
+
     sa.Column("is_super", sa.Integer, nullable=False, server_default=text("0")),
 )
 
-# Admin-curated custom emoji/stickers (same idea as checkpoint/lora previews
-# being admin-curated rather than user-uploaded free-for-all) — "emoji" is
-# typed inline as :shortcode: and rendered small within comment text;
-# "sticker" is sent as its own standalone attachment, never inline.
 custom_emojis = sa.Table(
     "custom_emojis", _meta,
     sa.Column("id", sa.Text, primary_key=True),
@@ -615,13 +542,9 @@ custom_emojis = sa.Table(
     sa.Column("kind", sa.Text, nullable=False, server_default=text("'emoji'")),
     sa.Column("uploader_id", sa.Text, nullable=False),
     sa.Column("created", sa.Float, nullable=False),
-    # Any user can upload these (unlike checkpoint/lora previews), so — same
-    # as any other user-uploaded image in the app — it goes through
-    # background NSFW classification and is blurred/hidden until rated.
+
     sa.Column("is_explicit", sa.Integer, nullable=False, server_default=text("0")),
-    # Set only for animated GIFs pending admin review — a blurred single-frame
-    # stand-in served in place of `image` (the real animated file) until an
-    # admin clears is_explicit. See media.gif_blurred_preview / emojis.py.
+
     sa.Column("preview_image", sa.Text, nullable=True),
 )
 
@@ -640,9 +563,6 @@ comment_likes = sa.Table(
     sa.Column("user_id", sa.Text, primary_key=True),
 )
 
-# Reddit-lite: threads live here; replies reuse the existing comments system
-# (target_type="thread") rather than a parallel reply table, so nesting,
-# likes, edit/delete, and owner notifications all come for free.
 forum_threads = sa.Table(
     "forum_threads", _meta,
     sa.Column("id", sa.Text, primary_key=True),
@@ -712,12 +632,7 @@ lora_training_jobs = sa.Table(
     sa.Column("status", sa.Text, nullable=False, server_default=text("'queued'")),
     sa.Column("progress", sa.Float, nullable=False, server_default=text("0")),
     sa.Column("log", sa.Text, nullable=False, server_default=text("''")),
-    # JSON-encoded list of {epoch,total_epochs,step,total_steps,loss,
-    # speed_img_s,eta_text,gpu_mem_gb,t} snapshots — persisted server-side
-    # (not just held in the browser's own JS state) specifically so the
-    # Training Progress graph/table can be rebuilt from scratch after a
-    # reload instead of starting blank, and so training itself keeps running
-    # and recording history with zero browser tabs open at all.
+
     sa.Column("metrics", sa.Text, nullable=False, server_default=text("'[]'")),
     sa.Column("transfer_progress", sa.Text, nullable=False, server_default=text("'{}'")),
     sa.Column("resume_from_lora", sa.Text),
@@ -728,12 +643,6 @@ lora_training_jobs = sa.Table(
     sa.Column("billing_started", sa.Float),
 )
 
-# On-demand mid-run checkpoint snapshots (see POST
-# /admin/lora-training/jobs/{jid}/checkpoint) — unlike lora_training_jobs.
-# output_file, which is one path continuously overwritten by whichever
-# checkpoint is most recent, each row here is a distinct, never-overwritten
-# .safetensors an admin explicitly asked to keep for A/B testing (Test LoRA
-# tab), named "{job_name}_{iso8601}.safetensors".
 lora_checkpoints = sa.Table(
     "lora_checkpoints", _meta,
     sa.Column("id", sa.Text, primary_key=True),
@@ -763,10 +672,7 @@ image_rating_reports = sa.Table(
     sa.Column("status", sa.Text, nullable=False, server_default=text("'pending'")),
     sa.Column("created", sa.Float, nullable=False),
     sa.Column("resolved_at", sa.Float),
-    # System-generated (the classifier's own reported confidence was <80%),
-    # not a real dispute from a user — reporter_id is still the image's owner
-    # so the existing NOT NULL/join stays simple, this flag is what tells the
-    # admin queue "the AI itself wasn't sure" apart from a real complaint.
+
     sa.Column("auto_flagged", sa.Integer, nullable=False, server_default=text("0")),
 )
 
@@ -828,16 +734,11 @@ sa.Index("idx_jwt_refresh_user", jwt_refresh_tokens.c.user_id)
 sa.Index("idx_standalone_user", standalone_images.c.user_id, standalone_images.c.created)
 sa.Index("idx_health_service_created", service_health_pings.c.service, service_health_pings.c.created)
 
-
-# ── lifecycle ────────────────────────────────────────────────────────────────
-
 def nid(prefix: str = "") -> str:
     return prefix + uuid4().hex[:12]
 
-
 def engine() -> AsyncEngine:
     return _engine
-
 
 async def init():
     global _engine, _fernet
@@ -934,10 +835,7 @@ async def init():
             "ALTER TABLE standalone_images ADD COLUMN IF NOT EXISTS classified "
             "INTEGER NOT NULL DEFAULT 0"))
         if classified_col_is_new:
-            # Every pre-existing row already went through the one-time
-            # backfill_nsfw.py classification pass — only genuinely new rows
-            # from here on start unclassified until their own background
-            # classification task completes.
+
             await conn.execute(text("UPDATE standalone_images SET classified = 1"))
         await conn.execute(text(
             "ALTER TABLE standalone_images ADD COLUMN IF NOT EXISTS is_img2img "
@@ -976,7 +874,7 @@ async def init():
         await conn.execute(text(
             "ALTER TABLE flagged_endpoints ADD COLUMN IF NOT EXISTS detail "
             "TEXT NOT NULL DEFAULT ''"))
-        # auto-NSFW classification flags for every image-bearing table
+
         await conn.execute(text(
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_explicit "
             "INTEGER NOT NULL DEFAULT 0"))
@@ -998,10 +896,7 @@ async def init():
             "TEXT NOT NULL DEFAULT 'none'"))
         await conn.execute(text(
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS suspension_reason TEXT"))
-        # checkpoint_previews/lora_previews started life as image-only tables
-        # (checkpoint_name/lora_name + image, both NOT NULL); they're now a
-        # general per-model metadata store, so a row can exist with just a
-        # display_name/description and no image, or vice versa.
+
         await conn.execute(text(
             "ALTER TABLE checkpoint_previews ALTER COLUMN image DROP NOT NULL"))
         await conn.execute(text(
@@ -1037,23 +932,17 @@ async def init():
             "INTEGER NOT NULL DEFAULT 0"))
         await conn.execute(text(
             "ALTER TABLE comments ADD COLUMN IF NOT EXISTS attachment_kind TEXT"))
-        # comment_reactions itself was added this same release; is_super was
-        # added right after — a real deployment could already have created
-        # the table without it by the time this line landed.
+
         await conn.execute(text(
             "ALTER TABLE comment_reactions ADD COLUMN IF NOT EXISTS is_super "
             "INTEGER NOT NULL DEFAULT 0"))
-        # Same story: custom_emojis existed briefly without is_explicit.
+
         await conn.execute(text(
             "ALTER TABLE custom_emojis ADD COLUMN IF NOT EXISTS is_explicit "
             "INTEGER NOT NULL DEFAULT 0"))
         await conn.execute(text(
             "ALTER TABLE custom_emojis ADD COLUMN IF NOT EXISTS preview_image TEXT"))
-        # content_reports briefly shipped with a "link" column instead of
-        # target_id/image before the admin review modal needed to actually
-        # show the reported image and resolve it in place (see
-        # adminReviewContentModal) — early deployments already have the table
-        # without these.
+
         await conn.execute(text(
             "ALTER TABLE content_reports ADD COLUMN IF NOT EXISTS target_id "
             "TEXT NOT NULL DEFAULT ''"))
@@ -1113,33 +1002,14 @@ async def init():
         await conn.execute(text(
             "ALTER TABLE characters ADD COLUMN IF NOT EXISTS appearance_tags_negative "
             "TEXT NOT NULL DEFAULT ''"))
-        # Backfill: every existing admin becomes role='admin' (never downgrades
-        # an already-set 'dev'). Idempotent — only ever touches rows still
-        # sitting at the column's default.
+
         await conn.execute(text(
             "UPDATE users SET role='admin' WHERE is_admin=1 AND role='user'"))
-        # One-time bootstrap of the platform's first Dev-tier account, replacing
-        # what used to be a hardcoded username check scattered across the
-        # codebase — only runs while no row has role='dev' yet, so once an
-        # admin manages Dev grants through the UI this never fires again and
-        # never overrides a deliberate later change.
+
         no_dev_yet = await conn.execute(text("SELECT 1 FROM users WHERE role='dev' LIMIT 1"))
         if no_dev_yet.first() is None:
             await conn.execute(text("UPDATE users SET role='dev' WHERE username='zukaarimoto'"))
 
-    # Bring-your-own-endpoint API keys (per-user and flagged-pending-review) are
-    # encrypted at rest so nobody browsing the settings UI or admin panel (not
-    # even an admin) can read another user's raw key back out; only the server
-    # process can decrypt it to use it in an outbound Authorization header.
-    #
-    # Key source, in order of preference:
-    #   1. SECRET_ENCRYPTION_KEY env var — the key lives outside the database, so
-    #      stealing the database alone does not hand over the plaintext keys. This
-    #      is the recommended posture for real encryption-at-rest.
-    #   2. Fallback: generate once and store in the settings table. Convenient and
-    #      non-breaking (no required migration), but the key sits next to the
-    #      ciphertext it protects — only guards against casual inspection, not
-    #      database theft. Set SECRET_ENCRYPTION_KEY to close that gap.
     env_key = os.environ.get("SECRET_ENCRYPTION_KEY", "").strip()
     if env_key:
         try:
@@ -1150,11 +1020,7 @@ async def init():
                 "(must be 32 url-safe base64-encoded bytes)") from e
         return
     async with _engine.begin() as conn:
-        # Multiple workers can race here on first-ever startup (no key row yet).
-        # insert...on_conflict_do_nothing + re-select inside the same transaction
-        # makes every worker converge on whichever row actually won, instead of
-        # each one generating and using its own key (which would silently make
-        # ciphertext written by one worker undecryptable by another).
+
         generated = Fernet.generate_key()
         await conn.execute(
             pg_insert(settings).values(key="_secret_enc_key", value=generated.decode())
@@ -1178,59 +1044,47 @@ async def init():
                 select(settings.c.value).where(settings.c.key == "_jwt_secret"))
             _jwt_secret = res.fetchone()[0]
 
-
 def get_jwt_secret() -> str:
     if not _jwt_secret:
         raise RuntimeError("JWT secret not initialized — db.init() must run first")
     return _jwt_secret
-
 
 def _encrypt_secret(s: str) -> str:
     if not s:
         return s
     return "enc:" + _fernet.encrypt(s.encode()).decode()
 
-
 def _decrypt_secret(s: str) -> str:
     if not s or not s.startswith("enc:"):
-        return s   # legacy plaintext (stored before encryption was added) — used as-is
+        return s
     try:
         return _fernet.decrypt(s[len("enc:"):].encode()).decode()
     except InvalidToken:
         return ""
 
-
 def _encrypt_json_list(items) -> str:
     return _encrypt_secret(json.dumps(items or []))
 
-
 def _decrypt_json_list(s) -> list:
     return _loads(_decrypt_secret(s or ""), [])
-
 
 async def close():
     if _engine:
         await _engine.dispose()
 
-
 class DatabaseUnavailable(RuntimeError):
     def __init__(self):
         super().__init__("database is not connected yet")
-
 
 def _require_engine() -> AsyncEngine:
     if _engine is None:
         raise DatabaseUnavailable()
     return _engine
 
-
-# ── query helpers ────────────────────────────────────────────────────────────
-
 async def _q(stmt) -> list[dict]:
     async with _require_engine().connect() as conn:
         res = await conn.execute(stmt)
         return [dict(r._mapping) for r in res.fetchall()]
-
 
 async def _q1(stmt) -> dict | None:
     async with _require_engine().connect() as conn:
@@ -1238,19 +1092,14 @@ async def _q1(stmt) -> dict | None:
         row = res.fetchone()
         return dict(row._mapping) if row else None
 
-
 async def _scalar(stmt):
     async with _require_engine().connect() as conn:
         res = await conn.execute(stmt)
         return res.scalar()
 
-
 async def _w(stmt):
     async with _require_engine().begin() as conn:
         await conn.execute(stmt)
-
-
-# ── helpers ──────────────────────────────────────────────────────────────────
 
 def _loads(v, default):
     try:
@@ -1258,18 +1107,13 @@ def _loads(v, default):
     except Exception:
         return default
 
-
-# ── passwords ────────────────────────────────────────────────────────────────
-
-ACCESS_TOKEN_TTL = 60 * 60 * 6        # 6 hours
-REFRESH_TOKEN_TTL = 60 * 60 * 24 * 3   # 3 days
-
+ACCESS_TOKEN_TTL = 60 * 60 * 6
+REFRESH_TOKEN_TTL = 60 * 60 * 24 * 3
 
 def hash_password(password: str) -> str:
     salt = secrets.token_hex(16)
     dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt.encode(), 120_000)
     return f"{salt}:{dk.hex()}"
-
 
 def verify_password(password: str, stored: str) -> bool:
     try:
@@ -1279,13 +1123,10 @@ def verify_password(password: str, stored: str) -> bool:
     except Exception:
         return False
 
-
-# ── users ────────────────────────────────────────────────────────────────────
-
 def _user_row(row) -> dict:
     d = dict(row)
     d.pop("password_hash", None)
-    d.pop("identity_label", None)   # admin-only; exposed solely via list_users
+    d.pop("identity_label", None)
     d.pop("totp_secret", None)
     d.pop("totp_backup_codes", None)
     d["experimental_features_enabled"] = bool(d.get("experimental_features_enabled"))
@@ -1311,16 +1152,8 @@ def _user_row(row) -> dict:
         d["suspension_reason"] = _decrypt_secret(d.get("suspension_reason") or "") or None
     return d
 
-
 async def get_user_by_username(username: str) -> dict | None:
-    """Returns the full row including password_hash for login verification."""
     return await _q1(select(users).where(users.c.username == username.strip().lower()))
-
-
-# ── auth sessions ────────────────────────────────────────────────────────────
-
-
-# ── per-user settings ────────────────────────────────────────────────────────
 
 async def get_user_settings(user_id: str) -> dict:
     rows = await _q(select(user_settings.c.key, user_settings.c.value)
@@ -1334,9 +1167,6 @@ async def get_user_settings(user_id: str) -> dict:
     if out.get("api_key"):
         out["api_key"] = _decrypt_secret(out["api_key"])
     return out
-
-
-# ── characters ───────────────────────────────────────────────────────────────
 
 def _char_row(row) -> dict:
     d = dict(row)
@@ -1358,7 +1188,6 @@ def _char_row(row) -> dict:
     d["is_draft"] = bool(d.get("is_draft"))
     return d
 
-
 async def get_character(cid: str) -> dict | None:
     row = await _q1(select(characters).where(characters.c.id == cid))
     if not row:
@@ -1369,22 +1198,12 @@ async def get_character(cid: str) -> dict | None:
     c["owner_username"] = await _owner_username(c.get("owner_id"))
     return c
 
-
 async def _owner_username(owner_id: str | None) -> str | None:
     if not owner_id:
         return None
     return await _scalar(select(users.c.username).where(users.c.id == owner_id))
 
-
 async def list_public_users(q: str | None = None) -> list[dict]:
-    """Public creator directory. Lists every active user as a potential
-    creator to browse — publishing a character or filling in a profile isn't
-    required, `public_characters` is just 0 for those who haven't. Excludes
-    only deactivated/non-active accounts (see `users.status`); admins are
-    left in since an admin can be a genuine, prolific creator in their own
-    right (e.g. one with several public characters) — excluding the role
-    would just hide real content from the directory. Supports q against
-    username/display_name."""
     counts = await _q(select(characters.c.owner_id, func.count().label("n"))
                       .where(characters.c.is_public == 1)
                       .group_by(characters.c.owner_id))
@@ -1417,24 +1236,11 @@ async def list_public_users(q: str | None = None) -> list[dict]:
     out.sort(key=lambda x: (-x["public_characters"], x["username"]))
     return out
 
-
 async def list_characters(q: str | None = None, user_id: str | None = None,
                            is_admin: bool = False,
                            scope: str | None = None,
                            tags: list[str] | None = None,
                            creator: str | None = None) -> list[dict]:
-    """Return characters filtered by scope.
-
-    scope='mine'      → owner's private characters only
-    scope='community' → public characters (is_public=1)
-    scope='drafts'    → owner's own autosaved-but-not-yet-finished characters only
-    scope=None        → public + user's own (legacy / admin uses all)
-
-    Drafts never appear under any other scope — they're a distinct, separate
-    bucket (see the "Pending" library tab) until their author actually finishes
-    and saves them for real, not half-written characters mixed into everyone's
-    normal browsing.
-    """
     conditions = []
     if creator:
         cl = creator.strip().lower()
@@ -1462,11 +1268,6 @@ async def list_characters(q: str | None = None, user_id: str | None = None,
         else:
             conditions.append(characters.c.is_public == 1)
 
-    # `persona` is encrypted at rest, so it can't be matched with SQL LIKE.
-    # Rather than split the match across a SQL pass (name/tags) and a Python
-    # pass (persona) — which would miss rows where only persona matches but
-    # name/tags don't — the scope filter runs in SQL and the full text match
-    # (name + tags + persona) runs in Python on the decrypted rows below.
     chats = (select(func.count()).select_from(sessions)
              .where(sessions.c.char_id == characters.c.id)
              .scalar_subquery().label("chats"))
@@ -1494,9 +1295,6 @@ async def list_characters(q: str | None = None, user_id: str | None = None,
         c["owner_username"] = usernames.get(c.get("owner_id"))
     return rows
 
-
-# ── personas ─────────────────────────────────────────────────────────────────
-
 def _persona_row(row) -> dict:
     d = dict(row)
     d["name"] = _decrypt_secret(d.get("name") or "")
@@ -1504,13 +1302,9 @@ def _persona_row(row) -> dict:
     d["is_draft"] = bool(d.get("is_draft"))
     return d
 
-
 async def get_persona(pid: str) -> dict | None:
     row = await _q1(select(personas).where(personas.c.id == pid))
     return _persona_row(row) if row else None
-
-
-# ── lore ─────────────────────────────────────────────────────────────────────
 
 def _lore_row(row) -> dict:
     d = dict(row)
@@ -1527,7 +1321,6 @@ def _lore_row(row) -> dict:
     d["global"] = d.get("char_id") is None
     return d
 
-
 async def list_lore(char_id: str, viewer_id: str | None = None) -> list[dict]:
     global_clause = (sa.and_(lore.c.char_id.is_(None), lore.c.owner_id == viewer_id)
                      if viewer_id else sa.false())
@@ -1536,15 +1329,10 @@ async def list_lore(char_id: str, viewer_id: str | None = None) -> list[dict]:
             .order_by(lore.c.always.desc(), lore.c.created.desc()))
     return [_lore_row(r) for r in await _q(stmt)]
 
-
 async def lore_by_ids(ids: list[str]) -> list[dict]:
     if not ids:
         return []
     return [_lore_row(r) for r in await _q(select(lore).where(lore.c.id.in_(ids)))]
-
-
-# ── sessions ─────────────────────────────────────────────────────────────────
-
 
 async def get_session(sid: str) -> dict | None:
     s = await _q1(select(sessions).where(sessions.c.id == sid))
@@ -1561,10 +1349,6 @@ async def get_session(sid: str) -> dict | None:
     s["messages"] = await get_messages(sid)
     return s
 
-
-# ── messages ─────────────────────────────────────────────────────────────────
-
-
 async def get_messages(sid: str) -> list[dict]:
     stmt = (select(messages.c.id, messages.c.role, messages.c.content,
                    messages.c.ts, messages.c.image, messages.c.lang, messages.c.mood,
@@ -1574,7 +1358,6 @@ async def get_messages(sid: str) -> list[dict]:
     for r in rows:
         r["content"] = _decrypt_secret(r.get("content") or "")
     return rows
-
 
 def _standalone_row(r) -> dict:
     d = dict(r)
@@ -1593,11 +1376,9 @@ def _standalone_row(r) -> dict:
     d["steps"] = d.get("steps") or 20
     return d
 
-
 async def get_standalone_image(iid: str) -> dict | None:
     row = await _q1(select(standalone_images).where(standalone_images.c.id == iid))
     return _standalone_row(row) if row else None
-
 
 def _decode_lora_job_metrics(row: dict) -> dict:
     try:
@@ -1610,17 +1391,12 @@ def _decode_lora_job_metrics(row: dict) -> dict:
         row["transfer_progress"] = {}
     return row
 
-
 async def create_password_reset_request(user_id: str, username: str) -> str:
     rid = nid("pr")
     await _w(insert(password_reset_requests).values(
         id=rid, user_id=user_id, username=username,
         status="pending", created=time.time()))
     return rid
-
-
-# ── global settings ──────────────────────────────────────────────────────────
-
 
 async def set_settings(items: dict):
     async with _engine.begin() as conn:
@@ -1630,19 +1406,7 @@ async def set_settings(items: dict):
                 index_elements=["key"], set_={"value": stmt.excluded.value})
             await conn.execute(stmt)
 
-
-# ── checkpoint/LoRA preview images + metadata ───────────────────────────────
-# checkpoint_previews and lora_previews are a general per-model metadata store
-# keyed by the raw filename ComfyUI reports: an optional /media/... reference
-# image, plus an optional admin-set display_name/description. Any of the three
-# may be present without the others (a row can carry just a friendly name with
-# no image, or just an image with no name).
-
 def _parse_model_categories(raw) -> list[str]:
-    """model_category is stored as a JSON array (a model can be compatible
-    with more than one architecture — e.g. a merge trained to work under both
-    SDXL and IL conventions) — but pre-existing rows from before that stored
-    a bare string ("sdxl"), so both shapes are handled here."""
     if not raw:
         return []
     try:
@@ -1654,7 +1418,6 @@ def _parse_model_categories(raw) -> list[str]:
     except (json.JSONDecodeError, TypeError):
         pass
     return [raw] if isinstance(raw, str) else []
-
 
 def _model_meta_row(r: dict) -> dict:
     row = {"image": r.get("image"), "display_name": r.get("display_name"),
@@ -1673,7 +1436,6 @@ def _model_meta_row(r: dict) -> dict:
         row["keywords"] = _parse_model_categories(r.get("keywords"))
     return row
 
-
 async def _list_model_previews(table, name_col) -> dict:
     cols = [name_col, table.c.image, table.c.display_name, table.c.description]
     if "model_type" in table.c:
@@ -1691,13 +1453,11 @@ async def _list_model_previews(table, name_col) -> dict:
     rows = await _q(select(*cols))
     return {r[name_col.name]: _model_meta_row(r) for r in rows}
 
-
 async def _set_model_preview_image(table, name_col, name: str, image: str):
     stmt = pg_insert(table).values(**{name_col.name: name}, image=image)
     stmt = stmt.on_conflict_do_update(
         index_elements=[name_col.name], set_={"image": stmt.excluded.image})
     await _w(stmt)
-
 
 async def _clear_model_preview_image(table, name_col, name: str):
     stmt = pg_insert(table).values(**{name_col.name: name}, image=None)
@@ -1705,9 +1465,7 @@ async def _clear_model_preview_image(table, name_col, name: str):
         index_elements=[name_col.name], set_={"image": None})
     await _w(stmt)
 
-
 _UNSET = object()
-
 
 async def _set_model_meta(table, name_col, name: str, display_name: str | None,
                           description: str | None, model_type: str | None = None,
@@ -1718,9 +1476,7 @@ async def _set_model_meta(table, name_col, name: str, display_name: str | None,
         values["model_type"] = model_type
     if "default_steps" in table.c:
         values["default_steps"] = default_steps
-    # _UNSET (checkpoints, which no longer expose a way to set this) leaves
-    # whatever's already stored untouched instead of overwriting it to null
-    # on every save of an unrelated field (name/description/etc).
+
     if "model_category" in table.c and model_category is not _UNSET:
         values["model_category"] = json.dumps(model_category) if model_category else None
     if "keywords" in table.c and keywords is not _UNSET:
@@ -1730,13 +1486,7 @@ async def _set_model_meta(table, name_col, name: str, display_name: str | None,
     stmt = stmt.on_conflict_do_update(index_elements=[name_col.name], set_=set_)
     await _w(stmt)
 
-
-# ── localization cache ──────────────────────────────────────────────────────
-# Every translated string (UI chrome, scenarios, character text) is stored once
-# per (source-hash, language) so the same text is never sent to the LLM twice.
-
 async def get_localizations(hashes: list[str], lang: str) -> dict:
-    """Return {src_hash: translated} for the hashes already cached in `lang`."""
     if not hashes:
         return {}
     out = {}
@@ -1749,44 +1499,19 @@ async def get_localizations(hashes: list[str], lang: str) -> dict:
             out[r["src_hash"]] = _decrypt_secret(r["translated"])
     return out
 
+_MAX_REACTION_EMOJI_LEN = 8
 
-# ── admin ────────────────────────────────────────────────────────────────────
-
-# ── comments ─────────────────────────────────────────────────────────────────
-
-
-# Emoji reaction limits are enforced by whoever calls these (see
-# routers/comments.py) — this layer just does the actual toggle.
-_MAX_REACTION_EMOJI_LEN = 8   # a couple of codepoints is plenty for any real emoji
-
-
-# ── custom emoji / stickers ──────────────────────────────────────────────
 _SHORTCODE_RE = re.compile(r"^[a-z0-9_]{2,32}$")
-
-
-# ── forum ────────────────────────────────────────────────────────────────
-
-
-# ── notifications ────────────────────────────────────────────────────────────
-
 
 async def count_char_sessions(cid: str) -> int:
     return await _scalar(select(func.count()).select_from(sessions)
                          .where(sessions.c.char_id == cid)) or 0
-
-
-# ── service health ───────────────────────────────────────────────────────────
-
-
-# ── user blocks ──────────────────────────────────────────────────────────────
-
 
 async def is_block_between(a: str, b: str) -> bool:
     r = await _q1(select(user_blocks.c.blocker_id).where(or_(
         and_(user_blocks.c.blocker_id == a, user_blocks.c.blocked_id == b),
         and_(user_blocks.c.blocker_id == b, user_blocks.c.blocked_id == a))))
     return bool(r)
-
 
 async def hidden_user_ids(viewer_id: str) -> set:
     rows = await _q(select(user_blocks).where(or_(
@@ -1796,5 +1521,4 @@ async def hidden_user_ids(viewer_id: str) -> set:
     for r in rows:
         out.add(r["blocked_id"] if r["blocker_id"] == viewer_id else r["blocker_id"])
     return out
-
 

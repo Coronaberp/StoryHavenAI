@@ -19,10 +19,8 @@ _LIMITS = {
                "Ask an admin to upgrade your account to keep going."),
 }
 
-
 def is_guest(user: dict) -> bool:
     return (user.get("tier") or "full") == "guest"
-
 
 def check(user: dict, kind: str) -> None:
     if not is_guest(user):
@@ -32,17 +30,14 @@ def check(user: dict, kind: str) -> None:
         log.info("guest quota exhausted: user=%s kind=%s", user.get("username"), kind)
         raise HTTPException(403, message)
 
-
 async def record(user: dict, kind: str, amount: int = 1) -> None:
     if not is_guest(user) or amount <= 0:
         return
     _, field, _ = _LIMITS[kind]
     await user_repo.add_guest_usage(user["id"], field, amount)
 
-
 def estimate_tokens(*texts: str) -> int:
     return sum(len(t or "") // 4 + 1 for t in texts)
-
 
 def require_full(user: dict, action: str) -> None:
     if not is_guest(user):

@@ -1,5 +1,3 @@
-"""Global (admin-configured) settings repository — distinct from per-user
-settings, which live in backend/repositories/users.py."""
 from __future__ import annotations
 import json
 
@@ -10,12 +8,7 @@ from backend import db
 from backend.db import settings, _q, _encrypt_secret, _decrypt_secret
 from backend.state import log
 
-# These global settings hold live credentials (an admin's own LLM/embedding API
-# key, or this app's shared secret for the Modal LoRA trainer) — unlike other
-# CFG values, they're encrypted at rest the same way per-user api_key/
-# flagged_endpoints.api_key already are.
 _SECRET_KEYS = {"api_key", "embed_api_key", "modal_shared_secret"}
-
 
 def _encrypt_value(key: str, value):
     if key in _SECRET_KEYS:
@@ -25,7 +18,6 @@ def _encrypt_value(key: str, value):
                 if isinstance(host, dict) else host for host in value]
     return value
 
-
 def _decrypt_value(key: str, value):
     if key in _SECRET_KEYS:
         return _decrypt_secret(value or "")
@@ -33,7 +25,6 @@ def _decrypt_value(key: str, value):
         return [{**host, "api_key": _decrypt_secret(host.get("api_key") or "")}
                 if isinstance(host, dict) else host for host in value]
     return value
-
 
 async def all_settings() -> dict:
     out = {}
@@ -44,7 +35,6 @@ async def all_settings() -> dict:
             log.debug("global settings: value for key=%s is not JSON, using raw string", r["key"])
             out[r["key"]] = r["value"]
     return out
-
 
 async def set_settings(items: dict):
     async with db._engine.begin() as conn:

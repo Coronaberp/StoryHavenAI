@@ -1,4 +1,3 @@
-"""User reports disputing a standalone image's NSFW/SFW rating."""
 import time
 
 from sqlalchemy import select, insert, update as sa_update
@@ -8,7 +7,6 @@ from backend.db import (
     _q, _q1, _w, nid, _decrypt_secret, _encrypt_secret,
 )
 from backend.state import log
-
 
 async def create(image_id: str, reporter_id: str,
                  claimed_explicit: bool, note: str = "",
@@ -24,7 +22,6 @@ async def create(image_id: str, reporter_id: str,
     return {"id": rid, "image_id": image_id, "reporter_id": reporter_id,
             "claimed_explicit": bool(claimed_explicit), "note": note or "",
             "status": "pending", "created": created, "auto_flagged": bool(auto_flagged)}
-
 
 async def list(pending_only: bool = True) -> list[dict]:
     j = image_rating_reports.join(
@@ -47,7 +44,6 @@ async def list(pending_only: bool = True) -> list[dict]:
         r["auto_flagged"] = bool(r.get("auto_flagged"))
     return rows
 
-
 async def get(rid: str) -> dict | None:
     r = await _q1(select(image_rating_reports).where(image_rating_reports.c.id == rid))
     if r:
@@ -56,7 +52,6 @@ async def get(rid: str) -> dict | None:
         r["claimed_explicit"] = bool(r.get("claimed_explicit"))
         r["auto_flagged"] = bool(r.get("auto_flagged"))
     return r
-
 
 async def resolve(rid: str, admin_note: str = ""):
     await _w(sa_update(image_rating_reports).where(image_rating_reports.c.id == rid)

@@ -6,16 +6,13 @@ from backend import memory_service
 from backend import memory_ranking
 from backend.repositories import memory_facts
 
-
 pytestmark = pytest.mark.asyncio
 
 _EMBED_DIM = int(os.environ.get("EMBED_DIM", "768"))
 
-
 @pytest.fixture(autouse=True)
 def _ensure_memory_facts_table():
     memory_facts.build_tables(_EMBED_DIM)
-
 
 async def test_retrieve_block_returns_empty_for_blank_query(db_conn):
     block, used, lore_lines, mem_lines = await memory_service.retrieve_block(
@@ -26,7 +23,6 @@ async def test_retrieve_block_returns_empty_for_blank_query(db_conn):
     assert used == []
     assert lore_lines == []
     assert mem_lines == []
-
 
 async def test_retrieve_block_includes_keyword_lore_in_meta_lines(db_conn, monkeypatch):
     async def fake_embed(*args, **kwargs):
@@ -42,7 +38,6 @@ async def test_retrieve_block_includes_keyword_lore_in_meta_lines(db_conn, monke
         keyword_lore_entries=[entry])
     assert any("The gate is sealed." in line for line in lore_lines)
     assert "## Established world facts" in block
-
 
 async def test_extract_batch_calls_lore_update_detection(db_conn, monkeypatch):
     calls = []
@@ -69,7 +64,6 @@ async def test_extract_batch_calls_lore_update_detection(db_conn, monkeypatch):
         language="English", model="test-model", prev_session={"known_names": "[]"})
     assert len(calls) == 1
     assert stats["lore_updates_applied"] == 0
-
 
 async def test_extract_batch_tags_new_fact_with_resolved_location(db_conn, monkeypatch):
     async def fake_run_extract(*args, **kwargs):
@@ -101,7 +95,6 @@ async def test_extract_batch_tags_new_fact_with_resolved_location(db_conn, monke
     live = await memory_facts.list_live("sess-loc-eb-1")
     assert live[0]["location"] == "the abandoned mill"
 
-
 async def test_retrieve_block_demotes_active_fact_from_different_location(db_conn, monkeypatch):
     async def fake_embed(*args, **kwargs):
         return [0.1] * 768
@@ -122,7 +115,6 @@ async def test_retrieve_block_demotes_active_fact_from_different_location(db_con
     assert "## Ongoing & pinned" not in block
     assert "the bridge is guarded" in block
 
-
 async def test_retrieve_block_keeps_active_fact_from_matching_location(db_conn, monkeypatch):
     async def fake_embed(*args, **kwargs):
         return [0.1] * 768
@@ -141,7 +133,6 @@ async def test_retrieve_block_keeps_active_fact_from_matching_location(db_conn, 
         msgs=[{"role": "user", "content": "what is happening at the tavern"}],
         cfg={"memory_v2_budget_tokens": 1000}, keyword_lore_entries=[])
     assert "the tavern keeper is nervous" in block
-
 
 async def test_retrieve_block_caps_active_facts_at_max_reserved(db_conn, monkeypatch):
     async def fake_embed(*args, **kwargs):
@@ -169,10 +160,8 @@ async def test_retrieve_block_caps_active_facts_at_max_reserved(db_conn, monkeyp
     reserved_count = active_section.count("ongoing detail number")
     assert reserved_count <= memory_ranking.MAX_ACTIVE_RESERVED_FACTS
 
-
 def _msg(mid, role, content, char_id=None):
     return {"id": mid, "role": role, "content": content, "mood": None, "char_id": char_id}
-
 
 def _patch_extraction_pipeline(monkeypatch, recorded_turns):
     async def fake_run_extract(*args, **kwargs):
@@ -198,7 +187,6 @@ def _patch_extraction_pipeline(monkeypatch, recorded_turns):
                                             *args, **kwargs)
     monkeypatch.setattr(memory_service, "extract_batch", spying_extract_batch)
 
-
 async def test_maybe_extract_single_character_turn_matches_user_message_count(db_conn, monkeypatch):
     recorded_turns = []
     _patch_extraction_pipeline(monkeypatch, recorded_turns)
@@ -215,7 +203,6 @@ async def test_maybe_extract_single_character_turn_matches_user_message_count(db
         "Player", "English", "test-model")
 
     assert recorded_turns == [5]
-
 
 async def test_maybe_extract_catches_up_partial_batch_in_long_session(db_conn, monkeypatch):
     recorded_turns = []
@@ -236,7 +223,6 @@ async def test_maybe_extract_catches_up_partial_batch_in_long_session(db_conn, m
     assert recorded_turns == [5, 10, 15, 17]
     assert await memory_service.memory_facts.get_cursor(sid) == 17
 
-
 async def test_maybe_extract_no_catch_up_in_short_session(db_conn, monkeypatch):
     recorded_turns = []
     _patch_extraction_pipeline(monkeypatch, recorded_turns)
@@ -255,7 +241,6 @@ async def test_maybe_extract_no_catch_up_in_short_session(db_conn, monkeypatch):
 
     assert recorded_turns == [5]
     assert await memory_service.memory_facts.get_cursor(sid) == 5
-
 
 async def test_maybe_extract_group_turn_matches_distinct_user_message_count(db_conn, monkeypatch):
     recorded_turns = []
@@ -282,7 +267,6 @@ async def test_maybe_extract_group_turn_matches_distinct_user_message_count(db_c
     assert recorded_turns == [3]
     assert recorded_turns != [5]
 
-
 def _patch_extraction_pipeline_with_fact(monkeypatch):
     async def fake_run_extract(*args, **kwargs):
         from backend.memory_extraction import FactDraft, CharStateDraft
@@ -302,7 +286,6 @@ def _patch_extraction_pipeline_with_fact(monkeypatch):
     async def fake_detect_secrets(*args, **kwargs):
         return {"checked": 0, "revealed": 0}
     monkeypatch.setattr("backend.lore_memory.detect_and_reveal_secrets", fake_detect_secrets)
-
 
 async def test_rollback_discarded_turn_removes_facts_and_allows_reextraction(db_conn, monkeypatch):
     _patch_extraction_pipeline_with_fact(monkeypatch)
@@ -338,7 +321,6 @@ async def test_rollback_discarded_turn_removes_facts_and_allows_reextraction(db_
     assert len(live_final) == 1
     assert await memory_facts.get_cursor(session_id) == 5
 
-
 async def test_rollback_discarded_turn_is_noop_for_unextracted_message(db_conn, monkeypatch):
     _patch_extraction_pipeline_with_fact(monkeypatch)
     session_id = "sess-rollback-service-2"
@@ -360,13 +342,11 @@ async def test_rollback_discarded_turn_is_noop_for_unextracted_message(db_conn, 
     assert len(live) == 1
     assert await memory_facts.get_cursor(session_id) == 5
 
-
 async def test_rollback_discarded_turn_returns_none_for_unknown_message(db_conn, monkeypatch):
     session_id = "sess-rollback-service-3"
     msgs = [_msg("u1", "user", "hi"), _msg("a1", "assistant", "hello")]
     result = await memory_service.rollback_discarded_turn(session_id, msgs, "does-not-exist")
     assert result is None
-
 
 def test_user_turn_ordinals_counts_distinct_user_messages():
     msgs = [
@@ -379,16 +359,13 @@ def test_user_turn_ordinals_counts_distinct_user_messages():
     ordinals = memory_service.user_turn_ordinals(msgs)
     assert ordinals == {"u1": 1, "u2": 2}
 
-
 def test_present_participants_multiple_users():
     result = memory_service.present_participants("Narrator", ["Mira", "Torvald"], [], "Mira and Torvald enter the archive.")
     assert result == ["Mira", "Torvald", "Narrator"]
 
-
 def test_present_participants_single_user_unchanged():
     result = memory_service.present_participants("Narrator", ["You"], [], "You enter the archive.")
     assert result == ["You", "Narrator"]
-
 
 def test_transcript_labels_solo_sender_unchanged():
     batch = [
@@ -396,7 +373,6 @@ def test_transcript_labels_solo_sender_unchanged():
     ]
     out = memory_service._transcript(batch, "Narrator", "You")
     assert out == "You: I open the door.\nNarrator: It creaks open."
-
 
 def test_transcript_labels_each_sender_by_id():
     batch = [
@@ -412,7 +388,6 @@ def test_transcript_labels_each_sender_by_id():
         "Torvald: I keep watch.\n"
         "Narrator: Nothing stirs."
     )
-
 
 def test_transcript_falls_back_to_user_name_for_unknown_sender():
     batch = [

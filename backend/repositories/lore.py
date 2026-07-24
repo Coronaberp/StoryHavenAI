@@ -1,4 +1,3 @@
-"""Lorebook repository — encapsulates CRUD for the `lore` table."""
 import time
 
 from sqlalchemy import select, insert, update as sa_update, delete as sa_delete, or_, and_, false
@@ -6,7 +5,6 @@ from sqlalchemy import select, insert, update as sa_update, delete as sa_delete,
 from backend.db import lore, characters, nid, _q, _q1, _w, _encrypt_secret, _decrypt_secret
 from backend.repositories import lore_links, lore_secrets
 from backend.state import log
-
 
 def _row(row) -> dict:
     d = dict(row)
@@ -24,12 +22,10 @@ def _row(row) -> dict:
     d["global"] = d.get("char_id") is None
     return d
 
-
 def _keys_str(keys) -> str:
     if isinstance(keys, list):
         return ",".join(k.strip() for k in keys if k.strip())
     return ",".join(k.strip() for k in str(keys or "").split(",") if k.strip())
-
 
 async def create(char_id, keys, content, always, image="", category="", hidden=False, name="",
                   appearance_tags="", appearance_tags_negative="", is_explicit=False,
@@ -47,11 +43,9 @@ async def create(char_id, keys, content, always, image="", category="", hidden=F
     log.info("lore: created id=%s char=%s always=%s hidden=%s", lid, char_id, bool(always), bool(hidden))
     return lid
 
-
 async def get(lid: str) -> dict | None:
     row = await _q1(select(lore).where(lore.c.id == lid))
     return _row(row) if row else None
-
 
 async def list_for_character(char_id: str, viewer_id: str | None = None) -> list[dict]:
     global_clause = (and_(lore.c.char_id.is_(None), lore.c.owner_id == viewer_id)
@@ -60,7 +54,6 @@ async def list_for_character(char_id: str, viewer_id: str | None = None) -> list
             .where(or_(lore.c.char_id == char_id, global_clause))
             .order_by(lore.c.always.desc(), lore.c.created.desc()))
     return [_row(r) for r in await _q(stmt)]
-
 
 async def list_mine(user_id: str) -> list[dict]:
     char_lore = (select(lore)
@@ -71,12 +64,10 @@ async def list_mine(user_id: str) -> list[dict]:
     rows.sort(key=lambda e: e["created"], reverse=True)
     return rows
 
-
 async def by_ids(ids: list[str]) -> list[dict]:
     if not ids:
         return []
     return [_row(r) for r in await _q(select(lore).where(lore.c.id.in_(ids)))]
-
 
 async def update(lid: str, keys, content, always, image=None, category=None, hidden=None, name=None,
                   appearance_tags=None, appearance_tags_negative=None, is_explicit=None,
@@ -103,17 +94,14 @@ async def update(lid: str, keys, content, always, image=None, category=None, hid
     log.info("lore: updated id=%s", lid)
     return True
 
-
 async def delete(lid: str) -> None:
     await lore_links.delete_all_for(lid)
     await _w(sa_delete(lore).where(lore.c.id == lid))
     log.info("lore: deleted id=%s", lid)
 
-
 async def set_explicit(lid: str, explicit: bool = True):
     await _w(sa_update(lore).where(lore.c.id == lid).values(is_explicit=1 if explicit else 0))
     log.info("lore: set_explicit id=%s explicit=%s", lid, explicit)
-
 
 async def set_usable_as_persona(lid: str, value: bool):
     await _w(sa_update(lore).where(lore.c.id == lid).values(usable_as_persona=1 if value else 0))

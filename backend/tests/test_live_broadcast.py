@@ -7,7 +7,6 @@ from backend import live_broadcast
 
 pytestmark = pytest.mark.asyncio
 
-
 async def test_broadcast_fans_out_to_all_subscribers():
     gen_a = live_broadcast.stream("sess-1")
     gen_b = live_broadcast.stream("sess-1")
@@ -22,7 +21,6 @@ async def test_broadcast_fans_out_to_all_subscribers():
     await gen_a.aclose()
     await gen_b.aclose()
 
-
 async def test_broadcast_does_not_leak_across_sessions():
     gen = live_broadcast.stream("sess-2")
     task = asyncio.ensure_future(gen.__anext__())
@@ -33,14 +31,12 @@ async def test_broadcast_does_not_leak_across_sessions():
     assert json.loads(payload.removeprefix("data: ").strip())["content"] == "for you"
     await gen.aclose()
 
-
 async def test_heartbeat_sent_when_idle(monkeypatch):
     monkeypatch.setattr(live_broadcast, "HEARTBEAT_SECONDS", 0.05)
     gen = live_broadcast.stream("sess-heartbeat")
     payload = await asyncio.wait_for(gen.__anext__(), timeout=1)
     assert payload == ": keep-alive\n\n"
     await gen.aclose()
-
 
 async def test_subscriber_removed_on_close():
     gen = live_broadcast.stream("sess-3")

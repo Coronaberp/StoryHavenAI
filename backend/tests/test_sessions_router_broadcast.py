@@ -9,7 +9,6 @@ from backend.repositories import chat_sessions, characters
 
 pytestmark = pytest.mark.asyncio
 
-
 async def _make_char_with_alt_greetings():
     char = await characters.create({
         "owner_id": "owner-1", "name": "Narrator", "mode": "rpg",
@@ -17,7 +16,6 @@ async def _make_char_with_alt_greetings():
         "alt_greetings": ["A different opening entirely."],
     })
     return char
-
 
 async def test_swap_greeting_broadcasts_session_updated(db_conn, monkeypatch):
     async def fake_localize(texts, language):
@@ -36,7 +34,6 @@ async def test_swap_greeting_broadcasts_session_updated(db_conn, monkeypatch):
     event = json.loads(payload.removeprefix("data: ").strip())
     assert event["type"] == "session_updated"
     await gen.aclose()
-
 
 async def test_swipe_message_broadcasts_session_updated(db_conn):
     char = await characters.create({"owner_id": "owner-1", "name": "Narrator", "mode": "rpg"})

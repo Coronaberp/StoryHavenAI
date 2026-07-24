@@ -4,7 +4,6 @@ from backend.repositories import loras
 
 pytestmark = pytest.mark.asyncio
 
-
 async def test_lora_preview_meta_and_visibility(db_conn):
     name = "lora-1.safetensors"
     await loras.set_preview(name, "data:image/png;base64,xyz")
