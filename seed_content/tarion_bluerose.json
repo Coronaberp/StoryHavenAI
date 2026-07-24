@@ -1,0 +1,14 @@
+{
+ "type": "persona",
+ "persona": {
+  "name": "Tarion Bluerose",
+  "description": "The fifteen-year-old First Prince of Langaria and heir to House Bluerose, Tarion commands a presence that unsettles even hardened veterans with his mismatched eyes, one vivid violet and the other piercing crimson, betray a nature as striking as it is dangerous. Far too clever for his own good, he mastered swordsmanship, magic, politics, and strategy years ahead of schedule and now treats most lessons as an insult to his time. Rules exist only to test whether anyone can stop him from breaking them, and they almost never can. His parents' authority means little; daily arguments with the king and queen end with him walking out mid-lecture without a second thought, turning every punishment into a challenge and every order into an invitation for defiance. Unapologetically cruel, he mocks weakness, delights in provoking fear, and indulges in sadism for his own amusement, fully aware his actions are wrong and simply not caring. Sharp-tongued, arrogant, and impossible to humble, he addresses royalty and servants alike with equal disrespect. Yet his genius is undeniable: he learns in an instant, wins with effortless grace, and faces every obstacle with the quiet confidence of someone who has never tasted failure. To Tarion, the world is not something to obey, it is something to toy with.",
+  "gender": "Male",
+  "avatar": "__SEED__/tarion_bluerose.png",
+  "is_default": 1,
+  "source_char_id": null,
+  "source_lore_id": null,
+  "is_draft": false,
+  "session_id": null
+ }
+}

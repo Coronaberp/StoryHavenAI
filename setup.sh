@@ -552,6 +552,88 @@ if [ "$DRY_RUN" = 1 ]; then
   exit 0
 fi
 
+MANIFEST_FILE="$REPO_DIR/installer/models.manifest.tsv"
+CURL_IMAGE="docker.io/curlimages/curl:latest"
+
+model_present() {
+  local category="$1" filename="$2"
+  if [ "$category" = gguf ]; then
+    $ENGINE exec llamacpp-chat test -f "/models/$filename" 2>/dev/null
+  else
+    $ENGINE exec comfyui test -f "/opt/comfyui/app/models/$category/$filename" 2>/dev/null
+  fi
+}
+
+download_model() {
+  local category="$1" filename="$2" url="$3"
+  local auth=()
+  [ -n "${CIVITAI_TOKEN:-}" ] && auth=(-H "Authorization: Bearer $CIVITAI_TOKEN")
+  if model_present "$category" "$filename"; then
+    ok "already present: $category/$filename"
+    return 0
+  fi
+  info "Downloading $category/$filename"
+  if [ "$category" = gguf ]; then
+    local vol
+    vol="$($ENGINE volume ls --format '{{.Name}}' | grep 'kcpp-data$' | head -1)"
+    [ -n "$vol" ] || { warn "kcpp-data volume not found, skipping $filename"; return 1; }
+    $ENGINE run --rm -v "$vol:/dest" "$CURL_IMAGE" -fL --retry 3 "${auth[@]}" -o "/dest/$filename" "$url" \
+      && ok "$filename" || warn "download failed: $filename"
+  else
+    $ENGINE run --rm --volumes-from comfyui "$CURL_IMAGE" -fL --retry 3 "${auth[@]}" \
+      -o "/opt/comfyui/app/models/$category/$filename" "$url" \
+      && ok "$filename" || warn "download failed: $filename"
+  fi
+}
+
+download_manifest_selection() {
+  local only_defaults="$1" category filename url is_default
+  while IFS=$'\t' read -r category filename url is_default; do
+    [ -n "$url" ] || continue
+    if [ "$only_defaults" = 1 ] && [ "$is_default" != 1 ]; then continue; fi
+    download_model "$category" "$filename" "$url"
+  done < "$MANIFEST_FILE"
+}
+
+import_models_from_folder() {
+  local src
+  src="$(ask "Path to a folder with model subfolders (gguf/, checkpoints/, loras/, ...)" "")"
+  [ -d "$src" ] || { warn "'$src' is not a directory, skipping."; return 0; }
+  if [ -d "$src/gguf" ]; then
+    $ENGINE cp "$src/gguf/." llamacpp-chat:/models/ && ok "gguf files copied"
+  fi
+  for category in checkpoints loras upscale_models vae diffusion_models text_encoders; do
+    [ -d "$src/$category" ] || continue
+    $ENGINE cp "$src/$category/." "comfyui:/opt/comfyui/app/models/$category/" && ok "$category copied"
+  done
+}
+
+offer_model_install() {
+  [ -f "$MANIFEST_FILE" ] || return 0
+  local total defaults
+  total=$(grep -c . "$MANIFEST_FILE")
+  defaults=$(awk -F'\t' '$4 == 1' "$MANIFEST_FILE" | wc -l)
+  echo
+  echo "${B}Model downloads${R}"
+  echo "  Image generation and LoRA styling need model files, downloaded from each"
+  echo "  model's own source site (Civitai, Hugging Face, GitHub). The catalog has"
+  echo "  $total models. The default set ($defaults files, the RealSkin image model and"
+  echo "  the Zoda detailer) is enough to generate good images out of the box."
+  echo "  Some Civitai downloads need a free API token. Set CIVITAI_TOKEN before"
+  echo "  running this script to use one."
+  if confirm "Download the default model set now?"; then
+    download_manifest_selection 1
+  fi
+  if confirm "Also download the full model catalog? (tens of GB)"; then
+    download_manifest_selection 0
+  fi
+  if confirm "Import additional model files from a local folder or drive?"; then
+    import_models_from_folder
+  fi
+  info "Restarting model services to pick up new files"
+  $COMPOSE -f "$COMPOSE_FILE" --env-file "$ENV_FILE" restart llamacpp-chat llamacpp-embed comfyui
+}
+
 ensure_venv
 
 echo
@@ -573,6 +655,8 @@ else
   warn "story-game did not respond healthy within timeout."
   echo "  Check logs: $ENGINE logs story-game"
 fi
+
+offer_model_install
 
 echo
 echo "${B}First-run admin password${R}"
