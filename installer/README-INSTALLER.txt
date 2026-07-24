@@ -29,10 +29,24 @@ What the installer does, in order:
 GPU support:
   * NVIDIA: fully automatic. Install a recent NVIDIA driver with WSL2 CUDA
     support for acceleration.
-  * AMD: Windows containers cannot use AMD GPUs, so the script sets the app
-    up to talk to model services you run on this PC with ZLUDA instead. It
-    prints step-by-step instructions when it detects an AMD card.
+  * AMD: fully automatic too. Windows containers cannot use AMD GPUs, so the
+    script installs the model services natively on this PC instead. ComfyUI
+    runs on ZLUDA, chat and embeddings run on llama.cpp's official Vulkan
+    build, all AMD-accelerated, all installed and started by setup itself.
   * No GPU: everything still works on CPU, just very slowly.
+
+What your PC needs:
+  * Windows 10 or 11, 64-bit, with WSL2 enabled
+  * 16 GB of memory (32 GB is better)
+  * 40 GB of free disk space (250 GB if you download every model)
+  * A graphics card with 12 GB of video memory for the best experience.
+    8 GB works at reduced speed. No graphics card also works, but replies
+    will take minutes instead of seconds.
+  * No graphics card? Connect DeepSeek instead: create a key at
+    https://platform.deepseek.com and paste it into the app's Settings as
+    the chat endpoint (https://api.deepseek.com, model deepseek-chat).
+    Replies become fast again and cost pennies. Everything else keeps
+    working locally.
 
 Requirements the installer checks or handles for you:
   * Git for Windows      https://git-scm.com/download/win

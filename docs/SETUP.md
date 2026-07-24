@@ -20,6 +20,35 @@ on its own isolated network (`storyhaven_isolated_net`).
 > (`story-game`, plus any of `postgres`/`llamacpp-*`/`comfyui` not already
 > present) into that existing compose file by hand.
 
+## Minimum requirements
+
+| | Minimum | Recommended |
+|---|---|---|
+| OS | 64-bit Linux, Windows 10/11 with WSL2, or macOS 12+ | Linux or Windows 11 |
+| CPU | 4 cores | 8+ cores |
+| RAM | 16 GB | 32 GB |
+| GPU | none (CPU works but replies take minutes) | NVIDIA or AMD with **12 GB+ VRAM** |
+| Disk | 40 GB free (app, database, chat/embed models, default image models) | 250 GB+ for the full model catalog |
+| Network | broadband for the initial model downloads (~11 GB default set) | — |
+
+Notes:
+- The default chat model is an ~8 GB file that wants to sit in VRAM. 8 GB
+  cards work with fewer GPU layers offloaded (the installer asks), at reduced
+  speed. Image generation wants 8 GB+ VRAM on its own.
+- On macOS the stack runs inside Docker's VM without GPU access, so
+  generation is CPU-speed. Fine for trying the app, not for daily image gen.
+- On Windows, NVIDIA needs a driver with WSL2 CUDA support. AMD is handled
+  natively by the installer (no WSL2 GPU needed).
+- **No GPU, or replies too slow? Use DeepSeek for chat.** The app speaks any
+  OpenAI-compatible API, and [DeepSeek](https://platform.deepseek.com) is the
+  recommended hosted option: cheap, fast, and good at roleplay. Get an API key
+  from the [DeepSeek platform](https://platform.deepseek.com/api_keys), then
+  in the app set Settings → chat endpoint to `https://api.deepseek.com` with
+  model `deepseek-chat` (docs: [api-docs.deepseek.com](https://api-docs.deepseek.com)).
+  Embeddings stay local either way — the embedding model is small (~0.6 GB)
+  and runs fine on CPU, so memory and lore retrieval work even on a machine
+  with no GPU at all.
+
 ## Pick your starting point
 
 | You have… | Use |
@@ -74,14 +103,24 @@ RNG. Health-wait uses `Invoke-WebRequest` (treating `401`/`200` as up).
 **AMD on Windows uses ZLUDA.** Windows containers cannot access AMD GPUs, so
 on an AMD machine the generated stack contains only `story-game` and
 `postgres`, with `LLM_BASE_URL`/`EMBED_BASE_URL` pointed at
-`host.docker.internal:5001`/`:5002`. Run the model services natively with
-ZLUDA instead:
+`host.docker.internal:5001`/`:5002`. The script then installs the model
+services natively itself, no manual steps:
 
-- [ZLUDA](https://github.com/vosen/ZLUDA) — the CUDA-on-AMD runtime
-- [ComfyUI-Zluda](https://github.com/patientx/ComfyUI-Zluda) — serve on port 8188,
-  then set it as the ComfyUI URL in the app's admin Settings
-- llama.cpp under ZLUDA — one `llama-server` for chat on port 5001, a second
-  with `--embeddings` on port 5002
+- [ComfyUI-Zluda](https://github.com/patientx/ComfyUI-Zluda) is cloned into
+  `native\comfyui` and its own `install.bat` is run, which installs ZLUDA and
+  the Python deps and serves on port 8188
+- llama.cpp's official prebuilt Vulkan build is downloaded into
+  `native\llama`, one `llama-server` for chat on port 5001 and a second with
+  `--embeddings` on port 5002, both AMD-accelerated through Vulkan
+- model files from `installer\models.manifest.tsv` land in
+  `native\llama\models` (gguf) and `native\comfyui\models\<category>`
+- a generated `native\start-services.ps1` launches all three, registered as
+  the per-user scheduled task "StoryHaven Model Services" at logon and also
+  run immediately
+
+Re-running `setup.ps1` repairs or resumes this install: existing binaries,
+clones, and model files are detected and skipped, only what is missing gets
+downloaded or set up again.
 
 ## 3. Windows `.exe` (Inno Setup)
 

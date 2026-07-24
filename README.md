@@ -110,17 +110,35 @@ Two directories exist purely for history, not for the running app:
 StoryHaven deploys like an all-in-one appliance (think Nextcloud AIO): one
 installer detects Docker or Podman (offering to install Docker if neither is
 present), detects an NVIDIA or AMD GPU and picks the right acceleration
-(CUDA, ROCm, or Vulkan on Linux, ZLUDA guidance on Windows AMD), gathers or
-generates every secret, writes a working `docker-compose.yml` + `.env` for
-the full stack (the app, Postgres+pgvector, llama.cpp chat and embed servers,
-ComfyUI) on its own isolated network, brings it all up, and waits for it to
-become healthy.
+(CUDA, ROCm, or Vulkan on Linux; on Windows AMD machines it installs the
+model services natively itself, ComfyUI on ZLUDA and llama.cpp on Vulkan,
+started automatically at logon), gathers or generates every secret, writes a
+working `docker-compose.yml` + `.env` for the full stack (the app,
+Postgres+pgvector, llama.cpp chat and embed servers, ComfyUI) on its own
+isolated network, brings it all up, waits for it to become healthy, then
+offers to download the model catalog from each model's own source site with
+a working default set preselected. A fresh install also seeds starter
+content on first run (a persona, a character, and a full RPG with its
+lorebook), so day one isn't an empty app.
 
 | You have… | Run |
 |---|---|
 | Linux or macOS shell | `./setup.sh` |
 | Windows PowerShell | `.\setup.ps1` |
 | A fresh Windows box, want a wizard | the compiled `.exe` built from `installer/setup.iss` |
+
+Minimum requirements: a 64-bit OS (Linux, Windows 10/11 with WSL2, or macOS
+12+), 4 CPU cores, 16 GB RAM, and 40 GB of free disk. A GPU is optional but
+strongly recommended — an NVIDIA or AMD card with 12 GB+ VRAM gives fast
+replies and image generation, 8 GB works at reduced speed, and CPU-only means
+minutes per reply. The full model catalog needs 250 GB+ of disk. See
+`docs/SETUP.md` for the detailed table and per-platform notes.
+
+No GPU? Point chat at a hosted API instead — [DeepSeek](https://platform.deepseek.com)
+is the recommended one (`https://api.deepseek.com`, model `deepseek-chat`,
+[docs](https://api-docs.deepseek.com)): set it as the chat endpoint in
+Settings and the heavy lifting happens off-machine, while the small embedding
+model keeps memory and lore retrieval running locally on CPU.
 
 `./setup.sh --dry-run` detects and generates files without starting anything;
 `--yes` runs non-interactively with defaults. Re-running is idempotent and
