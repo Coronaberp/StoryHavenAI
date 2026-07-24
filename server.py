@@ -25,6 +25,11 @@ from backend.repositories import users as user_repo
 from backend.repositories import settings as global_settings_repo
 from backend.repositories import lora_training as lora_training_repo
 from backend.repositories import oauth_pending as oauth_pending_repo
+from backend.repositories import groups as groups_repo
+from backend.repositories import session_invites
+from backend.repositories import chat_sessions as chat_sessions_repo
+from backend.repositories import session_characters as session_char_repo
+from backend.repositories import session_participants
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -146,6 +151,7 @@ import backend.routers.characters
 import backend.routers.personas
 import backend.routers.lore
 import backend.routers.session_lore
+import backend.routers.tts
 import backend.routers.sessions
 import backend.routers.chat
 import backend.routers.imagegen
@@ -461,6 +467,66 @@ def _og_profile_url(request: Request, name, desc, avatar_rel, banner_rel, tags, 
         return f"{origin}{card}"
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
 
+def _compose_group_card(group_name, cast, cache_key, footer_text=None):
+    from PIL import ImageDraw
+    import hashlib
+    signature = "|".join(f"{c.get('name') or ''}:{c.get('avatar') or ''}" for c in cast)
+    digest = hashlib.md5(f"{cache_key}|{group_name}|{len(cast)}|{footer_text}|{signature}".encode()).hexdigest()[:12]
+    cache_name = f"ogg_{digest}_v{_OG_IMG_VERSION}.png"
+    cache_fs = os.path.join(MEDIA_DIR, cache_name)
+    if os.path.exists(cache_fs):
+        return f"/media/{cache_name}"
+    width, height, band = 1200, 630, 150
+    canvas = Image.new("RGB", (width, height), _OG_PAPER)
+    draw = ImageDraw.Draw(canvas)
+    try:
+        header = Image.open(os.path.join(STATIC_DIR, "img", "og-header.png")).convert("RGB").resize((width, band))
+        canvas.paste(header, (0, 0))
+    except Exception:
+        pass
+    name_font = _og_font(_FONT_DISPLAY, 52, 600)
+    name_text = (group_name or "")[:34]
+    draw.text(((width - draw.textlength(name_text, font=name_font)) / 2, band + 34),
+              name_text, font=name_font, fill=_OG_GOLD)
+    members = cast[:4]
+    size, gap, ring, radius = 184, 30, 5, 34
+    row_width = len(members) * size + max(0, len(members) - 1) * gap
+    start_x = (width - row_width) // 2
+    avatar_y = band + 128
+    label_font = _og_font(_FONT_BODY, 24, 500)
+    for index, member in enumerate(members):
+        x = start_x + index * (size + gap)
+        outer = size + ring * 2
+        gradient = _og_diagonal_gradient(outer, _OG_GOLD, _og_hex_rgb(None, _OG_GOLD))
+        outer_mask = Image.new("L", (outer, outer), 0)
+        ImageDraw.Draw(outer_mask).rounded_rectangle([0, 0, outer - 1, outer - 1], radius=radius + ring, fill=255)
+        canvas.paste(gradient, (x - ring, avatar_y - ring), outer_mask)
+        source = _og_open_media(member.get("avatar"))
+        art = _og_cover(source, size, size) if source is not None else Image.new("RGB", (size, size), (38, 38, 44))
+        mask = Image.new("L", (size, size), 0)
+        ImageDraw.Draw(mask).rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=255)
+        canvas.paste(art, (x, avatar_y), mask)
+        label = (member.get("name") or "")[:15]
+        draw.text((x + (size - draw.textlength(label, font=label_font)) / 2, avatar_y + size + 14),
+                  label, font=label_font, fill=_OG_MUTED)
+    count_font = _og_font(_FONT_BODY, 27, 500)
+    count_text = footer_text or (f"{len(cast)} character group" if len(cast) != 1 else "1 character group")
+    draw.text(((width - draw.textlength(count_text, font=count_font)) / 2, height - 62),
+              count_text, font=count_font, fill=_OG_GOLD)
+    try:
+        canvas.save(cache_fs, "PNG")
+    except Exception as e:
+        log.warning("og group card save failed: %s", e)
+        return None
+    return f"/media/{cache_name}"
+
+def _og_group_url(request: Request, group_name, cast, cache_key, footer_text=None) -> str:
+    origin = str(request.base_url).rstrip("/")
+    card = _compose_group_card(group_name, cast, cache_key, footer_text)
+    if card:
+        return f"{origin}{card}"
+    return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
+
 def _is_wide_enough_for_large_card(img_url: str | None) -> bool:
     if not img_url:
         return False
@@ -534,6 +600,59 @@ async def character_share_card(cid: str, request: Request):
         img = f"{str(request.base_url).rstrip('/')}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
     canonical = f"{str(request.base_url).rstrip('/')}/c/{cid}"
     return _share_shell(title, desc, img, "website", canonical)
+
+@app.get("/g/{gid}")
+async def group_share_card(gid: str, request: Request):
+    g = await groups_repo.get(gid)
+    brand_name = "StoryHaven AI"
+    brand_tagline = "Forge worlds. Remember everything."
+    origin = str(request.base_url).rstrip("/")
+    canonical = f"{origin}/g/{gid}"
+    if g and g.get("is_public"):
+        cast = []
+        for row in await groups_repo.list_cast(gid):
+            member = await db.get_character(row["char_id"])
+            if member:
+                cast.append(member)
+        if cast and all(member.get("is_public") for member in cast):
+            title = g.get("name") or brand_name
+            names = ", ".join(member.get("name") or "?" for member in cast[:4])
+            desc = _og_excerpt(f"A character group with {names}.") or brand_tagline
+            img = _og_group_url(request, g.get("name") or brand_name, cast, f"g{gid}")
+            return _share_shell(title, desc, img, "website", canonical)
+    fallback = f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
+    return _share_shell(brand_name, brand_tagline, fallback, "website", canonical)
+
+@app.get("/chats/{sid}")
+async def chat_share_card(sid: str, request: Request):
+    origin = str(request.base_url).rstrip("/")
+    brand_name = "StoryHaven AI"
+    brand_tagline = "Forge worlds. Remember everything."
+    token = request.query_params.get("token")
+    if token:
+        invite = await session_invites.resolve(token)
+        if invite and invite.get("session_id") == sid:
+            session = await chat_sessions_repo.get(sid)
+            if session:
+                cast = []
+                for row in await session_char_repo.list_cast(sid):
+                    member = await db.get_character(row["char_id"])
+                    if member:
+                        cast.append(member)
+                if not cast and session.get("char_id"):
+                    member = await db.get_character(session["char_id"])
+                    if member:
+                        cast.append(member)
+                if cast and all(member.get("is_public") for member in cast):
+                    players = len(await session_participants.list_for_session(sid))
+                    title = session.get("title") or brand_name
+                    names = ", ".join(member.get("name") or "?" for member in cast[:4])
+                    desc = _og_excerpt(f"Join this multiplayer adventure with {names}.") or brand_tagline
+                    footer = "1 player" if players == 1 else f"{players} players"
+                    img = _og_group_url(request, title, cast, f"chat{sid}", footer)
+                    return _share_shell(title, desc, img, "website", f"{origin}/chats/{sid}?token={token}")
+    generic = f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
+    return _share_shell(brand_name, brand_tagline, generic, "website", f"{origin}/chats/{sid}")
 
 @app.get("/u/{username}")
 async def user_share_card(username: str, request: Request):

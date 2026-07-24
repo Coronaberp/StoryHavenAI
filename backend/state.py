@@ -158,6 +158,10 @@ CFG = {
     "wan_unet_name": os.environ.get("WAN_UNET_NAME", ""),
     "wan_clip_name": os.environ.get("WAN_CLIP_NAME", ""),
     "wan_vae_name": os.environ.get("WAN_VAE_NAME", ""),
+
+    "tts_base_url": os.getenv("TTS_BASE_URL", ""),
+    "tts_api_key": os.getenv("TTS_API_KEY", ""),
+    "tts_narrator_voice": os.getenv("TTS_NARRATOR_VOICE", "af_heart"),
 }
 
 COMFYUI_MODELS_DIR = os.environ.get("COMFYUI_MODELS_DIR", "/app/comfyui_models")
@@ -199,6 +203,7 @@ PUBLIC_CFG_KEYS = [
     "modal_train_url", "modal_checkpoint_url", "modal_check_cached_url", "modal_upload_model_url",
     "modal_download_output_url",
     "wan_unet_name", "wan_clip_name", "wan_vae_name",
+    "tts_base_url", "tts_narrator_voice",
 
 ]
 
@@ -213,6 +218,7 @@ USER_CFG_KEYS = [
     "dry_multiplier", "dry_base", "dry_allowed_length",
     "xtc_threshold", "xtc_probability", "seed", "stop", "extra_params",
     "system_suffix", "post_history",
+    "tts_base_url", "tts_api_key",
 ]
 
 os.makedirs(MEDIA_DIR, exist_ok=True)

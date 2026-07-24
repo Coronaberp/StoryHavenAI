@@ -16,6 +16,7 @@ FEATURE_KEYS = {
     "group_chats": "Group Chat Sessions",
     "profile": "Profile Customization",
     "follows": "Following Creators",
+    "tts": "Voice Playback",
 }
 
 FEATURE_IMPACT_DESCRIPTIONS = {
@@ -31,6 +32,7 @@ FEATURE_IMPACT_DESCRIPTIONS = {
     "group_chats": "Users will be unable to start new group chat sessions",
     "profile": "Users will be unable to upload a new avatar, banner, or chat background",
     "follows": "Users will be unable to follow other users or creators",
+    "tts": "Users will be unable to play spoken audio for messages or preview voices",
 }
 
 def require_feature_enabled(key: str):
