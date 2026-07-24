@@ -296,3 +296,13 @@ async def test_docs_live_config_returns_expected_keys(db_conn):
         "memory_v2_budget_tokens", "memory_batch_size", "history_turns",
         "top_k_memory", "top_k_lore", "mem_max_dist", "lore_max_dist",
     }
+
+def test_summary_transcript_uses_per_message_names():
+    from backend.routers.misc import _summary_transcript
+    msgs = [
+        {"role": "user", "content": "I open the gate.", "user_name": "Mira"},
+        {"role": "assistant", "content": "The gate creaks."},
+        {"role": "user", "content": "I follow her.", "user_name": None},
+    ]
+    transcript = _summary_transcript(msgs, "Narrator", "Kaelen")
+    assert transcript == "Mira: I open the gate.\nNarrator: The gate creaks.\nKaelen: I follow her."
