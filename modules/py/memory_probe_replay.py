@@ -21,7 +21,6 @@ CHAR_NAME = "Kael"
 USER_NAME = "Alice"
 OWNER_USERNAME = "zukaarimoto"
 
-
 def _batches(turns, start_turn=0):
     pairs = [({"id": f"u{i}", "role": "user", "content": t["user"]},
               {"id": f"a{i}", "role": "assistant", "content": t["assistant"]})
@@ -32,7 +31,6 @@ def _batches(turns, start_turn=0):
         if turn <= start_turn:
             continue
         yield pairs[start:start + memory_service.BATCH_SIZE], turn
-
 
 async def _run(script_path: str, naive: bool, keep: bool, resume_session: str = None, resume_turn: int = 0):
     script = json.loads(Path(script_path).read_text(encoding="utf-8"))
@@ -123,7 +121,6 @@ async def _run(script_path: str, naive: bool, keep: bool, resume_session: str = 
     await db.close()
     return failures
 
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("script")
@@ -134,7 +131,6 @@ def main():
     args = ap.parse_args()
     failures = asyncio.run(_run(args.script, args.naive, args.keep, args.resume_session, args.resume_turn))
     sys.exit(1 if failures else 0)
-
 
 if __name__ == "__main__":
     main()

@@ -1,18 +1,3 @@
-"""One-time SQLite -> PostgreSQL data migration.
-
-HISTORICAL: for a one-time SQLite/Redis -> Postgres/pgvector cutover only. The
-live deployment already runs on Postgres and does not need this — kept for
-reference and for anyone migrating an old SQLite-based install from scratch.
-
-Reads every row from the live SQLite database and inserts it unchanged into the
-Postgres database, using db.py's own SQLAlchemy Table metadata for both sides so
-column names/types line up exactly. Fernet-encrypted columns are copied
-byte-for-byte (ciphertext is portable; the key does not change).
-
-Usage (inside the story-game container):
-    DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/dbname \
-    DB_PATH=./personae.db venv/bin/python3 migrate_to_postgres.py
-"""
 import os
 import asyncio
 import sqlalchemy as sa
@@ -20,13 +5,11 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 import db
 
-# FK-safe dependency order.
 TABLES = [
     db.users, db.auth_sessions, db.user_settings, db.characters, db.personas,
     db.lore, db.sessions, db.messages, db.standalone_images,
     db.flagged_endpoints, db.localization, db.settings,
 ]
-
 
 async def main():
     src_path = os.environ.get("DB_PATH", "./personae.db")
@@ -60,8 +43,6 @@ async def main():
             mismatches.append(table.name)
         print(f"{table.name:22} src={len(rows):6}  dst={dst_count:6}  {'OK' if ok else 'MISMATCH'}")
 
-    # messages.seq is a Postgres SERIAL/IDENTITY; explicit inserts above bypassed
-    # the sequence, so advance it past the max copied value or new inserts collide.
     async with dst.begin() as dconn:
         maxseq = (await dconn.execute(
             sa.select(sa.func.max(db.messages.c.seq)))).scalar()
@@ -76,7 +57,6 @@ async def main():
     if mismatches:
         raise SystemExit(f"ROW COUNT MISMATCH: {mismatches}")
     print("all tables migrated with matching row counts")
-
 
 if __name__ == "__main__":
     asyncio.run(main())

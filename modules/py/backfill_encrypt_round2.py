@@ -1,12 +1,3 @@
-"""One-time backfill: encrypt the user-content columns found plaintext in the
-2026-07-18 at-rest audit - memory_vectors.text (V1 memory), lore_secrets.text,
-session_lore_state.override_content, localization.source/translated, and
-lore_links.label. Rows already prefixed "enc:" are left untouched.
-
-Run inside the story-game container:
-
-    ./venv/bin/python3 modules/py/backfill_encrypt_round2.py [--dry-run]
-"""
 import sys
 import asyncio
 from pathlib import Path
@@ -19,10 +10,8 @@ from backend import db
 from backend import vectors
 from backend.state import CFG, log
 
-
 def _needs_encrypt(v) -> bool:
     return isinstance(v, str) and v != "" and not v.startswith("enc:")
-
 
 async def _encrypt_table(table, id_cols: list, text_cols: list, dry_run: bool):
     rows = await db._q(sa.select(*[table.c[c] for c in id_cols + text_cols]))
@@ -40,7 +29,6 @@ async def _encrypt_table(table, id_cols: list, text_cols: list, dry_run: bool):
     log.info("[encrypt round2] %s: %d rows, %d encrypted, %d already/empty dry_run=%s",
              table.name, len(rows), updated, skipped, dry_run)
 
-
 async def main():
     dry_run = "--dry-run" in sys.argv[1:]
     mode = "DRY-RUN" if dry_run else "REAL"
@@ -56,7 +44,6 @@ async def main():
     finally:
         await db.close()
     log.info("=== round2 encrypt backfill COMPLETE (%s) ===", mode)
-
 
 if __name__ == "__main__":
     asyncio.run(main())

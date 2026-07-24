@@ -1,31 +1,3 @@
-"""One-off debug script: trains a tiny LoRA against a real ComfyUI model
-(Anima's bespoke comfy/ldm/anima architecture, or a normal SDXL/Illustrious
-checkpoint) using ComfyUI's own loader/model code as a library, instead of
-the SD1.x-only StableDiffusionPipeline.from_single_file path in
-modal_app/lora_train.py (which can't load either architecture's real
-weights/graph correctly).
-
-Not imported by the running app — run manually inside the comfyui container
-(same image, same models volume) so `import comfy` resolves to the real,
-already-installed ComfyUI codebase instead of guessing at its internals:
-
-    podman run --rm --device nvidia.com/gpu=all \\
-      -v comfyui_python:/opt/comfyui/python:ro \\
-      -v comfyui_models:/opt/comfyui/app/models:ro \\
-      -v /path/to/this/repo/modules/py:/workspace:ro \\
-      -v /path/to/training/images:/images:ro \\
-      --entrypoint /opt/comfyui/python/venv/bin/python3 \\
-      bigbrozer/comfyture:latest /workspace/anima_lora_train_debug.py \\
-      --arch anima --checkpoint nova_anime_am_anima.safetensors \\
-      --images-dir /images --steps 10 --out /workspace/debug_lora.safetensors
-
-Loss is a plain MSE against the model's own x0 prediction (apply_model already
-runs it through model_sampling.calculate_denoised, which abstracts away the
-EPS vs. FLOW/CONST parameterization difference between SDXL and Anima) — a
-deliberate simplification of kohya-ss/sd-scripts' full training loop (no
-min-SNR weighting, no eps-space loss, no bucketing) since this script only
-exists to prove the two architectures load and backprop correctly at all.
-"""
 import argparse
 import glob
 import os
@@ -45,11 +17,7 @@ from comfy.sd import CLIPType
 MODELS_DIR = "/opt/comfyui/app/models"
 LORA_TARGET_SUFFIXES = ("to_q", "to_k", "to_v", "to_out.0", "q_proj", "k_proj", "v_proj", "o_proj")
 
-
 class LoRALinear(torch.nn.Module):
-    """Wraps an existing Linear-shaped module (comfy's own op classes, not
-    necessarily torch.nn.Linear) with a frozen base + a trainable low-rank
-    delta, so the base model's real weights load and run untouched."""
     def __init__(self, base, rank=8, alpha=8.0):
         super().__init__()
         self.base = base
@@ -65,7 +33,6 @@ class LoRALinear(torch.nn.Module):
         delta = F.linear(F.linear(x.float(), self.lora_a), self.lora_b) * self.scale
         return out + delta.to(out.dtype)
 
-
 def inject_lora(diffusion_model, rank, alpha):
     wrapped = []
     for name, module in list(diffusion_model.named_modules()):
@@ -80,12 +47,10 @@ def inject_lora(diffusion_model, rank, alpha):
         wrapped.append((name, lw))
     return wrapped
 
-
 def load_image_tensor(path, resolution):
     img = Image.open(path).convert("RGB").resize((resolution, resolution), Image.LANCZOS)
     t = torch.from_numpy(__import__("numpy").array(img)).float() / 255.0
-    return t.unsqueeze(0)  # [1, H, W, C], ComfyUI's own VAE.encode convention
-
+    return t.unsqueeze(0)
 
 def main():
     ap = argparse.ArgumentParser()
@@ -180,7 +145,6 @@ def main():
         state[f"{name}.lora_b.weight"] = lw.lora_b.detach().cpu()
     comfy.utils.save_torch_file(state, args.out)
     print(f"Wrote debug LoRA state dict ({len(state)} tensors) to {args.out}")
-
 
 if __name__ == "__main__":
     main()

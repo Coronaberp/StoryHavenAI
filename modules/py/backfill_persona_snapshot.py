@@ -6,7 +6,6 @@ from backend.db import init, engine, sessions, messages, _decrypt_secret
 from backend.repositories import personas
 from backend.state import log
 
-
 async def main():
     await init()
     async with engine().begin() as conn:
@@ -30,7 +29,6 @@ async def main():
     log.info("backfill_persona_snapshot: done sessions=%d messages_updated=%d",
              len(session_rows), updated)
     print(f"done: {len(session_rows)} sessions scanned, {updated} messages backfilled")
-
 
 if __name__ == "__main__":
     asyncio.run(main())
