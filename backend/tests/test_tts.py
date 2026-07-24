@@ -3,7 +3,7 @@ import wave
 
 import pytest
 
-from backend.tts import concat_wavs, segment_speech, speech_cache_key
+from backend.tts import concat_wavs, endpoint_cache_host, segment_speech, speech_cache_key
 
 def test_segment_pure_narration():
     assert segment_speech("She walks to the door and knocks.") == [
@@ -77,3 +77,7 @@ def test_speech_cache_key_sensitivity():
     assert base != speech_cache_key("hi", "af_bella", "af_sky", "kokoro:8880")
     assert base != speech_cache_key("hi", "af_bella", "af_heart", "other:1")
     assert len(base) == 64
+
+def test_endpoint_cache_host_includes_port():
+    assert endpoint_cache_host("http://kokoro:8880/v1") != endpoint_cache_host("http://kokoro:9000/v1")
+    assert endpoint_cache_host("not a url") == "not a url"
