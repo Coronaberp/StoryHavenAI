@@ -11,7 +11,6 @@ const ACCENT_SEED_HEX = {
   verdant: "#3ECF8E", amethyst: "#A675E0", rose: "#E07BA0",
 };
 
-
 const OVERRIDE_CSS_VAR = {
   accent: "--color-accent", text: "--color-ink", appBg: "--color-paper",
   cmdPurple: "--color-cmd-purple", cmdYellow: "--color-cmd-yellow",

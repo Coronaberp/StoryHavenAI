@@ -60,9 +60,6 @@ class NotificationsBell {
       return;
     }
     if (!this._seenIdsPrimed) {
-      // First poll after page load: every unread item is "old news" the
-      // user just hasn't opened the panel for yet, not something that just
-      // arrived - record them silently so only genuinely new ones toast.
       items.forEach((n) => this.seenIds.add(n.id));
       this._seenIdsPrimed = true;
       this.items = items;

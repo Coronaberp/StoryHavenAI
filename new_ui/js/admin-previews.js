@@ -391,7 +391,7 @@ class AdminPreviewsView {
         });
         if (!res.ok || !res.body) {
           let detail = `HTTP ${res.status}`;
-          try { detail = (await res.json()).detail || detail; } catch (e) { /* not JSON */ }
+          try { detail = (await res.json()).detail || detail; } catch (e) {  }
           throw new Error(detail);
         }
         await sseEvents(res, (ev) => {

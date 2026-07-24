@@ -27,9 +27,6 @@ class CompendiumView {
       api("/api/imagegen/community").catch(() => []),
       api("/api/forum/threads?sort=top").catch(() => []),
     ]);
-    // Compendium should follow the viewer's saved content-rating preference,
-    // but there's no account setting for that yet — default to SFW-only
-    // until one exists, rather than surfacing mature content unasked-for.
     this.chars = _shuffleSample(chars.filter((c) => !c.is_explicit), 6);
     this.creators = _shuffleSample(creators, 6);
     this.images = _shuffleSample(images.filter((i) => !i.is_explicit), 6);

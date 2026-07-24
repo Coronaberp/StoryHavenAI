@@ -162,7 +162,7 @@ function applyCensorToggleVisibility() {
   const btn = document.getElementById("censorToggle");
   if (!btn) return;
   const route = currentRoute();
-  btn.classList.toggle("hidden", !ME?.nsfw_allowed || route === "chats/show" || route === "character-new-chat");
+  btn.classList.toggle("hidden", !ME?.nsfw_allowed || ME?.nsfw_classification_enabled === false || route === "chats/show" || route === "character-new-chat");
   const censored = document.documentElement.dataset.censor === "1";
   btn.innerHTML = censored ? EYE_CLOSED_ICON : EYE_OPEN_ICON;
 }

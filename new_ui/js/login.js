@@ -191,11 +191,6 @@ class AuthView {
   snapshotValues() {
     if (!this.main) return;
     this.values = this.values || {};
-    // heroScene() renders this same markup twice (a mobile copy and a
-    // tablet+ copy, toggled by CSS breakpoint, never both visible at once)
-    // - reading/writing every match would let the always-empty hidden copy
-    // clobber whichever one the person actually typed into, so every
-    // field/totp/link lookup here is scoped to the one currently visible.
     visibleEls(this.main, "[data-field]").forEach((input) => {
       this.values[input.dataset.field] = input.value;
     });
@@ -260,10 +255,6 @@ class AuthView {
   }
 
   wire() {
-    // click handlers are safe to attach to every copy of the markup - a
-    // hidden (display:none) button can never actually receive a click, so
-    // no visibility filtering is needed here, unlike the value/focus lookups
-    // below which must target only the one copy currently on screen.
     this.main.querySelectorAll("[data-auth-link]").forEach((btn) => {
       btn.addEventListener("click", () => this.setView(btn.dataset.authLink));
     });

@@ -1,11 +1,5 @@
 "use strict";
 
-/** Where a floating popup (reaction picker, GIF/emoji panel) should attach.
- * Appending straight to document.body breaks .modal-layer's own
- * :not(:last-child) { visibility: hidden } stacking rule the moment the
- * popup lands after it as body's newest child - the modal silently
- * vanishes. Attaching inside the topmost open modal keeps that invariant
- * intact; outside any modal, body is the correct host as before. */
 function _floatingPopupHost() {
   return document.querySelector(".modal-layer:last-child") || document.body;
 }
@@ -72,12 +66,6 @@ function commentAttachmentHtml(c) {
   return `<img src="${_attr(c.image)}" alt="" class="${c.image_is_explicit ? "comment-explicit-img" : ""}" style="max-width:220px;border-radius:10px;margin-top:6px;display:block">`;
 }
 
-/** Rasterizes an emoji glyph (or a custom emoji/sticker image URL) onto an
- * offscreen canvas and buckets every opaque pixel's RGB into a coarse
- * histogram - the most-frequent bucket is that emoji's dominant color, the
- * least-frequent (but still present) bucket is its least-dominant color.
- * Powers the super-reaction pill's gradient. Cached per emoji value since
- * the result never changes for a given glyph/image. */
 async function extractEmojiColors(value) {
   if (_EMOJI_COLOR_CACHE.has(value)) return _EMOJI_COLOR_CACHE.get(value);
   const size = 48;
@@ -147,10 +135,6 @@ class CommentsPanel {
     return this;
   }
 
-  /** Re-attaches to a freshly-rebuilt DOM node without re-fetching - for
-   * views (like Symposium) that rebuild their whole innerHTML on every
-   * state change and just need the already-loaded comment data redrawn
-   * into the new nodes, not fetched again. */
   remount(container) {
     this.container = container;
     container.innerHTML = `
@@ -649,9 +633,6 @@ class CommentsPanel {
     input.setSelectionRange(caret, caret);
   }
 
-  /** Renders in normal document flow right below the composer pill (pushing
-   * whatever comes after it down the page) rather than floating as an
-   * overlay - no viewport-edge math, nothing it can cover up. */
   toggleMediaPanel() {
     const host = this.container.querySelector(`#${this.uid}_media`);
     if (!host) return;
@@ -713,11 +694,6 @@ class CommentsPanel {
   async loadGifs(panel, q) {
     const grid = panel.querySelector(`#${this.uid}_gifGrid`);
     if (!grid) return;
-    // No debounce - searches on every keystroke - so fast typing fires
-    // overlapping requests. A token guard (rather than a delay) keeps
-    // typing itself instant while still discarding any response that isn't
-    // for the latest keystroke, so a slow "c" request can't overwrite the
-    // grid after a faster "cat" request already resolved.
     const token = (this._gifToken = (this._gifToken || 0) + 1);
     grid.innerHTML = `<p style="grid-column:1/-1;font-size:12px;color:var(--color-muted);padding:8px">${t("comments_loading")}</p>`;
     try {

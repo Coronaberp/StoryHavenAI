@@ -104,6 +104,11 @@ const routes = {
     window.adminFeaturesPanel = new AdminFeaturesPanel();
     window.adminFeaturesPanel.mount(main);
   },
+  "admin-announce": (main) => {
+    if (!ME || (ME.role !== "admin" && ME.role !== "dev")) { navigate("/explore"); return; }
+    window.adminAnnouncePanel = new AdminAnnouncePanel();
+    window.adminAnnouncePanel.mount(main);
+  },
   "creator-profile": (main) => new ProfileView().mount(main),
   "shared-image": async (main) => {
     const iid = location.pathname.split("/").filter(Boolean)[1];
@@ -183,6 +188,7 @@ const ROOT_FOR_ROUTE = {
   "admin-config": "dossier",
   "admin-health": "dossier",
   "admin-features": "dossier",
+  "admin-announce": "dossier",
 };
 
 const NAV_LABEL_ROUTES = {
@@ -340,7 +346,7 @@ function hideNavKeepPadding(main) {
 }
 
 const ADMIN_ROUTES = new Set(["admin", "admin-users", "admin-moderation", "admin-previews",
-  "admin-train", "admin-emojis", "admin-config", "admin-health", "admin-features"]);
+  "admin-train", "admin-emojis", "admin-config", "admin-health", "admin-features", "admin-announce"]);
 
 function _preserveScrollOnRerender(el) {
   const desc = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML");
