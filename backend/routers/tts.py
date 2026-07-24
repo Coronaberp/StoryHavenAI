@@ -1,0 +1,110 @@
+import time
+
+import httpx
+from fastapi import Depends, HTTPException
+from pydantic import BaseModel
+
+from backend import tts
+from backend.auth import get_current_user
+from backend.chat_service import _own_session
+from backend.feature_flags import require_feature_enabled
+from backend.ratelimit import SlidingWindow
+from backend.repositories import characters as characters_repo
+from backend.repositories import chat_sessions
+from backend.state import CFG, api, log
+
+_speech_limiter = SlidingWindow(20, 60.0, "Too many voice requests, give it a moment.")
+_preview_limiter = SlidingWindow(10, 60.0, "Too many previews, give it a moment.")
+_voices_cache: dict = {"at": 0.0, "voices": []}
+_VOICES_CACHE_SECONDS = 300
+_PREVIEW_SENTENCE = "The tavern falls quiet as the storyteller begins."
+
+class VoiceOverridesIn(BaseModel):
+    character_voice: str | None = None
+    narrator_voice: str | None = None
+
+class PreviewIn(BaseModel):
+    voice: str
+
+def _clean_voice(value: str | None) -> str | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    if len(value) > 64:
+        raise HTTPException(400, "Voice id is too long.")
+    return value
+
+async def _resolve_voices(session: dict) -> tuple[str, str]:
+    overrides = session.get("voice_overrides") or {}
+    narrator = _clean_voice(overrides.get("narrator_voice")) or CFG.get("tts_narrator_voice") or "af_heart"
+    char_voice = _clean_voice(overrides.get("character_voice"))
+    if not char_voice:
+        character = await characters_repo.get(session["char_id"])
+        char_voice = _clean_voice((character or {}).get("voice"))
+    return char_voice or narrator, narrator
+
+@api.post("/sessions/{sid}/messages/{mid}/speech", dependencies=[Depends(require_feature_enabled("tts"))])
+async def speak_message(sid: str, mid: str, current_user: dict = Depends(get_current_user)):
+    session = await _own_session(sid, current_user)
+    _speech_limiter.check_and_record(current_user["id"])
+    messages = await chat_sessions.list_messages(sid)
+    message = next((m for m in messages if m["id"] == mid), None)
+    if not message:
+        raise HTTPException(404, "Message not found.")
+    if message["role"] != "assistant":
+        raise HTTPException(400, "Only character messages can be spoken.")
+    if len(message["content"]) > tts.MAX_TTS_CHARS:
+        raise HTTPException(413, "This message is too long to speak.")
+    char_voice, narrator_voice = await _resolve_voices(session)
+    started = time.time()
+    try:
+        url, cached = await tts.synthesize_message(message["content"], char_voice,
+                                                   narrator_voice, current_user["id"])
+    except tts.TTSUnavailable as exc:
+        log.warning("tts: synthesis failed sid=%s mid=%s: %s", sid, mid, exc)
+        raise HTTPException(502, "The voice engine is not responding right now.")
+    log.info("tts: spoke sid=%s mid=%s cached=%s ms=%d", sid, mid, cached,
+             int((time.time() - started) * 1000))
+    return {"url": url, "cached": cached}
+
+@api.post("/tts/preview", dependencies=[Depends(require_feature_enabled("tts"))])
+async def preview_voice(body: PreviewIn, current_user: dict = Depends(get_current_user)):
+    _preview_limiter.check_and_record(current_user["id"])
+    voice = _clean_voice(body.voice)
+    if not voice:
+        raise HTTPException(400, "Pick a voice to preview.")
+    try:
+        url, _ = await tts.synthesize_message(_PREVIEW_SENTENCE, voice, voice, current_user["id"])
+    except tts.TTSUnavailable as exc:
+        log.warning("tts: preview failed voice=%s: %s", voice, exc)
+        raise HTTPException(502, "The voice engine is not responding right now.")
+    return {"url": url}
+
+@api.get("/tts/voices")
+async def list_voices(current_user: dict = Depends(get_current_user)):
+    now = time.time()
+    if now - _voices_cache["at"] < _VOICES_CACHE_SECONDS and _voices_cache["voices"]:
+        return {"voices": _voices_cache["voices"]}
+    base_url, api_key = await tts.resolve_endpoint(current_user["id"])
+    if not base_url:
+        return {"voices": []}
+    headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            response = await client.get(f"{base_url}/audio/voices", headers=headers)
+        voices = response.json().get("voices", []) if response.status_code == 200 else []
+    except (httpx.HTTPError, ValueError) as exc:
+        log.warning("tts: voice list failed: %s", type(exc).__name__)
+        voices = []
+    _voices_cache.update(at=now, voices=voices)
+    return {"voices": voices}
+
+@api.put("/sessions/{sid}/voices")
+async def set_session_voices(sid: str, body: VoiceOverridesIn,
+                             current_user: dict = Depends(get_current_user)):
+    await _own_session(sid, current_user)
+    await chat_sessions.set_voice_overrides(sid, {
+        "character_voice": _clean_voice(body.character_voice),
+        "narrator_voice": _clean_voice(body.narrator_voice)})
+    log.info("tts: session voices updated sid=%s by=%s", sid, current_user["username"])
+    return {"ok": True}

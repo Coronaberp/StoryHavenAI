@@ -93,6 +93,115 @@ async def test_voice_overrides_roundtrip(db_conn):
     assert session["voice_overrides"]["character_voice"] == "af_bella"
     assert session["voice_overrides"]["narrator_voice"] is None
 
+async def _seed_user_char_session(char_voice=None):
+    from backend.repositories import characters as characters_repo
+    from backend.repositories import chat_sessions
+    from backend.repositories import users as users_repo
+
+    owner = await users_repo.create_user("tts-owner", "pw12345678")
+    other = await users_repo.create_user("tts-other", "pw12345678")
+    character = await characters_repo.create({
+        "name": "Speaker", "owner_id": owner["id"], "voice": char_voice})
+    sid = await chat_sessions.create(character["id"], None, "Chat", "You", user_id=owner["id"])
+    await chat_sessions.add_message(sid, "user", "Hello there.")
+    assistant_message = await chat_sessions.add_message(sid, "assistant", "Well met, traveler.")
+    return owner, other, character, sid, assistant_message
+
+@pytest.mark.asyncio
+async def test_speech_requires_ownership(db_conn):
+    from fastapi import HTTPException
+
+    from backend.routers.tts import speak_message
+
+    owner, other, character, sid, assistant_message = await _seed_user_char_session()
+    with pytest.raises(HTTPException) as exc_info:
+        await speak_message(sid, assistant_message["id"], {"id": other["id"], "username": other["username"]})
+    assert exc_info.value.status_code == 404
+
+@pytest.mark.asyncio
+async def test_speech_rejects_user_messages(db_conn):
+    from fastapi import HTTPException
+
+    from backend.repositories import chat_sessions
+    from backend.routers.tts import speak_message
+
+    owner, other, character, sid, assistant_message = await _seed_user_char_session()
+    messages = await chat_sessions.list_messages(sid)
+    user_message = next(m for m in messages if m["role"] == "user")
+    with pytest.raises(HTTPException) as exc_info:
+        await speak_message(sid, user_message["id"], {"id": owner["id"], "username": owner["username"]})
+    assert exc_info.value.status_code == 400
+
+@pytest.mark.asyncio
+async def test_speech_size_guard(db_conn):
+    from fastapi import HTTPException
+
+    from backend import tts as tts_module
+    from backend.repositories import chat_sessions
+    from backend.routers.tts import speak_message
+
+    owner, other, character, sid, assistant_message = await _seed_user_char_session()
+    long_message = await chat_sessions.add_message(sid, "assistant", "x" * (tts_module.MAX_TTS_CHARS + 1))
+    with pytest.raises(HTTPException) as exc_info:
+        await speak_message(sid, long_message["id"], {"id": owner["id"], "username": owner["username"]})
+    assert exc_info.value.status_code == 413
+
+@pytest.mark.asyncio
+async def test_speech_happy_path(db_conn, monkeypatch):
+    from backend import tts as tts_module
+    from backend.repositories import chat_sessions
+    from backend.routers import tts as tts_router
+
+    owner, other, character, sid, assistant_message = await _seed_user_char_session(char_voice="af_michael")
+    await chat_sessions.set_voice_overrides(sid, {"character_voice": "af_bella", "narrator_voice": "af_sky"})
+
+    captured = {}
+
+    async def fake_synthesize_message(content, char_voice, narrator_voice, user_id):
+        captured["content"] = content
+        captured["char_voice"] = char_voice
+        captured["narrator_voice"] = narrator_voice
+        captured["user_id"] = user_id
+        return "/media/tts/x.wav", False
+
+    monkeypatch.setattr(tts_module, "synthesize_message", fake_synthesize_message)
+    result = await tts_router.speak_message(sid, assistant_message["id"],
+                                            {"id": owner["id"], "username": owner["username"]})
+    assert result == {"url": "/media/tts/x.wav", "cached": False}
+    assert captured["char_voice"] == "af_bella"
+    assert captured["narrator_voice"] == "af_sky"
+    assert captured["user_id"] == owner["id"]
+
+@pytest.mark.asyncio
+async def test_speech_backend_down_maps_502(db_conn, monkeypatch):
+    from backend import tts as tts_module
+    from backend.routers import tts as tts_router
+    from fastapi import HTTPException
+
+    owner, other, character, sid, assistant_message = await _seed_user_char_session()
+
+    async def fake_synthesize_message(content, char_voice, narrator_voice, user_id):
+        raise tts_module.TTSUnavailable("engine offline")
+
+    monkeypatch.setattr(tts_module, "synthesize_message", fake_synthesize_message)
+    with pytest.raises(HTTPException) as exc_info:
+        await tts_router.speak_message(sid, assistant_message["id"],
+                                       {"id": owner["id"], "username": owner["username"]})
+    assert exc_info.value.status_code == 502
+
+@pytest.mark.asyncio
+async def test_put_voices_roundtrip(db_conn):
+    from backend.repositories import chat_sessions
+    from backend.routers.tts import VoiceOverridesIn, set_session_voices
+
+    owner, other, character, sid, assistant_message = await _seed_user_char_session()
+    body = VoiceOverridesIn(character_voice="af_bella", narrator_voice="af_sky")
+    result = await set_session_voices(sid, body, {"id": owner["id"], "username": owner["username"]})
+    assert result == {"ok": True}
+    session = await chat_sessions.get(sid)
+    assert session["voice_overrides"]["character_voice"] == "af_bella"
+    assert session["voice_overrides"]["narrator_voice"] == "af_sky"
+
 @pytest.mark.asyncio
 async def test_character_voice_roundtrip(db_conn):
     from backend.repositories import characters
