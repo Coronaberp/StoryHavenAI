@@ -84,3 +84,16 @@ async def test_other_player_names_includes_personaless(db_conn):
     ]
     names = await _other_player_names(rows, "sender-1")
     assert names == ["mira"]
+
+
+from backend.routers import multiplayer as mp
+
+
+async def test_participants_endpoint_returns_resolved_name(db_conn):
+    await user_repo.create_user("theo", "pw12345678")
+    theo = await user_repo.get_user_by_username("theo")
+    char = await characters.create({"owner_id": theo["id"], "name": "Narrator", "mode": "rpg"})
+    sid = await chat_sessions.create(char["id"], None, "Party", "You", user_id=theo["id"])
+    await session_participants.add(sid, theo["id"], None, "host")
+    rows = await mp.list_participants(sid, current_user=theo)
+    assert rows[0]["name"] == "theo"

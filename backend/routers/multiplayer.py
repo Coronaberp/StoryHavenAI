@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 
 from backend.state import api, log
 from backend.auth import get_experimental_user, get_current_user
-from backend.chat_service import _own_session
+from backend.chat_service import _own_session, participant_display_name
 from backend.repositories import chat_sessions, characters, session_participants, session_invites, notifications, party_chat
 from backend.repositories import emojis as custom_emoji_repo
 from backend.routers.comments import _COMMENT_IMAGE_RE, _COMMENT_STICKER_RE
@@ -129,6 +129,7 @@ async def list_participants(sid: str, current_user: dict = Depends(get_current_u
             "username": user["username"] if user else None,
             "user_display_name": (user["display_name"] if user and user.get("display_name") else (user["username"] if user else None)),
             "persona_name": persona["name"] if persona else None,
+            "name": participant_display_name(persona, user),
             "avatar": (persona["avatar"] if persona and persona.get("avatar") else (user["avatar"] if user and user.get("avatar") else None)),
         })
     return enriched
