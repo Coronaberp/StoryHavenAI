@@ -41,21 +41,22 @@ class AdminOverviewView {
     window._adminSwitcherBadges = { "admin-moderation": attentionTotal };
 
     const healthTile = (svc) => `
-      <div class="flex-1 min-w-0 p-3 rounded-[13px] border border-line bg-surface">
-        <div class="flex items-center gap-1.5 text-sec mb-2">
-          <span class="font-mono text-[9px] tracking-[.1em] uppercase">${_esc(ADMIN_SERVICE_LABELS[svc.name] || svc.name)}</span>
+      <div class="md:flex-1 min-w-0 p-2.5 md:p-3 rounded-[13px] border border-line bg-surface">
+        <div class="flex items-center gap-1.5 text-sec mb-1.5 md:mb-2 min-w-0">
+          <span class="w-[7px] h-[7px] rounded-full flex-none md:hidden" style="background:${svc.ok ? "var(--color-success)" : "var(--color-warn)"}"></span>
+          <span class="font-mono text-[9px] tracking-[.1em] uppercase truncate">${_esc(ADMIN_SERVICE_LABELS[svc.name] || svc.name)}</span>
         </div>
-        <div class="flex items-center gap-1.5">
-          <span class="w-[7px] h-[7px] rounded-full flex-none" style="background:${svc.ok ? "var(--color-success)" : "var(--color-warn)"}"></span>
-          <span class="text-[13px] text-ink">${svc.ok ? t("admin_service_connected") : (svc.error ? _esc(svc.error) : t("admin_service_unreachable"))}</span>
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="w-[7px] h-[7px] rounded-full flex-none hidden md:block" style="background:${svc.ok ? "var(--color-success)" : "var(--color-warn)"}"></span>
+          <span class="text-[12px] md:text-[13px] text-ink truncate">${svc.ok ? t("admin_service_connected") : (svc.error ? _esc(svc.error) : t("admin_service_unreachable"))}</span>
         </div>
       </div>
     `;
 
     const statTile = (label, value, attn = false) => `
-      <div class="flex-1 text-center py-3 px-1.5 rounded-[13px] border" style="border-color:${attn && value > 0 ? "var(--color-warn)" : "var(--color-line)"};background:var(--color-surface)">
-        <div class="font-display font-semibold text-[19px]" style="color:${attn && value > 0 ? "var(--color-warn)" : "var(--color-accent)"}">${value}</div>
-        <div class="font-mono text-[8.5px] tracking-[.1em] uppercase text-muted mt-0.5">${label}</div>
+      <div class="md:flex-1 text-center py-2.5 md:py-3 px-1.5 rounded-[13px] border min-w-0" style="border-color:${attn && value > 0 ? "var(--color-warn)" : "var(--color-line)"};background:var(--color-surface)">
+        <div class="font-display font-semibold text-[17px] md:text-[19px]" style="color:${attn && value > 0 ? "var(--color-warn)" : "var(--color-accent)"}">${value}</div>
+        <div class="font-mono text-[8.5px] tracking-[.1em] uppercase text-muted mt-0.5 truncate">${label}</div>
       </div>
     `;
 
@@ -78,19 +79,19 @@ class AdminOverviewView {
       <div class="content-col">
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_title"), t("ph_admin_sub"))}
       ${adminScreenSwitcherHtml("admin", window._adminSwitcherBadges || {})}
-      <div class="flex gap-2.5 mb-3 flex-wrap">${this.health.map(healthTile).join("")}</div>
-      <div class="flex gap-2.5 mb-3 flex-wrap">
+      <div class="grid grid-cols-2 gap-2 md:flex md:gap-2.5 mb-3 md:flex-wrap">${this.health.map(healthTile).join("")}</div>
+      <div class="grid grid-cols-3 gap-2 md:flex md:gap-2.5 mb-3 md:flex-wrap">
         ${statTile(t("admin_stat_users"), this.users.length)}
         ${statTile(t("admin_stat_admins"), this.users.filter((u) => u.is_admin).length)}
         ${statTile(t("admin_stat_characters"), this.chars.length)}
       </div>
-      <div class="flex gap-2.5 mb-4 flex-wrap">
+      <div class="grid grid-cols-2 gap-2 md:flex md:gap-2.5 mb-4 md:flex-wrap">
         ${statTile(t("admin_stat_pending"), this.pending.length, true)}
         ${statTile(t("admin_stat_flagged"), this.flagged.length, true)}
         ${statTile(t("admin_stat_resets"), this.resetReqs.length, true)}
         ${statTile(t("admin_stat_model_requests"), this.pendingModelReqs.length, true)}
       </div>
-      <div class="flex gap-2.5 mb-4 flex-wrap">
+      <div class="grid grid-cols-2 gap-2 md:flex md:gap-2.5 mb-4 md:flex-wrap">
         ${statTile(t("admin_stat_content_reports"), this.contentReports.length, true)}
         ${statTile(t("admin_stat_image_reports"), this.imageReports.length, true)}
         ${statTile(t("admin_stat_titles"), this.pendingTitleReqs.length, true)}

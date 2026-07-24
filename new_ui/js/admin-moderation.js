@@ -98,13 +98,44 @@ class AdminModerationView {
     const live = this.inviteCodes.filter((c) => !c.disabled && c.uses < c.max_uses
       && (!c.expires || c.expires * 1000 > Date.now()));
     const rows = this.inviteCodes.map((c) => {
-      const spent = c.disabled || c.uses >= c.max_uses || (c.expires && c.expires * 1000 < Date.now());
+      const isExpired = c.expires && c.expires * 1000 < Date.now();
+      const isUsedUp = c.uses >= c.max_uses;
+      const spent = c.disabled || isUsedUp || isExpired;
+      const facts = `${c.tier === "guest" ? "guest · " : ""}${c.uses}/${c.max_uses} used${c.expires ? " · expires " + new Date(c.expires * 1000).toLocaleDateString() : ""}${c.note ? " · " + c.note : ""}${c.redeemed_by?.length ? " · joined: " + c.redeemed_by.join(", ") : ""}`;
+      let pill, pillTone;
+      if (c.disabled) {
+        pill = t("admin_invite_state_disabled", "Disabled");
+        pillTone = "warn";
+      } else if (spent) {
+        pill = t("admin_invite_state_used", "Used");
+        pillTone = "";
+      } else {
+        pill = t("admin_invite_state_active", "Active");
+        pillTone = "";
+      }
+      const actions = [];
+      if (!spent) {
+        actions.push({ id: "copy", label: t("admin_invite_copy", "Copy"), primary: true });
+        actions.push({ id: "disable", label: t("admin_invite_disable", "Disable") });
+      }
+      if (spent) {
+        actions.push({ id: "delete", label: t("admin_invite_delete", "Delete") });
+      }
       return adminQueueRowHtml(
         `<div class="font-mono text-sm ${spent ? "text-muted line-through" : "text-ink"}">${_esc(c.code)}</div>
          <div class="text-xs text-muted mt-0.5">${c.tier === "guest" ? "guest · " : ""}${c.uses}/${c.max_uses} used${c.expires ? " · expires " + new Date(c.expires * 1000).toLocaleDateString() : ""}${c.note ? " · " + _esc(c.note) : ""}${c.redeemed_by?.length ? " · joined: " + c.redeemed_by.map(_esc).join(", ") : ""}</div>`,
         `${spent ? "" : `<button type="button" onclick="adminModerationView.copyInviteCode('${_attr(c.code)}')" class="px-2.5 py-1 rounded-md text-xs text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_invite_copy", "Copy")}</button>
          <button type="button" onclick="adminModerationView.disableInviteCode('${_attr(c.id)}')" class="px-2.5 py-1 rounded-md border text-xs" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_invite_disable", "Disable")}</button>`}
-         ${spent ? `<button type="button" onclick="adminModerationView.deleteInviteCode('${_attr(c.id)}')" class="px-2.5 py-1 rounded-md border text-xs" style="border-color:var(--color-line-2);color:var(--color-sec)">${t("admin_invite_delete", "Delete")}</button>` : ""}`
+         ${spent ? `<button type="button" onclick="adminModerationView.deleteInviteCode('${_attr(c.id)}')" class="px-2.5 py-1 rounded-md border text-xs" style="border-color:var(--color-line-2);color:var(--color-sec)">${t("admin_invite_delete", "Delete")}</button>` : ""}`,
+        {
+          id: c.id,
+          queue: "invites",
+          title: c.code,
+          pill,
+          pillTone,
+          facts,
+          actions,
+        }
       );
     });
     const creator = `
@@ -126,8 +157,8 @@ class AdminModerationView {
         </div>
         ${creator}
         ${rows.length ? `
-          <div class="lg:hidden">${rows.map((r) => r.card).join("")}</div>
-          <div class="hidden lg:block overflow-x-auto">
+          <div class="md:hidden">${rows.map((r) => r.card).join("")}</div>
+          <div class="hidden md:block overflow-x-auto">
             <table class="w-full text-left border-collapse"><tbody>${rows.map((r) => r.tr).join("")}</tbody></table>
           </div>
         ` : `<p class="text-sm text-muted py-1">${t("admin_invite_none", "No codes yet.")}</p>`}
@@ -566,6 +597,11 @@ Object.assign(AdminModerationView.prototype, {
 AdminModerationView.prototype.mobileCardActionMap = function () {
   return {
     pending: { approve: (id) => this.approveUser(id), deny: (id) => this.denyUser(id) },
+    invites: {
+      copy: (id) => this.copyInviteCode(this.inviteCodes.find((c) => c.id === id)?.code || ""),
+      disable: (id) => this.disableInviteCode(id),
+      delete: (id) => this.deleteInviteCode(id),
+    },
     flagged: { allow: (id) => this.allowEndpoint(id), block: (id) => this.blockEndpoint(id) },
     resets: { approve: (id) => this.approveResetRequest(id), deny: (id) => this.denyResetRequest(id) },
     models: {
