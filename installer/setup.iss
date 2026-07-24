@@ -20,8 +20,8 @@
 #define MyAppName "StoryHaven AI"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "StoryHaven"
-#define MyAppURL "https://github.com/staygold/ai-frontend"
-#define RepoUrl "https://github.com/staygold/ai-frontend.git"
+#define MyAppURL "https://github.com/Coronaberp/StoryHavenAI"
+#define RepoUrl "https://github.com/Coronaberp/StoryHavenAI.git"
 
 [Setup]
 AppId={{B7B4F0F2-8B2E-4C4A-9E1A-4D9C7A1F2C33}
