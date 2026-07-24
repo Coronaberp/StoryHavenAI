@@ -102,7 +102,7 @@ async def preview_voice(body: PreviewIn, current_user: dict = Depends(get_curren
 
 @api.get("/tts/voices", dependencies=[Depends(require_feature_enabled("tts"))])
 async def list_voices(current_user: dict = Depends(get_current_user)):
-    base_url, api_key = await tts.resolve_endpoint(current_user["id"])
+    base_url, api_key, is_admin = await tts.resolve_endpoint(current_user["id"])
     if not base_url:
         return {"voices": []}
     now = time.time()
@@ -110,10 +110,22 @@ async def list_voices(current_user: dict = Depends(get_current_user)):
     cached = _voices_cache.get(endpoint_key)
     if cached and now - cached["at"] < _VOICES_CACHE_SECONDS and cached["voices"]:
         return {"voices": cached["voices"]}
+    try:
+        pinned_base, original_host = await tts.pin_endpoint(base_url, is_admin)
+    except ValueError as exc:
+        log.warning("tts: voice list endpoint failed dns pinning: %s", type(exc).__name__)
+        _voices_cache[endpoint_key] = {"at": now, "voices": []}
+        return {"voices": []}
     headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+    extensions = {}
+    if original_host:
+        headers["Host"] = original_host
+        extensions["sni_hostname"] = original_host
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            response = await client.get(f"{base_url}/audio/voices", headers=headers)
+            req = client.build_request("GET", f"{pinned_base}/audio/voices", headers=headers,
+                                       extensions=extensions)
+            response = await client.send(req)
         raw_voices = response.json().get("voices", []) if response.status_code == 200 else []
         voices = normalize_voice_entries(raw_voices)
     except (httpx.HTTPError, ValueError) as exc:
