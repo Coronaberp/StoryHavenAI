@@ -122,16 +122,33 @@ async def health_ping_loop():
 
 @api.get("/media-gen-status")
 async def media_gen_status(_: dict = Depends(get_current_user)):
+    if (CFG.get("image_provider") or "comfyui") != "comfyui":
+        return {"available": True}
     ping = await health_repo.latest_ping("comfyui")
     available = True if ping is None else bool(ping["ok"])
     return {"available": available}
+
+@api.post("/admin/service-health/refresh")
+async def admin_service_health_refresh(_: dict = Depends(get_admin)):
+    results = await run_all_checks_and_record()
+    services = [{"name": name, "ok": results[name][0],
+                 "latency_ms": results[name][1], "error": results[name][2]}
+                for name in SERVICES]
+    log.info("service-health: manual refresh ran %d checks", len(services))
+    return {"services": services}
 
 @api.get("/admin/service-health")
 async def admin_service_health(hours: float = 24, _: dict = Depends(get_admin)):
 
     limit = min(int(hours * 60 / 5) + 5, 3000)
     since = time.time() - hours * 3600
-    live = await run_all_checks_and_record()
+    live = {}
+    for name in SERVICES:
+        ping = await health_repo.latest_ping(name)
+        if ping is None:
+            live[name] = (False, None, "no data yet")
+        else:
+            live[name] = (bool(ping["ok"]), ping.get("latency_ms"), ping.get("error") or "")
     history_results, uptime_results = await asyncio.gather(
         asyncio.gather(*(health_repo.history(name, limit=limit, since=since) for name in SERVICES)),
         asyncio.gather(*(health_repo.uptime_pct(name, hours=24) for name in SERVICES)),
