@@ -1900,10 +1900,8 @@ TARGET_LANGUAGES = [
     "Dutch",
 ]
 
-
 CONCURRENCY = 40
 BATCH_SIZE = 1000
-
 
 async def _translate_one(sem, lang, key, text, ep, chat_model):
     async with sem:
@@ -1914,11 +1912,9 @@ async def _translate_one(sem, lang, key, text, ep, chat_model):
             status = f"failed: {type(e).__name__}: {e}"
         return f"  {lang}: {key} -> {status}"
 
-
 def _chunked(items, size):
     for i in range(0, len(items), size):
         yield items[i:i + size]
-
 
 async def main():
     await db.init()
@@ -1948,7 +1944,6 @@ async def main():
         done_count += len(batch)
         print(f"=== batch {batch_num} complete: {done_count}/{len(work_items)} done ===")
     print("done")
-
 
 if __name__ == "__main__":
     asyncio.run(main())

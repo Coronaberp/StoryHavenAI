@@ -9,7 +9,6 @@ from backend.repositories import chat_sessions
 from backend.repositories import session_characters
 from backend.repositories import groups as groups_repo
 
-
 async def main():
     await db.init()
     rows = await db._q(sa.select(db.sessions.c.id).where(sa.and_(
@@ -33,7 +32,6 @@ async def main():
         await db._w(sa.update(db.sessions).where(db.sessions.c.id == sid).values(source_group_id=gid))
         made += 1
     print(f"backfilled {made} group sessions, skipped {skipped} (cast < 2)")
-
 
 if __name__ == "__main__":
     asyncio.run(main())

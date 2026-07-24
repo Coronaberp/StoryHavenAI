@@ -1,19 +1,3 @@
-"""One-time backfill: encrypt every user-authored text field at rest.
-
-For each covered column, any row whose RAW stored value is non-empty and does
-NOT already start with "enc:" is encrypted in place. Values already prefixed
-"enc:" are left untouched (re-encrypting would corrupt them). The check is made
-on the raw stored value before any decryption.
-
-Covers both fields encrypted since before this script (legacy plaintext rows
-never backfilled) and fields newly wired to encryption.
-
-Run inside the story-game container:
-
-    ./venv/bin/python3 backfill_encrypt.py [table]
-
-Progress streams live via `podman logs -f story-game`.
-"""
 import sys
 import asyncio
 
@@ -22,7 +6,6 @@ import sqlalchemy as sa
 import db
 from state import log
 
-# (table, key_column, [encrypted text columns])
 TARGETS = [
     (db.characters, "id",
      ["name", "creator", "tags", "persona", "scenario", "greeting", "dialogue",
@@ -41,10 +24,8 @@ TARGETS = [
     (db.flagged_endpoints, "id", ["reason", "detail"]),
 ]
 
-
 def _needs_encrypt(v) -> bool:
     return isinstance(v, str) and v != "" and not v.startswith("enc:")
-
 
 async def _backfill(table, key_col: str, cols: list[str], dry_run: bool):
     label = table.name
@@ -78,7 +59,6 @@ async def _backfill(table, key_col: str, cols: list[str], dry_run: bool):
                  label, c, s["already"], s["new"], s["empty"])
     return {"table": label, "stats": stats}
 
-
 async def main():
     args = sys.argv[1:]
     dry_run = "--dry-run" in args
@@ -97,7 +77,6 @@ async def main():
     log.info("=== encrypt backfill COMPLETE (%s) ===", mode)
     for r in results:
         log.info("SUMMARY %s %s", r["table"], r["stats"])
-
 
 if __name__ == "__main__":
     asyncio.run(main())

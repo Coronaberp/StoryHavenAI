@@ -45,7 +45,6 @@ FACTS = {
              "Light glinted off the heron signet on Mira's hand."],
 }
 
-
 def main():
     rounds = int(sys.argv[1]) if len(sys.argv) > 1 else 4
     turns = []
@@ -75,7 +74,6 @@ def main():
     out = Path(__file__).parent / "probe_scripts" / "dedup.json"
     out.write_text(json.dumps({"turns": turns, "probes": probes}, indent=1), encoding="utf-8")
     print(f"wrote {out} ({len(turns)} turns, {len(probes)} probes)")
-
 
 if __name__ == "__main__":
     main()

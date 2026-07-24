@@ -1,13 +1,3 @@
-"""One-time backfill: re-index every lore entry whose content exceeds the
-chunking threshold, so existing oversized entries get split into retrievable
-chunks under the scheme introduced by the lore-chunking-design spec.
-
-Run inside the story-game container:
-
-    ./venv/bin/python3 modules/py/backfill_lore_chunks.py
-
-Progress streams live via `podman logs -f story-game`.
-"""
 import sys
 import asyncio
 from pathlib import Path
@@ -23,11 +13,9 @@ from backend.state import CFG, log
 
 MAX_RECONCILE_ATTEMPTS = 5
 
-
 async def _vector_count(lid: str) -> int:
     rows = await db._q(db.select(vectors._lore_tbl).where(vectors._lore_tbl.c.lore_id == lid))
     return len(rows)
-
 
 async def _reconcile(oversized: list) -> None:
     by_id = {lid: (char_id, content, name, category)
@@ -53,7 +41,6 @@ async def _reconcile(oversized: list) -> None:
         log.warning("backfill_lore_chunks: %d entries still missing embeddings after %d attempts: %s",
                      len(remaining), MAX_RECONCILE_ATTEMPTS, remaining)
 
-
 async def main():
     await db.init()
     saved = await global_settings_repo.all_settings()
@@ -78,7 +65,6 @@ async def main():
         await _reconcile(oversized)
     finally:
         await db.close()
-
 
 if __name__ == "__main__":
     asyncio.run(main())

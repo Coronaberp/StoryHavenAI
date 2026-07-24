@@ -1,11 +1,3 @@
-"""One-time backfill: re-run NSFW classification against every stored image with
-the current (tightened) prompt and overwrite each row's explicit flag in both
-directions. Run inside the story-game container:
-
-    ./venv/bin/python3 backfill_nsfw.py
-
-Progress is logged via state.log so it streams live through `podman logs -f story-game`.
-"""
 import os
 import sys
 import asyncio
@@ -19,13 +11,11 @@ from state import log, MEDIA_DIR
 _MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
          ".webp": "image/webp", ".gif": "image/gif"}
 
-
 def _resolve(url: str) -> str | None:
     base = (url or "").split("?", 1)[0]
     if not base.startswith("/media/"):
         return None
     return os.path.join(MEDIA_DIR, os.path.basename(base))
-
 
 def _load(url: str):
     path = _resolve(url)
@@ -35,18 +25,14 @@ def _load(url: str):
     with open(path, "rb") as fh:
         return fh.read(), _MIME.get(ext, "image/png")
 
-
 async def _classify(url: str) -> bool | None:
-    """True/False fresh result, or None if the file couldn't be loaded."""
     data, mime = _load(url)
     if data is None:
         return None
     explicit, _confidence = await classify.classify_image_nsfw(data, mime)
     return explicit
 
-
 async def _classify_any(urls: list[str]) -> bool | None:
-    """Explicit if ANY provided image is explicit. None if none could be loaded."""
     got_one = False
     for u in urls:
         r = await _classify(u)
@@ -56,7 +42,6 @@ async def _classify_any(urls: list[str]) -> bool | None:
         if r:
             return True
     return False if got_one else None
-
 
 async def _backfill_simple(table, image_col: str, flag_col: str):
     label = table.name
@@ -94,7 +79,6 @@ async def _backfill_simple(table, image_col: str, flag_col: str):
              label, len(rows), flagged, unflagged, unchanged, missing, errors)
     return dict(table=label, processed=len(rows), flagged=flagged,
                 unflagged=unflagged, unchanged=unchanged, missing=missing, errors=errors)
-
 
 async def _backfill_users():
     label = "users"
@@ -134,7 +118,6 @@ async def _backfill_users():
     return dict(table=label, processed=len(rows), flagged=flagged,
                 unflagged=unflagged, unchanged=unchanged, missing=missing, errors=errors)
 
-
 async def _backfill_messages():
     label = "messages"
     rows = await db._q(sa.select(db.messages).where(
@@ -171,7 +154,6 @@ async def _backfill_messages():
     return dict(table=label, processed=len(rows), flagged=flagged,
                 unflagged=unflagged, unchanged=unchanged, missing=missing, errors=errors)
 
-
 async def main():
     only = sys.argv[1] if len(sys.argv) > 1 else None
     await db.init()
@@ -193,7 +175,6 @@ async def main():
     log.info("=== NSFW backfill COMPLETE ===")
     for r in results:
         log.info("SUMMARY %s", r)
-
 
 if __name__ == "__main__":
     asyncio.run(main())
