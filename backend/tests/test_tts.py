@@ -251,6 +251,53 @@ async def test_put_voices_roundtrip(db_conn):
     assert session["voice_overrides"]["narrator_voice"] == "af_sky"
 
 @pytest.mark.asyncio
+async def test_speech_strips_think_block(db_conn, monkeypatch):
+    from backend import tts as tts_module
+    from backend.repositories import chat_sessions
+    from backend.routers import tts as tts_router
+
+    owner, other, character, sid, assistant_message = await _seed_user_char_session()
+    message = await chat_sessions.add_message(
+        sid, "assistant", '<think>plan the scene</think>She smiles. "Hi."')
+
+    captured = {}
+
+    async def fake_synthesize_message(content, char_voice, narrator_voice, user_id):
+        captured["content"] = content
+        return "/media/tts/x.wav", False
+
+    monkeypatch.setattr(tts_module, "synthesize_message", fake_synthesize_message)
+    await tts_router.speak_message(sid, message["id"],
+                                   {"id": owner["id"], "username": owner["username"]})
+    assert captured["content"] == 'She smiles. "Hi."'
+
+@pytest.mark.asyncio
+async def test_speech_only_think_block_rejected(db_conn):
+    from fastapi import HTTPException
+
+    from backend.repositories import chat_sessions
+    from backend.routers.tts import speak_message
+
+    owner, other, character, sid, assistant_message = await _seed_user_char_session()
+    message = await chat_sessions.add_message(sid, "assistant", "<think>plan the scene</think>")
+    with pytest.raises(HTTPException) as exc_info:
+        await speak_message(sid, message["id"], {"id": owner["id"], "username": owner["username"]})
+    assert exc_info.value.status_code == 400
+
+@pytest.mark.asyncio
+async def test_speech_unclosed_think_block_rejected(db_conn):
+    from fastapi import HTTPException
+
+    from backend.repositories import chat_sessions
+    from backend.routers.tts import speak_message
+
+    owner, other, character, sid, assistant_message = await _seed_user_char_session()
+    message = await chat_sessions.add_message(sid, "assistant", "<think>partial reasoning")
+    with pytest.raises(HTTPException) as exc_info:
+        await speak_message(sid, message["id"], {"id": owner["id"], "username": owner["username"]})
+    assert exc_info.value.status_code == 400
+
+@pytest.mark.asyncio
 async def test_character_voice_roundtrip(db_conn):
     from backend.repositories import characters
     c = await characters.create({"name": "Voice Test", "persona": "a persona", "voice": "af_heart"})
