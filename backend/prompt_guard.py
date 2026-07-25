@@ -1,6 +1,14 @@
 import re
 import time
 
+SYSTEM_PROMPT_RETRIEVAL_PATTERNS = [
+    re.compile(r"reveal\s+your\s+(system\s+prompt|instructions)", re.I),
+    re.compile(r"print\s+your\s+(system\s+prompt|instructions)", re.I),
+    re.compile(r"output\s+your\s+(system\s+prompt|instructions)", re.I),
+    re.compile(r"show\s+(me\s+)?your\s+(system\s+prompt|instructions)", re.I),
+    re.compile(r"what\s+(is|are)\s+your\s+(system\s+prompt|instructions)", re.I),
+]
+
 STRONG_PATTERNS = [
     re.compile(r"system\s+audit", re.I),
     re.compile(r"context\s+check", re.I),
@@ -8,9 +16,6 @@ STRONG_PATTERNS = [
     re.compile(r"list\s+(of\s+)?all\s+(the\s+)?characters", re.I),
     re.compile(r"ignore\s+(all\s+)?(the\s+)?(previous|prior|above)\s+instructions", re.I),
     re.compile(r"disregard\s+(all\s+)?(the\s+)?(previous|prior|above)\s+instructions", re.I),
-    re.compile(r"reveal\s+your\s+(system\s+prompt|instructions)", re.I),
-    re.compile(r"print\s+your\s+(system\s+prompt|instructions)", re.I),
-    re.compile(r"output\s+your\s+(system\s+prompt|instructions)", re.I),
     re.compile(r"\bdan\s+mode\b", re.I),
     re.compile(r"act\s+as\s+if\s+you\s+(have\s+)?no\s+(restrictions|filters|guidelines)", re.I),
     re.compile(r"pretend\s+you\s+(have\s+)?no\s+(restrictions|filters|guidelines)", re.I),
@@ -21,7 +26,6 @@ WEAK_PATTERNS = [
     re.compile(r"\bjailbreak\b", re.I),
     re.compile(r"\bsystem\s*:?\s*override\b", re.I),
     re.compile(r"bypass\s+(your\s+)?(filters?|restrictions?|guidelines?|safety)", re.I),
-    re.compile(r"what\s+(is|are)\s+your\s+(system\s+prompt|instructions)", re.I),
     re.compile(r"you\s+are\s+now\s+in\s+(developer|debug|admin)\s+mode", re.I),
 ]
 
@@ -57,22 +61,20 @@ class PromptInjectionBlocked(Exception):
 
 _NON_WORD_RE = re.compile(r"[^a-zA-Z0-9]+")
 _FAKE_DIRECTIVE_RE = re.compile(r"[\[(]\s*(ooc|scene|note|time|as|roll)\s*:", re.I)
-_REAL_SLASH_OOC_RE = re.compile(r"^\s*/ooc\b[^\n]*", re.I)
-_REAL_TYPED_OOC_RE = re.compile(r"\{\s*ooc\s*:[^}]*\}", re.I)
+_REAL_OOC_ROUTE_RE = re.compile(r"^\s*(/ooc\b|\{\s*ooc\s*:)", re.I)
 _BARE_OOC_WORD_RE = re.compile(r"\booc\b", re.I)
-
-def _has_bare_fake_ooc(raw: str) -> bool:
-    stripped = _REAL_SLASH_OOC_RE.sub("", raw)
-    stripped = _REAL_TYPED_OOC_RE.sub("", stripped)
-    return bool(_BARE_OOC_WORD_RE.search(stripped))
 
 def looks_like_prompt_injection(text: str) -> bool:
     raw = text or ""
+    normalized = _NON_WORD_RE.sub(" ", raw).strip()
+    if normalized and any(pattern.search(normalized) for pattern in SYSTEM_PROMPT_RETRIEVAL_PATTERNS):
+        return True
+    if _REAL_OOC_ROUTE_RE.match(raw):
+        return False
     if _FAKE_DIRECTIVE_RE.search(raw):
         return True
-    if _has_bare_fake_ooc(raw):
+    if _BARE_OOC_WORD_RE.search(raw):
         return True
-    normalized = _NON_WORD_RE.sub(" ", raw).strip()
     if not normalized:
         return False
     if any(pattern.search(normalized) for pattern in STRONG_PATTERNS):
