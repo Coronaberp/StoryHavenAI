@@ -612,17 +612,16 @@ class AdminTrainView {
     fd.append("captions", JSON.stringify(this.trainImages.map((_, i) => this.trainCaptions[i] || "")));
     this.trainImages.forEach((file) => fd.append("images", file, file.name));
 
-    const startBtn = document.getElementById("lt_start");
-    if (startBtn) { startBtn.disabled = true; startBtn.textContent = t("admin_train_starting"); }
+    const continueBtn = document.getElementById("lt_wizard_continue");
+    if (continueBtn) { continueBtn.disabled = true; continueBtn.textContent = t("admin_train_starting"); }
     try {
       const resp = await api("/api/admin/lora-training/jobs", { method: "POST", body: fd });
       this.jobs = await api("/api/admin/lora-training/jobs").catch(() => this.jobs);
-      this.tab = "progress";
-      this.render();
+      this.openJobDetail(resp.job_id);
       this.watchJob(resp.job_id);
     } catch (err) {
       errorToast(err.message || t("admin_train_training_request_failed"));
-      if (startBtn) { startBtn.disabled = false; startBtn.textContent = t("admin_train_start_training"); }
+      if (continueBtn) { continueBtn.disabled = false; continueBtn.textContent = t("admin_train_start_training"); }
     }
   }
 

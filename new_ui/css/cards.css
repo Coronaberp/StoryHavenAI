@@ -3348,3 +3348,15 @@ body { background-color: var(--color-paper) !important; }
   padding: 13px 2px; border-top: 1px solid var(--color-line); margin-top: 14px; color: var(--color-muted); font-size: 13px;
   background: none; border-left: none; border-right: none; border-bottom: none; cursor: pointer;
 }
+.lora-review-card { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 13px; padding: 14px; margin-bottom: 10px; }
+.lora-review-row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 13px; border-bottom: 1px solid var(--color-line); }
+.lora-review-row:last-child { border-bottom: none; }
+.lora-review-row span:first-child { color: var(--color-muted); }
+.lora-review-row span:last-child { font-weight: 600; font-variant-numeric: tabular-nums; }
+.lora-cost-banner {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  border-radius: 13px; padding: 13px 14px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;
+}
+.lora-cost-amt { font-size: 19px; font-weight: 700; color: var(--color-accent); font-variant-numeric: tabular-nums; }
+.lora-cost-lbl { font-size: 11px; color: var(--color-muted); }

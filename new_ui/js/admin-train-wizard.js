@@ -328,6 +328,33 @@ Object.assign(AdminTrainView.prototype, {
     if (!(lr > 0) || lr > 0.01) errors.push(t("admin_train_error_learning_rate_range"));
     return errors;
   },
+
+  reviewStepHtml() {
+    const f = this.form;
+    const architecture = this.animaNames.has(f.checkpoint) ? "anima" : "sdxl";
+    const est = this.estimateTrainingRun(architecture, Number(f.steps) || 0, Number(f.batch_size) || 1);
+    const checkpointLabel = this.checkpointPreviews[f.checkpoint]?.display_name || f.checkpoint;
+    return `
+      <div class="lora-cost-banner">
+        <div><div class="lora-cost-lbl">${t("admin_train_estimated_cost", "Estimated cost")}</div><div class="lora-cost-amt">$${est.cost.toFixed(2)}</div></div>
+        <div style="text-align:right"><div class="lora-cost-lbl">${t("admin_train_estimated_time", "Estimated time")}</div><div class="lora-cost-amt" style="color:var(--color-ink);font-size:15px">&asymp; ${this.formatDuration(est.seconds)}</div></div>
+      </div>
+      <div class="lora-review-card">
+        <div class="lora-review-row"><span>${t("admin_train_name")}</span><span>${_esc(f.name)}</span></div>
+        <div class="lora-review-row"><span>${t("admin_train_base_checkpoint")}</span><span>${_esc(checkpointLabel)}</span></div>
+        <div class="lora-review-row"><span>${t("admin_train_trigger_word")}</span><span>${_esc(f.trigger_word)}</span></div>
+        <div class="lora-review-row"><span>${t("admin_train_training_images")}</span><span>${this.trainImages.length}</span></div>
+        <div class="lora-review-row"><span>${t("admin_train_resolution")}</span><span>${_esc(String(f.resolution))}</span></div>
+        <div class="lora-review-row"><span>${t("admin_train_steps")}</span><span>${_esc(String(f.steps))}</span></div>
+      </div>
+      ${this.wizardFooterHtml({ showBack: true, continueLabel: t("admin_train_start_training") })}
+    `;
+  },
+
+  wireReviewStep() {
+    const continueBtn = document.getElementById("lt_wizard_continue");
+    if (continueBtn) continueBtn.onclick = () => this.submitTraining();
+  },
 });
 
 if (typeof window !== "undefined") {
