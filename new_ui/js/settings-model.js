@@ -31,6 +31,9 @@ class ModelSettingsView {
     this.defaultVoice = this.settings.overrides?.default_tts_voice || "";
     this.saving = false;
     this.render();
+    if (location.hash === "#voice") {
+      this.main.querySelector("#settingsVoiceSection")?.scrollIntoView({ block: "start" });
+    }
   }
 
   async openDefaultVoicePicker() {
@@ -165,7 +168,7 @@ class ModelSettingsView {
         <textarea id="model_stop" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-xs font-mono" style="min-height:52px">${_esc((o.stop || []).join("\n"))}</textarea>
       </div>
 
-      ${sEyebrowHtml(t("model_settings_voice", "Voice"))}
+      <div id="settingsVoiceSection">${sEyebrowHtml(t("model_settings_voice", "Voice"))}</div>
       <p class="text-xs text-muted mb-2">${t("model_settings_default_voice_hint", "Used whenever a chat has no voice override of its own.")}</p>
       <div class="mb-5" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:11px;border:1px solid var(--color-line-2);background:var(--color-surface-2)">
         <span style="flex:1;min-width:0;font-size:13.5px;font-weight:600;color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(this.defaultVoice ? _formatVoiceName(this.defaultVoice).name : t("tts_voice_default", "Default"))}</span>

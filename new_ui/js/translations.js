@@ -13,6 +13,7 @@ const UI_STRINGS = {
   settings_section_account: "Account",
   settings_row_appearance: "Appearance",
   settings_row_model: "Model & memory",
+  settings_row_voice: "Voice",
   settings_row_personas: "Personas",
   settings_row_account_lang: "Account & language",
   settings_row_admin: "Admin panel",

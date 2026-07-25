@@ -13,6 +13,7 @@ const SETTINGS_ICONS = {
   chevron: '<polyline points="9 6 15 12 9 18"/>',
   book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20"/>',
   beaker: '<path d="M9 3h6M10 3v5.5L4.5 18a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 8.5V3"/><path d="M7 15h10"/>',
+  mic: '<rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><line x1="12" y1="17.5" x2="12" y2="21.5"/><line x1="8.5" y1="21.5" x2="15.5" y2="21.5"/>',
 };
 
 function svgIcon(name, size = 18) {
@@ -80,6 +81,10 @@ class SettingsView {
     if (overrides.base_url) {
       try { modelSummary = new URL(overrides.base_url).host; } catch { modelSummary = "Custom endpoint"; }
     }
+    let voiceSummary = t("tts_voice_default", "Default");
+    if (overrides.default_tts_voice) {
+      try { voiceSummary = _formatVoiceName(overrides.default_tts_voice).name; } catch { voiceSummary = overrides.default_tts_voice; }
+    }
     const nsfwOn = !!ME?.nsfw_allowed;
     const privacyOn = document.documentElement.dataset.censor === "1";
     const experimentalOn = !!ME?.experimental_features_enabled;
@@ -101,6 +106,7 @@ class SettingsView {
       ${sEyebrowHtml(t("settings_section_preferences"))}
       ${settingsRowHtml({ icon: svgIcon("appearance"), label: t("settings_row_appearance"), sublabel: themeSummary, onclick: "navigate('/settings-appearance')" })}
       ${settingsRowHtml({ icon: svgIcon("model"), label: t("settings_row_model"), sublabel: modelSummary, onclick: "navigate('/settings-model')" })}
+      ${settingsRowHtml({ icon: svgIcon("mic"), label: t("settings_row_voice", "Voice"), sublabel: voiceSummary, onclick: "navigate('/settings-model#voice')" })}
       ${sEyebrowHtml(t("settings_section_safety"))}
       ${settingsRowHtml({ icon: svgIcon("eye"), label: t("settings_row_enable_mature_content"), sublabel: t("settings_row_enable_mature_content_sub"), right: toggleSwitchHtml("settingsView.toggleNsfw()", nsfwOn) })}
       ${settingsRowHtml({ icon: svgIcon("eyeOff"), label: t("settings_row_privacy_blur"), sublabel: t("settings_row_privacy_blur_sub"), right: toggleSwitchHtml("settingsView.togglePrivacy()", privacyOn) })}
