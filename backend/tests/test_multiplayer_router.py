@@ -293,3 +293,54 @@ async def test_list_my_personas_for_session_unclaimed_has_none(db_conn):
     rows = await mp.list_my_personas_for_session(sid, _user("owner-1"))
     row = next(r for r in rows if r["id"] == shared["id"])
     assert row["claimed_by"] is None
+
+async def test_set_session_persona_allows_unclaimed_shared_persona(db_conn):
+    from backend.routers import sessions as sessions_router
+    from backend.repositories import personas as persona_repo
+    from backend.schemas import PersonaSwitchIn
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    shared = await persona_repo.create({"name": "Shared", "session_id": sid}, "owner-1")
+    await sp.add(sid, "friend-1", None, "member")
+    result = await sessions_router.set_session_persona(sid, PersonaSwitchIn(persona_id=shared["id"]), _user("friend-1"))
+    assert result["user_name"] == "Shared"
+    participant = await sp.get(sid, "friend-1")
+    assert participant["persona_id"] == shared["id"]
+
+async def test_set_session_persona_rejects_already_claimed_persona(db_conn):
+    from backend.routers import sessions as sessions_router
+    from backend.repositories import personas as persona_repo
+    from backend.schemas import PersonaSwitchIn
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    shared = await persona_repo.create({"name": "Shared", "session_id": sid}, "owner-1")
+    await sp.add(sid, "friend-1", shared["id"], "member")
+    await sp.add(sid, "friend-2", None, "member")
+    with pytest.raises(HTTPException) as exc_info:
+        await sessions_router.set_session_persona(sid, PersonaSwitchIn(persona_id=shared["id"]), _user("friend-2"))
+    assert exc_info.value.status_code == 409
+
+async def test_set_session_persona_switching_away_frees_the_claim(db_conn):
+    from backend.routers import sessions as sessions_router
+    from backend.repositories import personas as persona_repo
+    from backend.schemas import PersonaSwitchIn
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    shared = await persona_repo.create({"name": "Shared", "session_id": sid}, "owner-1")
+    await sp.add(sid, "friend-1", shared["id"], "member")
+    await sp.add(sid, "friend-2", None, "member")
+    await sessions_router.set_session_persona(sid, PersonaSwitchIn(persona_id=None), _user("friend-1"))
+    result = await sessions_router.set_session_persona(sid, PersonaSwitchIn(persona_id=shared["id"]), _user("friend-2"))
+    assert result["user_name"] == "Shared"
+
+async def test_set_session_persona_still_rejects_someone_elses_permanent_persona(db_conn):
+    from backend.routers import sessions as sessions_router
+    from backend.repositories import personas as persona_repo
+    from backend.schemas import PersonaSwitchIn
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    their_permanent = await persona_repo.create({"name": "TheirPermanent"}, "owner-1")
+    await sp.add(sid, "friend-1", None, "member")
+    with pytest.raises(HTTPException) as exc_info:
+        await sessions_router.set_session_persona(sid, PersonaSwitchIn(persona_id=their_permanent["id"]), _user("friend-1"))
+    assert exc_info.value.status_code == 404

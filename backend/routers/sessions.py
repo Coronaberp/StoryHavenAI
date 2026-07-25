@@ -276,12 +276,20 @@ async def set_session_persona(sid: str, body: PersonaSwitchIn,
                               current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     persona = None
+    participant_rows = await session_participants.list_for_session(sid)
     if body.persona_id:
         persona = await personas.get(body.persona_id)
-        if not persona or persona.get("owner_id") != current_user["id"]:
+        owns_it = bool(persona) and persona.get("owner_id") == current_user["id"]
+        is_this_session = bool(persona) and persona.get("session_id") == sid
+        if not persona or not (owns_it or is_this_session):
             raise HTTPException(404, "persona not found")
+        if is_this_session and not owns_it:
+            claimed_by = next((r["user_id"] for r in participant_rows
+                              if r["persona_id"] == body.persona_id and r["user_id"] != current_user["id"]), None)
+            if claimed_by:
+                raise HTTPException(409, "Someone else in this session is already playing as that persona")
     user_name = persona["name"] if persona else "You"
-    is_multiplayer = bool(await session_participants.list_for_session(sid))
+    is_multiplayer = bool(participant_rows)
     if is_multiplayer:
         await session_participants.set_persona(sid, current_user["id"], body.persona_id)
         live_broadcast.broadcast(sid, "participant_updated", {"user_id": current_user["id"]})
