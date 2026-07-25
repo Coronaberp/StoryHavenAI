@@ -361,7 +361,7 @@ def _assemble_system(char, s, persona, user_name, mode, language, do_think, eff,
 
 async def _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep, chat_model,
                               persona, user_name, language, do_think, turn_group, query, viewer_id,
-                              chat_mode=False, fallback_profiles=None):
+                              current_user, user_overrides, chat_mode=False):
     sid = s["id"]
     char = chars_by_id.get(cid)
     if not char:
@@ -426,7 +426,8 @@ async def _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep, 
         params["max_tokens"] = length_preset["max_tokens"]
     yield "data: " + json.dumps({"type": "status", "phase": "generating", "char_id": cid}) + "\n\n"
     ans, thought = [], []
-    profiles = fallback_profiles or _chat_fallback_profiles(ep["chat_base"], ep["chat_key"], chat_model)
+    profiles = await _resolve_fallback_profiles(
+        char, s, current_user, user_overrides, chat_model, ep["chat_base"], ep["chat_key"])
     try:
         async for channel, text in llm.chat_stream_with_fallback(oai, profiles, params, parse_think=do_think,
                 pin_host=True):
@@ -507,16 +508,14 @@ async def _group_single(s, eff, ep, chat_model, cid, current_user, think, user_o
     user_turn = next((m for m in reversed(msgs) if m["role"] == "user"), None)
     query = user_turn["content"] if user_turn else ""
     log.info("group %s: session=%s char=%s", "reassign" if replace_mid else "speak", sid, cid)
-    fallback_profiles = await _session_chat_proxy_override(s, current_user, user_overrides, chat_model) \
-        or _chat_fallback_profiles(ep["chat_base"], ep["chat_key"], chat_model)
 
     async def gen():
         yield "data: " + json.dumps({"type": "meta", "turn_group": turn_group, "think": do_think}) + "\n\n"
         working = list(msgs)
         async for ev in _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep, chat_model,
                                             persona, user_name, language, do_think, turn_group, query, viewer_id,
-                                            chat_mode=(s.get("group_mode") == "chat"),
-                                            fallback_profiles=fallback_profiles):
+                                            current_user, user_overrides,
+                                            chat_mode=(s.get("group_mode") == "chat")):
             yield ev
         yield "data: " + json.dumps({"type": "done", "turn_group": turn_group, "replaced": replace_mid}) + "\n\n"
 
@@ -626,8 +625,6 @@ async def _run_group(s, eff, ep, chat_model, user_content, current_user, think, 
     responder_ids = await next_speaker(cast, route_text, last_speaker, recent_text(msgs), chat_model, ep)
     turn_group = db.nid("tg")
     log.info("group turn start: session=%s responders=%s lang=%s", sid, responder_ids, language)
-    fallback_profiles = await _session_chat_proxy_override(s, current_user, user_overrides, chat_model) \
-        or _chat_fallback_profiles(ep["chat_base"], ep["chat_key"], chat_model)
 
     async def gen():
         yield "data: " + json.dumps({"type": "meta", "user_mid": user_mid,
@@ -637,8 +634,8 @@ async def _run_group(s, eff, ep, chat_model, user_content, current_user, think, 
         for cid in responder_ids:
             async for ev in _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep,
                                                 chat_model, persona, user_name, language, do_think,
-                                                turn_group, query, viewer_id, chat_mode=chat_mode,
-                                                fallback_profiles=fallback_profiles):
+                                                turn_group, query, viewer_id, current_user, user_overrides,
+                                                chat_mode=chat_mode):
                 yield ev
         primary = chars_by_id.get(responder_ids[0]) if responder_ids else next(iter(chars_by_id.values()))
         names_by_id = {cid: c["name"] for cid, c in chars_by_id.items()}
