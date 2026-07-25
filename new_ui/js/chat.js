@@ -3422,7 +3422,8 @@ class ChatView {
     const raw = input.value.trim();
     if (!raw || this.streaming) return;
     if (looksLikePromptInjection(raw)) {
-      errorToast(t("chat_blocked_prompt_injection", "That reads like an attempt to slip the AI a fake system command. Use /ooc if you want to talk to it outside the story — this message wasn't sent."));
+      showInjectionTimeoutOverlay(10);
+      api("/api/security/report-blocked-message", { method: "POST" }).catch(() => {});
       return;
     }
     this.diceRolledThisTurn = false;
@@ -3627,6 +3628,9 @@ class ChatView {
       });
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
+        if (res.status === 429 && errBody.retry_after != null) {
+          showInjectionTimeoutOverlay(errBody.retry_after);
+        }
         throw new Error(errBody.detail || `Request failed (${res.status})`);
       }
       let turnMeta = null;

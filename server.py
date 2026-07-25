@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from PIL import Image
 
 from fastapi import FastAPI, Request, Response, Depends
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.exceptions import HTTPException
@@ -145,6 +145,30 @@ async def _ciphertext_leak_guard(request: Request, call_next):
                     headers=headers, media_type="application/json")
 
 from backend import auth
+from backend import prompt_guard
+
+_INJECTION_TIMEOUT_EXEMPT_PATHS = {"/api/auth/login", "/api/auth/register", "/api/auth/refresh"}
+
+@app.middleware("http")
+async def _prompt_injection_timeout_guard(request: Request, call_next):
+    if request.url.path.startswith("/api/") and request.url.path not in _INJECTION_TIMEOUT_EXEMPT_PATHS:
+        claims = await auth._resolve_access_claims(request)
+        if claims:
+            remaining = prompt_guard.remaining_timeout(claims["sub"])
+            if remaining > 0:
+                return JSONResponse(status_code=429, content={
+                    "detail": prompt_guard.BLOCKED_MESSAGE,
+                    "retry_after": round(remaining, 1),
+                })
+    return await call_next(request)
+
+@app.exception_handler(prompt_guard.PromptInjectionBlocked)
+async def _prompt_injection_blocked_handler(request: Request, exc: prompt_guard.PromptInjectionBlocked):
+    return JSONResponse(status_code=429, content={
+        "detail": prompt_guard.BLOCKED_MESSAGE,
+        "retry_after": round(exc.retry_after, 1),
+    })
+
 import backend.routers.webauthn
 import backend.routers.oauth
 import backend.routers.characters

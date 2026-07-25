@@ -40,11 +40,16 @@ async function api(path, opts = {}) {
   if (!res.ok) {
     let message = res.statusText;
     let detail = null;
+    let retryAfter = null;
     try {
       const body = await res.json();
       detail = body.detail ?? null;
+      retryAfter = body.retry_after ?? null;
       message = typeof detail === "string" ? detail : message;
     } catch {}
+    if (res.status === 429 && retryAfter != null && typeof showInjectionTimeoutOverlay === "function") {
+      showInjectionTimeoutOverlay(retryAfter);
+    }
     const err = new Error(message);
     err.detail = detail;
     err.status = res.status;

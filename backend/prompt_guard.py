@@ -1,4 +1,5 @@
 import re
+import time
 
 PROMPT_INJECTION_PATTERNS = [
     re.compile(r"system\s+audit", re.I),
@@ -21,9 +22,33 @@ PROMPT_INJECTION_PATTERNS = [
     re.compile(r"strictly\s+factual\s+to\s+the\s+(provided\s+)?card\s+data", re.I),
 ]
 
-BLOCKED_MESSAGE = ("That message wasn't sent because it reads like an attempt to override the AI's "
-                    "instructions with a fake system command. Use the /ooc directive to talk to it "
-                    "outside the story instead.")
+BLOCKED_MESSAGE = ("Nice try. That reads like an attempt to override the AI's instructions with a fake "
+                    "system command, so it wasn't sent, and now you're in a timeout. Use the /ooc "
+                    "directive next time if you actually want to talk to it outside the story.")
+
+TIMEOUT_SECONDS = 10
+_violations: dict[str, float] = {}
+
+def record_violation(user_id: str | None) -> None:
+    if user_id:
+        _violations[user_id] = time.time() + TIMEOUT_SECONDS
+
+def remaining_timeout(user_id: str | None) -> float:
+    if not user_id:
+        return 0.0
+    until = _violations.get(user_id)
+    if not until:
+        return 0.0
+    remaining = until - time.time()
+    if remaining <= 0:
+        _violations.pop(user_id, None)
+        return 0.0
+    return remaining
+
+class PromptInjectionBlocked(Exception):
+    def __init__(self, retry_after: float):
+        self.retry_after = retry_after
+        super().__init__(BLOCKED_MESSAGE)
 
 def looks_like_prompt_injection(text: str) -> bool:
     normalized = " ".join((text or "").split())

@@ -3,16 +3,24 @@ from fastapi import HTTPException, Depends
 from backend import db
 from backend import llm
 from backend.repositories import memory_facts
-from backend.state import api, CFG
+from backend.state import api, CFG, log
 from backend.auth import get_current_user
 from backend.chat_service import _own_session, _endpoints, _run, run_group_speak
 from backend.dice import roll_dice, format_roll, resolve_inline_rolls
 from backend import guest_quota
+from backend import prompt_guard
 from backend.feature_flags import require_feature_enabled
 from backend.prompt import apply_directive, apply_inline_directives, strip_sigil
 from backend.schemas import RollIn, ChatIn
 
 MEMORY_LIST_MAX = 1000
+
+@api.post("/security/report-blocked-message")
+async def report_blocked_message(current_user: dict = Depends(get_current_user)):
+    prompt_guard.record_violation(current_user["id"])
+    log.warning("chat: client-side blocked prompt-injection attempt, timeout applied username=%s",
+               current_user["username"])
+    return {"timeout_seconds": prompt_guard.TIMEOUT_SECONDS}
 
 @api.get("/sessions/{sid}/memory")
 async def get_memory(sid: str, q: str | None = None, k: int = 30,

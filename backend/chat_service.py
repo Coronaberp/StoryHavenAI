@@ -22,6 +22,7 @@ from backend import group
 from backend.retrieval import retrieve
 from backend import memory_service
 from backend import guest_quota
+from backend import prompt_guard
 from backend.prompt_guard import looks_like_prompt_injection, BLOCKED_MESSAGE
 from backend.prompt import (build_system, think_instruction, strip_think, macro,
                     recent_text, ensure_scene_header, strip_sigil, strip_leaked_sigil,
@@ -654,8 +655,10 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
     sid = s["id"]
     if user_content is not None and looks_like_prompt_injection(user_content):
         if current_user:
-            log.warning("chat: blocked likely prompt-injection message username=%s session=%s",
+            prompt_guard.record_violation(current_user["id"])
+            log.warning("chat: blocked likely prompt-injection message, timeout applied username=%s session=%s",
                        current_user["username"], sid)
+            raise prompt_guard.PromptInjectionBlocked(prompt_guard.TIMEOUT_SECONDS)
         raise HTTPException(400, BLOCKED_MESSAGE)
     eff_chat_base, eff_api_key = ep["chat_base"], ep["chat_key"]
     other_player_names = []
