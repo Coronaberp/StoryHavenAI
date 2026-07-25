@@ -3,6 +3,10 @@
 class AdminConfigView {
   async mount(main) {
     this.main = main;
+    this.autosaveTimer = null;
+    this.saveStatus = "";
+    this.collapsed = {};
+    try { this.collapsed = JSON.parse(store.get("admin_config_collapsed", "{}")) || {}; } catch (e) { this.collapsed = {}; }
     main.innerHTML = `<div class="text-sm text-muted">${_esc(t("common_loading"))}</div>`;
     try {
       this.st = await api("/api/settings");
@@ -17,8 +21,62 @@ class AdminConfigView {
       this.oauthProviders = [];
     }
     this.mrHosts = (this.st.model_request_hosts || []).map((h) => ({ host: h.host || "", api_key: "", has_api_key: !!h.has_api_key }));
+    this.chatProxies = (this.st.chat_proxies || []).map((p) => ({ ...p, api_key: "" }));
+    this.embedProxies = (this.st.embed_proxies || []).map((p) => ({ ...p, api_key: "" }));
+    this.proxyCardsState = { chat: this.chatProxies, embed: this.embedProxies };
+    this.proxyCardsExpanded = new Set();
+    this.proxyCardsEmojiGridOpen = null;
+    this._proxyCardsGlobalName = "adminConfigView";
     this.render();
     this.loadWanOptions();
+  }
+
+  onProxyCardsChanged(immediate) {
+    if (immediate) this.autosave();
+    else this.scheduleAutosave();
+  }
+
+  toggleSection(key) {
+    this.collapsed[key] = !this.collapsed[key];
+    store.set("admin_config_collapsed", JSON.stringify(this.collapsed));
+    this.render();
+  }
+
+  toggleCard(key) {
+    const storeKey = `card:${key}`;
+    this.collapsed[storeKey] = !this.collapsed[storeKey];
+    store.set("admin_config_collapsed", JSON.stringify(this.collapsed));
+    this.render();
+  }
+
+  sectionHtml(key, title, contentHtml) {
+    const isCollapsed = !!this.collapsed[key];
+    return `
+      <div class="rounded-[13px] border border-line bg-surface mb-3">
+        <button type="button" onclick="adminConfigView.toggleSection('${key}')" class="w-full flex items-center gap-2 px-3.5 py-3 text-left rounded-[13px]">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${isCollapsed ? "-90deg" : "0deg"});transition:transform .15s;flex:none;color:var(--color-muted)"><path d="M6 9l6 6 6-6"/></svg>
+          <span class="font-display font-semibold text-sm text-ink flex-1">${title}</span>
+        </button>
+        <div class="px-3.5 pb-3.5${isCollapsed ? " hidden" : ""}" data-section-content="${key}">${contentHtml}</div>
+      </div>
+    `;
+  }
+
+  scheduleAutosave() {
+    this.saveStatus = "saving";
+    this.updateSaveStatusHtml();
+    clearTimeout(this.autosaveTimer);
+    this.autosaveTimer = setTimeout(() => this.autosave(), 900);
+  }
+
+  updateSaveStatusHtml() {
+    const el = document.getElementById("cfgSaveStatus");
+    if (!el) return;
+    el.style.color = this.saveStatus === "error" ? "var(--color-warn)" : "var(--color-muted)";
+    if (this.saveStatus === "saving") el.textContent = t("admin_config_saving", "Saving…");
+    else if (this.saveStatus === "saved") el.textContent = t("admin_config_saved", "Saved");
+    else if (this.saveStatus === "error") el.textContent = t("admin_config_save_error", "Couldn't save — check for errors");
+    else el.textContent = "";
   }
 
   async resyncUiTranslations() {
@@ -34,42 +92,208 @@ class AdminConfigView {
   }
 
   async loadWanOptions() {
-    const fillSelect = (id, names, current) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      const options = ["", ...names];
-      el.innerHTML = options.map((n) =>
-        `<option value="${_attr(n)}"${n === (current || "") ? " selected" : ""}>${n ? _esc(n) : t("admin_config_none")}</option>`
-      ).join("");
-    };
     const [unets, clips, vaes] = await Promise.all([
       api("/api/imagegen/wan-unets").catch(() => []),
       api("/api/imagegen/wan-clip-models").catch(() => []),
       api("/api/imagegen/vaes").catch(() => []),
     ]);
-    fillSelect("cfg_wan_unet", unets, this.st.wan_unet_name);
-    fillSelect("cfg_wan_clip", clips, this.st.wan_clip_name);
-    fillSelect("cfg_wan_vae", vaes, this.st.wan_vae_name);
+    this.fillCustomSelect("cfg_wan_unet", unets, this.st.wan_unet_name);
+    this.fillCustomSelect("cfg_wan_clip", clips, this.st.wan_clip_name);
+    this.fillCustomSelect("cfg_wan_vae", vaes, this.st.wan_vae_name);
   }
 
-  identityProviderRowHtml(p, i) {
+  providerSelectHtml(id, pairs, current, fallback) {
+    const value = current || fallback;
     return `
-      <div class="mb-2 p-2.5 rounded-md border border-line" data-identity-provider-row="${i}">
-        <div class="flex items-center justify-between mb-1.5">
-          <span class="text-sm text-ink font-medium">${_esc(p.label)}</span>
-          <button type="button" data-identity-provider-toggle="${i}" class="settings-toggle${p.enabled ? " on" : ""}"><span class="settings-toggle-knob"></span></button>
-        </div>
-        <input type="text" data-identity-provider-client-id value="${_attr(p.client_id)}" placeholder="${t("admin_config_identity_provider_client_id_placeholder")}" class="w-full mb-1.5 px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
-        <input type="password" autocomplete="new-password" data-identity-provider-client-secret placeholder="${p.has_client_secret ? t("admin_config_identity_provider_client_secret_set_placeholder") : t("admin_config_identity_provider_client_secret_placeholder")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
-        <div class="mt-1.5">
-          <div class="text-xs text-muted mb-1">${t("admin_config_identity_provider_callback_url_label")}</div>
-          <div class="flex items-center gap-1.5">
-            <input type="text" readonly value="${_attr(this.identityProviderCallbackUrl(p.provider))}" class="w-full px-2.5 py-1.5 rounded-md border border-line bg-surface-2 text-muted text-xs" onclick="this.select()">
-            <button type="button" data-identity-provider-copy-callback="${i}" class="shrink-0 px-2 py-1.5 rounded-md border border-line text-xs text-ink">${t("admin_config_identity_provider_callback_url_copy_button")}</button>
+      <input type="hidden" id="${id}" value="${_attr(value)}">
+      <div class="space-y-1.5">
+        ${pairs.map(([v, label]) => `
+          <div class="rounded-md border p-2 flex items-center gap-2.5" style="border-color:${v === value ? "var(--color-accent)" : "var(--color-line)"}">
+            <span class="w-7 h-7 rounded-full flex items-center justify-center flex-none" style="background:radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--color-accent) 25%, var(--color-surface-2)), var(--color-surface-2) 70%);border:1px solid var(--color-line-2);color:var(--color-accent)">
+              <span class="font-display font-semibold text-xs">${_esc(label[0].toUpperCase())}</span>
+            </span>
+            <span class="flex-1 min-w-0 font-medium text-sm text-ink truncate">${_esc(label)}</span>
+            ${v === value
+              ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none" style="color:var(--color-accent);border:1px solid var(--color-accent)">${t("admin_config_proxy_default", "Default")}</span>`
+              : `<button type="button" onclick="adminConfigView.pickProviderCard('${id}', '${v}')" class="px-2.5 py-1.5 rounded-md border border-line text-xs text-ink flex-none">${t("admin_config_proxy_set_default", "Set as default")}</button>`}
           </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  pickProviderCard(selectId, value) {
+    const field = { cfg_image_provider: "image_provider", cfg_video_provider: "video_provider", cfg_gif_provider: "gif_provider" }[selectId];
+    if (!field) return;
+    this.st[field] = value;
+    this.render();
+    this.scheduleAutosave();
+  }
+
+  imageProviderSelectHtml(current) {
+    return this.providerSelectHtml("cfg_image_provider", [
+      ["comfyui", t("admin_config_image_provider_comfyui", "ComfyUI (self-hosted)")],
+      ["openai", t("admin_config_image_provider_openai", "OpenAI-compatible API")],
+      ["stability", t("admin_config_image_provider_stability", "Stability AI")],
+      ["novelai", t("admin_config_image_provider_novelai", "NovelAI")],
+      ["a1111", t("admin_config_image_provider_a1111", "AUTOMATIC1111")],
+    ], current, "comfyui");
+  }
+
+  videoProviderSelectHtml(current) {
+    return this.providerSelectHtml("cfg_video_provider", [
+      ["comfyui", t("admin_config_video_provider_comfyui", "ComfyUI (Wan, self-hosted)")],
+      ["gemini_veo", t("admin_config_video_provider_gemini_veo", "Google Gemini Veo")],
+      ["qwen_wan", t("admin_config_video_provider_qwen_wan", "Qwen Wan (hosted)")],
+      ["openrouter", t("admin_config_video_provider_openrouter", "OpenRouter")],
+    ], current, "comfyui");
+  }
+
+  gifProviderSelectHtml(current) {
+    return this.providerSelectHtml("cfg_gif_provider", [
+      ["giphy", "Giphy"],
+      ["tenor", "Tenor"],
+      ["klipy", "Klipy"],
+    ], current, "giphy");
+  }
+
+  customSelectHtml(id, names, current) {
+    const options = ["", ...names];
+    const currentLabel = current ? current : t("admin_config_none");
+    return `
+      <div class="relative" data-custom-select="${id}">
+        <input type="hidden" id="${id}" value="${_attr(current || "")}">
+        <button type="button" data-custom-select-trigger="${id}" class="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm text-left">
+          <span data-custom-select-label="${id}" class="truncate">${_esc(currentLabel)}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted flex-none"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="dropdown-menu" data-custom-select-menu="${id}" style="left:0;inset-inline-end:auto;width:100%;max-height:240px;overflow-y:auto">
+          ${options.map((n) => `<button type="button" class="dropdown-item${n === (current || "") ? " active" : ""}" data-custom-select-item="${id}" data-value="${_attr(n)}">${n ? _esc(n) : _esc(t("admin_config_none"))}</button>`).join("")}
         </div>
       </div>
     `;
+  }
+
+  fillCustomSelect(id, names, current) {
+    const wrap = this.main.querySelector(`[data-custom-select="${id}"]`);
+    if (!wrap) return;
+    wrap.outerHTML = this.customSelectHtml(id, names, current);
+    this.wireCustomSelectRow(id);
+  }
+
+  wireCustomSelectRow(id) {
+    const trigger = this.main.querySelector(`[data-custom-select-trigger="${id}"]`);
+    if (!trigger) return;
+    trigger.onclick = (e) => {
+      e.stopPropagation();
+      const menu = this.main.querySelector(`[data-custom-select-menu="${id}"]`);
+      const isOpen = menu.classList.contains("open");
+      this.main.querySelectorAll(".dropdown-menu.open").forEach((m) => m.classList.remove("open"));
+      if (!isOpen) menu.classList.add("open");
+    };
+    this.main.querySelectorAll(`[data-custom-select-item="${id}"]`).forEach((item) => {
+      item.onclick = () => {
+        const value = item.dataset.value;
+        const hidden = document.getElementById(id);
+        const label = this.main.querySelector(`[data-custom-select-label="${id}"]`);
+        hidden.value = value;
+        if (label) label.textContent = item.textContent;
+        this.main.querySelectorAll(`[data-custom-select-item="${id}"]`).forEach((el) => el.classList.toggle("active", el === item));
+        this.main.querySelector(`[data-custom-select-menu="${id}"]`).classList.remove("open");
+        if (id === "cfg_image_provider" || id === "cfg_video_provider" || id === "cfg_gif_provider") {
+          this.st[{ cfg_image_provider: "image_provider", cfg_video_provider: "video_provider", cfg_gif_provider: "gif_provider" }[id]] = value;
+          this.render();
+          this.scheduleAutosave();
+          return;
+        }
+        hidden.dispatchEvent(new Event("change", { bubbles: true }));
+      };
+    });
+  }
+
+  wireAllCustomSelects() {
+    this.main.querySelectorAll("[data-custom-select]").forEach((wrap) => this.wireCustomSelectRow(wrap.dataset.customSelect));
+    if (!this._customSelectCloseWired) {
+      this._customSelectCloseWired = true;
+      document.addEventListener("click", () => {
+        document.querySelectorAll(".dropdown-menu.open").forEach((m) => m.classList.remove("open"));
+      });
+    }
+  }
+
+  _identityProviderIconSvg(provider) {
+    const icons = {
+      google: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/></svg>`,
+      facebook: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z"/></svg>`,
+      github: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>`,
+      discord: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/></svg>`,
+      twitter: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z"/></svg>`,
+      reddit: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12c0 3.314 1.343 6.314 3.515 8.485l-2.286 2.286C.775 23.225 1.097 24 1.738 24H12c6.627 0 12-5.373 12-12S18.627 0 12 0Zm4.388 3.199c1.104 0 1.999.895 1.999 1.999 0 1.105-.895 2-1.999 2-.946 0-1.739-.657-1.947-1.539v.002c-1.147.162-2.032 1.15-2.032 2.341v.007c1.776.067 3.4.567 4.686 1.363.473-.363 1.064-.58 1.707-.58 1.547 0 2.802 1.254 2.802 2.802 0 1.117-.655 2.081-1.601 2.531-.088 3.256-3.637 5.876-7.997 5.876-4.361 0-7.905-2.617-7.998-5.87-.954-.447-1.614-1.415-1.614-2.538 0-1.548 1.255-2.802 2.803-2.802.645 0 1.239.218 1.712.585 1.275-.79 2.881-1.291 4.64-1.365v-.01c0-1.663 1.263-3.034 2.88-3.207.188-.911.993-1.595 1.959-1.595Zm-8.085 8.376c-.784 0-1.459.78-1.506 1.797-.047 1.016.64 1.429 1.426 1.429.786 0 1.371-.369 1.418-1.385.047-1.017-.553-1.841-1.338-1.841Zm7.406 0c-.786 0-1.385.824-1.338 1.841.047 1.017.634 1.385 1.418 1.385.785 0 1.473-.413 1.426-1.429-.046-1.017-.721-1.797-1.506-1.797Zm-3.703 4.013c-.974 0-1.907.048-2.77.135-.147.015-.241.168-.183.305.483 1.154 1.622 1.964 2.953 1.964 1.33 0 2.47-.81 2.953-1.964.057-.137-.037-.29-.184-.305-.863-.087-1.795-.135-2.769-.135Z"/></svg>`,
+      microsoft: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M0 0v11.408h11.408V0zm12.594 0v11.408H24V0zM0 12.594V24h11.408V12.594zm12.594 0V24H24V12.594z"/></svg>`,
+      steam: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.253 0-2.265-1.014-2.265-2.265z"/></svg>`,
+      apple: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>`,
+    };
+    return icons[provider] || `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>`;
+  }
+
+  identityProviderMedallionHtml(p, size) {
+    return `
+      <span class="relative rounded-full flex items-center justify-center flex-none overflow-hidden" style="width:${size}px;height:${size}px;background:radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--color-accent) 30%, var(--color-surface-2)), var(--color-surface-2) 70%);border:1px solid color-mix(in srgb, var(--color-accent) 45%, var(--color-line-2));color:var(--color-accent)">
+        <span style="width:${Math.round(size * 0.5)}px;height:${Math.round(size * 0.5)}px">${this._identityProviderIconSvg(p.provider)}</span>
+      </span>
+    `;
+  }
+
+  identityProviderLogoHtml(p, i) {
+    return `
+      <button type="button" onclick="adminConfigView.openIdentityProviderModal(${i})" class="flex flex-col items-center gap-1.5 p-2.5 rounded-lg border border-line-2" style="background:var(--color-surface-2)">
+        ${this.identityProviderMedallionHtml(p, 36)}
+        <span class="text-[11px] text-ink font-medium">${_esc(p.label)}</span>
+        <span class="w-1.5 h-1.5 rounded-full" style="background:${p.enabled ? "var(--color-success)" : "var(--color-line-2)"}"></span>
+      </button>
+    `;
+  }
+
+  openIdentityProviderModal(i) {
+    const p = this.oauthProviders[i];
+    if (!p) return;
+    openModal(`
+      <div class="flex items-center gap-2.5 mb-1">
+        ${this.identityProviderMedallionHtml(p, 32)}
+        <h3 class="m-0">${_esc(p.label)}</h3>
+      </div>
+      <label class="flex items-center justify-between gap-2 mb-3 text-sm text-ink">
+        ${t("admin_config_identity_provider_enabled", "Enabled")}
+        <button type="button" id="idpModalToggle" class="settings-toggle${p.enabled ? " on" : ""}"><span class="settings-toggle-knob"></span></button>
+      </label>
+      <div class="mb-3">
+        <label class="block text-xs text-sec mb-1">${t("admin_config_identity_provider_client_id_placeholder")}</label>
+        <input type="text" id="idpModalClientId" value="${_attr(p.client_id)}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
+      </div>
+      <div class="mb-3">
+        <label class="block text-xs text-sec mb-1">${t("admin_config_identity_provider_client_secret_placeholder")}</label>
+        <input type="password" autocomplete="new-password" id="idpModalClientSecret" placeholder="${p.has_client_secret ? t("admin_config_identity_provider_client_secret_set_placeholder") : t("admin_config_identity_provider_client_secret_placeholder")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
+      </div>
+      <div class="mb-4">
+        <div class="text-xs text-muted mb-1">${t("admin_config_identity_provider_callback_url_label")}</div>
+        <div class="flex items-center gap-1.5">
+          <input type="text" readonly value="${_attr(this.identityProviderCallbackUrl(p.provider))}" class="w-full px-2.5 py-1.5 rounded-md border border-line bg-surface-2 text-muted text-xs" onclick="this.select()">
+          <button type="button" id="idpModalCopy" class="shrink-0 px-2 py-1.5 rounded-md border border-line text-xs text-ink">${t("admin_config_identity_provider_callback_url_copy_button")}</button>
+        </div>
+      </div>
+      <button type="button" id="idpModalSave" class="w-full py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_config_identity_providers_save_button")}</button>
+    `);
+    const toggle = document.getElementById("idpModalToggle");
+    toggle.onclick = () => toggle.classList.toggle("on");
+    document.getElementById("idpModalCopy").onclick = () => this.copyIdentityProviderCallbackUrl(i);
+    document.getElementById("idpModalSave").onclick = async () => {
+      p.enabled = toggle.classList.contains("on");
+      p.client_id = document.getElementById("idpModalClientId").value.trim();
+      const secret = document.getElementById("idpModalClientSecret").value;
+      if (secret) p.client_secret = secret;
+      closeTopModal();
+      await this.saveIdentityProviders();
+    };
   }
 
   identityProviderCallbackUrl(provider) {
@@ -92,24 +316,7 @@ class AdminConfigView {
     }
   }
 
-  toggleIdentityProviderEnabled(i) {
-    this.syncIdentityProvidersFromDom();
-    this.oauthProviders[i].enabled = !this.oauthProviders[i].enabled;
-    this.render();
-  }
-
-  syncIdentityProvidersFromDom() {
-    document.querySelectorAll("[data-identity-provider-row]").forEach((row) => {
-      const i = parseInt(row.dataset.identityProviderRow, 10);
-      if (!this.oauthProviders[i]) return;
-      this.oauthProviders[i].client_id = row.querySelector("[data-identity-provider-client-id]").value.trim();
-      const secret = row.querySelector("[data-identity-provider-client-secret]").value;
-      if (secret) this.oauthProviders[i].client_secret = secret;
-    });
-  }
-
   async saveIdentityProviders() {
-    this.syncIdentityProvidersFromDom();
     const providers = {};
     this.oauthProviders.forEach((p) => {
       providers[p.provider] = {
@@ -161,27 +368,24 @@ class AdminConfigView {
     this.render();
   }
 
-  async fetchModels() {
-    const base = document.getElementById("cfg_base").value.trim();
-    const key = document.getElementById("cfg_key").value.trim();
-    const params = new URLSearchParams();
-    if (base) params.set("base_url", base);
-    if (key) params.set("api_key", key);
-    try {
-      const { models } = await api("/api/models" + (params.toString() ? "?" + params : ""));
-      if (!models?.length) { toast(t("admin_config_no_models_returned")); return; }
-      const list = document.getElementById("cfg_model_list");
-      list.innerHTML = models.map((m) => `<button type="button" class="px-2 py-1 rounded-md border border-line bg-surface-2 text-xs" onclick="document.getElementById('cfg_chat_model').value=this.dataset.m" data-m="${_attr(m)}">${_esc(m)}</button>`).join("");
-    } catch (e) {
-      errorToast(t("admin_config_fetch_failed") + e.message);
-    }
+  medallionHtml(fallbackSvg, originUrl) {
+    let cleanOrigin = "";
+    if (originUrl) { try { cleanOrigin = new URL(originUrl).origin; } catch (e) {  } }
+    return `
+      <span class="relative w-8 h-8 rounded-full flex items-center justify-center flex-none overflow-hidden" style="background:radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--color-accent) 30%, var(--color-surface-2)), var(--color-surface-2) 70%);border:1px solid color-mix(in srgb, var(--color-accent) 45%, var(--color-line-2));color:var(--color-accent)">
+        <span style="width:16px;height:16px">${fallbackSvg}</span>
+        ${cleanOrigin ? `<img src="${_attr(cleanOrigin)}/favicon.ico" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()">` : ""}
+      </span>
+    `;
   }
 
+
   async testEmbed() {
+    this.syncProxiesFromDom("embed");
+    const active = this.embedProxies.find((p) => p.active);
     try {
-      const body = { embed_base_url: document.getElementById("cfg_embed_base").value.trim(), embed_model: document.getElementById("cfg_embed_model").value.trim() };
-      const ekey = document.getElementById("cfg_embed_key").value.trim();
-      if (ekey) body.embed_api_key = ekey;
+      const body = { embed_base_url: active?.base_url || "", embed_model: active?.model || "" };
+      if (active?.api_key) body.embed_api_key = active.api_key;
       await api("/api/settings", { method: "PUT", body: JSON.stringify(body) });
       const r = await api("/api/settings/test-embed", { method: "POST" });
       if (r.ok) toast(`${t("admin_config_embeddings_ok")} (${r.dim} dims) at ${r.url}`);
@@ -192,6 +396,8 @@ class AdminConfigView {
   }
 
 }
+
+Object.assign(AdminConfigView.prototype, ProxyCardsMixin);
 
 const ADMIN_CFG_SAMPLING_FIELDS = [
   { id: "temperature", label: "Temperature", min: 0, max: 2, step: 0.01, fallback: 0.85 },
@@ -218,7 +424,7 @@ const ADMIN_CFG_SAMPLING_FIELDS = [
 ];
 
 Object.assign(AdminConfigView.prototype, {
-  extraSectionsHtml() {
+  samplingHtml() {
     const st = this.st;
     const sliderRows = ADMIN_CFG_SAMPLING_FIELDS.map((f) => `
       <div class="mb-3">
@@ -233,7 +439,6 @@ Object.assign(AdminConfigView.prototype, {
     `).join("");
 
     return `
-      <div class="mb-2 font-display font-semibold text-base text-ink">${t("admin_config_sampling_defaults")}</div>
       <p class="text-xs text-muted mb-3">${t("admin_config_sampling_defaults_description")}</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 mb-3">${sliderRows}</div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
@@ -250,32 +455,31 @@ Object.assign(AdminConfigView.prototype, {
         <label class="block text-xs text-sec mb-1">${t("admin_config_stop_sequences")} <span class="text-muted">${t("admin_config_one_per_line_hint")}</span></label>
         <textarea id="cfg_stop" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-xs font-mono" style="min-height:52px">${_esc((st.stop || []).join("\n"))}</textarea>
       </div>
-      <div class="mb-5">
+      <div>
         <label class="block text-xs text-sec mb-1">${t("admin_config_extra_params")} <span class="text-muted">${t("admin_config_json_hint")}</span></label>
         <textarea id="cfg_extra" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-xs font-mono" style="min-height:52px">${Object.keys(st.extra_params || {}).length ? _esc(JSON.stringify(st.extra_params, null, 2)) : ""}</textarea>
       </div>
+    `;
+  },
 
-      <div class="mb-2 font-display font-semibold text-base text-ink">${t("admin_config_prompt_injection")}</div>
+  injectionHtml() {
+    const st = this.st;
+    return `
       <div class="mb-3">
         <label class="block text-xs text-sec mb-1">${t("admin_config_system_suffix")}</label>
         <textarea id="cfg_suffix" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm" style="min-height:68px">${_esc(st.system_suffix || "")}</textarea>
       </div>
-      <div class="mb-5">
+      <div>
         <label class="block text-xs text-sec mb-1">${t("admin_config_post_history_instructions")}</label>
         <textarea id="cfg_posthist" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm" style="min-height:68px">${_esc(st.post_history || "")}</textarea>
       </div>
+    `;
+  },
 
-      <div class="mb-2 font-display font-semibold text-base text-ink">${t("admin_config_backend")}</div>
+  backendHtml() {
+    return `
       <p class="text-xs text-muted mb-2">${t("admin_config_backend_description")}</p>
-      <div class="mb-5">
-        <input type="text" id="cfg_api" value="${_attr(store.get("apiBase", ""))}" placeholder="${t("admin_config_same_origin_placeholder")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
-      </div>
-
-      <div class="sticky bottom-0 md:static bg-paper md:bg-transparent pt-2 pb-2 -mx-0 md:pt-0 md:pb-0">
-        <button type="button" onclick="adminConfigView.save()" class="w-full py-3 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark">
-          ${t("admin_config_save_configuration")}
-        </button>
-      </div>
+      <input type="text" id="cfg_api" value="${_attr(store.get("apiBase", ""))}" placeholder="${t("admin_config_same_origin_placeholder")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
     `;
   },
 
@@ -297,45 +501,60 @@ Object.assign(AdminConfigView.prototype, {
     return Math.min(max, Math.max(min, v));
   },
 
-  async save() {
+  async autosave() {
     this.syncMrHostsFromDom();
+    this.syncProxiesFromDom("chat");
+    this.syncProxiesFromDom("embed");
     const extraText = document.getElementById("cfg_extra").value.trim();
     let extra = {};
     if (extraText) {
       try { extra = JSON.parse(extraText); } catch (e) {
-        errorToast("Extra params JSON is invalid - fix it before saving.");
+        this.saveStatus = "error";
+        this.updateSaveStatusHtml();
         return;
       }
     }
-    const newEmbedDim = this.intOrFallback("cfg_dim", 768);
     const originalEmbedDim = this.st.embed_dim ?? 768;
+    const dimEl = document.getElementById("cfg_dim");
+    const newEmbedDim = dimEl ? this.intOrFallback("cfg_dim", originalEmbedDim) : originalEmbedDim;
     if (newEmbedDim !== originalEmbedDim) {
+      this.saveStatus = "";
+      this.updateSaveStatusHtml();
       if (!(await confirmDialog(t("admin_config_confirm_change_embed_dim")))) {
+        document.getElementById("cfg_dim").value = originalEmbedDim;
         return;
       }
     }
-    const urlFields = [["cfg_base", t("admin_config_chat_endpoint")], ["cfg_embed_base", t("admin_config_embed_endpoint")], ["cfg_comfy_url", "ComfyUI"]];
+    const proxyUrlFields = [...this.chatProxies, ...this.embedProxies];
+    for (const p of proxyUrlFields) {
+      if (!p.base_url) continue;
+      try { new URL(p.base_url); } catch (e) {
+        this.saveStatus = "error";
+        this.updateSaveStatusHtml();
+        return;
+      }
+    }
+    const urlFields = [["cfg_comfy_url", "ComfyUI"]];
     for (const [id, label] of urlFields) {
-      const value = document.getElementById(id).value.trim();
+      const value = document.getElementById(id)?.value.trim() || "";
       if (!value) continue;
       try { new URL(value); } catch (e) {
-        errorToast(`${label} ${t("admin_config_must_be_valid_url")}`);
+        this.saveStatus = "error";
+        this.updateSaveStatusHtml();
         return;
       }
     }
-    const strOrNull = (id) => document.getElementById(id).value.trim() || null;
+    const strOrNull = (id) => document.getElementById(id)?.value.trim() || null;
     const body = {
       default_language: strOrNull("cfg_deflang") || "English",
-      base_url: strOrNull("cfg_base"),
-      chat_model: strOrNull("cfg_chat_model"),
-      embed_base_url: strOrNull("cfg_embed_base"),
-      embed_model: strOrNull("cfg_embed_model"),
+      chat_proxies: this.chatProxies.map((p) => ({ id: p.id, name: p.name || "", base_url: p.base_url || "", api_key: p.api_key || "", model: p.model || "", active: !!p.active, icon_type: p.icon_type || "favicon", icon_value: p.icon_value || "", priority: p.priority ?? 0 })),
+      embed_proxies: this.embedProxies.map((p) => ({ id: p.id, name: p.name || "", base_url: p.base_url || "", api_key: p.api_key || "", model: p.model || "", active: !!p.active, icon_type: p.icon_type || "favicon", icon_value: p.icon_value || "" })),
       embed_dim: newEmbedDim,
       comfyui_url: strOrNull("cfg_comfy_url"),
       comfyui_checkpoint: strOrNull("cfg_comfy_ckpt"),
       image_provider: document.getElementById("cfg_image_provider").value,
-      image_provider_url: document.getElementById("cfg_image_provider_url").value.trim(),
-      image_provider_model: document.getElementById("cfg_image_provider_model").value.trim(),
+      image_provider_url: strOrNull("cfg_image_provider_url"),
+      image_provider_model: strOrNull("cfg_image_provider_model"),
       wan_unet_name: strOrNull("cfg_wan_unet") || "",
       wan_clip_name: strOrNull("cfg_wan_clip") || "",
       wan_vae_name: strOrNull("cfg_wan_vae") || "",
@@ -373,19 +592,24 @@ Object.assign(AdminConfigView.prototype, {
       system_suffix: document.getElementById("cfg_suffix").value || null,
       post_history: document.getElementById("cfg_posthist").value || null,
     };
-    const key = document.getElementById("cfg_key").value.trim();
-    if (key) body.api_key = key;
-    const ekey = document.getElementById("cfg_embed_key").value.trim();
-    if (ekey) body.embed_api_key = ekey;
-    const gkey = document.getElementById("cfg_giphy_key").value.trim();
+    const gifProviderEl = document.getElementById("cfg_gif_provider");
+    if (gifProviderEl) body.gif_provider = gifProviderEl.value;
+    const gkey = document.getElementById("cfg_giphy_key")?.value.trim();
     if (gkey) body.giphy_api_key = gkey;
-    const ipkey = document.getElementById("cfg_image_provider_key").value.trim();
+    const tkey = document.getElementById("cfg_tenor_key")?.value.trim();
+    if (tkey) body.tenor_api_key = tkey;
+    const kkey = document.getElementById("cfg_klipy_key")?.value.trim();
+    if (kkey) body.klipy_api_key = kkey;
+    const kcid = document.getElementById("cfg_klipy_customer_id");
+    if (kcid) body.klipy_customer_id = kcid.value.trim();
+    const ipkey = document.getElementById("cfg_image_provider_key")?.value.trim();
     if (ipkey) body.image_provider_key = ipkey;
 
     const newApiBase = document.getElementById("cfg_api").value.trim();
     if (newApiBase) {
       try { new URL(newApiBase); } catch (e) {
-        errorToast(t("admin_config_backend_url_must_be_valid"));
+        this.saveStatus = "error";
+        this.updateSaveStatusHtml();
         return;
       }
     }
@@ -396,10 +620,15 @@ Object.assign(AdminConfigView.prototype, {
       if (apiBaseChanged) store.set("apiBase", newApiBase);
       this.st = r;
       this.mrHosts = (r.model_request_hosts || []).map((h) => ({ host: h.host || "", api_key: "", has_api_key: !!h.has_api_key }));
-      toast(r.reindexed ? t("admin_config_saved_vector_index_rebuilt") : (apiBaseChanged ? t("admin_config_saved_reload_for_backend") : t("admin_config_configuration_saved")));
-      this.render();
-      this.loadWanOptions();
+      this.chatProxies = (r.chat_proxies || []).map((p) => ({ ...p, api_key: "" }));
+      this.embedProxies = (r.embed_proxies || []).map((p) => ({ ...p, api_key: "" }));
+      if (r.reindexed) toast(t("admin_config_saved_vector_index_rebuilt"));
+      else if (apiBaseChanged) toast(t("admin_config_saved_reload_for_backend"));
+      this.saveStatus = "saved";
+      this.updateSaveStatusHtml();
     } catch (e) {
+      this.saveStatus = "error";
+      this.updateSaveStatusHtml();
       errorToast(t("admin_config_save_failed") + e.message);
     }
   },
@@ -407,103 +636,141 @@ Object.assign(AdminConfigView.prototype, {
 
 AdminConfigView.prototype.render = function () {
   const st = this.st;
-  this.main.innerHTML = `
-    <div class="content-col">
-    ${backLinkHtml("Admin")}
-    ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_config_title"), t("ph_admin_config_sub"))}
-    ${adminScreenSwitcherHtml("admin-config", window._adminSwitcherBadges || {})}
 
-    <div class="mb-3">
-      <label class="block text-xs text-sec mb-1">${t("admin_config_default_interface_language")}</label>
-      <input type="text" id="cfg_deflang" value="${_attr(st.default_language || "English")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
-    </div>
+  const languageContent = `
+    <label class="block text-xs text-sec mb-1">${t("admin_config_default_interface_language")}</label>
+    <input type="text" id="cfg_deflang" value="${_attr(st.default_language || "English")}" class="w-full mb-3 px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
+    <div class="font-display font-semibold text-sm text-ink mb-1">${t("admin_config_resync_ui_translations_title")}</div>
+    <p class="text-xs text-muted mb-3">${t("admin_config_resync_ui_translations_description")}</p>
+    <button type="button" id="cfg_resync_ui_translations" onclick="adminConfigView.resyncUiTranslations()" class="px-3 py-2 rounded-md border border-line text-xs text-ink">${t("admin_config_resync_ui_translations_button")}</button>
+  `;
 
-    <div class="rounded-[13px] border border-line bg-surface p-3.5 mb-4">
-      <div class="font-display font-semibold text-sm text-ink mb-1">${t("admin_config_resync_ui_translations_title")}</div>
-      <p class="text-xs text-muted mb-3">${t("admin_config_resync_ui_translations_description")}</p>
-      <button type="button" id="cfg_resync_ui_translations" onclick="adminConfigView.resyncUiTranslations()" class="px-3 py-2 rounded-md border border-line text-xs text-ink">${t("admin_config_resync_ui_translations_button")}</button>
-    </div>
+  const dossierIcons = {
+    identity: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>`,
+    image: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>`,
+    video: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3"/></svg>`,
+    gif: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 10v4M11 10v4M11 12h1.5M16 10h-2v4h2M14 12h1.5"/></svg>`,
+    hosts: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="6" rx="1.5"/><rect x="2" y="14" width="20" height="6" rx="1.5"/><circle cx="6" cy="7" r="0.6" fill="currentColor" stroke="none"/><circle cx="6" cy="17" r="0.6" fill="currentColor" stroke="none"/></svg>`,
+  };
+  const statusDotHtml = (tone) => `<span class="w-1.5 h-1.5 rounded-full flex-none" style="background:${tone === "warn" ? "var(--color-warn)" : tone === "off" ? "var(--color-line-2)" : "var(--color-success)"}"></span>`;
+  const dossierCardOpen = (key, fallbackIcon, logoOrigin, title, subtitle, status, statusTone) => {
+    const isCollapsed = !!this.collapsed[`card:${key}`];
+    return `
+    <div class="rounded-xl border border-line-2 bg-paper mb-3">
+      <button type="button" onclick="adminConfigView.toggleCard('${key}')" class="w-full flex items-start gap-2.5 p-3.5 text-left rounded-xl">
+        ${this.medallionHtml(fallbackIcon, logoOrigin)}
+        <div class="min-w-0 flex-1">
+          <div class="font-display font-semibold text-sm text-ink leading-tight">${title}</div>
+          ${subtitle ? `<div class="font-mono text-[10px] text-muted leading-snug mt-0.5">${subtitle}</div>` : ""}
+          ${status ? `<div class="flex items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-[.04em] text-muted mt-1.5">${statusDotHtml(statusTone)}${status}</div>` : ""}
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${isCollapsed ? "-90deg" : "0deg"});transition:transform .15s;flex:none;color:var(--color-muted);margin-top:2px"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="px-3.5 pb-3.5${isCollapsed ? " hidden" : ""}" data-dossier-card-content="${key}">
+      <hr class="mb-3" style="border:none;border-top:1px dashed var(--color-line-2)">
+  `;
+  };
+  const cardClose = `</div></div>`;
 
-    <div class="rounded-[13px] border border-line bg-surface p-3.5 mb-4">
-      <div class="font-display font-semibold text-sm text-ink mb-1">${t("admin_config_identity_providers_title")}</div>
-      <p class="text-xs text-muted mb-3">${t("admin_config_identity_providers_description")}</p>
-      ${this.oauthProviders.map((p, i) => this.identityProviderRowHtml(p, i)).join("")}
-      <button type="button" onclick="adminConfigView.saveIdentityProviders()" class="w-full py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark mt-1">${t("admin_config_identity_providers_save_button")}</button>
-    </div>
+  const enabledIdps = this.oauthProviders.filter((p) => p.enabled).length;
+  const imageOrigin = (st.image_provider || "comfyui") === "comfyui" ? st.comfyui_url : st.image_provider_url;
+  const videoOrigin = (st.video_provider || "comfyui") === "comfyui" ? st.comfyui_url : st.video_provider_url;
 
-    <div class="rounded-[13px] border border-line bg-surface p-3.5 mb-4">
-      <div class="font-display font-semibold text-sm text-ink mb-3">${t("admin_config_chat_endpoint")}</div>
-      <input type="text" id="cfg_base" value="${_attr(st.base_url || "")}" placeholder="http://koboldcpp:5001/v1" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      <input type="password" autocomplete="new-password" id="cfg_key" placeholder="${st.has_api_key ? t("admin_config_key_set_placeholder") : t("admin_config_api_key_optional_placeholder")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      <div class="flex gap-2 mb-2">
-        <input type="text" id="cfg_chat_model" value="${_attr(st.chat_model || "")}" class="flex-1 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-        <button type="button" onclick="adminConfigView.fetchModels()" class="px-3 py-2 rounded-md border border-line text-xs text-ink">${t("admin_config_fetch")}</button>
+  const integrationsContent = `
+    ${dossierCardOpen("idp", dossierIcons.identity, "", t("admin_config_identity_providers_title"), t("admin_config_identity_providers_description"), enabledIdps ? `${enabledIdps} ${t("admin_config_status_enabled", "enabled")}` : t("admin_config_status_none_enabled", "none enabled"), enabledIdps ? "" : "off")}
+      <div class="grid grid-cols-3 gap-2">
+        ${this.oauthProviders.map((p, i) => this.identityProviderLogoHtml(p, i)).join("")}
       </div>
-      <div id="cfg_model_list" class="flex flex-wrap gap-1.5"></div>
-    </div>
+    ${cardClose}
 
-    <div class="rounded-[13px] border border-line bg-surface p-3.5 mb-4">
-      <div class="font-display font-semibold text-sm text-ink mb-3">${t("admin_config_embed_endpoint")} <span class="text-xs text-muted font-normal">${t("admin_config_blank_reuse_chat_endpoint")}</span></div>
-      <input type="text" id="cfg_embed_base" value="${_attr(st.embed_base_url || "")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      <input type="password" autocomplete="new-password" id="cfg_embed_key" placeholder="${st.has_embed_api_key ? t("admin_config_key_set_placeholder") : t("admin_config_api_key_optional_placeholder")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-        <input type="text" id="cfg_embed_model" value="${_attr(st.embed_model || "")}" placeholder="nomic-embed-text" class="px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-        <input type="text" id="cfg_dim" value="${_attr(st.embed_dim ?? 768)}" class="px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      </div>
-      <button type="button" onclick="adminConfigView.testEmbed()" class="px-3 py-2 rounded-md border border-line text-xs text-ink">${t("admin_config_test")}</button>
-    </div>
+    ${dossierCardOpen("image", dossierIcons.image, imageOrigin, t("admin_config_image_provider_title", "Image generation"), t("admin_config_image_provider_description", "Pick which service generates images. ComfyUI is the self-hosted default. Hosted providers use the URL, model and key below."), imageOrigin ? t("admin_config_status_configured", "configured") : t("admin_config_status_not_configured", "not configured"), imageOrigin ? "" : "warn")}
+      <label class="block text-xs text-sec mb-1">${t("admin_config_image_provider_backend_label", "Backend")}</label>
+      <div class="mb-2">${this.imageProviderSelectHtml(st.image_provider)}</div>
+      ${(st.image_provider || "comfyui") === "comfyui" ? `
+        <label class="block text-xs text-sec mb-1">ComfyUI</label>
+        <input type="text" id="cfg_comfy_url" value="${_attr(st.comfyui_url || "")}" placeholder="http://comfyui:8188" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+        <input type="text" id="cfg_comfy_ckpt" value="${_attr(st.comfyui_checkpoint || "")}" placeholder="${t("admin_config_default_checkpoint_placeholder")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+      ` : `
+        <input type="text" id="cfg_image_provider_url" value="${_attr(st.image_provider_url || "")}" placeholder="${t("admin_config_image_provider_url_placeholder", "Provider API URL")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+        <input type="text" id="cfg_image_provider_model" value="${_attr(st.image_provider_model || "")}" placeholder="${t("admin_config_image_provider_model_placeholder", "Model name (optional)")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+        <input type="password" autocomplete="new-password" id="cfg_image_provider_key" placeholder="${st.has_image_provider_key ? t("admin_config_key_set_placeholder") : t("admin_config_image_provider_key_placeholder", "Provider API key")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+      `}
+    ${cardClose}
 
-    <div class="rounded-[13px] border border-line bg-surface p-3.5 mb-4">
-      <div class="font-display font-semibold text-sm text-ink mb-3">ComfyUI</div>
-      <input type="text" id="cfg_comfy_url" value="${_attr(st.comfyui_url || "")}" placeholder="http://comfyui:8188" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      <input type="text" id="cfg_comfy_ckpt" value="${_attr(st.comfyui_checkpoint || "")}" placeholder="${t("admin_config_default_checkpoint_placeholder")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-    </div>
+    ${dossierCardOpen("video", dossierIcons.video, videoOrigin, t("admin_config_video_provider_title", "Video generation"), t("admin_config_video_provider_description", "Pick which service generates video. ComfyUI (Wan) is the self-hosted default. Hosted providers use the URL, model and key below."), videoOrigin ? t("admin_config_status_configured", "configured") : t("admin_config_status_not_configured", "not configured"), videoOrigin ? "" : "warn")}
+      <div class="mb-2">${this.videoProviderSelectHtml(st.video_provider)}</div>
+      ${(st.video_provider || "comfyui") === "comfyui" && (st.image_provider || "comfyui") === "comfyui" ? `
+        <p class="text-xs text-muted mb-3">${t("admin_config_wan_video_model_description")}</p>
+        <div class="rounded-md border border-line p-2.5">
+          <label class="block text-xs text-sec mb-1">${t("admin_config_unet_file")}</label>
+          <div class="mb-2">${this.customSelectHtml("cfg_wan_unet", [], st.wan_unet_name)}</div>
+          <label class="block text-xs text-sec mb-1">${t("admin_config_clip_text_encoder_file")}</label>
+          <div class="mb-2">${this.customSelectHtml("cfg_wan_clip", [], st.wan_clip_name)}</div>
+          <label class="block text-xs text-sec mb-1">${t("admin_config_vae_file")}</label>
+          ${this.customSelectHtml("cfg_wan_vae", [], st.wan_vae_name)}
+        </div>
+      ` : (st.video_provider || "comfyui") === "comfyui" ? `
+        <p class="text-xs" style="color:var(--color-warn)">${t("admin_config_wan_needs_comfyui_image_provider", "ComfyUI (Wan) needs Image generation's Backend set to ComfyUI too — it's currently pointed at a different provider above.")}</p>
+      ` : `
+        <input type="text" id="cfg_video_provider_url" value="${_attr(st.video_provider_url || "")}" placeholder="${t("admin_config_video_provider_url_placeholder", "Provider API URL")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+        <input type="text" id="cfg_video_provider_model" value="${_attr(st.video_provider_model || "")}" placeholder="${t("admin_config_video_provider_model_placeholder", "Model name (optional)")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+        <input type="password" autocomplete="new-password" id="cfg_video_provider_key" placeholder="${st.has_video_provider_key ? t("admin_config_key_set_placeholder") : t("admin_config_video_provider_key_placeholder", "Provider API key")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+      `}
+    ${cardClose}
 
-    <div class="rounded-[13px] border border-line bg-surface p-3.5 mb-4">
-      <div class="font-display font-semibold text-sm text-ink mb-1">${t("admin_config_image_provider_title", "Image generation backend")}</div>
-      <p class="text-xs text-muted mb-2">${t("admin_config_image_provider_description", "Pick which service generates images. ComfyUI is the self-hosted default. Hosted providers use the URL, model and key below.")}</p>
-      <select id="cfg_image_provider" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-        ${[["comfyui", t("admin_config_image_provider_comfyui", "ComfyUI (self-hosted)")],
-           ["openai", t("admin_config_image_provider_openai", "OpenAI-compatible API")],
-           ["stability", t("admin_config_image_provider_stability", "Stability AI")],
-           ["novelai", t("admin_config_image_provider_novelai", "NovelAI")],
-           ["a1111", t("admin_config_image_provider_a1111", "AUTOMATIC1111")]]
-          .map(([v, label]) => `<option value="${v}" ${st.image_provider === v || (!st.image_provider && v === "comfyui") ? "selected" : ""}>${label}</option>`).join("")}
-      </select>
-      <input type="text" id="cfg_image_provider_url" value="${_attr(st.image_provider_url || "")}" placeholder="${t("admin_config_image_provider_url_placeholder", "Provider API URL")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      <input type="text" id="cfg_image_provider_model" value="${_attr(st.image_provider_model || "")}" placeholder="${t("admin_config_image_provider_model_placeholder", "Model name (optional)")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      <input type="password" autocomplete="new-password" id="cfg_image_provider_key" placeholder="${st.has_image_provider_key ? t("admin_config_key_set_placeholder") : t("admin_config_image_provider_key_placeholder", "Provider API key")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-    </div>
+    ${(() => {
+      const gp = st.gif_provider || "giphy";
+      const gifConfigured = gp === "giphy" ? st.has_giphy_api_key : gp === "tenor" ? st.has_tenor_api_key : st.has_klipy_api_key;
+      return `
+    ${dossierCardOpen("giphy", dossierIcons.gif, "", t("admin_config_gif_providers_title", "GIF providers"), t("admin_config_giphy_description"), gifConfigured ? t("admin_config_status_key_set", "key set") : t("admin_config_status_no_key", "no key set"), gifConfigured ? "" : "warn")}
+      <label class="block text-xs text-sec mb-1">${t("admin_config_gif_provider_backend_label", "Provider")}</label>
+      <div class="mb-2">${this.gifProviderSelectHtml(gp)}</div>
+      ${gp === "giphy" ? `
+        <input type="password" autocomplete="new-password" id="cfg_giphy_key" placeholder="${st.has_giphy_api_key ? t("admin_config_key_set_placeholder") : t("admin_config_giphy_api_key_placeholder")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+      ` : gp === "tenor" ? `
+        <input type="password" autocomplete="new-password" id="cfg_tenor_key" placeholder="${st.has_tenor_api_key ? t("admin_config_key_set_placeholder") : t("admin_config_tenor_api_key_placeholder", "Tenor API key")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+      ` : `
+        <input type="password" autocomplete="new-password" id="cfg_klipy_key" placeholder="${st.has_klipy_api_key ? t("admin_config_key_set_placeholder") : t("admin_config_klipy_api_key_placeholder", "Klipy API key")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+        <input type="text" id="cfg_klipy_customer_id" value="${_attr(st.klipy_customer_id || "")}" placeholder="${t("admin_config_klipy_customer_id_placeholder", "Klipy customer ID")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+      `}
+    ${cardClose}
+      `;
+    })()}
 
-    <div class="rounded-[13px] border border-line bg-surface p-3.5 mb-4">
-      <div class="font-display font-semibold text-sm text-ink mb-3">${t("admin_config_wan_video_model")}</div>
-      <p class="text-xs text-muted mb-2">${t("admin_config_wan_video_model_description")}</p>
-      <label class="block text-xs text-sec mb-1">${t("admin_config_unet_file")}</label>
-      <select id="cfg_wan_unet" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm"><option value="">${t("admin_config_loading")}</option></select>
-      <label class="block text-xs text-sec mb-1">${t("admin_config_clip_text_encoder_file")}</label>
-      <select id="cfg_wan_clip" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm"><option value="">${t("admin_config_loading")}</option></select>
-      <label class="block text-xs text-sec mb-1">${t("admin_config_vae_file")}</label>
-      <select id="cfg_wan_vae" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm"><option value="">${t("admin_config_loading")}</option></select>
-    </div>
-
-    <div class="rounded-[13px] border border-line bg-surface p-3.5 mb-4">
-      <div class="font-display font-semibold text-sm text-ink mb-3">Giphy</div>
-      <p class="text-xs text-muted mb-2">${t("admin_config_giphy_description")}</p>
-      <input type="password" autocomplete="new-password" id="cfg_giphy_key" placeholder="${st.has_giphy_api_key ? t("admin_config_key_set_placeholder") : t("admin_config_giphy_api_key_placeholder")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-    </div>
-
-    <div class="mb-4">
-      <div class="font-display font-semibold text-sm text-ink mb-2">${t("admin_config_model_request_hosts")}</div>
-      <p class="text-xs text-muted mb-2">${t("admin_config_model_request_hosts_description")}</p>
+    ${dossierCardOpen("hosts", dossierIcons.hosts, "", t("admin_config_model_request_hosts"), t("admin_config_model_request_hosts_description"), `${this.mrHosts.length} ${t("admin_config_status_hosts", "hosts")}`, this.mrHosts.length ? "" : "off")}
       <div id="cfg_mr_hosts">${this.mrHosts.map((h, i) => this.mrHostRowHtml(h, i)).join("")}</div>
-      <button type="button" onclick="adminConfigView.addMrHostRow()" class="text-xs mt-1" style="color:var(--color-accent)">${t("admin_config_add_host")}</button>
-    </div>
-
-    <div class="mb-4">
+      <button type="button" onclick="adminConfigView.addMrHostRow()" class="text-xs mb-3" style="color:var(--color-accent)">${t("admin_config_add_host")}</button>
       <label class="block text-xs text-sec mb-1">${t("admin_config_embed_link_preview_hosts")} <span class="text-muted">${t("admin_config_one_per_line_hint")}</span></label>
       <textarea id="cfg_embed_hosts" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm font-mono" style="min-height:60px">${_esc((st.embed_link_hosts || []).join("\n"))}</textarea>
-    </div>
+    ${cardClose}
+  `;
 
+  const chatIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`;
+  const embedIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8.2 7.4L15.8 4.6M8.2 7.9L11 15.8M15.8 7.9L13 15.8"/></svg>`;
+  const chatActive = this.chatProxies.find((p) => p.active);
+  const embedActive = this.embedProxies.find((p) => p.active);
+
+  const modelsContent = `
+    ${dossierCardOpen("chat_endpoint", chatIcon, "", t("admin_config_chat_endpoint"), t("admin_config_proxy_multi_hint", "Save several backend profiles and switch which one is active. The active profile is what the app actually talks to."), chatActive ? `${this.chatProxies.length} ${t("admin_config_status_profiles", "profiles")} · ${_esc(chatActive.name || t("admin_config_proxy_untitled", "Untitled profile"))}` : t("admin_config_status_no_profiles", "no profiles"), chatActive ? "" : "warn")}
+      <div id="cfg_chat_proxies">${this.chatProxies.map((p, i) => this.proxyRowHtml("chat", p, i)).join("") || `<p class="text-xs text-muted">${t("admin_config_no_proxies", "No profiles yet — add one.")}</p>`}</div>
+      <button type="button" onclick="adminConfigView.addProxyRow('chat')" class="w-full mt-1 py-2 rounded-md border border-line text-xs text-ink" style="border-style:dashed">${t("admin_config_add_proxy", "+ Add profile")}</button>
+    ${cardClose}
+
+    ${dossierCardOpen("embed_endpoint", embedIcon, "", t("admin_config_embed_endpoint"), t("admin_config_blank_reuse_chat_endpoint"), embedActive ? `${this.embedProxies.length} ${t("admin_config_status_profiles", "profiles")} · ${_esc(embedActive.name || t("admin_config_proxy_untitled", "Untitled profile"))}` : t("admin_config_status_reusing_chat", "reusing chat endpoint"), embedActive ? "" : "off")}
+      <div id="cfg_embed_proxies">${this.embedProxies.map((p, i) => this.proxyRowHtml("embed", p, i)).join("") || `<p class="text-xs text-muted">${t("admin_config_no_proxies_embed", "No profiles yet — leave empty to reuse the chat endpoint, or add one.")}</p>`}</div>
+      <button type="button" onclick="adminConfigView.addProxyRow('embed')" class="w-full mt-1 py-2 rounded-md border border-line text-xs text-ink" style="border-style:dashed">${t("admin_config_add_proxy", "+ Add profile")}</button>
+      ${this.embedProxies.length ? "" : `
+        <label class="block text-xs text-sec mb-1 mt-1.5">${t("admin_config_embed_dim", "Embedding dimension")}</label>
+        <div class="flex gap-2">
+          <input type="text" id="cfg_dim" value="${_attr(st.embed_dim ?? 768)}" class="flex-1 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
+          <button type="button" onclick="adminConfigView.testEmbed()" class="px-3 py-2 rounded-md border border-line text-xs text-ink flex-none">${t("admin_config_test")}</button>
+        </div>
+      `}
+    ${cardClose}
+  `;
+
+
+  const behaviorContent = `
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
       <div>
         <label class="block text-xs text-sec mb-1">${t("admin_config_past_messages_remembered")}</label>
@@ -518,21 +785,44 @@ AdminConfigView.prototype.render = function () {
       <input type="checkbox" id="cfg_think" ${st.enable_thinking ? "checked" : ""}>
       ${t("admin_config_enable_thinking_by_default")}
     </label>
-    <label class="flex items-center gap-2.5 mb-5 text-sm text-ink">
+    <label class="flex items-center gap-2.5 text-sm text-ink">
       <input type="checkbox" id="cfg_nsfw_classify" ${st.nsfw_classification !== false ? "checked" : ""}>
       ${t("admin_config_nsfw_classification", "Automatic NSFW image classification (unchecking hides the privacy eye button for everyone)")}
     </label>
+  `;
 
-    ${this.extraSectionsHtml()}
+  this.main.innerHTML = `
+    <div class="content-col">
+    ${backLinkHtml("Admin")}
+    ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_config_title"), t("ph_admin_config_sub"))}
+    ${adminScreenSwitcherHtml("admin-config", window._adminSwitcherBadges || {})}
+    <div class="flex justify-end mb-3">
+      <span id="cfgSaveStatus" class="font-mono text-[10px] tracking-[.08em] uppercase text-muted"></span>
+    </div>
+    ${this.sectionHtml("language", t("admin_config_language_section", "Language & translations"), languageContent)}
+    ${this.sectionHtml("models", t("admin_config_models_section", "Models"), modelsContent)}
+    ${this.sectionHtml("integrations", t("admin_config_integrations_section", "Integrations"), integrationsContent)}
+    ${this.sectionHtml("behavior", t("admin_config_behavior_section", "Chat behavior"), behaviorContent)}
+    ${this.sectionHtml("sampling", t("admin_config_sampling_defaults"), this.samplingHtml())}
+    ${this.sectionHtml("injection", t("admin_config_prompt_injection"), this.injectionHtml())}
+    ${this.sectionHtml("backend", t("admin_config_backend"), this.backendHtml())}
     </div>
   `;
-    document.querySelectorAll("[data-identity-provider-toggle]").forEach((btn) => {
-      btn.onclick = () => this.toggleIdentityProviderEnabled(parseInt(btn.dataset.identityProviderToggle, 10));
-    });
-    document.querySelectorAll("[data-identity-provider-copy-callback]").forEach((btn) => {
-      btn.onclick = () => this.copyIdentityProviderCallbackUrl(parseInt(btn.dataset.identityProviderCopyCallback, 10));
-    });
-    adminAttachScreenSwitcher(this.main);
+  adminAttachScreenSwitcher(this.main);
+  this.updateSaveStatusHtml();
+  this.wireAllCustomSelects();
+
+  const autosaveScopes = ["models", "imagegen", "giphy", "hosts", "behavior", "sampling", "injection", "backend", "language"];
+  const autosaveHandler = (e) => {
+    if (e.target.closest("[data-proxy-row]")) return;
+    this.scheduleAutosave();
+  };
+  autosaveScopes.forEach((key) => {
+    const el = this.main.querySelector(`[data-section-content="${key}"]`);
+    if (!el) return;
+    el.addEventListener("input", autosaveHandler);
+    el.addEventListener("change", autosaveHandler);
+  });
 };
 
 if (typeof window !== "undefined") {

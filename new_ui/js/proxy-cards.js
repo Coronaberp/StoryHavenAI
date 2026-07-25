@@ -44,6 +44,45 @@ function proxyIconHtml(p, size) {
   `;
 }
 
+function medallionHtml(fallbackSvg, originUrl) {
+  let cleanOrigin = "";
+  if (originUrl) { try { cleanOrigin = new URL(originUrl).origin; } catch (e) {  } }
+  return `
+    <span class="relative w-8 h-8 rounded-full flex items-center justify-center flex-none overflow-hidden" style="background:radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--color-accent) 30%, var(--color-surface-2)), var(--color-surface-2) 70%);border:1px solid color-mix(in srgb, var(--color-accent) 45%, var(--color-line-2));color:var(--color-accent)">
+      <span style="width:16px;height:16px">${fallbackSvg}</span>
+      ${cleanOrigin ? `<img src="${_attr(cleanOrigin)}/favicon.ico" class="absolute inset-0 w-full h-full object-cover" onerror="this.remove()">` : ""}
+    </span>
+  `;
+}
+
+function statusDotHtml(tone) {
+  return `<span class="w-1.5 h-1.5 rounded-full flex-none" style="background:${tone === "warn" ? "var(--color-warn)" : tone === "off" ? "var(--color-line-2)" : "var(--color-success)"}"></span>`;
+}
+
+function dossierCardHtml(opts) {
+  return `
+    <div class="rounded-xl border border-line-2 bg-paper mb-3 overflow-hidden">
+      <button type="button" onclick="${opts.globalName}.toggleCard('${opts.cardKey}')" class="w-full flex items-start gap-2.5 p-3.5 text-left">
+        ${medallionHtml(opts.icon, opts.logoOrigin)}
+        <div class="min-w-0 flex-1">
+          <div class="font-display font-semibold text-sm text-ink leading-tight">${opts.title}</div>
+          ${opts.subtitle ? `<div class="font-mono text-[10px] text-muted leading-snug mt-0.5">${opts.subtitle}</div>` : ""}
+          ${opts.status ? `<div class="flex items-center gap-1.5 font-mono text-[9.5px] uppercase tracking-[.04em] text-muted mt-1.5">${statusDotHtml(opts.statusTone)}${opts.status}</div>` : ""}
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${opts.isCollapsed ? "-90deg" : "0deg"});transition:transform .15s;flex:none;color:var(--color-muted);margin-top:2px"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="px-3.5 pb-3.5${opts.isCollapsed ? " hidden" : ""}">
+        <hr class="mb-3" style="border:none;border-top:1px dashed var(--color-line-2)">
+        ${opts.innerHtml}
+      </div>
+    </div>
+  `;
+}
+
+function addProxyProfileButtonHtml(globalName, kind) {
+  return `<button type="button" onclick="${globalName}.addProxyRow('${kind}')" class="w-full mt-1 py-2 rounded-md border border-line text-xs text-ink" style="border-style:dashed">${t("proxy_cards_add_profile", "+ Add profile")}</button>`;
+}
+
 function readOnlyProxyCardHtml(p) {
   const label = p.name || t("proxy_cards_untitled", "Untitled profile");
   return `
@@ -69,15 +108,24 @@ const ProxyCardsMixin = {
     return this.proxyCardsState[kind];
   },
 
-  proxyRowHtml(kind, p, i) {
+  _proxyById(kind, id) {
+    return this._proxyList(kind).find((p) => p.id === id);
+  },
+
+  proxyRowHtml(kind, p) {
     const global = this._proxyCardsGlobalName;
+    const id = _attr(p.id);
     const expanded = this.proxyCardsExpanded.has(p.id);
     const collapsedName = p.name || t("proxy_cards_untitled", "Untitled profile");
+    const priorityChip = kind === "chat"
+      ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none text-muted border border-line" title="${_attr(t("proxy_cards_priority_hint", "Lower numbers are tried first if a higher-priority endpoint fails."))}">${t("proxy_cards_priority_short", "P")}${p.priority ?? 0}</span>`
+      : "";
     if (!expanded) {
       return `
-        <div class="rounded-md border p-2.5 mb-2 flex items-center gap-2.5 cursor-pointer" data-proxy-row="${kind}-${i}" onclick="${global}.toggleProxyExpand('${_attr(p.id)}')" style="border-color:${p.active ? "var(--color-accent)" : "var(--color-line)"}">
+        <div class="rounded-md border p-2.5 mb-2 flex items-center gap-2.5 cursor-pointer" data-proxy-row="${kind}-${id}" onclick="${global}.toggleProxyExpand('${id}')" style="border-color:${p.active ? "var(--color-accent)" : "var(--color-line)"}">
           ${proxyIconHtml(p, 36)}
           <span class="flex-1 min-w-0 font-medium text-sm text-ink truncate">${_esc(collapsedName)}</span>
+          ${priorityChip}
           ${p.active ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none" style="color:var(--color-accent);border:1px solid var(--color-accent)">${t("proxy_cards_active", "Active")}</span>` : ""}
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted flex-none"><path d="M9 6l6 6-6 6"/></svg>
         </div>
@@ -86,58 +134,65 @@ const ProxyCardsMixin = {
     const modelPlaceholder = t("proxy_cards_model_placeholder", "Model name");
     const iconTypes = [["favicon", t("proxy_cards_icon_favicon", "Favicon")], ["image", t("proxy_cards_icon_image", "Upload")], ["emoji", t("proxy_cards_icon_emoji", "Emoji")], ["svg", t("proxy_cards_icon_svg", "SVG (logos)")]];
     return `
-      <div class="rounded-md border p-2.5 mb-2" data-proxy-row="${kind}-${i}" style="border-color:${p.active ? "var(--color-accent)" : "var(--color-line)"}">
-        <div class="flex items-center gap-2.5 mb-2 cursor-pointer" onclick="${global}.toggleProxyExpand('${_attr(p.id)}')">
+      <div class="rounded-md border p-2.5 mb-2" data-proxy-row="${kind}-${id}" style="border-color:${p.active ? "var(--color-accent)" : "var(--color-line)"}">
+        <div class="flex items-center gap-2.5 mb-2 cursor-pointer" onclick="${global}.toggleProxyExpand('${id}')">
           ${proxyIconHtml(p, 36)}
           <span class="flex-1 min-w-0 font-medium text-sm text-ink truncate">${_esc(collapsedName)}</span>
+          ${priorityChip}
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted flex-none"><path d="M6 9l6 6 6-6"/></svg>
         </div>
         <div class="flex items-center gap-2 mb-1.5">
-          <button type="button" onclick="${global}.setActiveProxy('${kind}', ${i})" title="${_attr(t("proxy_cards_make_active", "Use this profile"))}"
-            class="w-5 h-5 rounded-full flex-none flex items-center justify-center border" style="border-color:${p.active ? "var(--color-accent)" : "var(--color-line-2)"}">
-            ${p.active ? `<span class="w-2.5 h-2.5 rounded-full" style="background:var(--color-accent)"></span>` : ""}
-          </button>
           <input type="text" data-proxy-name value="${_attr(p.name || "")}" placeholder="${t("proxy_cards_name_placeholder", "Profile name")}" class="flex-1 px-2.5 py-1.5 rounded-md border border-line bg-surface text-ink text-sm font-medium">
-          ${p.active ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded" style="color:var(--color-accent);border:1px solid var(--color-accent)">${t("proxy_cards_active", "Active")}</span>` : ""}
-          <button type="button" onclick="${global}.removeProxyRow('${kind}', ${i})" class="px-2 py-1.5 rounded-md border text-xs flex-none" style="border-color:var(--color-warn);color:var(--color-warn)">×</button>
+          ${p.active
+            ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none" style="color:var(--color-accent);border:1px solid var(--color-accent)">${t("proxy_cards_active", "Active")}</span>`
+            : `<button type="button" onclick="${global}.setActiveProxy('${kind}', '${id}')" class="px-2.5 py-1.5 rounded-md border border-line text-xs text-ink flex-none">${t("proxy_cards_set_active", "Use this")}</button>`}
+          <button type="button" onclick="${global}.removeProxyRow('${kind}', '${id}')" class="px-2 py-1.5 rounded-md border text-xs flex-none" style="border-color:var(--color-warn);color:var(--color-warn)">×</button>
         </div>
-        <button type="button" onclick="${global}.saveProxyCard('${kind}', ${i})" class="w-full mb-1.5 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold text-paper bg-gradient-to-br from-primary to-primary-dark">
+        <button type="button" onclick="${global}.saveProxyCard('${kind}', '${id}')" class="w-full mb-1.5 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold text-paper bg-gradient-to-br from-primary to-primary-dark">
           <span style="width:13px;height:13px">${_PROXY_CARDS_ICON_SAVE}</span>${t("proxy_cards_save", "Save profile")}
         </button>
+        ${kind === "chat" ? `
+          <label class="block text-xs text-sec mb-1">${t("proxy_cards_priority_label", "Fallback priority (0 = tried first)")}</label>
+          <div class="flex items-stretch mb-1.5 rounded-md border border-line overflow-hidden">
+            <button type="button" onclick="${global}.stepProxyPriority('${kind}', '${id}', -1)" class="w-10 flex-none flex items-center justify-center text-ink bg-surface-2 border-e border-line" style="font-size:16px;line-height:1">−</button>
+            <input type="number" readonly data-proxy-priority value="${_attr(p.priority ?? 0)}" min="0" step="1" class="w-full px-2.5 py-2 bg-surface-2 text-ink text-sm text-center" style="-moz-appearance:textfield">
+            <button type="button" onclick="${global}.stepProxyPriority('${kind}', '${id}', 1)" class="w-10 flex-none flex items-center justify-center text-ink bg-surface-2 border-s border-line" style="font-size:16px;line-height:1">+</button>
+          </div>
+        ` : ""}
         <input type="text" data-proxy-base value="${_attr(p.base_url || "")}" placeholder="http://host:port/v1" class="w-full mb-1.5 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
         <input type="password" autocomplete="new-password" data-proxy-key placeholder="${p.has_api_key ? t("proxy_cards_key_set_placeholder", "Key set — leave blank to keep") : t("proxy_cards_api_key_optional_placeholder", "API key (optional)")}" class="w-full mb-1.5 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
         <div class="flex gap-2 mb-1.5">
           <input type="text" data-proxy-model value="${_attr(p.model || "")}" placeholder="${modelPlaceholder}" class="flex-1 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-          <button type="button" onclick="${global}.fetchModelsForRow('${kind}', ${i})" class="px-3 py-2 rounded-md border border-line text-xs text-ink flex-none">${t("proxy_cards_fetch", "Fetch")}</button>
+          <button type="button" onclick="${global}.fetchModelsForRow('${kind}', '${id}')" class="px-3 py-2 rounded-md border border-line text-xs text-ink flex-none">${t("proxy_cards_fetch", "Fetch")}</button>
         </div>
-        <div data-proxy-model-list="${kind}-${i}" class="flex flex-wrap gap-1.5 mb-1.5"></div>
+        <div data-proxy-model-list="${kind}-${id}" class="flex flex-wrap gap-1.5 mb-1.5"></div>
         <div class="flex items-center gap-1.5 mb-1.5 flex-wrap">
           <span class="text-xs text-sec">${t("proxy_cards_icon", "Icon")}</span>
-          ${iconTypes.map(([type, label]) => `<button type="button" class="filter-chip${p.icon_type === type ? " on" : ""}" onclick="${global}.setProxyIconType('${kind}', ${i}, '${type}')">${label}</button>`).join("")}
+          ${iconTypes.map(([type, label]) => `<button type="button" class="filter-chip${p.icon_type === type ? " on" : ""}" onclick="${global}.setProxyIconType('${kind}', '${id}', '${type}')">${label}</button>`).join("")}
         </div>
         ${p.icon_type === "image" ? `
           <label class="grimoire-img-box" style="width:72px;height:72px;border-radius:12px" onclick="event.stopPropagation()">
             ${p.icon_value
               ? `<img src="${_attr(p.icon_value)}" alt="">`
               : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`}
-            <input type="file" accept="image/*" onchange="${global}.setProxyIconImage('${kind}', ${i}, this)" class="hidden">
+            <input type="file" accept="image/*" onchange="${global}.setProxyIconImage('${kind}', '${id}', this)" class="hidden">
           </label>
         ` : ""}
         ${p.icon_type === "emoji" ? `
-          <button type="button" onclick="${global}.toggleProxyEmojiGrid('${kind}', ${i})" class="w-full py-2 rounded-md border border-line text-center text-sm text-ink flex items-center justify-center gap-2">
+          <button type="button" onclick="${global}.toggleProxyEmojiGrid('${kind}', '${id}')" class="w-full py-2 rounded-md border border-line text-center text-sm text-ink flex items-center justify-center gap-2">
             <span style="font-size:18px">${_esc(p.icon_value || "🤖")}</span>
             <span class="text-muted">${t("proxy_cards_choose_emoji", "Choose emoji")}</span>
           </button>
-          <div class="comment-picker-grid mt-1.5 rounded-md border border-line bg-surface-2${this.proxyCardsEmojiGridOpen === `${kind}-${i}` ? "" : " hidden"}" data-proxy-emoji-grid="${kind}-${i}">
-            ${COMMENT_PICKER_EMOJI.map((e) => `<button type="button" class="comment-picker-cell" onclick="${global}.setProxyIconEmoji('${kind}', ${i}, '${e}')">${e}</button>`).join("")}
+          <div class="comment-picker-grid mt-1.5 rounded-md border border-line bg-surface-2${this.proxyCardsEmojiGridOpen === `${kind}-${p.id}` ? "" : " hidden"}" data-proxy-emoji-grid="${kind}-${id}">
+            ${COMMENT_PICKER_EMOJI.map((e) => `<button type="button" class="comment-picker-cell" onclick="${global}.setProxyIconEmoji('${kind}', '${id}', '${e}')">${e}</button>`).join("")}
           </div>
         ` : ""}
         ${p.icon_type === "svg" ? `
           <div class="flex items-center gap-2">
-            <div class="rounded-md border border-line bg-surface-2 flex items-center justify-center flex-none" style="height:40px;max-width:120px;padding:2px 6px" id="proxySvgPreview-${kind}-${i}">
+            <div class="rounded-md border border-line bg-surface-2 flex items-center justify-center flex-none" style="height:40px;max-width:120px;padding:2px 6px" id="proxySvgPreview-${kind}-${id}">
               <img src="${_attr(p.icon_value ? _svgIconDataUri(_sanitizeIconSvg(p.icon_value)) : "")}" style="height:100%;max-width:100%;object-fit:contain;${p.icon_value ? "" : "display:none"}" alt="">
             </div>
-            <textarea data-proxy-svg rows="3" oninput="${global}.previewProxyIconSvg('${kind}', ${i}, this.value)" placeholder="${_attr('<svg viewBox="0 0 24 24">...</svg>')}" class="flex-1 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-xs font-mono" style="min-height:70px">${_esc(p.icon_value || "")}</textarea>
+            <textarea data-proxy-svg rows="3" oninput="${global}.previewProxyIconSvg('${kind}', '${id}', this.value)" placeholder="${_attr('<svg viewBox="0 0 24 24">...</svg>')}" class="flex-1 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-xs font-mono" style="min-height:70px">${_esc(p.icon_value || "")}</textarea>
           </div>
         ` : ""}
       </div>
@@ -146,21 +201,23 @@ const ProxyCardsMixin = {
 
   proxyListHtml(kind, emptyText) {
     const list = this._proxyList(kind);
-    return list.map((p, i) => this.proxyRowHtml(kind, p, i)).join("") || `<p class="text-xs text-muted mb-2">${_esc(emptyText)}</p>`;
+    return list.map((p) => this.proxyRowHtml(kind, p)).join("") || `<p class="text-xs text-muted">${_esc(emptyText)}</p>`;
   },
 
   syncProxiesFromDom(kind) {
-    const list = this._proxyList(kind);
     document.querySelectorAll(`[data-proxy-row^="${kind}-"]`).forEach((row) => {
-      const i = parseInt(row.dataset.proxyRow.slice(kind.length + 1), 10);
-      if (!list[i]) return;
+      const id = row.dataset.proxyRow.slice(kind.length + 1);
+      const item = this._proxyById(kind, id);
+      if (!item) return;
       const nameEl = row.querySelector("[data-proxy-name]");
       if (!nameEl) return;
-      list[i].name = nameEl.value.trim();
-      list[i].base_url = row.querySelector("[data-proxy-base]").value.trim();
-      list[i].model = row.querySelector("[data-proxy-model]").value.trim();
+      item.name = nameEl.value.trim();
+      item.base_url = row.querySelector("[data-proxy-base]").value.trim();
+      item.model = row.querySelector("[data-proxy-model]").value.trim();
       const key = row.querySelector("[data-proxy-key]").value;
-      if (key) list[i].api_key = key;
+      if (key) item.api_key = key;
+      const priorityEl = row.querySelector("[data-proxy-priority]");
+      if (priorityEl) item.priority = parseInt(priorityEl.value, 10) || 0;
     });
   },
 
@@ -170,34 +227,34 @@ const ProxyCardsMixin = {
     this.render();
   },
 
-  setProxyIconType(kind, i, type) {
+  setProxyIconType(kind, id, type) {
     this.syncProxiesFromDom(kind);
-    const row = this._proxyList(kind)[i];
-    if (!row) return;
+    const row = this._proxyById(kind, id);
+    if (!row) { errorToast(t("proxy_cards_row_missing", "This profile card is out of sync — collapse and reopen it, then try again.")); return; }
     if (row.icon_type !== type) row.icon_value = "";
     row.icon_type = type;
     this.render();
     this.onProxyCardsChanged();
   },
 
-  setProxyIconEmoji(kind, i, value) {
-    const row = this._proxyList(kind)[i];
-    if (!row) return;
+  setProxyIconEmoji(kind, id, value) {
+    const row = this._proxyById(kind, id);
+    if (!row) { errorToast(t("proxy_cards_row_missing", "This profile card is out of sync — collapse and reopen it, then try again.")); return; }
     row.icon_value = value.trim();
     this.proxyCardsEmojiGridOpen = null;
     this.render();
     this.onProxyCardsChanged();
   },
 
-  toggleProxyEmojiGrid(kind, i) {
-    const key = `${kind}-${i}`;
+  toggleProxyEmojiGrid(kind, id) {
+    const key = `${kind}-${id}`;
     this.proxyCardsEmojiGridOpen = this.proxyCardsEmojiGridOpen === key ? null : key;
     this.render();
   },
 
-  previewProxyIconSvg(kind, i, raw) {
+  previewProxyIconSvg(kind, id, raw) {
     const clean = _sanitizeIconSvg(raw);
-    const preview = document.getElementById(`proxySvgPreview-${kind}-${i}`);
+    const preview = document.getElementById(`proxySvgPreview-${kind}-${id}`);
     const img = preview?.querySelector("img");
     if (img) {
       img.src = _svgIconDataUri(clean);
@@ -205,19 +262,25 @@ const ProxyCardsMixin = {
     }
   },
 
-  saveProxyCard(kind, i) {
+  stepProxyPriority(kind, id, delta) {
+    const el = this.main.querySelector(`[data-proxy-row="${kind}-${id}"] [data-proxy-priority]`);
+    if (!el) return;
+    el.value = Math.max(0, (parseInt(el.value, 10) || 0) + delta);
+  },
+
+  saveProxyCard(kind, id) {
     this.syncProxiesFromDom(kind);
-    const row = this._proxyList(kind)[i];
+    const row = this._proxyById(kind, id);
     if (!row) { errorToast(t("proxy_cards_row_missing", "This profile card is out of sync — collapse and reopen it, then try again.")); return; }
     if (row.icon_type === "svg") {
-      const raw = document.querySelector(`[data-proxy-row="${kind}-${i}"] [data-proxy-svg]`)?.value || "";
+      const raw = this.main.querySelector(`[data-proxy-row="${kind}-${id}"] [data-proxy-svg]`)?.value || "";
       row.icon_value = _sanitizeIconSvg(raw);
     }
     this.render();
     this.onProxyCardsChanged(true);
   },
 
-  setProxyIconImage(kind, i, fileInput) {
+  setProxyIconImage(kind, id, fileInput) {
     const file = fileInput.files[0];
     if (!file) return;
     const img = new Image();
@@ -232,11 +295,13 @@ const ProxyCardsMixin = {
         const scale = Math.max(size / img.width, size / img.height);
         const w = img.width * scale, h = img.height * scale;
         ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-        const row = this._proxyList(kind)[i];
+        const row = this._proxyById(kind, id);
         if (row) {
           row.icon_value = canvas.toDataURL("image/webp", 0.85);
           this.render();
           this.onProxyCardsChanged();
+        } else {
+          errorToast(t("proxy_cards_row_missing", "This profile card is out of sync — collapse and reopen it, then try again."));
         }
       };
       img.src = reader.result;
@@ -248,53 +313,56 @@ const ProxyCardsMixin = {
     this.syncProxiesFromDom(kind);
     const list = this._proxyList(kind);
     const id = _proxyId();
-    list.push({ id, name: "", base_url: "", api_key: "", has_api_key: false, model: "", active: list.length === 0, icon_type: "favicon", icon_value: "" });
+    list.push({ id, name: "", base_url: "", api_key: "", has_api_key: false, model: "", active: list.length === 0, icon_type: "favicon", icon_value: "", priority: list.length });
     this.proxyCardsExpanded.add(id);
     this.render();
   },
 
-  async removeProxyRow(kind, i) {
+  async removeProxyRow(kind, id) {
     const list = this._proxyList(kind);
-    const name = list[i]?.name || t("proxy_cards_untitled", "Untitled profile");
+    const row = this._proxyById(kind, id);
+    if (!row) { errorToast(t("proxy_cards_row_missing", "This profile card is out of sync — collapse and reopen it, then try again.")); return; }
+    const name = row.name || t("proxy_cards_untitled", "Untitled profile");
     if (!(await confirmDialog(t("proxy_cards_confirm_remove", "Delete profile \"{name}\"?").replace("{name}", name)))) return;
     this.syncProxiesFromDom(kind);
-    const wasActive = list[i]?.active;
-    list.splice(i, 1);
+    const wasActive = row.active;
+    const idx = list.findIndex((p) => p.id === id);
+    if (idx !== -1) list.splice(idx, 1);
     if (wasActive && list.length) list[0].active = true;
     this.render();
     this.onProxyCardsChanged();
   },
 
-  setActiveProxy(kind, i) {
+  setActiveProxy(kind, id) {
     this.syncProxiesFromDom(kind);
     const list = this._proxyList(kind);
-    list.forEach((p, idx) => { p.active = idx === i; });
+    list.forEach((p) => { p.active = p.id === id; });
     this.render();
     this.onProxyCardsChanged();
   },
 
-  async fetchModelsForRow(kind, i) {
+  async fetchModelsForRow(kind, id) {
     this.syncProxiesFromDom(kind);
-    const row = this._proxyList(kind)[i];
-    if (!row) return;
+    const row = this._proxyById(kind, id);
+    if (!row) { errorToast(t("proxy_cards_row_missing", "This profile card is out of sync — collapse and reopen it, then try again.")); return; }
     const params = new URLSearchParams();
     if (row.base_url) params.set("base_url", row.base_url);
     if (row.api_key) params.set("api_key", row.api_key);
     try {
       const { models } = await api("/api/models" + (params.toString() ? "?" + params : ""));
       if (!models?.length) { toast(t("proxy_cards_no_models_returned", "No models returned")); return; }
-      const listEl = document.querySelector(`[data-proxy-model-list="${kind}-${i}"]`);
+      const listEl = document.querySelector(`[data-proxy-model-list="${kind}-${id}"]`);
       if (listEl) {
-        listEl.innerHTML = models.map((m) => `<button type="button" class="px-2 py-1 rounded-md border border-line bg-surface-2 text-xs" onclick="${this._proxyCardsGlobalName}.pickModelForRow('${kind}', ${i}, this.dataset.m)" data-m="${_attr(m)}">${_esc(m)}</button>`).join("");
+        listEl.innerHTML = models.map((m) => `<button type="button" class="px-2 py-1 rounded-md border border-line bg-surface-2 text-xs" onclick="${this._proxyCardsGlobalName}.pickModelForRow('${kind}', '${id}', this.dataset.m)" data-m="${_attr(m)}">${_esc(m)}</button>`).join("");
       }
     } catch (e) {
       errorToast(t("proxy_cards_fetch_failed", "Fetch failed: ") + e.message);
     }
   },
 
-  pickModelForRow(kind, i, model) {
+  pickModelForRow(kind, id, model) {
     this.syncProxiesFromDom(kind);
-    const row = this._proxyList(kind)[i];
+    const row = this._proxyById(kind, id);
     if (row) row.model = model;
     this.render();
     this.onProxyCardsChanged();
@@ -304,6 +372,10 @@ const ProxyCardsMixin = {
 if (typeof window !== "undefined") {
   window.ProxyCardsMixin = ProxyCardsMixin;
   window.proxyIconHtml = proxyIconHtml;
+  window.medallionHtml = medallionHtml;
+  window.statusDotHtml = statusDotHtml;
+  window.dossierCardHtml = dossierCardHtml;
+  window.addProxyProfileButtonHtml = addProxyProfileButtonHtml;
   window.readOnlyProxyListHtml = readOnlyProxyListHtml;
   window._sanitizeIconSvg = _sanitizeIconSvg;
   window._svgIconDataUri = _svgIconDataUri;

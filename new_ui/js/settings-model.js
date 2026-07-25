@@ -18,6 +18,8 @@ class ModelSettingsView {
     this._proxyCardsGlobalName = "modelView";
     this.proxyCardsExpanded = new Set();
     this.proxyCardsEmojiGridOpen = null;
+    this.collapsed = {};
+    try { this.collapsed = JSON.parse(store.get("settings_model_collapsed", "{}")) || {}; } catch (e) { this.collapsed = {}; }
     main.innerHTML = `<div class="text-sm text-muted">${_esc(t("common_loading"))}</div>`;
     try {
       this.settings = await api("/api/me/settings");
@@ -32,6 +34,12 @@ class ModelSettingsView {
 
   onProxyCardsChanged(immediate) {
     if (immediate) this.save();
+  }
+
+  toggleCard(key) {
+    this.collapsed[key] = !this.collapsed[key];
+    store.set("settings_model_collapsed", JSON.stringify(this.collapsed));
+    this.render();
   }
 
   fieldValue(id) {
@@ -64,26 +72,51 @@ class ModelSettingsView {
       `;
     }).join("");
 
+    const chatIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`;
+    const serverIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="6" rx="1.5"/><rect x="2" y="14" width="20" height="6" rx="1.5"/><circle cx="6" cy="7" r="0.6" fill="currentColor" stroke="none"/><circle cx="6" cy="17" r="0.6" fill="currentColor" stroke="none"/></svg>`;
+    const globalChatActive = (this.settings.global_chat_proxies || []).find((p) => p.active);
+    const globalEmbedActive = (this.settings.global_embed_proxies || []).find((p) => p.active);
+    const ownChatProxies = this.proxyCardsState.chat;
+    const ownChatActive = ownChatProxies.find((p) => p.active);
+
+    const serverEndpointsCard = dossierCardHtml({
+      globalName: "modelView", cardKey: "server_endpoints", isCollapsed: !!this.collapsed["card:server_endpoints"],
+      icon: serverIcon, logoOrigin: "", title: t("model_settings_global_endpoints", "Server endpoints"),
+      subtitle: t("model_settings_global_endpoints_hint", "Set by an admin. Shown for reference — you can't select these directly, add your own profile below to use a different endpoint."),
+      status: `${_esc(globalChatActive?.name || t("proxy_cards_untitled", "Untitled profile"))} · ${_esc(globalEmbedActive?.name || t("proxy_cards_untitled", "Untitled profile"))}`,
+      statusTone: globalChatActive ? "" : "warn",
+      innerHtml: `
+        <div class="font-mono text-[9.5px] uppercase tracking-[.06em] text-muted mb-1.5">${t("model_settings_chat", "Chat")}</div>
+        <div class="mb-3">${readOnlyProxyListHtml(this.settings.global_chat_proxies, t("model_settings_no_global_chat_proxies", "No chat endpoint configured yet."))}</div>
+        <div class="font-mono text-[9.5px] uppercase tracking-[.06em] text-muted mb-1.5">${t("model_settings_embed", "Embedding")}</div>
+        <div class="mb-2">${readOnlyProxyListHtml(this.settings.global_embed_proxies, t("model_settings_no_global_embed_proxies", "No embedding endpoint configured yet."))}</div>
+        <p class="text-xs text-muted mb-2">${t("model_settings_priority_hint", "The \"P\" number is priority. If the active endpoint stops responding, the server automatically tries the next one in priority order, lowest number first.")}</p>
+        <p class="text-xs text-muted">${t("model_settings_embed_why_locked", "Everyone's messages share one search index, so the embedding endpoint has to stay the same for all users. Only an admin can change it.")}</p>
+      `,
+    });
+
+    const myChatCard = dossierCardHtml({
+      globalName: "modelView", cardKey: "my_chat_endpoint", isCollapsed: !!this.collapsed["card:my_chat_endpoint"],
+      icon: chatIcon, logoOrigin: "", title: t("model_settings_my_endpoints", "My chat endpoint"),
+      subtitle: t("model_settings_my_endpoints_hint", "Save your own backend profiles and switch which one is active. When one is active, it replaces the server endpoint above for your chats."),
+      status: ownChatActive
+        ? `${ownChatProxies.length} ${t("proxy_cards_profiles", "profiles")} · ${_esc(ownChatActive.name || t("proxy_cards_untitled", "Untitled profile"))}`
+        : t("model_settings_using_server_default", "using server default"),
+      statusTone: ownChatActive ? "" : "off",
+      innerHtml: `
+        <div id="cfg_own_chat_proxies">${this.proxyListHtml("chat", t("model_settings_no_own_proxies", "No profiles yet — the server endpoint above is used."))}</div>
+        ${addProxyProfileButtonHtml("modelView", "chat")}
+      `,
+    });
+
     this.main.innerHTML = `
       <div class="content-col">
       ${backLinkHtml(t("settings_row_settings"))}
       ${pageHeaderHtml("My Dossier", "Settings", t("ph_model_memory_title"), t("ph_model_memory_sub"))}
 
-      ${sEyebrowHtml(t("model_settings_global_endpoints", "Server endpoints"))}
-      <p class="text-xs text-muted mb-2">${t("model_settings_global_endpoints_hint", "Set by an admin. Shown for reference — you can't select these directly, add your own profile below to use a different endpoint.")}</p>
-      <p class="text-xs text-muted mb-2">${t("model_settings_priority_hint", "The \"P\" number is priority. If the active endpoint stops responding, the server automatically tries the next one in priority order, lowest number first.")}</p>
-      <div class="font-mono text-[9.5px] uppercase tracking-[.06em] text-muted mb-1.5">${t("model_settings_chat", "Chat")}</div>
-      <div class="mb-3">${readOnlyProxyListHtml(this.settings.global_chat_proxies, t("model_settings_no_global_chat_proxies", "No chat endpoint configured yet."))}</div>
-      <div class="font-mono text-[9.5px] uppercase tracking-[.06em] text-muted mb-1.5">${t("model_settings_embed", "Embedding")}</div>
-      <div class="mb-2">${readOnlyProxyListHtml(this.settings.global_embed_proxies, t("model_settings_no_global_embed_proxies", "No embedding endpoint configured yet."))}</div>
-      <p class="text-xs text-muted mb-4">${t("model_settings_embed_why_locked", "Everyone's messages share one search index, so the embedding endpoint has to stay the same for all users. Only an admin can change it.")}</p>
-
-      ${sEyebrowHtml(t("model_settings_my_endpoints", "My chat endpoint"))}
-      <p class="text-xs text-muted mb-2">${t("model_settings_my_endpoints_hint", "Save your own backend profiles and switch which one is active. When one is active, it replaces the server endpoint above for your chats.")}</p>
-      <div class="flex justify-end mb-1.5">
-        <button type="button" onclick="modelView.addProxyRow('chat')" class="text-xs" style="color:var(--color-accent)">${t("model_settings_add_endpoint", "+ Add profile")}</button>
-      </div>
-      <div class="mb-4">${this.proxyListHtml("chat", t("model_settings_no_own_proxies", "No profiles yet — the server endpoint above is used."))}</div>
+      ${sEyebrowHtml(t("model_settings_models_section", "Models"))}
+      ${serverEndpointsCard}
+      ${myChatCard}
 
       ${sEyebrowHtml(t("model_settings_memory"))}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
