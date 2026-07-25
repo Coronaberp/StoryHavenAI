@@ -3421,6 +3421,10 @@ class ChatView {
     const input = document.getElementById("chatInput");
     const raw = input.value.trim();
     if (!raw || this.streaming) return;
+    if (looksLikePromptInjection(raw)) {
+      errorToast(t("chat_blocked_prompt_injection", "That reads like an attempt to slip the AI a fake system command. Use /ooc if you want to talk to it outside the story — this message wasn't sent."));
+      return;
+    }
     this.diceRolledThisTurn = false;
     if (/^\/help\s*$/i.test(raw)) {
       input.value = "";

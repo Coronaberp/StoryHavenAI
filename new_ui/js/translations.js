@@ -790,6 +790,7 @@ const UI_STRINGS = {
   chat_already_rolled_this_turn: "You've already rolled this turn.",
   chat_architecture_label: "Architecture",
   chat_armed_suffix: "(armed)",
+  chat_blocked_prompt_injection: "That reads like an attempt to slip the AI a fake system command. Use /ooc if you want to talk to it outside the story — this message wasn't sent.",
   chat_authors_note_cleared: "Author's note cleared.",
   chat_authors_note_description: "Pinned instructions sent with every turn.",
   chat_authors_note_heading: "Author's note",

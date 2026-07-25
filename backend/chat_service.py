@@ -22,6 +22,7 @@ from backend import group
 from backend.retrieval import retrieve
 from backend import memory_service
 from backend import guest_quota
+from backend.prompt_guard import looks_like_prompt_injection, BLOCKED_MESSAGE
 from backend.prompt import (build_system, think_instruction, strip_think, macro,
                     recent_text, ensure_scene_header, strip_sigil, strip_leaked_sigil,
                     LEGACY_DIRECTIVE_RE, DIRECTOR_SIGIL, strip_ai_prose_artifacts, EXPLICIT_INSTRUCTIONS,
@@ -67,6 +68,14 @@ async def _endpoints(user_overrides: dict, user_id: str | None = None,
         "embed_base": None,
         "embed_key": None,
     }
+
+def _chat_fallback_profiles(eff_chat_base: str | None, eff_api_key: str | None, chat_model: str) -> list[dict]:
+    if eff_chat_base:
+        return [{"name": "personal override", "base_url": eff_chat_base, "api_key": eff_api_key, "model": chat_model}]
+    proxies = CFG.get("chat_proxies") or []
+    if not proxies:
+        return [{"name": "default", "base_url": CFG["base_url"], "api_key": CFG["api_key"], "model": chat_model}]
+    return sorted(proxies, key=lambda p: p.get("priority", 0))
 
 def _ui_language(user_overrides: dict) -> str:
     return (user_overrides.get("interface_language") or "").strip() \
@@ -643,6 +652,11 @@ async def _run(sid, user_content=None, regenerate=False, continue_mode=False,
 async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, user_overrides,
                     user_content, regenerate, continue_mode, direction, think, current_user):
     sid = s["id"]
+    if user_content is not None and looks_like_prompt_injection(user_content):
+        if current_user:
+            log.warning("chat: blocked likely prompt-injection message username=%s session=%s",
+                       current_user["username"], sid)
+        raise HTTPException(400, BLOCKED_MESSAGE)
     eff_chat_base, eff_api_key = ep["chat_base"], ep["chat_key"]
     other_player_names = []
     if is_multiplayer:
@@ -798,9 +812,9 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
         yield "data: " + json.dumps({"type": "status", "phase": "generating"}) + "\n\n"
         ans, thought = [], []
         try:
-            async for channel, text in llm.chat_stream(
-                    oai_messages, chat_model, params, parse_think=do_think,
-                    base_url=eff_chat_base, api_key=eff_api_key, pin_host=True):
+            fallback_profiles = _chat_fallback_profiles(eff_chat_base, eff_api_key, chat_model)
+            async for channel, text in llm.chat_stream_with_fallback(
+                    oai_messages, fallback_profiles, params, parse_think=do_think, pin_host=True):
                 if channel == "thinking":
                     thought.append(text)
                     yield "data: " + json.dumps({"type": "thinking", "content": text}) + "\n\n"
