@@ -236,51 +236,6 @@ class AdminTrainView {
       </div>
     `;
   }
-  testTabHtml() {
-    if (!this.testEntry) {
-      return `<p class="text-sm text-muted">${t("admin_train_pick_lora_to_test")}</p>`;
-    }
-    const e = this.testEntry;
-    const notFound = !this.checkpoints.includes(e.job.base_checkpoint);
-    return `
-      <div class="mb-4 text-sm">
-        <b class="text-ink">${_esc(e.label)}</b><br>
-        <span class="text-xs text-muted">${t("admin_train_trigger_word_label")}: <b>${_esc(e.job.trigger_word || "-")}</b> · ${t("admin_train_base_label")}: ${_esc(e.job.base_checkpoint || "-")}</span>
-        ${notFound ? `<div class="text-xs mt-1" style="color:var(--color-warn)">${t("admin_train_base_checkpoint_not_found")}</div>` : ""}
-      </div>
-      <div class="mb-4">
-        <label class="grimoire-field-label">${t("admin_train_strength")}</label>
-        <input type="range" id="tl_strength" min="-8" max="8" step="0.05" value="${this.testStrength}" style="width:100%">
-        <span id="tl_strength_val" class="text-xs font-mono text-accent">${this.testStrength.toFixed(2)}</span>
-      </div>
-      ${this.simplePickerSummaryHtml("testSampler", t("admin_train_sampler"), this.samplers)}
-      ${this.simplePickerSummaryHtml("testScheduler", t("admin_train_scheduler"), this.schedulers)}
-      <div class="mb-4">
-        <label class="grimoire-field-label">${t("admin_train_steps")}</label>
-        <input type="range" id="tl_steps" min="1" max="60" step="1" value="${this.testSteps}" style="width:100%">
-        <span id="tl_steps_val" class="text-xs font-mono text-accent">${this.testSteps}</span>
-      </div>
-      <div class="mb-4">
-        <label class="grimoire-field-label">${t("admin_train_guidance_cfg")}</label>
-        <input type="range" id="tl_cfg" min="1" max="20" step="0.5" value="${this.testCfg}" style="width:100%">
-        <span id="tl_cfg_val" class="text-xs font-mono text-accent">${this.testCfg.toFixed(1)}</span>
-      </div>
-      <div class="relative w-full aspect-square rounded-lg overflow-hidden bg-surface-2 mb-3 grid place-items-center">
-        <img id="tl_preview_img" alt="" class="w-full h-full object-cover${this.testResult ? " cursor-zoom-in" : ""}" style="display:${this.testResult ? "" : "none"}" src="${this.testResult ? _attr(this.testResult) : ""}">
-        <span id="tl_preview_empty" class="text-xs text-muted" style="display:${this.testResult ? "none" : ""}">${t("admin_train_preview_will_appear_here")}</span>
-        ${this.testResult ? `
-          <div class="absolute right-2.5 bottom-2.5 flex gap-2">
-            <button type="button" id="tl_save" class="forge-img-act" title="${t("admin_train_save")}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg></button>
-            <button type="button" id="tl_upscale" class="forge-img-act" title="${t("admin_train_upscale")}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg></button>
-            <button type="button" id="tl_discard" class="forge-img-act" title="${t("admin_train_discard")}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
-          </div>
-        ` : ""}
-      </div>
-      ${this.testUpscalePickerOpen ? this.testUpscalePickerHtml() : ""}
-      <button type="button" id="tl_go" class="w-full py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark" ${notFound ? "disabled" : ""}>${t("admin_train_generate")}</button>
-    `;
-  }
-
   testUpscalePickerHtml() {
     if (!this.testUpscalers.length) {
       return `<div class="mb-4"><p class="text-xs text-sec">${t("admin_train_no_upscalers_available")}</p></div>`;
@@ -303,37 +258,6 @@ class AdminTrainView {
         </div>
       </div>
     `;
-  }
-
-  simplePickerSummaryHtml(field, title, options) {
-    const value = this[field];
-    const label = value || t("admin_train_default");
-    return `
-      <div class="mb-3">
-        <label class="grimoire-field-label">${_esc(title)}</label>
-        <button type="button" onclick="adminTrainView.openSimplePicker('${field}')" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--color-surface);border:1px solid var(--color-line);border-radius:12px;cursor:pointer;text-align:left">
-          <span style="flex:1;font-family:var(--font-mono);font-size:12.5px;color:var(--color-ink)">${_esc(label)}</span>
-          <span style="color:var(--color-muted)">&rsaquo;</span>
-        </button>
-      </div>
-    `;
-  }
-
-  openSimplePicker(field) {
-    const source = field === "testSampler" ? this.samplers : this.schedulers;
-    openModal(`
-      <h3>${t("admin_train_choose_a")} ${field === "testSampler" ? t("admin_train_sampler_lowercase") : t("admin_train_scheduler_lowercase")}</h3>
-      <div style="display:flex;flex-direction:column;gap:4px;max-height:360px;overflow-y:auto">
-        ${source.map((name) => `
-          <button type="button" data-sp-name="${_attr(name)}" style="display:flex;align-items:center;padding:10px 12px;border-radius:10px;border:1px solid ${this[field] === name ? "var(--color-accent)" : "transparent"};background:none;cursor:pointer;text-align:left;font-family:var(--font-mono);font-size:13px;color:var(--color-ink)">${_esc(name)}</button>
-        `).join("")}
-      </div>
-    `, { wide: true });
-    document.querySelectorAll("[data-sp-name]").forEach((b) => b.onclick = () => {
-      this[field] = b.dataset.spName;
-      closeTopModal();
-      this.render();
-    });
   }
 
   async runTestGenerate() {
@@ -462,36 +386,6 @@ class AdminTrainView {
     openModal(`<img src="${_attr(this.testResult)}" alt="" class="w-full rounded-lg">`, { wide: true });
   }
 
-  wireTestTab() {
-    if (!this.testEntry) return;
-    const strengthInp = document.getElementById("tl_strength");
-    if (strengthInp) strengthInp.oninput = (e) => {
-      this.testStrength = parseFloat(e.target.value);
-      document.getElementById("tl_strength_val").textContent = this.testStrength.toFixed(2);
-    };
-    const stepsInp = document.getElementById("tl_steps");
-    if (stepsInp) stepsInp.oninput = (e) => {
-      this.testSteps = parseInt(e.target.value, 10);
-      document.getElementById("tl_steps_val").textContent = this.testSteps;
-    };
-    const cfgInp = document.getElementById("tl_cfg");
-    if (cfgInp) cfgInp.oninput = (e) => {
-      this.testCfg = parseFloat(e.target.value);
-      document.getElementById("tl_cfg_val").textContent = this.testCfg.toFixed(1);
-    };
-    const goBtn = document.getElementById("tl_go");
-    if (goBtn) goBtn.onclick = () => this.runTestGenerate();
-    const saveBtn = document.getElementById("tl_save");
-    if (saveBtn) saveBtn.onclick = () => this.saveTestResult();
-    const upscaleBtn = document.getElementById("tl_upscale");
-    if (upscaleBtn) upscaleBtn.onclick = () => this.openTestUpscale();
-    const discardBtn = document.getElementById("tl_discard");
-    if (discardBtn) discardBtn.onclick = () => this.discardTestResult();
-    const zoomImg = document.getElementById("tl_preview_img");
-    if (zoomImg && this.testResult) zoomImg.onclick = () => this.zoomTestResult();
-    document.querySelectorAll("[data-tl-upscaler]").forEach((b) => b.onclick = () => this.runTestUpscale(b.dataset.tlUpscaler));
-  }
-
   async loadJobEntries() {
     const testableJobs = this.jobs.filter((j) => j.output_file);
     const ckptLists = await Promise.all(testableJobs.map((j) =>
@@ -505,6 +399,12 @@ class AdminTrainView {
       });
     });
     return entries;
+  }
+
+  async selectTestEntryForJob(job) {
+    if (!job) return;
+    const entries = await this.loadJobEntries();
+    this.testEntry = entries.find((e) => e.job.id === job.id) || null;
   }
 
   jobStatusPill(status) {
