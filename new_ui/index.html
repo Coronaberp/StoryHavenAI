@@ -30,6 +30,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.9/standalone/umd/vis-network.min.js" integrity="sha384-yxKDWWf0wwdUj/gPeuL11czrnKFQROnLgY8ll7En9NYoXibgg3C6NK/UDHNtUgWJ" crossorigin="anonymous" defer></script>
 </head>
 <body class="min-h-screen bg-paper text-ink font-sans">
+  <div id="siteBanner" class="hidden"></div>
   <div class="flex min-h-screen flex-col md:flex-row">
     <aside id="sidebar" class="hidden lg:flex flex-col w-60 border-r border-line p-4">
       <a href="/explore" onclick="event.preventDefault();navigate('/explore')" class="flex items-center gap-2 text-primary">
@@ -218,7 +219,7 @@
       </button>
     </aside>
 
-    <header id="mobileHeader" class="fixed inset-x-0 top-0 z-10 flex items-center justify-between border-b border-line px-4 py-3 bg-paper md:hidden" style="display:none">
+    <header id="mobileHeader" class="fixed inset-x-0 top-0 z-10 flex items-center justify-between border-b border-line px-4 py-3 bg-paper md:hidden" style="display:none;top:var(--site-banner-h, 0px)">
       <a href="/explore" onclick="event.preventDefault();navigate('/explore')" class="flex items-center gap-1.5 text-primary">
         <svg viewBox="0 0 500 500" class="h-7 w-7 shrink-0"><g>
           <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"/>
@@ -256,7 +257,7 @@
 
     <main id="main" class="flex-1 overflow-y-auto p-4 pt-[68px] pb-20 md:pt-4 md:pb-4 lg:pt-16 2xl:max-w-[1600px] 2xl:mx-auto"></main>
 
-    <header id="publicHeader" class="hidden fixed inset-x-0 top-0 z-[6] flex items-center justify-between gap-3 px-4 border-b border-line" style="height:48px;background:var(--color-paper)"></header>
+    <header id="publicHeader" class="hidden fixed inset-x-0 top-0 z-[6] flex items-center justify-between gap-3 px-4 border-b border-line" style="height:48px;background:var(--color-paper);top:var(--site-banner-h, 0px)"></header>
 
     <footer id="publicFooter" class="hidden fixed inset-x-0 bottom-0 z-[5] border-t border-line px-4 py-2.5 text-center" style="background:var(--color-paper)">
       <span class="font-mono text-[10px] tracking-[.14em] uppercase" style="color:var(--color-muted)" id="publicFooterVersion"></span>
@@ -295,7 +296,7 @@
     </nav>
   </div>
 
-  <div id="toast" class="toast"></div>
+  <div id="toastContainer" class="toast-container"></div>
   <div id="heroChrome" class="hidden"></div>
   <div id="authGalleryHost" class="hidden absolute inset-0 overflow-hidden pointer-events-none">
     <canvas id="authGlitter" class="absolute inset-0 w-full h-full"></canvas>
@@ -371,6 +372,7 @@
   <script src="/js/admin-moderation.js" defer></script>
   <script src="/js/admin-previews.js" defer></script>
   <script src="/js/admin-train.js" defer></script>
+  <script src="/js/admin-train-picker.js" defer></script>
   <script src="/js/admin-emojis.js" defer></script>
   <script src="/js/admin-config.js" defer></script>
   <script src="/js/admin-health.js" defer></script>
@@ -379,6 +381,7 @@
   <script src="/js/scroll-top.js" defer></script>
   <script src="/js/media-gen.js" defer></script>
   <script src="/js/feature-flags.js" defer></script>
+  <script src="/js/site-banner.js" defer></script>
   <script src="/js/admin-features.js" defer></script>
   <script src="/js/admin-announce.js" defer></script>
   <script src="/js/boot.js" defer></script>
