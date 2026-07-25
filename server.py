@@ -4,6 +4,7 @@ import html
 import json
 import asyncio
 import hashlib
+import mimetypes
 from contextlib import asynccontextmanager
 
 from PIL import Image
@@ -30,6 +31,8 @@ from backend.repositories import session_invites
 from backend.repositories import chat_sessions as chat_sessions_repo
 from backend.repositories import session_characters as session_char_repo
 from backend.repositories import session_participants
+
+mimetypes.add_type("image/webp", ".webp")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
