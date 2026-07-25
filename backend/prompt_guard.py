@@ -61,7 +61,7 @@ class PromptInjectionBlocked(Exception):
 
 _NON_WORD_RE = re.compile(r"[^a-zA-Z0-9]+")
 _FAKE_DIRECTIVE_RE = re.compile(r"[\[(]\s*(ooc|scene|note|time|as|roll)\s*:", re.I)
-_REAL_OOC_ROUTE_RE = re.compile(r"^\s*(/ooc\b|\{\s*ooc\s*:)", re.I)
+_REAL_DIRECTIVE_ROUTE_RE = re.compile(r"^\s*(/(ooc|scene|note|time|as|roll)\b|\{\s*(ooc|scene|note|time|as|roll)\s*:)", re.I)
 _BARE_OOC_WORD_RE = re.compile(r"\booc\b", re.I)
 
 def looks_like_prompt_injection(text: str) -> bool:
@@ -69,7 +69,7 @@ def looks_like_prompt_injection(text: str) -> bool:
     normalized = _NON_WORD_RE.sub(" ", raw).strip()
     if normalized and any(pattern.search(normalized) for pattern in SYSTEM_PROMPT_RETRIEVAL_PATTERNS):
         return True
-    if _REAL_OOC_ROUTE_RE.match(raw):
+    if _REAL_DIRECTIVE_ROUTE_RE.match(raw):
         return False
     if _FAKE_DIRECTIVE_RE.search(raw):
         return True
