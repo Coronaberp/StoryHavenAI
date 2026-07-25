@@ -71,7 +71,9 @@ class ModelSettingsView {
 
       ${sEyebrowHtml(t("model_settings_global_endpoints", "Server endpoints"))}
       <p class="text-xs text-muted mb-2">${t("model_settings_global_endpoints_hint", "Set by an admin. Shown for reference — you can't select these directly, add your own profile below to use a different endpoint.")}</p>
-      <div class="mb-2">${readOnlyProxyListHtml(this.settings.global_chat_proxies, t("model_settings_no_global_chat_proxies", "No chat endpoint configured yet."))}</div>
+      <div class="font-mono text-[9.5px] uppercase tracking-[.06em] text-muted mb-1.5">${t("model_settings_chat", "Chat")}</div>
+      <div class="mb-3">${readOnlyProxyListHtml(this.settings.global_chat_proxies, t("model_settings_no_global_chat_proxies", "No chat endpoint configured yet."))}</div>
+      <div class="font-mono text-[9.5px] uppercase tracking-[.06em] text-muted mb-1.5">${t("model_settings_embed", "Embedding")}</div>
       <div class="mb-4">${readOnlyProxyListHtml(this.settings.global_embed_proxies, t("model_settings_no_global_embed_proxies", "No embedding endpoint configured yet."))}</div>
 
       ${sEyebrowHtml(t("model_settings_my_endpoints", "My chat endpoint"))}
