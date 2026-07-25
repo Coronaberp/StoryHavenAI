@@ -2027,16 +2027,18 @@ class ChatView {
   }
 
   async _postLeaveMultiplayer() {
-    try {
-      await api(`/api/sessions/${encodeURIComponent(this.sid)}/multiplayer/leave`, { method: "POST" });
-    } catch {}
+    await api(`/api/sessions/${encodeURIComponent(this.sid)}/multiplayer/leave`, { method: "POST" });
   }
 
   async leaveSession() {
     if (!(await confirmDialog(t("chat_multiplayer_leave_confirm", "Leave this session? You can rejoin later with the same invite link.")))) return;
-    await this._postLeaveMultiplayer();
-    toast(t("chat_multiplayer_left_session", "You left the session."));
-    navigate("/chats");
+    try {
+      await this._postLeaveMultiplayer();
+      toast(t("chat_multiplayer_left_session", "You left the session."));
+      navigate("/chats");
+    } catch (err) {
+      errorToast(err.message || t("chat_multiplayer_leave_failed", "Couldn't leave this session."));
+    }
   }
 
   async deleteChat() {
