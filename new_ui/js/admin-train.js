@@ -205,37 +205,6 @@ class AdminTrainView {
     };
   }
 
-  progressTabHtml() {
-    return `
-      <div id="lt_idle" class="text-sm text-muted" style="${this.watcher.isWatching ? "display:none" : ""}">${t("admin_train_no_active_job")}</div>
-      <div id="lt_live" style="${this.watcher.isWatching ? "" : "display:none"}">
-        <div id="lt_cost_banner" class="mb-3 px-3 py-2 rounded-md border border-line font-mono text-sm" style="display:none"></div>
-        <div id="lt_status_label" class="text-sm text-muted mb-2">${t("admin_train_status_label_prefix")}: -</div>
-        <div class="h-2 rounded-full bg-surface-2 overflow-hidden mb-4">
-          <div id="lt_progress_bar" class="h-full bg-accent" style="width:0%"></div>
-        </div>
-        <div id="lt_log" class="font-mono text-xs whitespace-pre-wrap border border-line rounded-md p-2 bg-surface-2 mb-4" style="max-height:260px;overflow-y:auto"></div>
-        <div id="lt_upload_wrap" class="mb-4 overflow-x-auto" style="display:none">
-          <table class="w-full text-xs font-mono"><thead><tr class="text-muted text-left"><th class="pr-2">${t("admin_train_column_uploading")}</th><th class="px-2">${t("admin_train_column_received")}</th><th class="px-2">${t("admin_train_column_progress")}</th><th class="pl-2">${t("admin_train_column_speed")}</th></tr></thead><tbody id="lt_upload_table"></tbody></table>
-        </div>
-        <div id="lt_download_wrap" class="mb-4 overflow-x-auto" style="display:none">
-          <table class="w-full text-xs font-mono"><thead><tr class="text-muted text-left"><th class="pr-2">${t("admin_train_column_downloading")}</th><th class="px-2">${t("admin_train_column_received")}</th><th class="px-2">${t("admin_train_column_progress")}</th><th class="pl-2">${t("admin_train_column_speed")}</th></tr></thead><tbody id="lt_download_table"></tbody></table>
-        </div>
-        <div id="lt_metrics_wrap">
-          <div class="mb-4 overflow-x-auto">
-            <table class="w-full text-xs font-mono"><thead><tr class="text-muted text-left"><th class="pr-2">${t("admin_train_column_epoch")}</th><th class="px-2">${t("admin_train_column_step")}</th><th class="px-2">${t("admin_train_column_loss")}</th><th class="px-2">${t("admin_train_column_lr")}</th><th class="px-2">${t("admin_train_column_speed")}</th><th class="px-2">${t("admin_train_column_eta")}</th><th class="pl-2">${t("admin_train_column_gpu")}</th></tr></thead><tbody id="lt_metrics_table"></tbody></table>
-          </div>
-          <div style="height:180px"><canvas id="lt_loss_chart"></canvas></div>
-        </div>
-        <div id="lt_finalizing" class="text-sm text-ink mb-4" style="display:none">${t("admin_train_finalizing")}</div>
-        <div id="lt_done_tile" class="text-center py-6 rounded-md border border-line mb-4" style="display:none">
-          <div class="text-2xl mb-1">✓</div><div class="font-semibold text-ink">${t("admin_train_done")}</div>
-        </div>
-        <button type="button" id="lt_checkpoint_now" class="w-full py-2 rounded-md border border-line text-sm text-ink">${t("admin_train_request_checkpoint_now")}</button>
-        <div class="text-xs text-muted mt-1">${t("admin_train_request_checkpoint_hint")}</div>
-      </div>
-    `;
-  }
   testUpscalePickerHtml() {
     if (!this.testUpscalers.length) {
       return `<div class="mb-4"><p class="text-xs text-sec">${t("admin_train_no_upscalers_available")}</p></div>`;
