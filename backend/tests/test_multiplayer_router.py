@@ -272,3 +272,24 @@ async def test_list_participants_does_not_rejoin_owner_of_never_invited_session(
     sid = await chat_sessions.create(char_id, None, "Solo", "Host", user_id="owner-1")
     participants = await mp.list_participants(sid, _user("owner-1"))
     assert participants == []
+
+async def test_list_my_personas_for_session_shows_claimed_by_display_name(db_conn):
+    from backend.repositories import personas as persona_repo, session_participants as sp, users as user_repo
+    friend = await user_repo.create_user("repo_test_claimant", "s3cret-password")
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    shared = await persona_repo.create({"name": "Shared", "session_id": sid}, "owner-1")
+    await sp.add(sid, friend["id"], shared["id"], "member")
+    rows = await mp.list_my_personas_for_session(sid, _user("owner-1"))
+    row = next(r for r in rows if r["id"] == shared["id"])
+    assert row["claimed_by"] == "repo_test_claimant"
+    assert "claimed_by_user_id" not in row
+
+async def test_list_my_personas_for_session_unclaimed_has_none(db_conn):
+    from backend.repositories import personas as persona_repo
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    shared = await persona_repo.create({"name": "Shared", "session_id": sid}, "owner-1")
+    rows = await mp.list_my_personas_for_session(sid, _user("owner-1"))
+    row = next(r for r in rows if r["id"] == shared["id"])
+    assert row["claimed_by"] is None

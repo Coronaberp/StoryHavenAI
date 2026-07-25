@@ -92,3 +92,43 @@ async def test_get_or_create_from_lore_separate_per_owner(db_conn):
     mine = await personas.get_or_create_from_lore(entry, user_id="user-a")
     theirs = await personas.get_or_create_from_lore(entry, user_id="user-b")
     assert mine["id"] != theirs["id"]
+
+async def test_list_selectable_for_session_includes_other_owners_session_personas(db_conn):
+    from backend.repositories import session_participants as sp
+    mine = await _make_persona(db_conn, name="Mine", user_id="user-a")
+    theirs = await _make_persona(db_conn, name="Theirs", user_id="user-b", session_id="sess-1")
+    other_session = await _make_persona(db_conn, name="OtherSession", user_id="user-b", session_id="sess-2")
+    rows = await personas.list_selectable_for_session("user-a", "sess-1")
+    ids = {r["id"] for r in rows}
+    assert mine["id"] in ids
+    assert theirs["id"] in ids
+    assert other_session["id"] not in ids
+
+async def test_list_selectable_for_session_excludes_other_owners_permanent_personas(db_conn):
+    from backend.repositories import session_participants as sp
+    their_permanent = await _make_persona(db_conn, name="TheirPermanent", user_id="user-b")
+    rows = await personas.list_selectable_for_session("user-a", "sess-1")
+    ids = {r["id"] for r in rows}
+    assert their_permanent["id"] not in ids
+
+async def test_list_selectable_for_session_computes_claimed_by_user_id(db_conn):
+    from backend.repositories import session_participants as sp
+    shared = await _make_persona(db_conn, name="Shared", user_id="user-a", session_id="sess-1")
+    await sp.add("sess-1", "user-b", shared["id"], "member")
+    rows = await personas.list_selectable_for_session("user-a", "sess-1")
+    row = next(r for r in rows if r["id"] == shared["id"])
+    assert row["claimed_by_user_id"] == "user-b"
+
+async def test_list_selectable_for_session_unclaimed_persona_has_none(db_conn):
+    shared = await _make_persona(db_conn, name="Shared", user_id="user-a", session_id="sess-1")
+    rows = await personas.list_selectable_for_session("user-a", "sess-1")
+    row = next(r for r in rows if r["id"] == shared["id"])
+    assert row["claimed_by_user_id"] is None
+
+async def test_list_selectable_for_session_own_permanent_persona_never_claimed(db_conn):
+    from backend.repositories import session_participants as sp
+    mine = await _make_persona(db_conn, name="Mine", user_id="user-a")
+    await sp.add("sess-1", "user-a", mine["id"], "member")
+    rows = await personas.list_selectable_for_session("user-a", "sess-1")
+    row = next(r for r in rows if r["id"] == mine["id"])
+    assert row["claimed_by_user_id"] is None

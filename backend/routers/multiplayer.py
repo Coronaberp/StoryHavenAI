@@ -123,8 +123,15 @@ async def accept_invite(sid: str, body: MultiplayerAcceptIn,
 @api.get("/sessions/{sid}/multiplayer/my-personas")
 async def list_my_personas_for_session(sid: str, current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
-    from backend.repositories import personas
-    return await personas.list_own_for_session(current_user["id"], sid)
+    from backend.repositories import personas, users as user_repo
+    rows = await personas.list_selectable_for_session(current_user["id"], sid)
+    for row in rows:
+        claimant_id = row.pop("claimed_by_user_id", None)
+        row["claimed_by"] = None
+        if claimant_id and claimant_id != current_user["id"]:
+            claimant = await user_repo.get_user_by_id(claimant_id)
+            row["claimed_by"] = claimant["display_name"] if claimant and claimant.get("display_name") else (claimant["username"] if claimant else None)
+    return rows
 
 @api.get("/sessions/{sid}/multiplayer/participants")
 async def list_participants(sid: str, current_user: dict = Depends(get_current_user)):
@@ -233,7 +240,14 @@ async def post_party_chat(sid: str, body: PartyChatIn,
     image = await _validated_party_chat_image(body, current_user)
     if not content and not image:
         raise HTTPException(400, "Message cannot be empty")
+    from backend.repositories import personas as persona_repo
+    participant = await session_participants.get(sid, current_user["id"])
+    persona = await persona_repo.get(participant["persona_id"]) if participant and participant.get("persona_id") else None
+    user_name = current_user.get("display_name") or current_user["username"]
+    sender_name = f"{user_name} · {persona['name']}" if persona and persona.get("name") else user_name
+    sender_avatar = current_user.get("avatar")
     message = await party_chat.add(sid, current_user["id"], content,
-                                   image=image, attachment_kind="image" if image else None)
+                                   image=image, attachment_kind="image" if image else None,
+                                   sender_name=sender_name, sender_avatar=sender_avatar)
     live_broadcast.broadcast(sid, "party_chat", message)
     return message
