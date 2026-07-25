@@ -240,14 +240,7 @@ async def post_party_chat(sid: str, body: PartyChatIn,
     image = await _validated_party_chat_image(body, current_user)
     if not content and not image:
         raise HTTPException(400, "Message cannot be empty")
-    from backend.repositories import personas as persona_repo
-    participant = await session_participants.get(sid, current_user["id"])
-    persona = await persona_repo.get(participant["persona_id"]) if participant and participant.get("persona_id") else None
-    user_name = current_user.get("display_name") or current_user["username"]
-    sender_name = f"{user_name} · {persona['name']}" if persona and persona.get("name") else user_name
-    sender_avatar = current_user.get("avatar")
     message = await party_chat.add(sid, current_user["id"], content,
-                                   image=image, attachment_kind="image" if image else None,
-                                   sender_name=sender_name, sender_avatar=sender_avatar)
+                                   image=image, attachment_kind="image" if image else None)
     live_broadcast.broadcast(sid, "party_chat", message)
     return message
