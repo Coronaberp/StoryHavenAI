@@ -37,6 +37,8 @@ async def _require_host(session: dict, current_user: dict) -> None:
 async def _ensure_owner_participant(session: dict, current_user: dict) -> None:
     if session.get("user_id") != current_user["id"]:
         return
+    if not await session_invites.has_any_link(session["id"]):
+        return
     if await session_participants.is_participant(session["id"], current_user["id"]):
         return
     await session_participants.add(session["id"], current_user["id"], session.get("persona_id"), "host")
@@ -168,7 +170,7 @@ async def remove_participant(sid: str, user_id: str,
         raise HTTPException(400, "The host cannot remove themselves")
     await session_participants.remove(sid, user_id)
     log.info("multiplayer: user=%s removed from session=%s by=%s", user_id, sid, current_user["id"])
-    live_broadcast.broadcast(sid, "participant_left", {"user_id": user_id})
+    live_broadcast.broadcast(sid, "participant_left", {"user_id": user_id, "kicked": True})
     live_broadcast.disconnect_user(sid, user_id)
     return {"ok": True}
 

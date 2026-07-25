@@ -586,14 +586,17 @@ class ChatView {
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
     this._liveObserver?.disconnect();
+    this._unregisterLeaveOnUnload();
   }
 
-  _announceParticipantChange(kind, userId, beforeList, afterList) {
+  _announceParticipantChange(kind, userId, beforeList, afterList, kicked) {
     const row = beforeList.find((p) => p.user_id === userId) || afterList.find((p) => p.user_id === userId);
     const name = row?.name || t("chat_multiplayer_unknown_participant", "Someone");
     const content = kind === "participant_joined"
       ? t("chat_multiplayer_system_joined", "{name} joined").replace("{name}", name)
-      : t("chat_multiplayer_system_left", "{name} left").replace("{name}", name);
+      : kicked
+        ? t("chat_multiplayer_system_kicked", "{name} was removed").replace("{name}", name)
+        : t("chat_multiplayer_system_left", "{name} left").replace("{name}", name);
     this.partyChatMessages.push({ type: "system", content, created: Date.now() / 1000 });
     if (this.partyChatModalEl) {
       this._renderPartyChatMessages();
@@ -633,12 +636,13 @@ class ChatView {
       this.render();
       this.scrollToBottom();
     } else if (ev.type === "participant_joined" || ev.type === "participant_left" || ev.type === "participant_updated") {
+      if (ev.type === "participant_left" && ev.user_id === ME?.id) return;
       const before = this.multiplayer.participants || [];
       try {
         this.multiplayer.participants = await api(`/api/sessions/${encodeURIComponent(this.sid)}/multiplayer/participants`);
       } catch { return; }
       if (ev.type === "participant_joined" || ev.type === "participant_left") {
-        this._announceParticipantChange(ev.type, ev.user_id, before, this.multiplayer.participants);
+        this._announceParticipantChange(ev.type, ev.user_id, before, this.multiplayer.participants, !!ev.kicked);
       }
       this.render();
     } else if (ev.type === "session_updated") {
@@ -2072,6 +2076,8 @@ class ChatView {
     if (!(await confirmDialog(t("chat_multiplayer_leave_confirm", "Leave this session? You can rejoin later with the same invite link.")))) return;
     try {
       await this._postLeaveMultiplayer();
+      this.multiplayer = null;
+      this._liveAbort?.abort();
       toast(t("chat_multiplayer_left_session", "You left the session."));
       navigate("/chats");
     } catch (err) {

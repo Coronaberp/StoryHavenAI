@@ -30,3 +30,7 @@ async def resolve(token: str) -> dict | None:
     if not row or row["revoked"]:
         return None
     return row
+
+async def has_any_link(session_id: str) -> bool:
+    row = await _q1(select(session_invite_tokens.c.token).where(session_invite_tokens.c.session_id == session_id))
+    return row is not None

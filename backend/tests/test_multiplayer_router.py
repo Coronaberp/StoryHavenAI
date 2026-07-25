@@ -266,3 +266,9 @@ async def test_list_participants_silently_rejoins_absent_owner(db_conn):
     await mp.leave_session(sid, _user("owner-1"))
     participants = await mp.list_participants(sid, _user("owner-1"))
     assert any(p["user_id"] == "owner-1" and p["role"] == "host" for p in participants)
+
+async def test_list_participants_does_not_rejoin_owner_of_never_invited_session(db_conn):
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Solo", "Host", user_id="owner-1")
+    participants = await mp.list_participants(sid, _user("owner-1"))
+    assert participants == []
