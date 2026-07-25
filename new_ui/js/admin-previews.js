@@ -238,6 +238,26 @@ class AdminPreviewsView {
           <label class="block text-xs text-sec mb-1">${t("admin_previews_default_steps")}</label>
           <input type="number" id="pv_default_steps" value="${_attr(meta.default_steps ?? "")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
         </div>
+        <div class="mb-3">
+          <label class="block text-xs text-sec mb-1">${t("admin_previews_default_sampler")}</label>
+          <select id="pv_default_sampler" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm"><option value="">${t("admin_previews_loading")}</option></select>
+        </div>
+        <div class="mb-3">
+          <label class="block text-xs text-sec mb-1">${t("admin_previews_default_scheduler")}</label>
+          <select id="pv_default_scheduler" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm"><option value="">${t("admin_previews_loading")}</option></select>
+        </div>
+        <div class="mb-3">
+          <label class="block text-xs text-sec mb-1">${t("admin_previews_default_cfg")}</label>
+          <input type="number" step="0.1" id="pv_default_cfg" value="${_attr(meta.default_cfg ?? "")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
+        </div>
+        <div class="mb-3">
+          <label class="block text-xs text-sec mb-1">${t("admin_previews_default_positive")}</label>
+          <textarea id="pv_default_positive" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm" style="min-height:52px">${_esc(meta.default_positive || "")}</textarea>
+        </div>
+        <div class="mb-3">
+          <label class="block text-xs text-sec mb-1">${t("admin_previews_default_negative")}</label>
+          <textarea id="pv_default_negative" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm" style="min-height:52px">${_esc(meta.default_negative || "")}</textarea>
+        </div>
         ${isAnima ? `
           <div class="mb-3">
             <label class="block text-xs text-sec mb-1">${t("admin_previews_anima_clip_override")}</label>
@@ -331,6 +351,18 @@ class AdminPreviewsView {
       </div>
       ${this.extraFieldsHtml(kind, name, meta)}
     `);
+
+    if (kind.extraFields === "checkpoint") {
+      const samplerData = await api("/api/imagegen/samplers").catch(() => ({ samplers: [], schedulers: [] }));
+      const samplerSel = document.getElementById("pv_default_sampler");
+      const schedulerSel = document.getElementById("pv_default_scheduler");
+      if (samplerSel) {
+        samplerSel.innerHTML = `<option value="">${t("admin_previews_default_option")}</option>${(samplerData.samplers || []).map((m) => `<option value="${_attr(m)}"${m === meta.default_sampler ? " selected" : ""}>${_esc(m)}</option>`).join("")}`;
+      }
+      if (schedulerSel) {
+        schedulerSel.innerHTML = `<option value="">${t("admin_previews_default_option")}</option>${(samplerData.schedulers || []).map((m) => `<option value="${_attr(m)}"${m === meta.default_scheduler ? " selected" : ""}>${_esc(m)}</option>`).join("")}`;
+      }
+    }
 
     if (kind.extraFields === "checkpoint" && this.animaNames.has(name)) {
       const [clipModels, vaeModels] = await Promise.all([
@@ -439,6 +471,12 @@ class AdminPreviewsView {
         const vaeSel = document.getElementById("pv_anima_vae");
         body.anima_clip_name = clipSel ? (clipSel.value || null) : null;
         body.anima_vae_name = vaeSel ? (vaeSel.value || null) : null;
+        body.default_sampler = document.getElementById("pv_default_sampler").value || null;
+        body.default_scheduler = document.getElementById("pv_default_scheduler").value || null;
+        const cfg = document.getElementById("pv_default_cfg").value.trim();
+        body.default_cfg = cfg ? parseFloat(cfg) : null;
+        body.default_positive = document.getElementById("pv_default_positive").value.trim() || null;
+        body.default_negative = document.getElementById("pv_default_negative").value.trim() || null;
       }
       if (kind.extraFields === "lora") {
         body.model_category = [...document.querySelectorAll("[data-cat]")]

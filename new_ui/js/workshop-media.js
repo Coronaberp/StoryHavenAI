@@ -1430,7 +1430,19 @@ class WorkshopMediaView {
     });
   }
 
-  setCheckpoint(name) { this.checkpoint = name; this.render(); }
+  setCheckpoint(name) {
+    this.checkpoint = name;
+    const preset = this.checkpointPreviews[name];
+    if (preset) {
+      if (preset.default_sampler) this.sampler = preset.default_sampler;
+      if (preset.default_scheduler) this.scheduler = preset.default_scheduler;
+      if (preset.default_steps) this.steps = preset.default_steps;
+      if (preset.default_cfg) this.cfg = preset.default_cfg;
+      if (preset.default_positive) this.positive = preset.default_positive;
+      if (preset.default_negative) this.negative = preset.default_negative;
+    }
+    this.render();
+  }
 
   toggleLora(name) {
     const idx = this.loras.findIndex((l) => l.name === name);
