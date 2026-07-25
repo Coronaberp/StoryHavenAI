@@ -365,12 +365,8 @@ function clientMacro(text, charName, userName) {
     .replace(/\{\{user\}\}|<USER>/gi, userName);
 }
 
-async function voiceOptionsHtml(selected) {
-  let voices = [];
-  try { voices = (await api("/api/tts/voices")).voices || []; } catch {}
-  if (!voices.length) return null;
-  const opts = voices.map((v) => `<option value="${_attr(v)}"${v === selected ? " selected" : ""}>${_esc(v)}</option>`).join("");
-  return `<option value="">${t("tts_voice_default", "Default")}</option>${opts}`;
+async function _fetchTtsVoices() {
+  try { return (await api("/api/tts/voices")).voices || []; } catch { return []; }
 }
 
 class ChatView {
@@ -2655,33 +2651,50 @@ class ChatView {
 
   async openVoiceModal() {
     const overrides = this.session.voice_overrides || {};
-    const charSelected = overrides.character_voice || "";
-    const narrSelected = overrides.narrator_voice || "";
-    const [charOptions, narrOptions] = await Promise.all([
-      voiceOptionsHtml(charSelected),
-      voiceOptionsHtml(narrSelected),
-    ]);
-    const fieldHtml = (id, label, options, selected) => `
+    const state = {
+      character_voice: overrides.character_voice || "",
+      narrator_voice: overrides.narrator_voice || "",
+    };
+    const voices = await _fetchTtsVoices();
+    const fieldHtml = (key, label) => `
       <div style="margin-bottom:14px">
         <label style="font-size:11.5px;color:var(--color-muted);display:block;margin-bottom:4px">${label}</label>
-        ${options
-          ? `<select id="${id}" style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--color-line-2);background:var(--color-surface-2);color:var(--color-ink);font-size:13.5px">${options}</select>`
-          : `<input id="${id}" type="text" maxlength="64" value="${_attr(selected)}" placeholder="${t("tts_voice_default", "Default")}" style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--color-line-2);background:var(--color-surface-2);color:var(--color-ink);font-size:13.5px">`}
+        ${voices.length
+          ? `<button type="button" data-voice-field="${key}" class="settings-row" style="border:1px solid var(--color-line-2);border-radius:9px;padding:9px 11px;cursor:pointer;justify-content:space-between">
+              <span data-voice-field-label="${key}" style="font-size:13.5px;color:var(--color-ink)">${_esc(state[key] || t("tts_voice_default", "Default"))}</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex:none;color:var(--color-muted)"><path d="M6 9l6 6 6-6"/></svg>
+            </button>`
+          : `<input id="voice_${key}_input" type="text" maxlength="64" value="${_attr(state[key])}" placeholder="${t("tts_voice_default", "Default")}" style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--color-line-2);background:var(--color-surface-2);color:var(--color-ink);font-size:13.5px">`}
       </div>`;
     openModal(`
       <h3>${t("tts_voice_heading", "Voice")}</h3>
-      ${fieldHtml("voiceCharSelect", t("tts_character_voice", "Character voice"), charOptions, charSelected)}
-      ${fieldHtml("voiceNarrSelect", t("tts_narrator_voice", "Narrator voice"), narrOptions, narrSelected)}
+      ${fieldHtml("character_voice", t("tts_character_voice", "Character voice"))}
+      ${fieldHtml("narrator_voice", t("tts_narrator_voice", "Narrator voice"))}
       <div style="display:flex;gap:8px">
         <button type="button" id="voiceCancel" class="dropdown-item" style="flex:1">${t("chat_cancel")}</button>
         <button type="button" id="voiceSave" class="dropdown-item" style="flex:1;border-color:var(--color-accent);color:var(--color-accent)">${t("chat_save")}</button>
       </div>
     `);
     const layer = document.querySelector(".modal-layer:last-child");
+    if (voices.length) {
+      layer.querySelectorAll("[data-voice-field]").forEach((btn) => btn.onclick = () => {
+        const key = btn.dataset.voiceField;
+        openPickerSheet({
+          title: t("tts_voice_heading", "Voice"),
+          items: [{ name: "", label: t("tts_voice_default", "Default") },
+            ...voices.map((v) => ({ name: v, label: v }))],
+          selected: state[key],
+          onPick: (name) => {
+            state[key] = name;
+            layer.querySelector(`[data-voice-field-label="${key}"]`).textContent = name || t("tts_voice_default", "Default");
+          },
+        });
+      });
+    }
     layer.querySelector("#voiceCancel").onclick = closeTopModal;
     layer.querySelector("#voiceSave").onclick = async () => {
-      const characterVoice = layer.querySelector("#voiceCharSelect").value.trim() || null;
-      const narratorVoice = layer.querySelector("#voiceNarrSelect").value.trim() || null;
+      const characterVoice = (voices.length ? state.character_voice : layer.querySelector("#voice_character_voice_input").value.trim()) || null;
+      const narratorVoice = (voices.length ? state.narrator_voice : layer.querySelector("#voice_narrator_voice_input").value.trim()) || null;
       try {
         await api(`/api/sessions/${encodeURIComponent(this.sid)}/voices`, {
           method: "PUT",
