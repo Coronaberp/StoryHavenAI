@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import HTTPException, Depends
 
 from backend import db
@@ -23,9 +25,16 @@ def _scrub_api_key(overrides: dict) -> dict:
 
 @api.get("/me/settings")
 async def get_my_settings(current_user: dict = Depends(get_current_user)):
-    overrides = _scrub_api_key(await user_repo.get_user_settings(current_user["id"]))
+    user_settings_row = await user_repo.get_user_settings(current_user["id"])
+    overrides = _scrub_api_key(user_settings_row)
+    if isinstance(user_settings_row.get("own_chat_proxies"), list):
+        overrides["own_chat_proxies"] = _scrub_proxies(user_settings_row["own_chat_proxies"])
     defaults = _scrub_api_key({k: CFG[k] for k in USER_CFG_KEYS if k in CFG})
-    return {"overrides": overrides, "defaults": defaults, "has_override": bool(overrides)}
+    return {
+        "overrides": overrides, "defaults": defaults, "has_override": bool(overrides),
+        "global_chat_proxies": _scrub_proxies(CFG.get("chat_proxies", [])),
+        "global_embed_proxies": _scrub_proxies(CFG.get("embed_proxies", [])),
+    }
 
 @api.put("/me/settings")
 async def put_my_settings(body: UserSettingsIn,
@@ -56,10 +65,35 @@ async def put_my_settings(body: UserSettingsIn,
         issue = await _resolve_host_ip_issue(url, current_user.get("is_admin", False))
         if issue:
             raise HTTPException(400, f"That TTS endpoint couldn't be verified ({issue}). It has not been saved.")
+    if "own_chat_proxies" in data and data["own_chat_proxies"] is not None:
+        existing = await user_repo.get_user_settings(current_user["id"])
+        existing_by_id = {p.get("id"): p.get("api_key", "") for p in existing.get("own_chat_proxies", [])}
+        data["own_chat_proxies"] = [
+            {**p, "api_key": p.get("api_key") or existing_by_id.get(p.get("id"), "")}
+            for p in data["own_chat_proxies"]
+        ]
+        active = next((p for p in data["own_chat_proxies"] if p.get("active")), None)
+        if active:
+            ok, reason, detail = await _validate_chat_endpoint(active["base_url"], active["api_key"],
+                                                                current_user.get("is_admin", False))
+            if not ok:
+                await flagged_endpoint_repo.create(current_user["id"], active["base_url"], active["api_key"] or "",
+                                                   reason, detail)
+                raise HTTPException(400, f"That endpoint couldn't be verified ({reason}) and has not been saved.")
+            data["base_url"] = active["base_url"]
+            data["api_key"] = active["api_key"]
+            data["chat_model"] = active.get("model") or ""
+        else:
+            data["base_url"] = None
+            data["api_key"] = None
+            data["chat_model"] = None
     if data:
         await user_repo.set_user_settings(current_user["id"], data)
         log.info("settings: per-user endpoint override changed by=%s", current_user["username"])
-    overrides = _scrub_api_key(await user_repo.get_user_settings(current_user["id"]))
+    saved = await user_repo.get_user_settings(current_user["id"])
+    overrides = _scrub_api_key(saved)
+    if isinstance(saved.get("own_chat_proxies"), list):
+        overrides["own_chat_proxies"] = _scrub_proxies(saved["own_chat_proxies"])
     return {"overrides": overrides, "has_override": bool(overrides)}
 
 @api.delete("/me/settings")
@@ -95,10 +129,41 @@ async def config(_: dict = Depends(get_current_user)):
 def _scrub_model_request_hosts(hosts: list) -> list[dict]:
     return [{"host": h.get("host"), "has_api_key": bool(h.get("api_key"))} for h in hosts]
 
+def _scrub_proxies(proxies: list) -> list[dict]:
+    return [{"id": p.get("id"), "name": p.get("name"), "base_url": p.get("base_url"),
+              "model": p.get("model"), "active": bool(p.get("active")),
+              "icon_type": p.get("icon_type") or "favicon", "icon_value": p.get("icon_value") or "",
+              "has_api_key": bool(p.get("api_key"))} for p in proxies]
+
+async def _migrate_legacy_proxy(proxy_key: str, base_field: str, key_field: str, model_field: str):
+    if CFG.get(proxy_key):
+        return
+    base_url = CFG.get(base_field)
+    if not base_url:
+        return
+    profile = {
+        "id": str(uuid.uuid4()),
+        "name": "Default",
+        "base_url": base_url,
+        "api_key": CFG.get(key_field) or "",
+        "model": CFG.get(model_field) or "",
+        "active": True,
+        "icon_type": "favicon",
+        "icon_value": "",
+    }
+    CFG[proxy_key] = [profile]
+    await global_settings_repo.set_settings({proxy_key: [profile]})
+    log.info("settings: migrated legacy %s into a default proxy profile", base_field)
+
 @api.get("/settings")
-async def get_settings(_: dict = Depends(get_current_user)):
+async def get_settings(current_user: dict = Depends(get_current_user)):
+    if current_user.get("is_admin"):
+        await _migrate_legacy_proxy("chat_proxies", "base_url", "api_key", "chat_model")
+        await _migrate_legacy_proxy("embed_proxies", "embed_base_url", "embed_api_key", "embed_model")
     out = {k: CFG[k] for k in PUBLIC_CFG_KEYS if k in CFG}
     out["model_request_hosts"] = _scrub_model_request_hosts(out.get("model_request_hosts", []))
+    out["chat_proxies"] = _scrub_proxies(out.get("chat_proxies", []))
+    out["embed_proxies"] = _scrub_proxies(out.get("embed_proxies", []))
     out["has_api_key"] = bool(CFG.get("api_key"))
     out["has_embed_api_key"] = bool(CFG.get("embed_api_key"))
     out["has_modal_shared_secret"] = bool(CFG.get("modal_shared_secret"))
@@ -125,6 +190,22 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
             {"host": h["host"], "api_key": h.get("api_key") or existing_by_host.get(h["host"], "")}
             for h in data["model_request_hosts"]
         ]
+    for proxy_key, base_field, key_field, model_field in (
+        ("chat_proxies", "base_url", "api_key", "chat_model"),
+        ("embed_proxies", "embed_base_url", "embed_api_key", "embed_model"),
+    ):
+        if proxy_key not in data:
+            continue
+        existing_by_id = {p.get("id"): p.get("api_key", "") for p in CFG.get(proxy_key, [])}
+        data[proxy_key] = [
+            {**p, "api_key": p.get("api_key") or existing_by_id.get(p.get("id"), "")}
+            for p in data[proxy_key]
+        ]
+        active = next((p for p in data[proxy_key] if p.get("active")), None)
+        if active:
+            data[base_field] = active["base_url"]
+            data[key_field] = active["api_key"]
+            data[model_field] = active.get("model") or ""
     for k, v in data.items():
         if isinstance(v, str) and k in _str_keys:
             v = v.strip()

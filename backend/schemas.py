@@ -126,6 +126,17 @@ class ModelRequestHostIn(BaseModel):
     host: str
     api_key: str = ""
 
+class ProxyProfileIn(BaseModel):
+    id: str
+    name: str
+    base_url: str
+    api_key: str = ""
+    model: str = ""
+    active: bool = False
+    icon_type: Literal["favicon", "image", "emoji", "svg"] = "favicon"
+    icon_value: str = ""
+    priority: int = 0
+
 class OauthProviderConfigIn(BaseModel):
     client_id: str = ""
     client_secret: str | None = None
@@ -184,6 +195,8 @@ class SettingsIn(BaseModel):
     image_provider_key: str | None = None
     image_provider_model: str | None = None
     model_request_hosts: list[ModelRequestHostIn] | None = None
+    chat_proxies: list[ProxyProfileIn] | None = None
+    embed_proxies: list[ProxyProfileIn] | None = None
     embed_link_hosts: list[str] | None = None
     modal_train_url: str | None = None
     modal_shared_secret: str | None = None
@@ -236,6 +249,7 @@ class UserSettingsIn(BaseModel):
     system_suffix: str | None = None
     post_history: str | None = None
     interface_language: str | None = None
+    own_chat_proxies: list[ProxyProfileIn] | None = None
 
 class StyleIn(BaseModel):
     key: str = "unspecified"
@@ -576,3 +590,8 @@ class GroupEditIn(BaseModel):
 
 class MuteIn(BaseModel):
     muted: bool = True
+
+class SiteBannerIn(BaseModel):
+    message: str
+    banner_type: Literal["maintenance", "info", "warning"] = "maintenance"
+    ends_at: float | None = None

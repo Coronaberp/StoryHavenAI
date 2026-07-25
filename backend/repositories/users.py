@@ -313,6 +313,11 @@ async def get_user_settings(user_id: str) -> dict:
         out["api_key"] = _decrypt_secret(out["api_key"])
     if out.get("tts_api_key"):
         out["tts_api_key"] = _decrypt_secret(out["tts_api_key"])
+    if isinstance(out.get("own_chat_proxies"), list):
+        out["own_chat_proxies"] = [
+            {**p, "api_key": _decrypt_secret(p.get("api_key") or "")} if isinstance(p, dict) else p
+            for p in out["own_chat_proxies"]
+        ]
     return out
 
 async def set_user_settings(user_id: str, items: dict):
@@ -324,6 +329,9 @@ async def set_user_settings(user_id: str, items: dict):
                 continue
             if k in ("api_key", "tts_api_key") and isinstance(v, str) and v:
                 v = _encrypt_secret(v)
+            if k == "own_chat_proxies" and isinstance(v, list):
+                v = [{**p, "api_key": _encrypt_secret(p.get("api_key") or "")} if isinstance(p, dict) else p
+                     for p in v]
             stmt = pg_insert(user_settings).values(
                 user_id=user_id, key=k, value=json.dumps(v))
             stmt = stmt.on_conflict_do_update(

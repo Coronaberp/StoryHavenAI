@@ -15,15 +15,23 @@ const SAMPLING_FIELDS = [
 class ModelSettingsView {
   async mount(main) {
     this.main = main;
+    this._proxyCardsGlobalName = "modelView";
+    this.proxyCardsExpanded = new Set();
+    this.proxyCardsEmojiGridOpen = null;
     main.innerHTML = `<div class="text-sm text-muted">${_esc(t("common_loading"))}</div>`;
     try {
       this.settings = await api("/api/me/settings");
     } catch (e) {
-      this.settings = { overrides: {}, defaults: {} };
+      this.settings = { overrides: {}, defaults: {}, global_chat_proxies: [], global_embed_proxies: [] };
       errorToast(t("model_settings_couldnt_load_your_settings"));
     }
+    this.proxyCardsState = { chat: (this.settings.overrides?.own_chat_proxies || []).map((p) => ({ ...p, api_key: "" })) };
     this.saving = false;
     this.render();
+  }
+
+  onProxyCardsChanged(immediate) {
+    if (immediate) this.save();
   }
 
   fieldValue(id) {
@@ -34,7 +42,6 @@ class ModelSettingsView {
   render() {
     const o = this.settings.overrides || {};
     const d = this.settings.defaults || {};
-    const useOwn = !!o.base_url;
     this.hadThinkingOverride = o.enable_thinking !== undefined;
     this.initialThinking = !!(this.hadThinkingOverride ? o.enable_thinking : d.enable_thinking);
     this.hadSceneOverride = o.scene_style !== undefined;
@@ -62,26 +69,17 @@ class ModelSettingsView {
       ${backLinkHtml(t("settings_row_settings"))}
       ${pageHeaderHtml("My Dossier", "Settings", t("ph_model_memory_title"), t("ph_model_memory_sub"))}
 
-      ${sEyebrowHtml(t("model_settings_llm_endpoint"))}
-      <label class="flex items-center gap-2.5 mb-3 text-sm text-ink">
-        <input type="checkbox" id="model_use_own" ${useOwn ? "checked" : ""} onchange="document.getElementById('model_own_fields').style.display = this.checked ? 'block' : 'none'">
-        ${t("model_settings_use_my_own_endpoint")}
-      </label>
-      <div id="model_own_fields" style="display:${useOwn ? "block" : "none"}" class="rounded-lg border border-line bg-surface p-3 mb-4">
-        <label class="block text-xs text-sec mb-1">${t("model_settings_base_url")}</label>
-        <input type="text" id="model_base_url" value="${_attr(o.base_url || "")}" placeholder="${_attr(d.base_url || "http://koboldcpp:5001/v1")}"
-          class="w-full mb-3 px-2.5 py-2 rounded-md border border-line bg-paper text-ink text-sm">
-        <label class="block text-xs text-sec mb-1">${t("model_settings_api_key")} <span class="text-muted">${t("model_settings_optional")}</span></label>
-        <input type="password" id="model_api_key" placeholder="${o.has_api_key ? t("model_settings_keep_current_key") : t("model_settings_none_set")}"
-          class="w-full mb-3 px-2.5 py-2 rounded-md border border-line bg-paper text-ink text-sm">
-        <label class="block text-xs text-sec mb-1">${t("model_settings_chat_model")}</label>
-        <div class="flex gap-2">
-          <input type="text" id="model_chat_model" value="${_attr(o.chat_model || "")}" placeholder="${_attr(d.chat_model || "")}"
-            class="flex-1 px-2.5 py-2 rounded-md border border-line bg-paper text-ink text-sm">
-          <button type="button" onclick="modelView.fetchModels()" class="px-3 py-2 rounded-md border border-line bg-surface-2 text-xs text-ink">${t("model_settings_fetch")}</button>
-        </div>
-        <div id="model_model_list" class="flex flex-wrap gap-1.5 mt-2"></div>
+      ${sEyebrowHtml(t("model_settings_global_endpoints", "Server endpoints"))}
+      <p class="text-xs text-muted mb-2">${t("model_settings_global_endpoints_hint", "Set by an admin. Shown for reference — you can't select these directly, add your own profile below to use a different endpoint.")}</p>
+      <div class="mb-2">${readOnlyProxyListHtml(this.settings.global_chat_proxies, t("model_settings_no_global_chat_proxies", "No chat endpoint configured yet."))}</div>
+      <div class="mb-4">${readOnlyProxyListHtml(this.settings.global_embed_proxies, t("model_settings_no_global_embed_proxies", "No embedding endpoint configured yet."))}</div>
+
+      ${sEyebrowHtml(t("model_settings_my_endpoints", "My chat endpoint"))}
+      <p class="text-xs text-muted mb-2">${t("model_settings_my_endpoints_hint", "Save your own backend profiles and switch which one is active. When one is active, it replaces the server endpoint above for your chats.")}</p>
+      <div class="flex justify-end mb-1.5">
+        <button type="button" onclick="modelView.addProxyRow('chat')" class="text-xs" style="color:var(--color-accent)">${t("model_settings_add_endpoint", "+ Add profile")}</button>
       </div>
+      <div class="mb-4">${this.proxyListHtml("chat", t("model_settings_no_own_proxies", "No profiles yet — the server endpoint above is used."))}</div>
 
       ${sEyebrowHtml(t("model_settings_memory"))}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
@@ -138,22 +136,6 @@ class ModelSettingsView {
     `;
   }
 
-  async fetchModels() {
-    const base = document.getElementById("model_base_url")?.value.trim() || this.settings.defaults?.base_url || "";
-    const key = document.getElementById("model_api_key")?.value.trim() || "";
-    const params = new URLSearchParams();
-    if (base) params.set("base_url", base);
-    if (key) params.set("api_key", key);
-    try {
-      const { models } = await api("/api/models" + (params.toString() ? "?" + params : ""));
-      const list = document.getElementById("model_model_list");
-      if (!models?.length) { toast(t("model_settings_no_models_returned")); return; }
-      list.innerHTML = models.map((m) => `<button type="button" class="px-2 py-1 rounded-md border border-line bg-surface-2 text-xs" data-model-name="${_attr(m)}" onclick="document.getElementById('model_chat_model').value=this.dataset.modelName">${_esc(m)}</button>`).join("");
-    } catch (e) {
-      errorToast(t("model_settings_fetch_failed_prefix") + e.message);
-    }
-  }
-
   numOrNull(id) {
     const v = parseFloat(document.getElementById(id)?.value ?? "");
     if (isNaN(v)) return null;
@@ -199,21 +181,17 @@ class ModelSettingsView {
       post_history: document.getElementById("model_posthist")?.value.trim() || null,
     };
     body.stop = body.stop.length ? body.stop : null;
-    if (document.getElementById("model_use_own")?.checked) {
-      body.base_url = document.getElementById("model_base_url")?.value.trim() || null;
-      body.chat_model = document.getElementById("model_chat_model")?.value.trim() || null;
-      const key = document.getElementById("model_api_key")?.value;
-      if (key) body.api_key = key;
-    } else {
-      body.base_url = null;
-      body.chat_model = null;
-      body.api_key = null;
-    }
+    this.syncProxiesFromDom("chat");
+    body.own_chat_proxies = this.proxyCardsState.chat.map((p) => ({
+      id: p.id, name: p.name || "", base_url: p.base_url || "", api_key: p.api_key || "",
+      model: p.model || "", active: !!p.active, icon_type: p.icon_type || "favicon", icon_value: p.icon_value || "",
+    }));
     this.saving = true;
     this.render();
     try {
       await api("/api/me/settings", { method: "PUT", body: JSON.stringify(body) });
       this.settings = await api("/api/me/settings");
+      this.proxyCardsState = { chat: (this.settings.overrides?.own_chat_proxies || []).map((p) => ({ ...p, api_key: "" })) };
       toast(t("model_settings_settings_saved"));
     } catch (e) {
       errorToast(t("model_settings_save_failed_prefix") + e.message);
@@ -245,10 +223,12 @@ class ModelSettingsView {
       base_url: null,
       chat_model: null,
       api_key: null,
+      own_chat_proxies: null,
     };
     try {
       await api("/api/me/settings", { method: "PUT", body: JSON.stringify(body) });
       this.settings = await api("/api/me/settings");
+      this.proxyCardsState = { chat: [] };
       toast(t("model_settings_reset_to_defaults"));
     } catch (e) {
       errorToast(t("model_settings_reset_failed_prefix") + e.message);
@@ -256,6 +236,8 @@ class ModelSettingsView {
     this.render();
   }
 }
+
+Object.assign(ModelSettingsView.prototype, ProxyCardsMixin);
 
 if (typeof window !== "undefined") {
   window.ModelSettingsView = ModelSettingsView;
