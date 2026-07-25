@@ -162,6 +162,84 @@ Object.assign(AdminTrainView.prototype, {
     };
   },
 
+  imageRowHtml(file, index) {
+    if (!this._imageUrls) this._imageUrls = new Map();
+    if (!this._imageUrls.has(file)) this._imageUrls.set(file, URL.createObjectURL(file));
+    const url = this._imageUrls.get(file);
+    return `
+      <div class="lora-img-row">
+        <img src="${_attr(url)}" alt="">
+        <div class="lora-img-row-cap">
+          <div class="lora-img-row-idx">${String(index + 1).padStart(2, "0")} / ${this.trainImages.length}</div>
+          <input type="text" data-caption-index="${index}" value="${_attr(this.trainCaptions[index] || "")}" placeholder="${t("admin_train_caption_tags_placeholder")}" class="lora-input">
+        </div>
+        <button type="button" data-remove-image="${index}" class="lora-img-row-remove" aria-label="${t("admin_train_remove_image")}">&times;</button>
+      </div>
+    `;
+  },
+
+  datasetStepHtml() {
+    return `
+      <div class="lora-upload-row">
+        <label class="lora-upload-pill">
+          ${t("admin_train_add_images")}
+          <input type="file" id="lt_images_input" accept="image/png,image/jpeg,image/webp" multiple class="hidden">
+        </label>
+        <label class="lora-upload-pill">
+          ${t("admin_train_import_captions")}
+          <input type="file" id="lt_captions_input" accept=".txt" multiple class="hidden">
+        </label>
+      </div>
+      <div id="lt_images_list">
+        ${this.trainImages.map((f, i) => this.imageRowHtml(f, i)).join("")}
+      </div>
+      <div class="lora-field-hint" style="margin-top:8px">${t("admin_train_images_help_text")}</div>
+      ${this.wizardFooterHtml({ showBack: true, continueLabel: t("admin_train_wizard_continue", "Continue") })}
+    `;
+  },
+
+  wireDatasetStep() {
+    const imagesInput = document.getElementById("lt_images_input");
+    if (imagesInput) imagesInput.onchange = () => {
+      const newFiles = [...imagesInput.files];
+      this.trainImages.push(...newFiles);
+      newFiles.forEach(() => this.trainCaptions.push(""));
+      this.render();
+    };
+    const captionsInput = document.getElementById("lt_captions_input");
+    if (captionsInput) captionsInput.onchange = async () => {
+      const txtFiles = [...captionsInput.files];
+      if (!txtFiles.length) return;
+      const stem = (n) => n.replace(/\.[^.]+$/, "");
+      const byStem = new Map(txtFiles.map((f) => [stem(f.name), f]));
+      let matched = 0;
+      for (let i = 0; i < this.trainImages.length; i++) {
+        const match = byStem.get(stem(this.trainImages[i].name));
+        if (!match) continue;
+        this.trainCaptions[i] = (await match.text()).trim();
+        matched++;
+      }
+      captionsInput.value = "";
+      this.render();
+      toast(matched ? `${t("admin_train_imported_captions_prefix")} ${matched} ${t("admin_train_imported_captions_suffix")}` : t("admin_train_no_txt_filenames_matched"));
+    };
+    document.querySelectorAll("[data-caption-index]").forEach((inp) => inp.oninput = (e) => {
+      this.trainCaptions[parseInt(inp.dataset.captionIndex, 10)] = e.target.value;
+    });
+    document.querySelectorAll("[data-remove-image]").forEach((b) => b.onclick = () => {
+      const i = parseInt(b.dataset.removeImage, 10);
+      this.trainImages.splice(i, 1);
+      this.trainCaptions.splice(i, 1);
+      this.render();
+    });
+    const continueBtn = document.getElementById("lt_wizard_continue");
+    if (continueBtn) continueBtn.onclick = () => {
+      if (!this.trainImages.length) { errorToast(t("admin_train_error_images_required")); return; }
+      if (this.trainImages.length < 5) { errorToast(t("admin_train_error_min_5_images")); return; }
+      this.wizardGoToStep("tuning");
+    };
+  },
+
   checkpointThumbHtml(name, size) {
     const p = this.checkpointPreviews[name];
     const img = p?.image;
