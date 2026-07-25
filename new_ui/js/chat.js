@@ -369,6 +369,46 @@ async function _fetchTtsVoices() {
   try { return (await api("/api/tts/voices")).voices || []; } catch { return []; }
 }
 
+function _formatVoiceName(voiceId) {
+  const sep = voiceId.indexOf("_");
+  if (sep === -1) return { name: voiceId, lang: "" };
+  const lang = voiceId.slice(0, sep).toUpperCase();
+  let rest = voiceId.slice(sep + 1);
+  let prefix = "";
+  if (rest.startsWith("v0")) {
+    prefix = "V0 ";
+    rest = rest.slice(2);
+  }
+  const name = prefix + (rest.charAt(0).toUpperCase() + rest.slice(1));
+  return { name, lang };
+}
+
+function _voiceCardHtml(voiceId, selected, isDefault) {
+  const { name, lang } = isDefault ? { name: t("tts_voice_default", "Default"), lang: "" } : _formatVoiceName(voiceId);
+  return `
+    <div class="sanctum-feed-row" data-voice-option="${_attr(voiceId)}" style="cursor:pointer;${voiceId === selected ? "outline:1.5px solid var(--color-accent);border-radius:12px" : ""}">
+      <div class="sanctum-feed-body">
+        <span class="sanctum-feed-title">${_esc(name)}${voiceId === selected ? " ✓" : ""}</span>
+        ${lang ? `<span class="sanctum-feed-meta">${_esc(lang)}</span>` : ""}
+      </div>
+    </div>
+  `;
+}
+
+function openVoicePickerModal(voices, selected, onPick) {
+  const layer = openModal(`
+    <h3>${t("tts_voice_heading", "Voice")}</h3>
+    <div class="sanctum-feed">
+      ${_voiceCardHtml("", selected, true)}
+      ${voices.map((v) => _voiceCardHtml(v, selected, false)).join("")}
+    </div>
+  `, { wide: true });
+  layer.querySelectorAll("[data-voice-option]").forEach((row) => row.onclick = () => {
+    closeModal(layer);
+    onPick(row.dataset.voiceOption);
+  });
+}
+
 class ChatView {
   constructor(sid, draftCharId) {
     this.sid = sid;
@@ -2656,12 +2696,13 @@ class ChatView {
       narrator_voice: overrides.narrator_voice || "",
     };
     const voices = await _fetchTtsVoices();
+    const fieldLabel = (key) => state[key] ? _formatVoiceName(state[key]).name : t("tts_voice_default", "Default");
     const fieldHtml = (key, label) => `
       <div style="margin-bottom:14px">
         <label style="font-size:11.5px;color:var(--color-muted);display:block;margin-bottom:4px">${label}</label>
         ${voices.length
           ? `<button type="button" data-voice-field="${key}" class="settings-row" style="border:1px solid var(--color-line-2);border-radius:9px;padding:9px 11px;cursor:pointer;justify-content:space-between">
-              <span data-voice-field-label="${key}" style="font-size:13.5px;color:var(--color-ink)">${_esc(state[key] || t("tts_voice_default", "Default"))}</span>
+              <span data-voice-field-label="${key}" style="font-size:13.5px;color:var(--color-ink)">${_esc(fieldLabel(key))}</span>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex:none;color:var(--color-muted)"><path d="M6 9l6 6 6-6"/></svg>
             </button>`
           : `<input id="voice_${key}_input" type="text" maxlength="64" value="${_attr(state[key])}" placeholder="${t("tts_voice_default", "Default")}" style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--color-line-2);background:var(--color-surface-2);color:var(--color-ink);font-size:13.5px">`}
@@ -2679,15 +2720,9 @@ class ChatView {
     if (voices.length) {
       layer.querySelectorAll("[data-voice-field]").forEach((btn) => btn.onclick = () => {
         const key = btn.dataset.voiceField;
-        openPickerSheet({
-          title: t("tts_voice_heading", "Voice"),
-          items: [{ name: "", label: t("tts_voice_default", "Default") },
-            ...voices.map((v) => ({ name: v, label: v }))],
-          selected: state[key],
-          onPick: (name) => {
-            state[key] = name;
-            layer.querySelector(`[data-voice-field-label="${key}"]`).textContent = name || t("tts_voice_default", "Default");
-          },
+        openVoicePickerModal(voices, state[key], (voiceId) => {
+          state[key] = voiceId;
+          layer.querySelector(`[data-voice-field-label="${key}"]`).textContent = fieldLabel(key);
         });
       });
     }
