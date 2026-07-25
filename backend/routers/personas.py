@@ -11,6 +11,7 @@ from backend.ai_helpers import expand_persona_description
 from backend.ratelimit import SlidingWindow
 from backend.feature_flags import require_feature_enabled
 from backend.routers.characters import _decode_lore_image
+from backend.repositories import session_participants, chat_sessions
 
 _EXPAND_LIMIT = SlidingWindow(
     10, 60, "Too many generations — please wait a moment and try again")
@@ -103,4 +104,26 @@ async def delete_persona(pid: str, current_user: dict = Depends(get_current_user
     await personas.delete(pid)
     log.info("persona: deleted id=%s by=%s", pid, current_user["username"])
     return {"deleted": True}
+
+@api.post("/personas/{pid}/export")
+async def export_session_persona(pid: str, current_user: dict = Depends(get_current_user)):
+    p = await personas.get(pid)
+    if not p:
+        raise HTTPException(404, "persona not found")
+    if not p.get("session_id"):
+        raise HTTPException(400, "This persona isn't tied to a session")
+    participant_rows = await session_participants.list_for_session(p["session_id"])
+    holds_claim = any(r["user_id"] == current_user["id"] and r["persona_id"] == pid for r in participant_rows)
+    if not holds_claim:
+        raise HTTPException(403, "You aren't currently playing as this persona")
+    session = await chat_sessions.get(p["session_id"])
+    new_persona = await personas.create({
+        "name": p["name"],
+        "description": p["description"],
+        "gender": p["gender"],
+        "avatar": p["avatar"],
+        "linked_char_id": session["char_id"] if session else None,
+    }, current_user["id"])
+    log.info("persona: exported session persona source=%s new=%s by=%s", pid, new_persona["id"], current_user["username"])
+    return new_persona
 

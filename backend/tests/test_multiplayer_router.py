@@ -344,3 +344,40 @@ async def test_set_session_persona_still_rejects_someone_elses_permanent_persona
     with pytest.raises(HTTPException) as exc_info:
         await sessions_router.set_session_persona(sid, PersonaSwitchIn(persona_id=their_permanent["id"]), _user("friend-1"))
     assert exc_info.value.status_code == 404
+
+async def test_export_session_persona_creates_linked_permanent_copy(db_conn):
+    from backend.routers import personas as personas_router
+    from backend.repositories import personas as persona_repo
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    shared = await persona_repo.create({"name": "Shared", "description": "A wanderer", "session_id": sid}, "owner-1")
+    await sp.add(sid, "friend-1", shared["id"], "member")
+    result = await personas_router.export_session_persona(shared["id"], _user("friend-1"))
+    assert result["owner_id"] == "friend-1"
+    assert result["session_id"] is None
+    assert result["linked_char_id"] == char_id
+    assert result["name"] == "Shared"
+    assert result["description"] == "A wanderer"
+    original = await persona_repo.get(shared["id"])
+    assert original["session_id"] == sid
+    assert original["owner_id"] == "owner-1"
+
+async def test_export_session_persona_rejects_non_claimant(db_conn):
+    from backend.routers import personas as personas_router
+    from backend.repositories import personas as persona_repo
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    shared = await persona_repo.create({"name": "Shared", "session_id": sid}, "owner-1")
+    await sp.add(sid, "friend-1", shared["id"], "member")
+    await sp.add(sid, "friend-2", None, "member")
+    with pytest.raises(HTTPException) as exc_info:
+        await personas_router.export_session_persona(shared["id"], _user("friend-2"))
+    assert exc_info.value.status_code == 403
+
+async def test_export_session_persona_rejects_non_session_scoped(db_conn):
+    from backend.routers import personas as personas_router
+    from backend.repositories import personas as persona_repo
+    permanent = await persona_repo.create({"name": "Permanent"}, "owner-1")
+    with pytest.raises(HTTPException) as exc_info:
+        await personas_router.export_session_persona(permanent["id"], _user("owner-1"))
+    assert exc_info.value.status_code == 400
