@@ -588,6 +588,21 @@ class ChatView {
     this._liveObserver?.disconnect();
   }
 
+  _announceParticipantChange(kind, userId, beforeList, afterList) {
+    const row = beforeList.find((p) => p.user_id === userId) || afterList.find((p) => p.user_id === userId);
+    const name = row?.name || t("chat_multiplayer_unknown_participant", "Someone");
+    const content = kind === "participant_joined"
+      ? t("chat_multiplayer_system_joined", "{name} joined").replace("{name}", name)
+      : t("chat_multiplayer_system_left", "{name} left").replace("{name}", name);
+    this.partyChatMessages.push({ type: "system", content, created: Date.now() / 1000 });
+    if (this.partyChatModalEl) {
+      this._renderPartyChatMessages();
+    } else if (userId !== ME?.id) {
+      this.partyChatUnread = (this.partyChatUnread || 0) + 1;
+    }
+    if (userId !== ME?.id) toast(content);
+  }
+
   async _handleMultiplayerEvent(ev) {
     if (window._activeChatView !== this) return;
     if (ev.type === "generating") {
@@ -618,9 +633,13 @@ class ChatView {
       this.render();
       this.scrollToBottom();
     } else if (ev.type === "participant_joined" || ev.type === "participant_left" || ev.type === "participant_updated") {
+      const before = this.multiplayer.participants || [];
       try {
         this.multiplayer.participants = await api(`/api/sessions/${encodeURIComponent(this.sid)}/multiplayer/participants`);
       } catch { return; }
+      if (ev.type === "participant_joined" || ev.type === "participant_left") {
+        this._announceParticipantChange(ev.type, ev.user_id, before, this.multiplayer.participants);
+      }
       this.render();
     } else if (ev.type === "session_updated") {
       try { this.session = await api(`/api/sessions/${encodeURIComponent(this.sid)}`); } catch { return; }
@@ -1232,6 +1251,9 @@ class ChatView {
     const list = this.partyChatModalEl?.querySelector("#mpPartyChatList");
     if (!list) return;
     list.innerHTML = this.partyChatMessages.map((m) => {
+      if (m.type === "system") {
+        return `<div style="text-align:center;font-size:11.5px;color:var(--color-muted);padding:4px 0">${_esc(m.content)}</div>`;
+      }
       const isMe = m.sender_user_id === ME?.id;
       const participant = this.multiplayer?.participants?.find((p) => p.user_id === m.sender_user_id);
       const name = isMe ? this._myPersonaName() : (participant?.name || t("chat_multiplayer_unknown_participant", "Someone"));
