@@ -12,6 +12,15 @@ select:focus-visible {
   outline: none;
 }
 
+:root[data-theme="dark"] select { color-scheme: dark; }
+:root[data-theme="light"] select { color-scheme: light; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) select { color-scheme: dark; }
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) select { color-scheme: light; }
+}
+
 [dir="rtl"] .icon-flip-rtl {
   transform: scaleX(-1);
 }
@@ -3224,3 +3233,50 @@ body { background-color: var(--color-paper) !important; }
 }
 
 .admin-spark { width: 60px; height: 18px; }
+
+.lora-jobs-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding-bottom: 90px;
+}
+@media (min-width: 768px) {
+  .lora-jobs-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1280px) {
+  .lora-jobs-grid { grid-template-columns: repeat(3, 1fr); }
+}
+.lora-job-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  padding: 13px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  cursor: pointer;
+}
+.lora-job-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.lora-job-name { font-weight: 600; font-size: 14.5px; color: var(--color-ink); }
+.lora-job-sub { font-size: 11.5px; color: var(--color-muted); margin-top: 2px; }
+.lora-job-pill {
+  font-size: 10.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 100px; white-space: nowrap; flex-shrink: 0;
+}
+.lora-pill-running { background: color-mix(in srgb, var(--color-accent) 22%, transparent); color: var(--color-accent); }
+.lora-pill-done { background: color-mix(in srgb, var(--color-ok, #7FB088) 20%, transparent); color: var(--color-ok, #7FB088); }
+.lora-pill-error { background: color-mix(in srgb, var(--color-warn) 22%, transparent); color: var(--color-warn); }
+.lora-pill-queued { background: var(--color-surface-2); color: var(--color-muted); }
+.lora-bar-track { height: 5px; border-radius: 100px; background: var(--color-surface-2); overflow: hidden; }
+.lora-bar-fill { height: 100%; border-radius: 100px; background: linear-gradient(90deg, var(--color-accent-deep, var(--color-accent)), var(--color-accent)); }
+.lora-job-meta-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--color-muted); font-variant-numeric: tabular-nums; }
+.lora-fab {
+  position: fixed; right: 20px; bottom: 24px;
+  width: 54px; height: 54px; border-radius: 17px;
+  background: linear-gradient(150deg, var(--color-accent), var(--color-accent-deep, var(--color-accent)));
+  color: var(--color-paper); display: grid; place-items: center;
+  font-size: 26px; line-height: 1; border: none; cursor: pointer;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--color-accent) 35%, transparent);
+  z-index: 5;
+}

@@ -1,12 +1,5 @@
 "use strict";
 
-const ADMIN_TRAIN_TABS = [
-  { key: "train", label: () => t("admin_train_tab_train") },
-  { key: "progress", label: () => t("admin_train_tab_progress") },
-  { key: "test", label: () => t("admin_train_tab_test") },
-  { key: "jobs", label: () => t("admin_train_tab_jobs") },
-];
-
 class AdminTrainView {
   async mount(main) {
     if (AdminTrainView._activeWatcher) {
@@ -14,7 +7,7 @@ class AdminTrainView {
       AdminTrainView._activeWatcher = null;
     }
     this.main = main;
-    this.tab = "train";
+    this.screen = "jobs";
     this.checkpoints = [];
     this.checkpointPreviews = {};
     this.animaNames = new Set();
@@ -82,46 +75,30 @@ class AdminTrainView {
     if (active) this.watchJob(active.id);
   }
 
-  switchTab(tab) {
-    this.tab = tab;
-    this.render();
-  }
-
-  tabBarHtml() {
-    return `
-      <div class="flex gap-2 mb-4 overflow-x-auto">
-        ${ADMIN_TRAIN_TABS.map((t) => `
-          <button type="button" onclick="adminTrainView.switchTab('${t.key}')"
-            class="px-3 py-1.5 rounded-md text-sm font-semibold whitespace-nowrap ${this.tab === t.key ? "text-paper bg-gradient-to-br from-primary to-primary-dark" : "text-ink border border-line"}">
-            ${_esc(t.label())}
-          </button>
-        `).join("")}
-      </div>
-    `;
-  }
-
   render() {
     this.main.innerHTML = `
       <div class="content-col">
       ${backLinkHtml("Admin")}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_train_title"), t("ph_admin_train_sub"))}
       ${adminScreenSwitcherHtml("admin-train", window._adminSwitcherBadges || {})}
-      ${this.tabBarHtml()}
-      ${this.tab === "train" ? this.trainTabHtml() : ""}
-      ${this.tab === "progress" ? this.progressTabHtml() : ""}
-      ${this.tab === "test" ? this.testTabHtml() : ""}
-      ${this.tab === "jobs" ? this.jobsTabHtml() : ""}
+      ${this.screen === "jobs" ? this.jobsScreenHtml() : ""}
+      ${this.screen === "wizard" ? this.wizardScreenHtml() : ""}
+      ${this.screen === "detail" ? this.detailScreenHtml() : ""}
       </div>
     `;
     adminAttachScreenSwitcher(this.main);
-    this.wireTab();
+    this.wireScreen();
   }
 
-  wireTab() {
-    if (this.tab === "train") this.wireTrainTab();
-    if (this.tab === "progress" && this.watcher.isWatching) this.bindWatcherRefs(this.watcher.jobId);
-    if (this.tab === "jobs") this.renderJobsList();
-    if (this.tab === "test") this.wireTestTab();
+  wireScreen() {
+    if (this.screen === "jobs") this.wireJobsScreen();
+    if (this.screen === "wizard") this.wireWizardStep();
+    if (this.screen === "detail") this.wireDetailScreen();
+  }
+
+  goToJobs() {
+    this.screen = "jobs";
+    this.render();
   }
 
   wireTrainTab() {
@@ -688,50 +665,55 @@ class AdminTrainView {
     return entries;
   }
 
-  jobsTabHtml() {
-    if (!this.jobs.length) return `<p class="text-sm text-muted">${t("admin_train_no_jobs_yet")}</p>`;
-    return `<div id="lt_jobs_list"></div>`;
+  jobStatusPill(status) {
+    const map = {
+      queued: { key: "pill-queued", text: t("admin_train_status_queued", "Queued") },
+      provisioning: { key: "pill-running", text: t("admin_train_status_provisioning", "Provisioning") },
+      training: { key: "pill-running", text: t("admin_train_status_training", "Training") },
+      saving: { key: "pill-running", text: t("admin_train_status_saving", "Saving") },
+      done: { key: "pill-done", text: t("admin_train_status_done", "Done") },
+      failed: { key: "pill-error", text: t("admin_train_status_failed", "Failed") },
+    };
+    const entry = map[status] || { key: "pill-queued", text: _esc(status) };
+    return `<span class="lora-job-pill lora-${entry.key}">${entry.text}</span>`;
   }
 
-  async renderJobsList() {
-    const list = document.getElementById("lt_jobs_list");
-    if (!list) return;
-    const entries = await this.loadJobEntries();
-    list.innerHTML = this.jobs.map((j) => {
-      const jobEntries = entries.filter((e) => e.job.id === j.id);
-      return `
-        <div class="flex items-start gap-2.5 py-2.5 border-b border-line">
-          <div class="flex-1 min-w-0">
-            <b class="text-ink">${_esc(j.name)}</b> <span class="text-xs text-muted">${_esc(j.status)} · ${Math.round((j.progress || 0) * 100)}%</span>
-            ${j.resume_from_lora ? `<div class="text-xs" style="color:var(--color-accent)">${t("admin_train_resumed_from")} ${_esc(j.resume_from_lora)}</div>` : ""}
-            ${j.error ? `<div class="text-xs" style="color:var(--color-warn)">${_esc(j.error)}</div>` : ""}
+  jobCardHtml(job) {
+    const running = ["queued", "provisioning", "training", "saving"].includes(job.status);
+    const lastMetric = (job.metrics || [])[job.metrics.length - 1];
+    const stepLine = running && lastMetric
+      ? `${t("admin_train_column_epoch")} ${lastMetric.epoch ?? 0}/${lastMetric.total_epochs || "?"} · ${t("admin_train_column_step")} ${lastMetric.step || 0}/${job.steps || "?"}`
+      : (job.error ? _esc(job.error) : "");
+    return `
+      <button type="button" data-open-job="${_attr(job.id)}" class="lora-job-card">
+        <div class="lora-job-card-top">
+          <div style="min-width:0">
+            <div class="lora-job-name">${_esc(job.name)}</div>
+            <div class="lora-job-sub">${job.resume_from_lora ? `${t("admin_train_resumed_from")} ${_esc(job.resume_from_lora)}` : (job.architecture || "")}</div>
           </div>
-          <button type="button" data-del-job="${_attr(j.id)}" class="px-2 py-1 rounded-md border text-xs" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_train_delete")}</button>
+          ${this.jobStatusPill(job.status)}
         </div>
-        ${jobEntries.map((e, idx) => `
-          <button type="button" data-select-entry="${idx}" data-select-job="${_attr(j.id)}" class="block w-full text-left text-xs text-ink px-3 py-1.5 ml-4 rounded-md border border-line mt-1">${_esc(e.label)}</button>
-        `).join("")}
-      `;
-    }).join("");
-    list.querySelectorAll("[data-del-job]").forEach((b) => b.onclick = async () => {
-      b.disabled = true;
-      try {
-        await api(`/api/admin/lora-training/jobs/${encodeURIComponent(b.dataset.delJob)}`, { method: "DELETE" });
-        this.jobs = await api("/api/admin/lora-training/jobs").catch(() => this.jobs);
-        this.renderJobsList();
-      } catch (err) {
-        errorToast(err.message || t("admin_train_delete_failed"));
-        b.disabled = false;
-      }
-    });
-    list.querySelectorAll("[data-select-entry]").forEach((b) => b.onclick = () => {
-      const jobEntries = entries.filter((e) => e.job.id === b.dataset.selectJob);
-      const picked = jobEntries[parseInt(b.dataset.selectEntry, 10)];
-      if (!picked) return;
-      this.testEntry = picked;
-      this.tab = "test";
-      this.render();
-    });
+        ${running ? `
+          <div class="lora-bar-track"><div class="lora-bar-fill" style="width:${Math.round((job.progress || 0) * 100)}%"></div></div>
+        ` : ""}
+        ${stepLine ? `<div class="lora-job-meta-row"><span>${stepLine}</span></div>` : ""}
+      </button>
+    `;
+  }
+
+  jobsScreenHtml() {
+    return `
+      <div class="lora-jobs-grid">
+        ${this.jobs.length ? this.jobs.map((j) => this.jobCardHtml(j)).join("") : `<p class="text-sm text-muted">${t("admin_train_no_jobs_yet")}</p>`}
+      </div>
+      <button type="button" id="lt_new_job_fab" class="lora-fab" aria-label="${t("admin_train_new_job", "New training job")}">+</button>
+    `;
+  }
+
+  wireJobsScreen() {
+    this.main.querySelectorAll("[data-open-job]").forEach((b) => b.onclick = () => this.openJobDetail(b.dataset.openJob));
+    const fab = document.getElementById("lt_new_job_fab");
+    if (fab) fab.onclick = () => this.openNewJobWizard();
   }
 
   estimateTrainingRun(architecture, steps, batchSize) {
