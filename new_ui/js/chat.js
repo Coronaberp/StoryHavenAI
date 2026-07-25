@@ -2392,6 +2392,7 @@ class ChatView {
     }
     const renderRows = () => {
       const currentName = this._myPersonaName();
+      const currentPersonaId = this._myPersonaId();
       const rowHtml = (p) => {
         const id = p === null ? null : p.id;
         const name = p === null ? t("chat_you_fallback_name") : p.name;
@@ -2407,7 +2408,7 @@ class ChatView {
             </span>
             <span style="font-size:13.5px">${_esc(name)}${name === currentName ? ` ${t("chat_current_suffix")}` : ""}</span>
             ${sessionExclusive ? `<span style="font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-muted);border:1px solid var(--color-line-2);border-radius:999px;padding:2px 6px">${t("chat_multiplayer_session_only_badge", "Session only")}</span>` : ""}
-            ${claimedByOther ? `<span style="font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-warn);border:1px solid var(--color-warn);border-radius:999px;padding:2px 6px">${t("chat_multiplayer_claimed_by_badge", "Claimed by {name}").replace("{name}", _esc(p.claimed_by))}</span>` : ""}
+            ${claimedByOther ? `<span style="font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-warn);border:1px solid var(--color-warn);border-radius:999px;padding:2px 6px">${t("chat_multiplayer_claimed_by_badge", "Claimed by {name}").replace("{name}", () => _esc(p.claimed_by))}</span>` : ""}
           </button>
           ${this.multiplayer && id !== null && ownsIt ? `
             <button type="button" class="ig-icon-btn" style="position:static;width:34px" data-edit-persona="${_esc(id)}" aria-label="${t("chat_edit")}" data-tooltip="${t("chat_edit")}">
@@ -2417,7 +2418,7 @@ class ChatView {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
             </button>
           ` : ""}
-          ${this.multiplayer && id !== null && sessionExclusive && !claimedByOther && name === currentName ? `
+          ${this.multiplayer && id !== null && sessionExclusive && !claimedByOther && id === currentPersonaId ? `
             <button type="button" class="ig-icon-btn" style="position:static;width:34px" data-export-persona="${_esc(id)}" aria-label="${t("chat_multiplayer_export_persona_label", "Export to a permanent persona")}" data-tooltip="${t("chat_multiplayer_export_persona_label", "Export to a permanent persona")}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             </button>
