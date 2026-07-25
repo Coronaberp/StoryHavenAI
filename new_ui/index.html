@@ -32,7 +32,7 @@
 <body class="min-h-screen bg-paper text-ink font-sans">
   <div id="siteBanner" class="hidden"></div>
   <div class="flex min-h-screen flex-col md:flex-row">
-    <aside id="sidebar" class="hidden lg:flex flex-col w-60 border-r border-line p-4 lg:sticky lg:top-0 lg:h-screen">
+    <aside id="sidebar" class="hidden lg:flex flex-col w-60 border-r border-line p-4">
       <a href="/explore" onclick="event.preventDefault();navigate('/explore')" class="flex items-center gap-2 text-primary">
         <svg viewBox="0 0 500 500" class="h-9 w-9 shrink-0"><g>
           <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"/>
@@ -158,7 +158,7 @@
       </div>
     </aside>
 
-    <aside id="tabletRail" class="hidden md:flex lg:hidden flex-col items-center w-16 border-r border-line py-4 md:sticky md:top-0 md:h-screen">
+    <aside id="tabletRail" class="hidden md:flex lg:hidden flex-col items-center w-16 border-r border-line py-4 md:sticky md:top-[var(--site-banner-h,0px)] md:h-[calc(100vh-var(--site-banner-h,0px))]">
     <a href="/explore" onclick="event.preventDefault();navigate('/explore')" class="flex-none w-11 h-11 grid place-items-center text-primary mb-2">
       <svg viewBox="0 0 500 500" class="h-8 w-8 shrink-0"><g>
         <circle cx="250" cy="250" r="230" fill="none" stroke="currentColor" stroke-width="8" opacity="0.15"/>

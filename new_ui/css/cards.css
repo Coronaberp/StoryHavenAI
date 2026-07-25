@@ -2720,9 +2720,9 @@ html[data-nsfw="1"][data-censor="0"] .comment-explicit-img { filter: none; }
   }
 }
 #sidebar {
-  height: 100dvh;
+  height: calc(100dvh - var(--site-banner-h, 0px));
   position: sticky;
-  top: 0;
+  top: var(--site-banner-h, 0px);
   align-self: flex-start;
 }
 #sidebar #nav {
