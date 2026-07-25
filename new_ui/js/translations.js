@@ -1333,7 +1333,7 @@ const UI_STRINGS = {
   admin_stat_users: "Users",
   admin_switch_announce: "Announcements",
   admin_switch_config: "Server config",
-  admin_switch_emojis: "Emojis",
+  admin_switch_emojis: "Emoji & Sticker Management",
   admin_switch_features: "Feature flags",
   admin_switch_health: "Health and logs",
   admin_switch_moderation: "Moderation",

@@ -13,6 +13,7 @@ const _NAV_MENU_ICONS = {
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   tutorial: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.8 1c0 1.7-2.3 1.8-2.3 3.5"/><circle cx="12" cy="16.7" r=".3" fill="currentColor"/>',
   signout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+  admin: '<path d="M12 3l7 3.5v5c0 4.6-3 8.4-7 9.5-4-1.1-7-4.9-7-9.5v-5z"/><path d="M9.5 12l1.8 1.8 3.2-3.6"/>',
 };
 
 function _navMenuRow(route, title, subtitle, onclickOverride) {
@@ -75,6 +76,7 @@ function openCreateMenu() {
 
 function openDossierMenu() {
   const isDesktopSidebar = window.matchMedia("(min-width: 1024px)").matches;
+  const isAdmin = ME?.role === "admin" || ME?.role === "dev";
   openModal(`
     <h3>${t("nav_menu_my_dossier")}</h3>
     <p style="margin:-6px 0 12px;font-style:italic">${t("nav_menu_my_dossier_subtitle")}</p>
@@ -83,6 +85,7 @@ function openDossierMenu() {
       ${_navMenuRow("profile", t("nav_menu_dossier"), t("nav_menu_my_page"), `navigate('/u/${encodeURIComponent(ME?.username || "")}')`)}
       ${_navMenuRow("settings", t("nav_menu_settings"), t("nav_menu_account_and_preferences"), `navigate('/settings')`)}
       ${_navMenuRow("tutorial", t("nav_menu_tutorial"), t("nav_menu_how_to_use_everything"), `navigate('/tutorial')`)}
+      ${!isAdmin || isDesktopSidebar ? "" : _navMenuRow("admin", t("nav_menu_admin", "Admin Panel"), t("nav_menu_admin_sub", "Moderation and configuration"), `navigate('/admin')`)}
       ${isDesktopSidebar ? "" : _navMenuRow("signout", t("nav_menu_sign_out"), t("nav_menu_end_this_session"), `confirmSignOut()`)}
     </div>
   `);

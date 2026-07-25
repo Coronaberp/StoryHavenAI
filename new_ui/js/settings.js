@@ -111,7 +111,6 @@ class SettingsView {
       ${sEyebrowHtml(t("settings_section_experimental", "Experimental"))}
       ${settingsRowHtml({ icon: svgIcon("beaker"), label: t("settings_row_experimental_features", "Enable multiplayer chat (experimental)"), sublabel: t("settings_row_experimental_features_sub", "Unlocks Multiplayer below — share a chat session with up to 8 people"), right: toggleSwitchHtml("settingsView.toggleExperimentalFeatures()", experimentalOn) })}
       ${experimentalOn ? settingsRowHtml({ icon: svgIcon("masks"), label: t("settings_row_multiplayer", "Multiplayer"), sublabel: t("settings_row_multiplayer_sub", "Invite links, party chat, and who's in your sessions"), onclick: "navigate('/multiplayer')" }) : ""}
-      ${ME?.role === "admin" || ME?.role === "dev" ? settingsRowHtml({ icon: svgIcon("shield"), label: t("settings_row_admin"), sublabel: "Users, roles, server", onclick: "navigate('/admin')" }) : ""}
       <button type="button" onclick="confirmSignOut()"
         class="w-full flex items-center justify-center gap-2 mt-5 py-3.5 rounded-[13px] font-medium text-[14.5px]"
         style="border:1px solid var(--color-warn);background:color-mix(in srgb, var(--color-warn) 12%, transparent);color:var(--color-warn)">

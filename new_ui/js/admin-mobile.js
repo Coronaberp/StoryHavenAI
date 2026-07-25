@@ -6,7 +6,7 @@ const ADMIN_SCREENS = [
   { route: "admin-moderation", labelKey: "admin_switch_moderation", fallback: "Moderation" },
   { route: "admin-previews", labelKey: "admin_switch_previews", fallback: "Model previews" },
   { route: "admin-train", labelKey: "admin_switch_train", fallback: "Train LoRA" },
-  { route: "admin-emojis", labelKey: "admin_switch_emojis", fallback: "Emojis" },
+  { route: "admin-emojis", labelKey: "admin_switch_emojis", fallback: "Emoji & Sticker Management" },
   { route: "admin-config", labelKey: "admin_switch_config", fallback: "Server config" },
   { route: "admin-health", labelKey: "admin_switch_health", fallback: "Health and logs" },
   { route: "admin-features", labelKey: "admin_switch_features", fallback: "Feature flags" },
