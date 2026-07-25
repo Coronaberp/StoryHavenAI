@@ -636,7 +636,15 @@ class ChatView {
       this.render();
       this.scrollToBottom();
     } else if (ev.type === "participant_joined" || ev.type === "participant_left" || ev.type === "participant_updated") {
-      if (ev.type === "participant_left" && ev.user_id === ME?.id) return;
+      if (ev.type === "participant_left" && ev.user_id === ME?.id) {
+        if (ev.kicked) {
+          this.multiplayer = null;
+          this._liveAbort?.abort();
+          errorToast(t("chat_multiplayer_kicked_notice", "You were removed from this session."));
+          navigate("/chats");
+        }
+        return;
+      }
       const before = this.multiplayer.participants || [];
       try {
         this.multiplayer.participants = await api(`/api/sessions/${encodeURIComponent(this.sid)}/multiplayer/participants`);
