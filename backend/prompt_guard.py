@@ -50,8 +50,10 @@ class PromptInjectionBlocked(Exception):
         self.retry_after = retry_after
         super().__init__(BLOCKED_MESSAGE)
 
+_NON_WORD_RE = re.compile(r"[^a-zA-Z0-9]+")
+
 def looks_like_prompt_injection(text: str) -> bool:
-    normalized = " ".join((text or "").split())
+    normalized = _NON_WORD_RE.sub(" ", text or "").strip()
     if not normalized:
         return False
     return any(pattern.search(normalized) for pattern in PROMPT_INJECTION_PATTERNS)

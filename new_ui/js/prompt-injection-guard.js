@@ -22,7 +22,7 @@ const PROMPT_INJECTION_PATTERNS = [
 ];
 
 function looksLikePromptInjection(text) {
-  const normalized = (text || "").replace(/\s+/g, " ").trim();
+  const normalized = (text || "").replace(/[^a-zA-Z0-9]+/g, " ").trim();
   if (!normalized) return false;
   return PROMPT_INJECTION_PATTERNS.some((pattern) => pattern.test(normalized));
 }
