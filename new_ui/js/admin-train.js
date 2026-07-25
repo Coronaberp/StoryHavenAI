@@ -205,32 +205,6 @@ class AdminTrainView {
     };
   }
 
-  validateTrainForm() {
-    const f = this.form;
-    const errors = [];
-    if (!f.name.trim()) errors.push(t("admin_train_error_name_required"));
-    if (!f.trigger_word.trim()) errors.push(t("admin_train_error_trigger_word_required"));
-    else if (/\s/.test(f.trigger_word.trim())) errors.push(t("admin_train_error_trigger_word_single_word"));
-    if (!f.checkpoint) errors.push(t("admin_train_error_pick_checkpoint"));
-    const imageCount = (this.trainImages || []).length;
-    if (!imageCount) errors.push(t("admin_train_error_images_required"));
-    else if (imageCount < 5) errors.push(t("admin_train_error_min_5_images"));
-    const res = Number(f.resolution);
-    if (!Number.isInteger(res) || res < 256 || res > 1024) errors.push(t("admin_train_error_resolution_range"));
-    else if (res % 64 !== 0) errors.push(t("admin_train_error_resolution_multiple_of_64"));
-    const batch = Number(f.batch_size);
-    if (!Number.isInteger(batch) || batch < 1 || batch > 8) errors.push(t("admin_train_error_batch_size_range"));
-    const rank = Number(f.rank);
-    if (!Number.isInteger(rank) || rank < 1 || rank > 128) errors.push(t("admin_train_error_rank_range"));
-    const alpha = Number(f.alpha);
-    if (!Number.isInteger(alpha) || alpha < 1 || alpha > 128) errors.push(t("admin_train_error_alpha_range"));
-    const steps = Number(f.steps);
-    if (!Number.isInteger(steps) || steps < 50 || steps > 20000) errors.push(t("admin_train_error_steps_range"));
-    const lr = Number(f.learning_rate);
-    if (!(lr > 0) || lr > 0.01) errors.push(t("admin_train_error_learning_rate_range"));
-    return errors;
-  }
-
   progressTabHtml() {
     return `
       <div id="lt_idle" class="text-sm text-muted" style="${this.watcher.isWatching ? "display:none" : ""}">${t("admin_train_no_active_job")}</div>

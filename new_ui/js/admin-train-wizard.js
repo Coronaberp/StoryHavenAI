@@ -249,6 +249,85 @@ Object.assign(AdminTrainView.prototype, {
       ? `<span style="${style}"><img src="${_attr(img)}" alt="" style="width:100%;height:100%;object-fit:cover"></span>`
       : `<span style="${style};font-family:var(--font-mono);font-size:${Math.round(size / 2.6)}px;color:var(--color-muted)">${_esc(label[0].toUpperCase())}</span>`;
   },
+
+  stackedNumberFieldHtml(id, label, value) {
+    return `
+      <div class="lora-num-field">
+        <label class="lora-num-field-label">${_esc(label)}</label>
+        <input type="text" inputmode="decimal" id="${_attr(id)}" value="${_attr(value)}" class="lora-input">
+      </div>
+    `;
+  },
+
+  tuningStepHtml() {
+    const f = this.form;
+    return `
+      <div class="lora-stack-grid">
+        ${this.stackedNumberFieldHtml("lt_res", t("admin_train_resolution"), f.resolution)}
+        ${this.stackedNumberFieldHtml("lt_batch", t("admin_train_batch_size"), f.batch_size)}
+        ${this.stackedNumberFieldHtml("lt_rank", t("admin_train_rank"), f.rank)}
+        ${this.stackedNumberFieldHtml("lt_alpha", t("admin_train_alpha"), f.alpha)}
+        ${this.stackedNumberFieldHtml("lt_lr", t("admin_train_learning_rate"), f.learning_rate)}
+        ${this.stackedNumberFieldHtml("lt_steps", t("admin_train_steps"), f.steps)}
+      </div>
+      <div class="lora-field-hint" style="margin:8px 0 4px">${t("admin_train_params_help_text")}</div>
+      <button type="button" id="lt_advanced_toggle" class="lora-advanced-toggle">
+        <span>${t("admin_train_advanced")}</span>
+        <span style="transform:rotate(${f.advancedOpen ? "90deg" : "0deg"})">&rsaquo;</span>
+      </button>
+      ${f.advancedOpen ? `
+        <div class="lora-stack-grid" style="margin-top:10px">
+          ${this.stackedNumberFieldHtml("lt_noise_offset", t("admin_train_noise_offset"), f.noise_offset)}
+          ${this.stackedNumberFieldHtml("lt_network_dropout", t("admin_train_network_dropout"), f.network_dropout)}
+        </div>
+        <div class="lora-field-hint">${t("admin_train_advanced_help_text")}</div>
+      ` : ""}
+      ${this.wizardFooterHtml({ showBack: true, continueLabel: t("admin_train_wizard_continue", "Continue") })}
+    `;
+  },
+
+  wireTuningStep() {
+    [["lt_res", "resolution"], ["lt_batch", "batch_size"], ["lt_rank", "rank"], ["lt_alpha", "alpha"],
+     ["lt_lr", "learning_rate"], ["lt_steps", "steps"], ["lt_noise_offset", "noise_offset"], ["lt_network_dropout", "network_dropout"]]
+      .forEach(([id, key]) => {
+        const el = document.getElementById(id);
+        if (el) el.oninput = (e) => { this.form[key] = e.target.value; };
+      });
+    const advToggle = document.getElementById("lt_advanced_toggle");
+    if (advToggle) advToggle.onclick = () => { this.form.advancedOpen = !this.form.advancedOpen; this.render(); };
+    const continueBtn = document.getElementById("lt_wizard_continue");
+    if (continueBtn) continueBtn.onclick = () => {
+      const errors = this.validateTrainForm();
+      if (errors.length) { errorToast(errors[0]); return; }
+      this.wizardGoToStep("review");
+    };
+  },
+
+  validateTrainForm() {
+    const f = this.form;
+    const errors = [];
+    if (!f.name.trim()) errors.push(t("admin_train_error_name_required"));
+    if (!f.trigger_word.trim()) errors.push(t("admin_train_error_trigger_word_required"));
+    else if (/\s/.test(f.trigger_word.trim())) errors.push(t("admin_train_error_trigger_word_single_word"));
+    if (!f.checkpoint) errors.push(t("admin_train_error_pick_checkpoint"));
+    const imageCount = (this.trainImages || []).length;
+    if (!imageCount) errors.push(t("admin_train_error_images_required"));
+    else if (imageCount < 5) errors.push(t("admin_train_error_min_5_images"));
+    const res = Number(f.resolution);
+    if (!Number.isInteger(res) || res < 256 || res > 1024) errors.push(t("admin_train_error_resolution_range"));
+    else if (res % 64 !== 0) errors.push(t("admin_train_error_resolution_multiple_of_64"));
+    const batch = Number(f.batch_size);
+    if (!Number.isInteger(batch) || batch < 1 || batch > 8) errors.push(t("admin_train_error_batch_size_range"));
+    const rank = Number(f.rank);
+    if (!Number.isInteger(rank) || rank < 1 || rank > 128) errors.push(t("admin_train_error_rank_range"));
+    const alpha = Number(f.alpha);
+    if (!Number.isInteger(alpha) || alpha < 1 || alpha > 128) errors.push(t("admin_train_error_alpha_range"));
+    const steps = Number(f.steps);
+    if (!Number.isInteger(steps) || steps < 50 || steps > 20000) errors.push(t("admin_train_error_steps_range"));
+    const lr = Number(f.learning_rate);
+    if (!(lr > 0) || lr > 0.01) errors.push(t("admin_train_error_learning_rate_range"));
+    return errors;
+  },
 });
 
 if (typeof window !== "undefined") {
