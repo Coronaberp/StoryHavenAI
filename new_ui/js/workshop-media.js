@@ -1430,6 +1430,13 @@ class WorkshopMediaView {
     });
   }
 
+  _prependPreset(current, preset) {
+    const text = (current || "").trim();
+    if (!text) return preset;
+    if (text.startsWith(preset)) return text;
+    return `${preset}, ${text}`;
+  }
+
   setCheckpoint(name) {
     this.checkpoint = name;
     const preset = this.checkpointPreviews[name];
@@ -1438,8 +1445,8 @@ class WorkshopMediaView {
       if (preset.default_scheduler) this.scheduler = preset.default_scheduler;
       if (preset.default_steps) this.steps = preset.default_steps;
       if (preset.default_cfg) this.cfg = preset.default_cfg;
-      if (preset.default_positive) this.positive = preset.default_positive;
-      if (preset.default_negative) this.negative = preset.default_negative;
+      if (preset.default_positive) this.positive = this._prependPreset(this.positive, preset.default_positive);
+      if (preset.default_negative) this.negative = this._prependPreset(this.negative, preset.default_negative);
     }
     this.render();
   }
