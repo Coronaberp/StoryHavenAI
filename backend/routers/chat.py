@@ -68,6 +68,11 @@ async def chat(sid: str, body: ChatIn, current_user: dict = Depends(get_current_
                _feature_ok: None = Depends(require_feature_enabled("chat"))):
     await _own_session(sid, current_user)
     guest_quota.check(current_user, "tokens")
+    if prompt_guard.should_block_chat_message(body.content, body.directive):
+        prompt_guard.record_violation(current_user["id"])
+        log.warning("chat: blocked likely prompt-injection message, timeout applied username=%s session=%s",
+                   current_user["username"], sid)
+        raise prompt_guard.PromptInjectionBlocked(prompt_guard.TIMEOUT_SECONDS)
     content = resolve_inline_rolls(body.content)
     content = (apply_directive(content, body.directive, body.directive_arg) if body.directive
               else apply_inline_directives(content))

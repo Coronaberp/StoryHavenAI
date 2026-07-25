@@ -81,3 +81,14 @@ def looks_like_prompt_injection(text: str) -> bool:
         return True
     weak_matches = sum(1 for pattern in WEAK_PATTERNS if pattern.search(normalized))
     return weak_matches >= WEAK_PATTERN_MIN_MATCHES
+
+_REAL_DIRECTIVES = {"ooc", "scene", "note", "time", "as", "roll"}
+
+def should_block_chat_message(content: str, directive: str | None) -> bool:
+    raw = content or ""
+    normalized = _NON_WORD_RE.sub(" ", raw).strip()
+    if normalized and any(pattern.search(normalized) for pattern in SYSTEM_PROMPT_RETRIEVAL_PATTERNS):
+        return True
+    if directive in _REAL_DIRECTIVES:
+        return False
+    return looks_like_prompt_injection(raw)
