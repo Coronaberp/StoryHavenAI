@@ -23,6 +23,16 @@ async def list_personas(current_user: dict = Depends(get_current_user)):
 async def list_draft_personas(current_user: dict = Depends(get_current_user)):
     return await personas.list_drafts(current_user["id"])
 
+async def _visible_linked_char(linked_char_id: str | None, user_id: str) -> dict | None:
+    if not linked_char_id:
+        return None
+    char = await characters.get(linked_char_id)
+    if not char:
+        return None
+    if not char.get("is_public") and char.get("owner_id") != user_id:
+        return None
+    return char
+
 @api.post("/personas/expand-description")
 async def expand_description(body: ExpandPersonaIn,
                              current_user: dict = Depends(get_current_user)):
@@ -33,8 +43,9 @@ async def expand_description(body: ExpandPersonaIn,
     user_overrides = await db.get_user_settings(current_user["id"])
     chat_model = _eff_cfg(user_overrides).get("chat_model") or CFG["chat_model"]
     ep = await _endpoints(user_overrides, current_user["id"], current_user.get("is_admin", False))
+    linked_char = await _visible_linked_char(body.linked_char_id, current_user["id"])
     return {"description": await expand_persona_description(
-        text, chat_model, chat_base=ep["chat_base"], chat_key=ep["chat_key"])}
+        text, chat_model, chat_base=ep["chat_base"], chat_key=ep["chat_key"], linked_char=linked_char)}
 
 @api.post("/characters/{cid}/persona")
 async def become_persona(cid: str, current_user: dict = Depends(get_current_user)):
@@ -57,6 +68,8 @@ async def create_persona(body: PersonaIn, current_user: dict = Depends(get_curre
                           _feature_ok: None = Depends(require_feature_enabled("personas"))):
     data = body.model_dump()
     data["avatar"] = _persona_avatar(body)
+    if not await _visible_linked_char(data.get("linked_char_id"), current_user["id"]):
+        data["linked_char_id"] = None
     if data.get("session_id"):
         from backend.repositories import session_participants
         if not await session_participants.is_participant(data["session_id"], current_user["id"]):
@@ -74,6 +87,8 @@ async def update_persona(pid: str, body: PersonaIn, current_user: dict = Depends
         raise HTTPException(403, "not your persona")
     data = body.model_dump()
     data["avatar"] = _persona_avatar(body)
+    if not await _visible_linked_char(data.get("linked_char_id"), current_user["id"]):
+        data["linked_char_id"] = None
     p = await personas.update(pid, data, current_user["id"])
     log.info("persona: updated id=%s by=%s", pid, current_user["username"])
     return p

@@ -162,7 +162,27 @@ def _normalize_dialogue(raw) -> str:
 
 async def expand_persona_description(text: str, chat_model: str,
                                      chat_base: str | None = None,
-                                     chat_key: str | None = None) -> str:
+                                     chat_key: str | None = None,
+                                     linked_char: dict | None = None) -> str:
+    linked_char_block = ""
+    if linked_char:
+        traits = "\n".join(
+            f"{label}: {value}" for label, value in (
+                ("Name", linked_char.get("name")),
+                ("Description", linked_char.get("description")),
+                ("Persona", linked_char.get("persona")),
+                ("Scenario", linked_char.get("scenario")),
+                ("Tags", ", ".join(linked_char.get("tags") or [])),
+            ) if value
+        )
+        linked_char_block = (
+            "\nThe user has linked this persona to the character below. Let that "
+            "character's world, tone, and the kind of person who'd fit alongside "
+            "them inform the persona you write — the persona should feel like it "
+            "belongs in that character's story, without copying their traits onto "
+            "the player or describing the character itself.\n"
+            f"Linked character:\n{traits}\n"
+        )
     instruct = (
         "You write player-character personas for a roleplay platform. A persona "
         "is the profile of the person the user is playing as; it is fed to the "
@@ -177,7 +197,8 @@ async def expand_persona_description(text: str, chat_model: str,
         "persona text in a system prompt) AND human-readable (flowing natural "
         "prose a person enjoys reading, not a dry stat block). Write in third "
         "person, a short paragraph or two. Reply with ONLY the persona text — no "
-        "preamble, no labels, no quotes, no code fences.\n\n"
+        "preamble, no labels, no quotes, no code fences.\n"
+        f"{linked_char_block}\n"
         "Example — short descriptors:\n"
         "\"witty rogue, sarcastic, loyal to friends, hates authority\"\n"
         "Example — expanded persona:\n"

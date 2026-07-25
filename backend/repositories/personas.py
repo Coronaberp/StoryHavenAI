@@ -18,6 +18,22 @@ def _persona_row(row) -> dict:
     d["is_draft"] = bool(d.get("is_draft"))
     return d
 
+async def _attach_linked_char_info(rows: list[dict]) -> list[dict]:
+    char_ids = {r["linked_char_id"] for r in rows if r.get("linked_char_id")}
+    if not char_ids:
+        for r in rows:
+            r["linked_char_name"] = None
+            r["linked_char_avatar"] = None
+        return rows
+    char_rows = await _q(select(characters.c.id, characters.c.name, characters.c.avatar)
+                         .where(characters.c.id.in_(char_ids)))
+    by_id = {c["id"]: c for c in char_rows}
+    for r in rows:
+        char = by_id.get(r.get("linked_char_id"))
+        r["linked_char_name"] = _decrypt_secret(char["name"]) if char else None
+        r["linked_char_avatar"] = char["avatar"] if char else None
+    return rows
+
 async def create(data: dict, user_id: str = None) -> dict:
     pid = nid("p")
     async with engine().begin() as conn:
@@ -33,6 +49,7 @@ async def create(data: dict, user_id: str = None) -> dict:
             is_default=1 if data.get("is_default") else 0,
             is_draft=1 if data.get("is_draft") else 0,
             session_id=data.get("session_id") or None,
+            linked_char_id=data.get("linked_char_id") or None,
             owner_id=user_id, created=time.time()))
     log.info("personas: created id=%s owner=%s draft=%s session=%s",
               pid, user_id, bool(data.get("is_draft")), data.get("session_id"))
@@ -40,12 +57,15 @@ async def create(data: dict, user_id: str = None) -> dict:
 
 async def get(pid: str) -> dict | None:
     row = await _q1(select(personas).where(personas.c.id == pid))
-    return _persona_row(row) if row else None
+    if not row:
+        return None
+    rows = await _attach_linked_char_info([_persona_row(row)])
+    return rows[0]
 
 async def list_all(user_id: str = None) -> list[dict]:
     stmt = (select(personas).where(personas.c.owner_id == user_id)
             .order_by(personas.c.is_default.desc(), personas.c.created.desc()))
-    return [_persona_row(r) for r in await _q(stmt)]
+    return await _attach_linked_char_info([_persona_row(r) for r in await _q(stmt)])
 
 async def list_own(user_id: str = None) -> list[dict]:
     stmt = (select(personas)
@@ -53,7 +73,7 @@ async def list_own(user_id: str = None) -> list[dict]:
                         personas.c.is_draft == 0,
                         personas.c.session_id.is_(None)))
             .order_by(personas.c.is_default.desc(), personas.c.created.desc()))
-    return [_persona_row(r) for r in await _q(stmt)]
+    return await _attach_linked_char_info([_persona_row(r) for r in await _q(stmt)])
 
 async def list_own_for_session(user_id: str, session_id: str) -> list[dict]:
     stmt = (select(personas)
@@ -62,7 +82,7 @@ async def list_own_for_session(user_id: str, session_id: str) -> list[dict]:
                         or_(personas.c.session_id.is_(None),
                             personas.c.session_id == session_id)))
             .order_by(personas.c.is_default.desc(), personas.c.created.desc()))
-    return [_persona_row(r) for r in await _q(stmt)]
+    return await _attach_linked_char_info([_persona_row(r) for r in await _q(stmt)])
 
 async def list_drafts(user_id: str = None) -> list[dict]:
     stmt = (select(personas)
@@ -117,7 +137,10 @@ async def get_or_create_from_lore(entry: dict, user_id: str = None) -> dict:
 async def default(user_id: str = None) -> dict | None:
     row = await _q1(select(personas).where(and_(
         personas.c.is_default == 1, personas.c.owner_id == user_id)).limit(1))
-    return _persona_row(row) if row else None
+    if not row:
+        return None
+    rows = await _attach_linked_char_info([_persona_row(row)])
+    return rows[0]
 
 async def update(pid: str, data: dict, user_id: str = None) -> dict | None:
     p = await get(pid)
@@ -134,6 +157,7 @@ async def update(pid: str, data: dict, user_id: str = None) -> dict | None:
             description=_encrypt_secret(data.get("description", p["description"]) or ""),
             gender=_encrypt_secret(data.get("gender", p["gender"]) or ""),
             avatar=data.get("avatar", p["avatar"]) or "",
+            linked_char_id=data.get("linked_char_id", p["linked_char_id"]) or None,
             is_default=1 if data.get("is_default") else p["is_default"])
         if "is_draft" in data:
             vals["is_draft"] = 1 if data.get("is_draft") else 0

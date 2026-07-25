@@ -58,6 +58,7 @@ class GenerateCharacterIn(BaseModel):
 
 class ExpandPersonaIn(BaseModel):
     text: str = ""
+    linked_char_id: str | None = None
 
 class PersonaIn(BaseModel):
     name: str = "You"
@@ -68,6 +69,7 @@ class PersonaIn(BaseModel):
     is_default: bool = False
     is_draft: bool = False
     session_id: str | None = None
+    linked_char_id: str | None = None
 
     @field_validator("avatar")
     @classmethod
@@ -155,6 +157,7 @@ class SettingsIn(BaseModel):
     embed_dim: int | None = None
     history_turns: int | None = None
     enable_thinking: bool | None = None
+    nsfw_classification: bool | None = None
     memory_v2: bool | None = None
     memory_v2_budget_tokens: int | None = None
     scene_style: bool | None = None

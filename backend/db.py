@@ -181,6 +181,7 @@ personas = sa.Table(
     sa.Column("owner_id", sa.Text),
     sa.Column("source_char_id", sa.Text),
     sa.Column("source_lore_id", sa.Text),
+    sa.Column("linked_char_id", sa.Text),
     sa.Column("is_draft", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("session_id", sa.Text),
     sa.Column("created", sa.Float, nullable=False),
@@ -801,6 +802,8 @@ async def init():
             "INTEGER NOT NULL DEFAULT 0"))
         await conn.execute(text(
             "ALTER TABLE personas ADD COLUMN IF NOT EXISTS session_id TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE personas ADD COLUMN IF NOT EXISTS linked_char_id TEXT"))
         await conn.execute(text(
             "ALTER TABLE party_chat_messages ADD COLUMN IF NOT EXISTS image TEXT"))
         await conn.execute(text(
