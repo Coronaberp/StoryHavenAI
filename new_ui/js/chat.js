@@ -2392,16 +2392,24 @@ class ChatView {
     }
     const renderRows = () => {
       const currentName = this._myPersonaName();
-      const rowHtml = (id, name, avatar, sessionExclusive) => `
+      const rowHtml = (p) => {
+        const id = p === null ? null : p.id;
+        const name = p === null ? t("chat_you_fallback_name") : p.name;
+        const avatar = p === null ? null : p.avatar;
+        const sessionExclusive = !!(p && p.session_id);
+        const claimedByOther = !!(p && p.claimed_by);
+        const ownsIt = p === null || p.owner_id === ME?.id;
+        return `
         <div style="display:flex;gap:6px;align-items:stretch">
-          <button type="button" class="dropdown-item" data-persona-id="${id === null ? "" : _esc(id)}" style="flex:1;display:flex;gap:10px;align-items:center;text-align:left;border:1px solid ${name === currentName ? "var(--color-accent)" : "var(--color-line-2)"}">
+          <button type="button" data-persona-id="${id === null ? "" : _esc(id)}" ${claimedByOther ? "disabled" : ""} class="dropdown-item" style="flex:1;display:flex;gap:10px;align-items:center;text-align:left;border:1px solid ${name === currentName ? "var(--color-accent)" : "var(--color-line-2)"};${claimedByOther ? "opacity:.5;cursor:not-allowed" : ""}">
             <span style="width:28px;height:28px;flex:none;border-radius:999px;overflow:hidden;background:var(--color-surface-2);display:grid;place-items:center;font-family:var(--font-mono);font-size:11px">
               ${avatar ? `<img src="${_esc(avatar)}" alt="" style="width:100%;height:100%;object-fit:cover">` : _esc(name[0]?.toUpperCase() || "?")}
             </span>
             <span style="font-size:13.5px">${_esc(name)}${name === currentName ? ` ${t("chat_current_suffix")}` : ""}</span>
             ${sessionExclusive ? `<span style="font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-muted);border:1px solid var(--color-line-2);border-radius:999px;padding:2px 6px">${t("chat_multiplayer_session_only_badge", "Session only")}</span>` : ""}
+            ${claimedByOther ? `<span style="font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-warn);border:1px solid var(--color-warn);border-radius:999px;padding:2px 6px">${t("chat_multiplayer_claimed_by_badge", "Claimed by {name}").replace("{name}", _esc(p.claimed_by))}</span>` : ""}
           </button>
-          ${this.multiplayer && id !== null ? `
+          ${this.multiplayer && id !== null && ownsIt ? `
             <button type="button" class="ig-icon-btn" style="position:static;width:34px" data-edit-persona="${_esc(id)}" aria-label="${t("chat_edit")}" data-tooltip="${t("chat_edit")}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
             </button>
@@ -2409,13 +2417,19 @@ class ChatView {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
             </button>
           ` : ""}
+          ${this.multiplayer && id !== null && sessionExclusive && !claimedByOther && name === currentName ? `
+            <button type="button" class="ig-icon-btn" style="position:static;width:34px" data-export-persona="${_esc(id)}" aria-label="${t("chat_multiplayer_export_persona_label", "Export to a permanent persona")}" data-tooltip="${t("chat_multiplayer_export_persona_label", "Export to a permanent persona")}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
+          ` : ""}
         </div>
       `;
+      };
       body.innerHTML = `
         <p style="margin:0 0 14px;font-size:13px;color:var(--color-muted)">${t("chat_switch_mask_description")}</p>
         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:${this.multiplayer ? "12px" : "0"}">
-          ${rowHtml(null, t("chat_you_fallback_name"), null, false)}
-          ${personas.map((p) => rowHtml(p.id, p.name, p.avatar, !!p.session_id)).join("")}
+          ${rowHtml(null)}
+          ${personas.map((p) => rowHtml(p)).join("")}
         </div>
         ${this.multiplayer ? `<button type="button" class="pe-gen-btn" id="mpCreatePersona" style="width:100%">+ ${t("chat_multiplayer_create_persona_button", "New persona")}</button>` : ""}
       `;
@@ -2479,6 +2493,18 @@ class ChatView {
             toast(t("chat_multiplayer_persona_deleted", "Persona deleted."));
           } catch (err) {
             errorToast(err.message || t("chat_multiplayer_persona_delete_failed", "Couldn't delete that persona."));
+          }
+        };
+      });
+      body.querySelectorAll("[data-export-persona]").forEach((btn) => {
+        btn.onclick = async (e) => {
+          e.stopPropagation();
+          const pid = btn.dataset.exportPersona;
+          try {
+            await api(`/api/personas/${encodeURIComponent(pid)}/export`, { method: "POST" });
+            toast(t("chat_multiplayer_persona_exported", "Exported to your permanent personas."));
+          } catch (err) {
+            errorToast(err.message || t("chat_multiplayer_persona_export_failed", "Couldn't export that persona."));
           }
         };
       });
