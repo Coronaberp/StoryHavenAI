@@ -873,7 +873,7 @@ class ChatView {
         ? `<img src="${_esc(p.avatar)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:999px">`
         : initial;
       return `
-        <button type="button" onclick="_activeChatView.openParticipantPersonaModal('${_esc(p.user_id)}')" ${hasPersona ? "" : "disabled"} style="flex:none;display:flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border-radius:999px;background:var(--color-surface-2);border:1px solid var(--color-line-2);cursor:${hasPersona ? "pointer" : "default"};font:inherit;text-align:left">
+        <button type="button" onclick="_activeChatView.openParticipantModal('${_esc(p.user_id)}')" style="flex:none;display:flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border-radius:999px;background:var(--color-surface-2);border:1px solid var(--color-line-2);cursor:pointer;font:inherit;text-align:left">
           <span style="width:22px;height:22px;border-radius:999px;display:grid;place-items:center;font-family:var(--font-display);font-weight:600;font-size:10.5px;color:var(--color-paper-base);background:${colors[i % colors.length]};overflow:hidden">${avatarInner}</span>
           <span style="line-height:1.25">
             <span style="display:block;font-size:12px;color:${isMe ? "var(--color-accent)" : "var(--color-ink)"}">${_esc(name)}${isMe ? ` ${t("chat_you_fallback_name_suffix", "(you)")}` : ""}</span>
@@ -909,11 +909,35 @@ class ChatView {
     return t("chat_multiplayer_typing_label", "{who} is typing…").replace("{who}", name);
   }
 
-  async openParticipantPersonaModal(userId) {
+  _isMultiplayerHost() {
+    return this.session?.user_id === ME?.id;
+  }
+
+  _kickButtonHtml(participant) {
+    if (!this._isMultiplayerHost() || participant.user_id === ME?.id) return "";
+    const name = participant.name || t("chat_multiplayer_unknown_participant", "Someone");
+    return `
+      <button type="button" id="participantKickBtn" class="pe-gen-btn" style="width:100%;margin-top:14px;border-color:var(--color-warn);color:var(--color-warn)">
+        ${t("chat_multiplayer_kick_button", "Remove {name} from this session").replace("{name}", _esc(name))}
+      </button>
+    `;
+  }
+
+  async openParticipantModal(userId) {
     const participant = this.multiplayer?.participants?.find((p) => p.user_id === userId);
-    if (!participant?.persona_name) return;
-    openModal(`<h3>${_esc(participant.persona_name)}</h3><div id="participantPersonaBody" style="color:var(--color-muted)">${t("chat_loading")}</div>`);
+    if (!participant) return;
+    const hasPersona = !!participant.persona_name;
+    openModal(`
+      <h3>${_esc(participant.persona_name || participant.name || t("chat_multiplayer_unknown_participant", "Someone"))}</h3>
+      <div id="participantPersonaBody" style="color:var(--color-muted)">${hasPersona ? t("chat_loading") : ""}</div>
+      ${this._kickButtonHtml(participant)}
+    `);
     const layer = document.querySelector(".modal-layer:last-child");
+    const kickBtn = layer.querySelector("#participantKickBtn");
+    if (kickBtn) {
+      kickBtn.onclick = () => this.kickParticipant(participant.user_id, participant.name, layer);
+    }
+    if (!hasPersona) return;
     const body = layer.querySelector("#participantPersonaBody");
     let persona;
     try {
@@ -936,6 +960,18 @@ class ChatView {
       ${persona.gender ? `<p style="font-size:12px;color:var(--color-muted);margin:0 0 8px">${_esc(persona.gender)}</p>` : ""}
       <p style="font-size:13.5px;color:var(--color-ink);white-space:pre-wrap">${_esc(persona.description || t("chat_multiplayer_persona_no_description", "No description provided."))}</p>
     `;
+  }
+
+  async kickParticipant(userId, name, layer) {
+    const label = name || t("chat_multiplayer_unknown_participant", "Someone");
+    if (!(await confirmDialog(t("chat_multiplayer_kick_confirm", "Remove {name} from this session? They'll need a fresh invite to rejoin.").replace("{name}", label)))) return;
+    try {
+      await api(`/api/sessions/${encodeURIComponent(this.sid)}/multiplayer/participants/${encodeURIComponent(userId)}`, { method: "DELETE" });
+      toast(t("chat_multiplayer_kick_success", "Removed {name}.").replace("{name}", label));
+      closeModal(layer);
+    } catch (err) {
+      errorToast(err.message || t("chat_multiplayer_kick_failed", "Couldn't remove that participant."));
+    }
   }
 
   async openInviteModal() {
