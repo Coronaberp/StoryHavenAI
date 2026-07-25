@@ -23,7 +23,7 @@ const ADMIN_PREVIEW_KINDS = [
 ];
 
 const ADMIN_MODEL_CATEGORIES = ["flux_v2", "anima", "sdxl", "il", "pony"];
-const ADMIN_MODEL_CATEGORY_LABELS = { flux_v2: "Flux V2", anima: "Anima", sdxl: "SDXL", il: "Illustrious", pony: "Pony" };
+const ADMIN_MODEL_CATEGORY_LABELS = { flux_v2: "Flux V2", anima: "Newer (DiT · Anima)", sdxl: "SDXL", il: "Illustrious", pony: "Pony" };
 
 const ADMIN_PREVIEW_GEN_DEFAULT_PROMPT = "masterpiece, best quality, 1girl, standing, detailed background";
 
@@ -97,7 +97,11 @@ class AdminPreviewsView {
   cardHtml(kind, name) {
     const meta = this.data[kind.key].previews[name] || {};
     const cats = meta.model_category || [];
-    const badges = cats.length ? `<div class="flex flex-wrap gap-1 mt-1">${cats.map((c) => `<span class="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded border border-line text-muted">${_esc(ADMIN_MODEL_CATEGORY_LABELS[c] || c)}</span>`).join("")}</div>` : "";
+    const archBadge = kind.key === "checkpoint"
+      ? `<span class="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded border border-line text-muted">${this.animaNames.has(name) ? t("admin_previews_arch_dit", "Newer (DiT · Anima)") : t("admin_previews_arch_unet", "Classic (UNet)")}</span>`
+      : "";
+    const catBadges = cats.map((c) => `<span class="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded border border-line text-muted">${_esc(ADMIN_MODEL_CATEGORY_LABELS[c] || c)}</span>`).join("");
+    const badges = (archBadge || catBadges) ? `<div class="flex flex-wrap gap-1 mt-1">${archBadge}${catBadges}</div>` : "";
     const unpublished = kind.key === "lora" && meta.is_published === false;
     const isVideoPreview = kind.key === "vidgen" && _pvIsVideoUrl(meta.image);
     const mediaHtml = isVideoPreview
@@ -120,7 +124,7 @@ class AdminPreviewsView {
     const cards = filtered.map((name) => this.cardHtml(kind, name)).join("");
     const isCollapsed = !!this.collapsed[kind.key];
     return `
-      <div class="mb-6">
+      <div class="admin-card admin-previews-card">
         <div class="flex items-center justify-between gap-2 mb-2.5">
           <button type="button" onclick="adminPreviewsView.toggleSection(${_attr(JSON.stringify(kind.key))})" class="flex items-center gap-1.5 font-display font-semibold text-base text-ink">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${isCollapsed ? "-90deg" : "0deg"});transition:transform .15s"><path d="M6 9l6 6 6-6"/></svg>
@@ -167,7 +171,7 @@ class AdminPreviewsView {
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_previews_title"), t("ph_admin_previews_sub"))}
       ${adminScreenSwitcherHtml("admin-previews", window._adminSwitcherBadges || {})}
       ${this.mobileViewHtml()}
-      <div class="hidden lg:block">
+      <div class="hidden lg:block admin-previews-grid">
         ${ADMIN_PREVIEW_KINDS.map((k) => this.kindSectionHtml(k)).join("")}
       </div>
       </div>

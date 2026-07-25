@@ -339,3 +339,6 @@
 .site-banner.type-warning .site-banner-icon { color: var(--color-cmd-yellow); }
 .site-banner-text { flex: 1; min-width: 0; line-height: 1.4; }
 .site-banner-eta { flex: none; font-family: var(--font-mono); font-size: 11px; color: var(--color-muted); white-space: nowrap; }
+@media (max-width: 767.98px) {
+  #railTools { top: calc(var(--site-banner-h, 0px) + 8px); }
+}

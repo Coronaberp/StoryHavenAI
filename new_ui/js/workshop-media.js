@@ -129,6 +129,10 @@ class WorkshopMediaView {
     this.fps = 24;
     this.genStatus = "";
     this.compile = new WorkshopMediaCompilePanel(this);
+    this._modelRequestHosts = null;
+    this._mpTab = "models";
+    this._lpTab = "loras";
+    this._mrType = "checkpoint";
   }
 
   get referenceImage() {
@@ -149,6 +153,7 @@ class WorkshopMediaView {
       return this.draftFields();
     });
     this.autosave.start();
+    this.loadModelRequestHosts();
     await this.consumePendingReference();
   }
 
@@ -820,15 +825,43 @@ class WorkshopMediaView {
   openModelPicker() {
     this._mpQuery = "";
     this._mpPicked = this.checkpoint;
-    openModal(this.modelPickerModalHtml(), { wide: true });
-    document.getElementById("mpSearch").oninput = (e) => { this._mpQuery = e.target.value; this.renderModelPickerGrid(); };
+    this._mpTab = "models";
+    this._mrType = this.architecture === "anima" ? "anima" : "checkpoint";
+    openModal(`<div id="mpRoot">${this.modelPickerBodyHtml()}</div>`, { wide: true });
+    this.wireModelPickerBody();
+  }
+
+  modelPickerBodyHtml() {
+    return `
+      <h3>${t("forge_choose_model_heading")}</h3>
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button type="button" onclick="_activeForgeView.switchMpTab('models')" class="filter-chip${this._mpTab === "models" ? " on" : ""}">${t("forge_tab_models", "Models")}</button>
+        <button type="button" onclick="_activeForgeView.switchMpTab('request')" class="filter-chip${this._mpTab === "request" ? " on" : ""}">${t("forge_tab_request_model", "Request a model")}</button>
+      </div>
+      <div id="mpBody">${this._mpTab === "request" ? this.modelRequestTabHtml() : this.modelBrowseTabHtml()}</div>
+    `;
+  }
+
+  switchMpTab(tab) {
+    this._mpTab = tab;
+    const root = document.getElementById("mpRoot");
+    if (root) root.innerHTML = this.modelPickerBodyHtml();
+    this.wireModelPickerBody();
+  }
+
+  wireModelPickerBody() {
+    if (this._mpTab === "request") {
+      this.wireModelRequestTab();
+      return;
+    }
+    const search = document.getElementById("mpSearch");
+    if (search) search.oninput = (e) => { this._mpQuery = e.target.value; this.renderModelPickerGrid(); };
     this.renderModelPickerGrid();
     this.renderModelPickerDetail();
   }
 
-  modelPickerModalHtml() {
+  modelBrowseTabHtml() {
     return `
-      <h3>${t("forge_choose_model_heading")}</h3>
       <input type="text" id="mpSearch" placeholder="${t("forge_search_models_placeholder")}" value="${_attr(this._mpQuery)}" style="width:100%;margin-bottom:12px;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)">
       <div id="mpGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px;max-height:300px;overflow-y:auto;margin-bottom:14px;padding:2px"></div>
       <div id="mpDetail"></div>
@@ -877,6 +910,201 @@ class WorkshopMediaView {
     ` : "";
     const useBtn = document.getElementById("mpUse");
     if (useBtn) useBtn.onclick = () => { this.setCheckpoint(name); closeTopModal(); };
+  }
+
+  async loadModelRequestHosts() {
+    if (this._modelRequestHosts !== null) return this._modelRequestHosts;
+    try {
+      const st = await api("/api/settings");
+      this._modelRequestHosts = (st.model_request_hosts || []).map((h) => (typeof h === "string" ? h : h.host)).filter(Boolean);
+    } catch (e) {
+      this._modelRequestHosts = [];
+    }
+    return this._modelRequestHosts;
+  }
+
+  isRequestHostAllowed(url) {
+    let host;
+    try { host = new URL(url).hostname.toLowerCase(); } catch (e) { return false; }
+    return (this._modelRequestHosts || []).some((h) => {
+      const hh = (h || "").toLowerCase();
+      return hh && (host === hh || host.endsWith("." + hh));
+    });
+  }
+
+  directLinkExplainerHtml() {
+    return `
+      <div style="display:flex;gap:8px;padding:10px 12px;border-radius:10px;border:1px solid color-mix(in srgb, var(--color-warn) 40%, var(--color-line));background:color-mix(in srgb, var(--color-warn) 8%, var(--color-surface));margin-bottom:8px">
+        <span style="flex:none;color:var(--color-warn);font-size:14px;line-height:1">⚠</span>
+        <span style="font-size:11.5px;line-height:1.5;color:var(--color-sec)">
+          ${t("forge_request_url_explainer", "Paste the exact file download link, not a page you'd browse to. Whatever URL you paste is downloaded byte-for-byte and saved as the model file — a webpage link downloads HTML instead of the model, and it will silently look installed but be broken.")}
+          <br><span style="color:var(--color-muted)">${t("forge_request_url_examples", "Hugging Face: end the link in \"/resolve/main/filename.safetensors\", not the repo page. Civitai: use the actual Download button's link, not the model page.")}</span>
+        </span>
+      </div>
+    `;
+  }
+
+  isDirectFileLink(url) {
+    let host, pathname;
+    try {
+      const u = new URL(url);
+      host = u.hostname.toLowerCase();
+      pathname = u.pathname.toLowerCase();
+    } catch (e) {
+      return false;
+    }
+    if (/\.(safetensors|ckpt|pt|pth|bin|gguf|zip)(\?|$)/.test(pathname)) return true;
+    if (host.endsWith("huggingface.co")) return pathname.includes("/resolve/");
+    if (host.endsWith("civitai.com") || host.endsWith("civitai.red")) return pathname.includes("/api/download/");
+    if (host === "github.com") return pathname.includes("/releases/download/");
+    if (host === "raw.githubusercontent.com") return true;
+    return true;
+  }
+
+  validateRequestUrl(inputId, errId) {
+    const input = document.getElementById(inputId);
+    const err = document.getElementById(errId);
+    if (!input || !err) return true;
+    const url = input.value.trim();
+    if (!url) { err.style.display = "none"; return true; }
+    if (!/^https?:\/\/.+/i.test(url)) {
+      err.style.display = "";
+      err.style.color = "var(--color-warn)";
+      err.textContent = t("forge_request_url_malformed", "Enter a valid http(s) link.");
+      return false;
+    }
+    if (!this.isDirectFileLink(url)) {
+      err.style.display = "";
+      err.style.color = "var(--color-warn)";
+      err.textContent = t("forge_request_url_not_direct", "This looks like a webpage, not a direct download link — an admin's script pulls this exact URL as the file, so a webpage link downloads the wrong thing. On Hugging Face, use the \"resolve/main/...\" link; on Civitai, use the download button's link.");
+      return false;
+    }
+    const allowed = this.isRequestHostAllowed(url);
+    err.style.display = allowed ? "none" : "";
+    err.style.color = "var(--color-accent)";
+    err.textContent = allowed ? "" : t("forge_request_url_unlisted", "This host isn't on the allow-list yet — an admin may still review it manually.");
+    return true;
+  }
+
+  modelRequestHintHtml(id) {
+    const hosts = this._modelRequestHosts;
+    const hostsText = hosts === null
+      ? t("common_loading")
+      : hosts.length ? hosts.join(", ") : t("forge_request_hosts_none", "no hosts allow-listed yet — ask an admin to add one");
+    return `<p id="${id}" style="font-size:12px;color:var(--color-muted);margin:0 0 14px;line-height:1.45">${t("forge_request_hint", "Paste a direct download link from an allow-listed host and an admin will review it. Allowed hosts:")} <b style="color:var(--color-ink)">${_esc(hostsText)}</b></p>`;
+  }
+
+  async renderModelRequestHistory(filterTypes, boxId) {
+    const box = document.getElementById(boxId);
+    if (!box) return;
+    box.innerHTML = `<p style="font-size:12px;color:var(--color-muted)">${t("common_loading")}</p>`;
+    const rows = (await api("/api/imagegen/model-requests").catch(() => [])).filter((r) => filterTypes.includes(r.request_type));
+    const freshBox = document.getElementById(boxId);
+    if (!freshBox) return;
+    if (!rows.length) { freshBox.innerHTML = `<p style="font-size:12px;color:var(--color-muted)">${t("forge_request_history_empty", "No requests yet.")}</p>`; return; }
+    freshBox.innerHTML = rows.map((r) => `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--color-line);border-radius:10px;background:var(--color-surface)">
+        <span style="font-size:12.5px;color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(r.model_name)}</span>
+        <span style="font-size:10.5px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.04em;flex:none;color:${r.status === "approved" ? "var(--color-success)" : r.status === "rejected" ? "var(--color-warn)" : "var(--color-muted)"}">${_esc(r.status || "pending")}</span>
+      </div>
+    `).join("");
+  }
+
+  modelRequestTabHtml() {
+    const type = this._mrType || "checkpoint";
+    return `
+      ${this.modelRequestHintHtml("mrHint")}
+      <div style="margin-bottom:12px">
+        <label class="grimoire-field-label">${t("forge_request_type_label", "Type")}</label>
+        <div style="display:flex;gap:6px">
+          <button type="button" onclick="_activeForgeView.setMrType('checkpoint')" class="filter-chip${type === "checkpoint" ? " on" : ""}">${t("forge_request_type_checkpoint", "Classic (UNet)")}</button>
+          <button type="button" onclick="_activeForgeView.setMrType('anima')" class="filter-chip${type === "anima" ? " on" : ""}">${t("forge_request_type_anima", "Newer (DiT · Anima)")}</button>
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <label class="grimoire-field-label">${t("forge_request_name_label", "Name")}</label>
+        <input type="text" id="mrName" placeholder="${t("forge_request_name_placeholder", "e.g. Nova Anime XL")}" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)">
+      </div>
+      <div style="margin-bottom:10px">
+        <label class="grimoire-field-label">${t("forge_request_url_label", "Download URL")}</label>
+        ${this.directLinkExplainerHtml()}
+        <input type="text" id="mrUrl" placeholder="https://" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)">
+        <div id="mrUrlErr" style="display:none;font-size:11px;margin-top:5px;line-height:1.4"></div>
+      </div>
+      ${type === "anima" ? `
+        <div style="margin-bottom:10px">
+          <label class="grimoire-field-label">${t("forge_request_vae_url_label", "VAE URL (optional)")}</label>
+          <input type="text" id="mrVaeUrl" placeholder="https://" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)">
+        </div>
+        <div style="margin-bottom:10px">
+          <label class="grimoire-field-label">${t("forge_request_encoder_url_label", "Text encoder URL (optional)")}</label>
+          <input type="text" id="mrEncoderUrl" placeholder="https://" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)">
+        </div>
+      ` : ""}
+      <div style="margin-bottom:14px">
+        <label class="grimoire-field-label">${t("forge_request_note_label", "Note (optional)")}</label>
+        <textarea id="mrNote" rows="2" placeholder="${t("forge_request_note_placeholder", "Anything an admin should know")}" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)"></textarea>
+      </div>
+      <button type="button" id="mrSubmit" style="width:100%;padding:12px;border-radius:12px;font-weight:600;font-size:14px;color:var(--color-paper);background:linear-gradient(150deg, var(--color-accent), var(--color-accent-deep));border:none;cursor:pointer;margin-bottom:16px">${t("forge_request_submit_button", "Submit request")}</button>
+      <div style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-muted);margin-bottom:8px">${t("forge_request_history_heading", "Your requests")}</div>
+      <div id="mrHistory" style="display:flex;flex-direction:column;gap:6px"></div>
+    `;
+  }
+
+  setMrType(type) {
+    this._mrType = type;
+    const body = document.getElementById("mpBody");
+    if (body) body.innerHTML = this.modelRequestTabHtml();
+    this.wireModelRequestTab();
+  }
+
+  wireModelRequestTab() {
+    const submitBtn = document.getElementById("mrSubmit");
+    if (submitBtn) submitBtn.onclick = () => this.submitModelRequest();
+    const urlInp = document.getElementById("mrUrl");
+    if (urlInp) urlInp.oninput = () => this.validateRequestUrl("mrUrl", "mrUrlErr");
+    this.renderModelRequestHistory(["checkpoint", "anima"], "mrHistory");
+    if (this._modelRequestHosts === null) {
+      this.loadModelRequestHosts().then(() => {
+        const hint = document.getElementById("mrHint");
+        if (hint) hint.outerHTML = this.modelRequestHintHtml("mrHint");
+        this.validateRequestUrl("mrUrl", "mrUrlErr");
+      });
+    }
+  }
+
+  async submitModelRequest() {
+    const name = document.getElementById("mrName").value.trim();
+    const url = document.getElementById("mrUrl").value.trim();
+    const note = document.getElementById("mrNote").value.trim();
+    const vaeEl = document.getElementById("mrVaeUrl");
+    const encEl = document.getElementById("mrEncoderUrl");
+    if (!name) { toast(t("forge_request_name_required", "Give it a name.")); return; }
+    if (!url || !this.validateRequestUrl("mrUrl", "mrUrlErr")) { toast(t("forge_request_url_malformed", "Enter a valid http(s) link.")); return; }
+    const btn = document.getElementById("mrSubmit");
+    if (btn) { btn.disabled = true; btn.textContent = t("forge_request_submitting", "Submitting…"); }
+    try {
+      await api("/api/imagegen/model-requests", {
+        method: "POST",
+        body: JSON.stringify({
+          model_name: name, source_url: url, note,
+          request_type: this._mrType || "checkpoint",
+          vae_url: vaeEl ? vaeEl.value.trim() || null : null,
+          text_encoder_url: encEl ? encEl.value.trim() || null : null,
+        }),
+      });
+      toast(t("forge_request_submitted", "Request submitted."));
+      document.getElementById("mrName").value = "";
+      document.getElementById("mrUrl").value = "";
+      document.getElementById("mrNote").value = "";
+      if (vaeEl) vaeEl.value = "";
+      if (encEl) encEl.value = "";
+      this.renderModelRequestHistory(["checkpoint", "anima"], "mrHistory");
+    } catch (e) {
+      errorToast(e.message || t("forge_request_failed", "Couldn't submit request."));
+    }
+    const freshBtn = document.getElementById("mrSubmit");
+    if (freshBtn) { freshBtn.disabled = false; freshBtn.textContent = t("forge_request_submit_button", "Submit request"); }
   }
 
   loraThumbHtml(name, size) {
@@ -944,19 +1172,109 @@ class WorkshopMediaView {
   openLoraPicker() {
     this._lpQuery = "";
     this._lpFocused = this.loras[0]?.name || this.loraOptions[0] || null;
-    openModal(this.loraPickerModalHtml(), { wide: true });
-    document.getElementById("lpSearch").oninput = (e) => { this._lpQuery = e.target.value; this.renderLoraPickerGrid(); };
+    this._lpTab = "loras";
+    openModal(`<div id="lpRoot">${this.loraPickerBodyHtml()}</div>`, { wide: true });
+    this.wireLoraPickerBody();
+  }
+
+  loraPickerBodyHtml() {
+    return `
+      <h3>${t("forge_choose_loras_heading")}</h3>
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button type="button" onclick="_activeForgeView.switchLpTab('loras')" class="filter-chip${this._lpTab === "loras" ? " on" : ""}">${t("forge_tab_loras", "LoRAs")}</button>
+        <button type="button" onclick="_activeForgeView.switchLpTab('request')" class="filter-chip${this._lpTab === "request" ? " on" : ""}">${t("forge_tab_request_lora", "Request a LoRA")}</button>
+      </div>
+      <div id="lpBody">${this._lpTab === "request" ? this.loraRequestTabHtml() : this.loraBrowseTabHtml()}</div>
+    `;
+  }
+
+  switchLpTab(tab) {
+    this._lpTab = tab;
+    const root = document.getElementById("lpRoot");
+    if (root) root.innerHTML = this.loraPickerBodyHtml();
+    this.wireLoraPickerBody();
+  }
+
+  wireLoraPickerBody() {
+    if (this._lpTab === "request") {
+      this.wireLoraRequestTab();
+      return;
+    }
+    const search = document.getElementById("lpSearch");
+    if (search) search.oninput = (e) => { this._lpQuery = e.target.value; this.renderLoraPickerGrid(); };
     this.renderLoraPickerGrid();
     this.renderLoraPickerDetail();
   }
 
-  loraPickerModalHtml() {
+  loraBrowseTabHtml() {
     return `
-      <h3>${t("forge_choose_loras_heading")}</h3>
       <input type="text" id="lpSearch" placeholder="${t("forge_search_loras_placeholder")}" value="${_attr(this._lpQuery)}" style="width:100%;margin-bottom:12px;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)">
       <div id="lpGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px;max-height:300px;overflow-y:auto;margin-bottom:14px;padding:2px"></div>
       <div id="lpDetail"></div>
     `;
+  }
+
+  loraRequestTabHtml() {
+    return `
+      ${this.modelRequestHintHtml("lrHint")}
+      <div style="margin-bottom:10px">
+        <label class="grimoire-field-label">${t("forge_request_name_label", "Name")}</label>
+        <input type="text" id="lrName" placeholder="${t("forge_request_lora_name_placeholder", "e.g. Cinematic Lighting LoRA")}" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)">
+      </div>
+      <div style="margin-bottom:10px">
+        <label class="grimoire-field-label">${t("forge_request_url_label", "Download URL")}</label>
+        ${this.directLinkExplainerHtml()}
+        <input type="text" id="lrUrl" placeholder="https://" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)">
+        <div id="lrUrlErr" style="display:none;font-size:11px;margin-top:5px;line-height:1.4"></div>
+      </div>
+      <div style="margin-bottom:14px">
+        <label class="grimoire-field-label">${t("forge_request_note_label", "Note (optional)")}</label>
+        <textarea id="lrNote" rows="2" placeholder="${t("forge_request_note_placeholder", "Anything an admin should know")}" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)"></textarea>
+      </div>
+      <button type="button" id="lrSubmit" style="width:100%;padding:12px;border-radius:12px;font-weight:600;font-size:14px;color:var(--color-paper);background:linear-gradient(150deg, var(--color-accent), var(--color-accent-deep));border:none;cursor:pointer;margin-bottom:16px">${t("forge_request_submit_button", "Submit request")}</button>
+      <div style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-muted);margin-bottom:8px">${t("forge_request_history_heading", "Your requests")}</div>
+      <div id="lrHistory" style="display:flex;flex-direction:column;gap:6px"></div>
+    `;
+  }
+
+  wireLoraRequestTab() {
+    const submitBtn = document.getElementById("lrSubmit");
+    if (submitBtn) submitBtn.onclick = () => this.submitLoraRequest();
+    const urlInp = document.getElementById("lrUrl");
+    if (urlInp) urlInp.oninput = () => this.validateRequestUrl("lrUrl", "lrUrlErr");
+    this.renderModelRequestHistory(["lora"], "lrHistory");
+    if (this._modelRequestHosts === null) {
+      this.loadModelRequestHosts().then(() => {
+        const hint = document.getElementById("lrHint");
+        if (hint) hint.outerHTML = this.modelRequestHintHtml("lrHint");
+        this.validateRequestUrl("lrUrl", "lrUrlErr");
+      });
+    }
+  }
+
+  async submitLoraRequest() {
+    const name = document.getElementById("lrName").value.trim();
+    const url = document.getElementById("lrUrl").value.trim();
+    const note = document.getElementById("lrNote").value.trim();
+    if (!name) { toast(t("forge_request_name_required", "Give it a name.")); return; }
+    if (!url || !this.validateRequestUrl("lrUrl", "lrUrlErr")) { toast(t("forge_request_url_malformed", "Enter a valid http(s) link.")); return; }
+    const btn = document.getElementById("lrSubmit");
+    if (btn) { btn.disabled = true; btn.textContent = t("forge_request_submitting", "Submitting…"); }
+    try {
+      await api("/api/imagegen/model-requests", {
+        method: "POST",
+        body: JSON.stringify({ model_name: name, source_url: url, note, request_type: "lora" }),
+      });
+      toast(t("forge_request_submitted", "Request submitted."));
+      document.getElementById("lrName").value = "";
+      document.getElementById("lrUrl").value = "";
+      document.getElementById("lrNote").value = "";
+      this.renderModelRequestHistory(["lora"], "lrHistory");
+    } catch (e) {
+      errorToast(e.message || t("forge_request_failed", "Couldn't submit request."));
+    }
+    const freshBtn = document.getElementById("lrSubmit");
+    if (freshBtn) { freshBtn.disabled = false; freshBtn.textContent = t("forge_request_submit_button", "Submit request"); }
   }
 
   renderLoraPickerGrid() {
@@ -1384,11 +1702,19 @@ class WorkshopMediaView {
   upscalePickerHtml() {
     if (!this.upscalePickerOpen) return "";
     if (!this.upscalers.length) {
-      return `<div style="margin-bottom:16px"><p style="font-size:12.5px;color:var(--color-sec)">${t("forge_no_upscaler_models_available")}</p></div>`;
+      return `
+        <div style="margin-bottom:16px">
+          <p style="font-size:12.5px;color:var(--color-sec)">${t("forge_no_upscaler_models_available")}</p>
+          <button type="button" onclick="_activeForgeView.openUpscalerRequestModal()" style="font-size:12px;color:var(--color-accent);background:none;border:none;cursor:pointer;padding:0;text-decoration:underline">${t("forge_request_an_upscaler_link", "Request an upscaler")}</button>
+        </div>
+      `;
     }
     return `
       <div style="margin-bottom:16px;padding:14px;border:1px solid var(--color-line);border-radius:14px;background:var(--color-surface)">
-        <label class="grimoire-field-label">${t("forge_choose_upscaler_label")}</label>
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:0">
+          <label class="grimoire-field-label" style="margin-bottom:8px">${t("forge_choose_upscaler_label")}</label>
+          <button type="button" onclick="_activeForgeView.openUpscalerRequestModal()" style="font-size:11px;color:var(--color-accent);background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;white-space:nowrap">${t("forge_request_an_upscaler_link", "Request an upscaler")}</button>
+        </div>
         <div style="display:flex;gap:8px;overflow-x:auto">
           ${this.upscalers.map((u) => {
             const p = this.upscalerPreviews[u];
@@ -1404,6 +1730,69 @@ class WorkshopMediaView {
         </div>
       </div>
     `;
+  }
+
+  openUpscalerRequestModal() {
+    openModal(this.upscalerRequestModalHtml(), { wide: true });
+    document.getElementById("urSubmit").onclick = () => this.submitUpscalerRequest();
+    document.getElementById("urUrl").oninput = () => this.validateRequestUrl("urUrl", "urUrlErr");
+    this.renderModelRequestHistory(["upscaler"], "urHistory");
+    if (this._modelRequestHosts === null) {
+      this.loadModelRequestHosts().then(() => {
+        const hint = document.getElementById("urHint");
+        if (hint) hint.outerHTML = this.modelRequestHintHtml("urHint");
+        this.validateRequestUrl("urUrl", "urUrlErr");
+      });
+    }
+  }
+
+  upscalerRequestModalHtml() {
+    return `
+      <h3>${t("forge_request_upscaler_heading", "Request an upscaler")}</h3>
+      ${this.modelRequestHintHtml("urHint")}
+      <div style="margin-bottom:10px">
+        <label class="grimoire-field-label">${t("forge_request_name_label", "Name")}</label>
+        <input type="text" id="urName" placeholder="${t("forge_request_upscaler_name_placeholder", "e.g. 4x-UltraSharp")}" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)">
+      </div>
+      <div style="margin-bottom:10px">
+        <label class="grimoire-field-label">${t("forge_request_url_label", "Download URL")}</label>
+        ${this.directLinkExplainerHtml()}
+        <input type="text" id="urUrl" placeholder="https://" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)">
+        <div id="urUrlErr" style="display:none;font-size:11px;margin-top:5px;line-height:1.4"></div>
+      </div>
+      <div style="margin-bottom:14px">
+        <label class="grimoire-field-label">${t("forge_request_note_label", "Note (optional)")}</label>
+        <textarea id="urNote" rows="2" placeholder="${t("forge_request_note_placeholder", "Anything an admin should know")}" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)"></textarea>
+      </div>
+      <button type="button" id="urSubmit" style="width:100%;padding:12px;border-radius:12px;font-weight:600;font-size:14px;color:var(--color-paper);background:linear-gradient(150deg, var(--color-accent), var(--color-accent-deep));border:none;cursor:pointer;margin-bottom:16px">${t("forge_request_submit_button", "Submit request")}</button>
+      <div style="font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-muted);margin-bottom:8px">${t("forge_request_history_heading", "Your requests")}</div>
+      <div id="urHistory" style="display:flex;flex-direction:column;gap:6px"></div>
+    `;
+  }
+
+  async submitUpscalerRequest() {
+    const name = document.getElementById("urName").value.trim();
+    const url = document.getElementById("urUrl").value.trim();
+    const note = document.getElementById("urNote").value.trim();
+    if (!name) { toast(t("forge_request_name_required", "Give it a name.")); return; }
+    if (!url || !this.validateRequestUrl("urUrl", "urUrlErr")) { toast(t("forge_request_url_malformed", "Enter a valid http(s) link.")); return; }
+    const btn = document.getElementById("urSubmit");
+    if (btn) { btn.disabled = true; btn.textContent = t("forge_request_submitting", "Submitting…"); }
+    try {
+      await api("/api/imagegen/model-requests", {
+        method: "POST",
+        body: JSON.stringify({ model_name: name, source_url: url, note, request_type: "upscaler" }),
+      });
+      toast(t("forge_request_submitted", "Request submitted."));
+      document.getElementById("urName").value = "";
+      document.getElementById("urUrl").value = "";
+      document.getElementById("urNote").value = "";
+      this.renderModelRequestHistory(["upscaler"], "urHistory");
+    } catch (e) {
+      errorToast(e.message || t("forge_request_failed", "Couldn't submit request."));
+    }
+    const freshBtn = document.getElementById("urSubmit");
+    if (freshBtn) { freshBtn.disabled = false; freshBtn.textContent = t("forge_request_submit_button", "Submit request"); }
   }
 
   async runUpscale(upscalerName) {

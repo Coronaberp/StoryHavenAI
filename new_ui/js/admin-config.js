@@ -833,20 +833,26 @@ AdminConfigView.prototype.render = function () {
   `;
 
   this.main.innerHTML = `
-    <div class="content-col">
+    <div class="content-col admin-config-content">
     ${backLinkHtml("Admin")}
     ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_config_title"), t("ph_admin_config_sub"))}
     ${adminScreenSwitcherHtml("admin-config", window._adminSwitcherBadges || {})}
     <div class="flex justify-end mb-3">
       <span id="cfgSaveStatus" class="font-mono text-[10px] tracking-[.08em] uppercase text-muted"></span>
     </div>
-    ${this.sectionHtml("language", t("admin_config_language_section", "Language & translations"), languageContent)}
-    ${this.sectionHtml("models", t("admin_config_models_section", "Models"), modelsContent)}
-    ${this.sectionHtml("integrations", t("admin_config_integrations_section", "Integrations"), integrationsContent)}
-    ${this.sectionHtml("behavior", t("admin_config_behavior_section", "Chat behavior"), behaviorContent)}
-    ${this.sectionHtml("sampling", t("admin_config_sampling_defaults"), this.samplingHtml())}
-    ${this.sectionHtml("injection", t("admin_config_prompt_injection"), this.injectionHtml())}
-    ${this.sectionHtml("backend", t("admin_config_backend"), this.backendHtml())}
+    <div class="admin-config-grid">
+      <div class="admin-config-col">
+        ${this.sectionHtml("models", t("admin_config_models_section", "Models"), modelsContent)}
+        ${this.sectionHtml("integrations", t("admin_config_integrations_section", "Integrations"), integrationsContent)}
+      </div>
+      <div class="admin-config-col">
+        ${this.sectionHtml("language", t("admin_config_language_section", "Language & translations"), languageContent)}
+        ${this.sectionHtml("behavior", t("admin_config_behavior_section", "Chat behavior"), behaviorContent)}
+        ${this.sectionHtml("sampling", t("admin_config_sampling_defaults"), this.samplingHtml())}
+        ${this.sectionHtml("injection", t("admin_config_prompt_injection"), this.injectionHtml())}
+        ${this.sectionHtml("backend", t("admin_config_backend"), this.backendHtml())}
+      </div>
+    </div>
     </div>
   `;
   adminAttachScreenSwitcher(this.main);

@@ -81,7 +81,7 @@ class AdminFeaturesPanel {
         <button type="button" id="adminFeaturesDisableSelected" class="pe-gen-btn flex-1 md:flex-none">${t("admin_features_disable_selected", "Disable selected")}</button>
         <button type="button" id="adminFeaturesEnableSelected" class="pe-gen-btn flex-1 md:flex-none">${t("admin_features_enable_selected", "Enable selected")}</button>
       </div>
-      <div>${rows}</div>
+      <div class="admin-features-grid">${rows}</div>
     `;
     container.querySelectorAll("[data-feature-key]").forEach((el) => {
       el.onchange = () => {

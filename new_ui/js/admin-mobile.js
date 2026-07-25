@@ -42,6 +42,22 @@ function adminAttachScreenSwitcher(root) {
   wrap.querySelectorAll("[data-admin-switch-to]").forEach((el) => {
     el.onclick = () => navigate("/" + el.dataset.adminSwitchTo);
   });
+
+  const contentCol = wrap.closest(".content-col");
+  if (contentCol && !contentCol.dataset.adminShellBuilt) {
+    const railHost = document.createElement("div");
+    railHost.className = "admin-shell-rail";
+    const mainHost = document.createElement("div");
+    mainHost.className = "admin-shell-main";
+    railHost.appendChild(wrap);
+    while (contentCol.firstChild) {
+      mainHost.appendChild(contentCol.firstChild);
+    }
+    contentCol.appendChild(railHost);
+    contentCol.appendChild(mainHost);
+    contentCol.classList.add("admin-shell");
+    contentCol.dataset.adminShellBuilt = "1";
+  }
 }
 
 function adminCardHtml({ title, pill, pillTone, facts, actions }) {

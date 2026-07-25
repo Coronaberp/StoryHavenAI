@@ -3064,9 +3064,6 @@ body { background-color: var(--color-paper) !important; }
 .tts-btn.speaking { color: var(--color-accent); }
 
 .admin-switch { position: relative; margin-bottom: 14px; }
-@media (min-width: 1024px) {
-  .admin-switch { display: none; }
-}
 .admin-switch-current {
   width: 100%;
   display: flex;
@@ -3111,6 +3108,133 @@ body { background-color: var(--color-paper) !important; }
 }
 .admin-switch-item:last-child { border-bottom: none; }
 .admin-switch-item.on { color: var(--color-accent); font-weight: 600; }
+@media (min-width: 1024px) {
+  .content-col.admin-shell {
+    max-width: 1040px;
+  }
+  .admin-users-content.admin-shell {
+    max-width: 1320px;
+  }
+  .admin-moderation-content.admin-shell {
+    max-width: 1160px;
+  }
+  .admin-config-content.admin-shell {
+    max-width: 1400px;
+  }
+  .admin-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    gap: 32px;
+    align-items: start;
+  }
+  .admin-config-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0 20px;
+    align-items: start;
+  }
+  .admin-shell-rail {
+    order: 2;
+    position: sticky;
+    top: 16px;
+    align-self: start;
+  }
+  .admin-shell-main {
+    order: 1;
+    min-width: 0;
+  }
+  .admin-previews-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  .admin-previews-card {
+    margin-bottom: 0;
+  }
+  .admin-features-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .admin-features-grid > div {
+    margin-bottom: 0;
+  }
+  .admin-announce-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 24px;
+    align-items: start;
+  }
+  .admin-announce-preview {
+    position: sticky;
+    top: 16px;
+  }
+  .admin-health-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .admin-overview-stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .admin-overview-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 24px;
+    align-items: start;
+  }
+  .admin-overview-rail {
+    position: sticky;
+    top: 16px;
+    margin-top: 0;
+  }
+  .admin-switch {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+  .admin-switch-current { display: none; }
+  .admin-switch-list.hidden,
+  .admin-switch-list {
+    position: static;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+  .admin-switch-item {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 9px 12px;
+    min-height: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-sec);
+    white-space: nowrap;
+  }
+  .admin-switch-item:hover {
+    background: var(--color-surface-2);
+    color: var(--color-ink);
+  }
+  .admin-switch-item.on {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+    font-weight: 600;
+  }
+  .admin-switch-badge {
+    margin-left: auto;
+  }
+}
 .admin-switch-badge {
   display: inline-flex;
   align-items: center;
@@ -3124,6 +3248,19 @@ body { background-color: var(--color-paper) !important; }
   color: var(--color-warn);
   font-size: 11px;
   font-weight: 700;
+}
+
+.admin-overview-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.admin-overview-grid {
+  display: block;
+}
+.admin-overview-rail {
+  margin-top: 14px;
 }
 
 .admin-card {
@@ -3252,6 +3389,9 @@ body { background-color: var(--color-paper) !important; }
 @media (min-width: 1280px) {
   .lora-jobs-grid { grid-template-columns: repeat(3, 1fr); }
 }
+@media (min-width: 1400px) {
+  .admin-previews-grid { grid-template-columns: repeat(3, 1fr); }
+}
 .lora-job-card {
   background: var(--color-surface);
   border: 1px solid var(--color-line);
@@ -3302,6 +3442,37 @@ body { background-color: var(--color-paper) !important; }
 .lora-wizard-line { flex: 1; height: 1.5px; background: var(--color-line); margin-bottom: 16px; }
 .lora-wizard-line.done { background: var(--color-accent); }
 .lora-wizard-body { max-width: 100%; }
+.lora-wizard-grid { display: block; }
+.lora-wizard-summary {
+  display: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 13px;
+  padding: 14px;
+}
+@media (min-width: 1024px) {
+  .lora-wizard-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 24px;
+    align-items: start;
+  }
+  .lora-wizard-summary {
+    display: block;
+    position: sticky;
+    top: 16px;
+  }
+  .lora-detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: 24px;
+    align-items: start;
+  }
+  .lora-detail-rail {
+    position: sticky;
+    top: 16px;
+  }
+}
 @media (min-width: 1024px) {
   .lora-wizard-body { max-width: 560px; margin-inline: auto; }
 }

@@ -21,22 +21,46 @@ class AdminOverviewView {
       api("/api/admin/emojis").catch(() => []),
     ]);
     this.queues = [
-      { label: t("admin_overview_q_signups", "New signups"), count: users.filter((u) => u.status === "pending").length },
-      { label: t("admin_overview_q_flagged", "Flagged endpoints"), count: flagged.length },
-      { label: t("admin_overview_q_resets", "Password resets"), count: resetReqs.length },
-      { label: t("admin_overview_q_model_requests", "Model requests"), count: modelReqs.filter((r) => r.status === "pending").length },
-      { label: t("admin_overview_q_content_reports", "Content reports"), count: contentReports.length },
-      { label: t("admin_overview_q_image_reports", "Image reports"), count: imageReports.length },
-      { label: t("admin_overview_q_titles", "Title requests"), count: titleReqs.length },
-      { label: t("admin_overview_q_emojis", "Explicit emojis"), count: emojis.filter((e) => e.is_explicit).length },
+      { key: "signups", label: t("admin_overview_q_signups", "New signups"), count: users.filter((u) => u.status === "pending").length },
+      { key: "flagged", label: t("admin_overview_q_flagged", "Flagged endpoints"), count: flagged.length },
+      { key: "resets", label: t("admin_overview_q_resets", "Password resets"), count: resetReqs.length },
+      { key: "model_requests", label: t("admin_overview_q_model_requests", "Model requests"), count: modelReqs.filter((r) => r.status === "pending").length },
+      { key: "content_reports", label: t("admin_overview_q_content_reports", "Content reports"), count: contentReports.length },
+      { key: "image_reports", label: t("admin_overview_q_image_reports", "Image reports"), count: imageReports.length },
+      { key: "titles", label: t("admin_overview_q_titles", "Title requests"), count: titleReqs.length },
+      { key: "emojis", label: t("admin_overview_q_emojis", "Explicit emojis"), count: emojis.filter((e) => e.is_explicit).length },
     ];
     this.services = health.services || [];
     this.render();
   }
 
+  statTileHtml(label, count, tone) {
+    return `
+      <div class="p-3.5 rounded-[13px] border border-line bg-surface">
+        <div class="font-mono text-[10px] tracking-[.14em] uppercase text-muted mb-1.5">${_esc(label)}</div>
+        <div class="font-display font-semibold text-2xl" style="color:${tone === "warn" && count > 0 ? "var(--color-warn)" : "var(--color-ink)"}">${count}</div>
+      </div>
+    `;
+  }
+
   render() {
     const attentionTotal = this.queues.reduce((sum, q) => sum + q.count, 0);
     window._adminSwitcherBadges = { "admin-moderation": attentionTotal };
+
+    const signups = this.queues.find((q) => q.key === "signups")?.count || 0;
+    const flaggedCount = this.queues.find((q) => q.key === "flagged")?.count || 0;
+    const reportsCombined = (this.queues.find((q) => q.key === "content_reports")?.count || 0)
+      + (this.queues.find((q) => q.key === "image_reports")?.count || 0)
+      + (this.queues.find((q) => q.key === "titles")?.count || 0);
+    const modelReqCount = this.queues.find((q) => q.key === "model_requests")?.count || 0;
+    const statsHtml = `
+      <div class="admin-overview-stats">
+        ${this.statTileHtml(t("admin_overview_q_signups", "New signups"), signups, "warn")}
+        ${this.statTileHtml(t("admin_overview_q_flagged", "Flagged endpoints"), flaggedCount, "warn")}
+        ${this.statTileHtml(t("admin_overview_reports_combined", "Reports"), reportsCombined, "warn")}
+        ${this.statTileHtml(t("admin_overview_q_model_requests", "Model requests"), modelReqCount, "warn")}
+      </div>
+    `;
 
     const queueLine = (q) => `
       <button type="button" onclick="navigate('/admin-moderation')" class="w-full flex items-center justify-between py-1.5 text-[13px] text-ink" style="border-top:1px solid color-mix(in srgb, var(--color-warn) 15%, transparent)">
@@ -87,9 +111,14 @@ class AdminOverviewView {
       <div class="content-col">
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_title"), t("ph_admin_sub"))}
       ${adminScreenSwitcherHtml("admin", window._adminSwitcherBadges || {})}
-      <div class="flex flex-col gap-2.5 max-w-xl">
-        ${attentionHtml}
-        ${servicesHtml}
+      ${statsHtml}
+      <div class="admin-overview-grid">
+        <div class="flex flex-col gap-2.5">
+          ${attentionHtml}
+        </div>
+        <div class="admin-overview-rail flex flex-col gap-2.5">
+          ${servicesHtml}
+        </div>
       </div>
       </div>
     `;

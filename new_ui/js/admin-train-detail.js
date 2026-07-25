@@ -48,21 +48,27 @@ Object.assign(AdminTrainView.prototype, {
 
   progressPanelHtml() {
     return `
-      <div id="lt_cost_banner" class="lora-cost-banner-live" style="display:none"></div>
-      <div id="lt_status_hero" class="lora-status-hero"></div>
-      <div id="lt_metric_cards"></div>
-      <div id="lt_upload_wrap" style="display:none">
-        <div class="lora-transfer-label">${t("admin_train_column_uploading")}</div>
-        <div id="lt_upload_cards"></div>
+      <div class="lora-detail-grid">
+        <div class="lora-detail-main">
+          <div id="lt_metric_cards"></div>
+          <div id="lt_upload_wrap" style="display:none">
+            <div class="lora-transfer-label">${t("admin_train_column_uploading")}</div>
+            <div id="lt_upload_cards"></div>
+          </div>
+          <div id="lt_download_wrap" style="display:none">
+            <div class="lora-transfer-label">${t("admin_train_column_downloading")}</div>
+            <div id="lt_download_cards"></div>
+          </div>
+          <div style="height:180px;margin:14px 0"><canvas id="lt_loss_chart"></canvas></div>
+          <div id="lt_log" class="lora-log-box"></div>
+        </div>
+        <div class="lora-detail-rail">
+          <div id="lt_cost_banner" class="lora-cost-banner-live" style="display:none"></div>
+          <div id="lt_status_hero" class="lora-status-hero"></div>
+          <button type="button" id="lt_checkpoint_now" class="lora-btn lora-btn-ghost" style="flex:1;width:100%">${t("admin_train_request_checkpoint_now")}</button>
+          <div class="lora-field-hint" style="text-align:center;margin-top:6px">${t("admin_train_request_checkpoint_hint")}</div>
+        </div>
       </div>
-      <div id="lt_download_wrap" style="display:none">
-        <div class="lora-transfer-label">${t("admin_train_column_downloading")}</div>
-        <div id="lt_download_cards"></div>
-      </div>
-      <div style="height:180px;margin:14px 0"><canvas id="lt_loss_chart"></canvas></div>
-      <div id="lt_log" class="lora-log-box"></div>
-      <button type="button" id="lt_checkpoint_now" class="lora-btn lora-btn-ghost" style="flex:1;width:100%">${t("admin_train_request_checkpoint_now")}</button>
-      <div class="lora-field-hint" style="text-align:center;margin-top:6px">${t("admin_train_request_checkpoint_hint")}</div>
     `;
   },
 

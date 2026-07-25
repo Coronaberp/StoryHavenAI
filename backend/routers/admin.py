@@ -101,10 +101,14 @@ async def admin_set_user_tier(uid: str, body: UserTierIn,
     log.info("admin: tier=%s uid=%s by=%s", body.tier, uid, current_user["username"])
     return {"id": uid, "tier": body.tier}
 
+MODEL_REQUEST_HISTORY_LIMIT = 20
+
 @api.get("/admin/model-requests")
 async def admin_list_model_requests(current_user: dict = Depends(get_admin)):
-    rows = [r for r in await model_request_repo.list(pending_only=False)
-            if r["status"] in ("pending", "approved")]
+    all_rows = await model_request_repo.list(pending_only=False)
+    active_rows = [r for r in all_rows if r["status"] in ("pending", "approved")]
+    history_rows = [r for r in all_rows if r["status"] in ("implemented", "rejected")][:MODEL_REQUEST_HISTORY_LIMIT]
+    rows = active_rows + history_rows
     is_dev = current_user.get("role") == "dev"
     fulfilled_cache: dict[str, set[str]] = {}
     for r in rows:
@@ -148,6 +152,18 @@ async def admin_reject_model_request(rid: str, current_user: dict = Depends(get_
     log.info("admin: rejected model request by=%s model=%s url=%s",
              current_user["username"], r["model_name"], r["source_url"])
     return {"status": "rejected"}
+
+@api.post("/admin/model-requests/{rid}/reopen")
+async def admin_reopen_model_request(rid: str, current_user: dict = Depends(get_admin)):
+    r = await model_request_repo.get(rid)
+    if not r:
+        raise HTTPException(404, "not found")
+    if r["status"] not in ("implemented", "rejected"):
+        raise HTTPException(400, "request is not implemented or rejected")
+    await model_request_repo.set_status(rid, "approved")
+    log.info("admin: reopened model request by=%s model=%s previous_status=%s",
+             current_user["username"], r["model_name"], r["status"])
+    return {"status": "approved"}
 
 @api.post("/admin/model-requests/{rid}/complete")
 async def admin_complete_model_request(rid: str, current_user: dict = Depends(get_admin)):

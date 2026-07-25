@@ -9,8 +9,8 @@ function adminQueueSectionHtml(title, count, rows) {
         ${count > 0 ? `<span class="font-mono text-[10px] px-1.5 py-0.5 rounded-full" style="background:var(--color-warn);color:var(--color-paper)">${count}</span>` : ""}
       </div>
       ${empty ? `<p class="text-sm text-muted py-1">${t("admin_moderation_nothing_pending")}</p>` : `
-        <div class="md:hidden">${rows.map((r) => r.card).join("")}</div>
-        <div class="hidden md:block overflow-x-auto">
+        <div class="lg:hidden">${rows.map((r) => r.card).join("")}</div>
+        <div class="hidden lg:block overflow-x-auto">
           <table class="w-full text-left border-collapse">
             <tbody>${rows.map((r) => r.tr).join("")}</tbody>
           </table>
@@ -63,6 +63,7 @@ class AdminModerationView {
     this.flagged = flagged;
     this.resetReqs = resetReqs;
     this.modelReqs = modelReqs.filter((r) => r.status === "pending" || r.status === "approved");
+    this.modelReqHistory = modelReqs.filter((r) => r.status === "implemented" || r.status === "rejected");
     this.titleReqs = titleReqs;
     this.imageReports = imageReports;
     this.contentReports = contentReports;
@@ -157,8 +158,8 @@ class AdminModerationView {
         </div>
         ${creator}
         ${rows.length ? `
-          <div class="md:hidden">${rows.map((r) => r.card).join("")}</div>
-          <div class="hidden md:block overflow-x-auto">
+          <div class="lg:hidden">${rows.map((r) => r.card).join("")}</div>
+          <div class="hidden lg:block overflow-x-auto">
             <table class="w-full text-left border-collapse"><tbody>${rows.map((r) => r.tr).join("")}</tbody></table>
           </div>
         ` : `<p class="text-sm text-muted py-1">${t("admin_invite_none", "No codes yet.")}</p>`}
@@ -276,7 +277,7 @@ class AdminModerationView {
   }
 }
 
-const ADMIN_MR_TYPE_LABELS = { lora: "LoRA", upscaler: "Upscaler", anima: "Anima", wan: "Wan Video" };
+const ADMIN_MR_TYPE_LABELS = { lora: "LoRA", upscaler: "Upscaler", anima: "Newer (DiT · Anima)", wan: "Wan Video" };
 const ADMIN_MR_SUBDIRS = { checkpoint: "checkpoints", lora: "loras", upscaler: "upscale_models", anima: "diffusion_models", wan: "diffusion_models" };
 const ADMIN_MR_BASE_DIR = "/var/mnt/storage/podman/volumes/sillytavern_comfyui_models/_data";
 const ADMIN_MR_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
@@ -372,6 +373,36 @@ Object.assign(AdminModerationView.prototype, {
     });
     return adminQueueSectionHtml(t("admin_moderation_model_requests"), this.modelReqs.filter((r) => r.status === "pending").length, rows);
   },
+
+  modelRequestHistoryHtml() {
+    if (!this.modelReqHistory.length) return "";
+    const rows = this.modelReqHistory.map((mr) => {
+      const typeLabel = ADMIN_MR_TYPE_LABELS[mr.request_type] || t("admin_moderation_model");
+      const statusLabel = mr.status === "implemented" ? t("admin_moderation_status_installed", "Installed") : t("admin_moderation_status_rejected", "Rejected");
+      const statusColor = mr.status === "implemented" ? "var(--color-success)" : "var(--color-warn)";
+      const actions = [`<button type="button" onclick="adminModerationView.reopenModelRequest('${_attr(mr.id)}')" class="px-2.5 py-1 rounded-md border border-line text-xs text-ink">${t("admin_moderation_reopen", "Reopen")}</button>`];
+      const cardActions = [{ id: "reopen", label: t("admin_moderation_reopen", "Reopen") }];
+      return adminQueueRowHtml(
+        `<div class="font-display font-semibold text-sm text-ink">
+           <span class="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded-md mr-1" style="background:var(--color-surface-2);color:var(--color-muted)">${_esc(typeLabel)}</span>
+           ${_esc(mr.model_name)}
+           <span class="font-mono text-[9px] uppercase ml-1" style="color:${statusColor}">${statusLabel}</span>
+         </div>
+         <div class="text-xs text-muted mt-1">${_esc(mr.username || mr.user_id)} · <a href="${_attr(mr.source_url)}" target="_blank" rel="noopener noreferrer" class="font-mono underline">${_esc(mr.source_url)}</a>${mr.note ? ` · ${_esc(mr.note)}` : ""}</div>`,
+        actions.join(""),
+        {
+          id: mr.id,
+          queue: "modelHistory",
+          title: mr.model_name,
+          pill: statusLabel,
+          pillTone: mr.status === "implemented" ? "" : "warn",
+          facts: `${mr.username || mr.user_id} · ${mr.source_url}${mr.note ? " · " + mr.note : ""}`,
+          actions: cardActions,
+        }
+      );
+    });
+    return adminQueueSectionHtml(t("admin_moderation_model_request_history", "Model request history"), 0, rows);
+  },
 });
 
 Object.assign(AdminModerationView.prototype, {
@@ -434,6 +465,17 @@ Object.assign(AdminModerationView.prototype, {
       await this.load();
     } catch (e) {
       errorToast(e.message || t("admin_moderation_couldnt_mark_done"));
+    }
+  },
+
+  async reopenModelRequest(rid) {
+    if (!(await confirmDialog(t("admin_moderation_confirm_reopen_model_request", "Reopen this model request? It'll go back to approved."), { confirmLabel: t("admin_moderation_reopen", "Reopen") }))) return;
+    try {
+      await api(`/api/admin/model-requests/${encodeURIComponent(rid)}/reopen`, { method: "POST" });
+      toast(t("admin_moderation_model_request_reopened", "Request reopened."));
+      await this.load();
+    } catch (e) {
+      errorToast(e.message || t("admin_moderation_couldnt_reopen_model_request", "Couldn't reopen request."));
     }
   },
 
@@ -610,6 +652,7 @@ AdminModerationView.prototype.mobileCardActionMap = function () {
       copy_curl: (id) => this.copyModelRequestCurl(id),
       complete: (id) => this.completeModelRequest(id),
     },
+    modelHistory: { reopen: (id) => this.reopenModelRequest(id) },
     titles: { approve: (id) => this.approveTitleRequest(id), reject: (id) => this.rejectTitleRequest(id) },
     imageReports: { review: (id) => this.reviewImageReport(id) },
     contentReports: { review: (id) => this.reviewContentReport(id) },
@@ -642,6 +685,7 @@ AdminModerationView.prototype.render = function () {
     ${this.flaggedEndpointsHtml()}
     ${this.passwordResetsHtml()}
     ${this.modelRequestsHtml()}
+    ${this.modelRequestHistoryHtml()}
     ${this.titleRequestsHtml()}
     ${this.imageReportsHtml()}
     ${this.contentReportsHtml()}

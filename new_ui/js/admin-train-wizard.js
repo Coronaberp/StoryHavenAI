@@ -56,6 +56,27 @@ Object.assign(AdminTrainView.prototype, {
     `;
   },
 
+  wizardSummaryHtml() {
+    const f = this.form;
+    const checkpointLabel = this.checkpointPreviews[f.checkpoint]?.display_name || f.checkpoint;
+    const rows = [
+      [t("admin_train_name"), f.name || "—"],
+      [t("admin_train_trigger_word"), f.trigger_word || "—"],
+      [t("admin_train_base_checkpoint"), checkpointLabel || "—"],
+      [t("admin_train_training_images"), this.trainImages.length || "—"],
+      [t("admin_train_resolution"), f.resolution],
+      [t("admin_train_steps"), f.steps],
+    ];
+    return `
+      <div class="lora-wizard-summary">
+        <div class="font-mono text-[10px] tracking-[.14em] uppercase text-muted mb-2">${t("admin_train_wizard_summary_title", "So far")}</div>
+        ${rows.map(([label, value]) => `
+          <div class="lora-review-row"><span>${_esc(label)}</span><span>${_esc(String(value))}</span></div>
+        `).join("")}
+      </div>
+    `;
+  },
+
   wizardScreenHtml() {
     const body = {
       basics: () => this.basicsStepHtml(),
@@ -66,7 +87,10 @@ Object.assign(AdminTrainView.prototype, {
     return `
       <div class="lora-wizard">
         ${this.wizardStepTrackerHtml()}
-        <div class="lora-wizard-body">${body}</div>
+        <div class="lora-wizard-grid">
+          <div class="lora-wizard-body">${body}</div>
+          ${this.wizardStep !== "review" ? this.wizardSummaryHtml() : ""}
+        </div>
       </div>
     `;
   },
@@ -88,7 +112,7 @@ Object.assign(AdminTrainView.prototype, {
   checkpointPickerItems() {
     return this.checkpoints.map((name) => {
       const p = this.checkpointPreviews[name];
-      return { name, label: p?.display_name || name, sublabel: this.animaNames.has(name) ? "Anima" : "SDXL", image: p?.image || null, category: this.animaNames.has(name) ? "anima" : "sdxl" };
+      return { name, label: p?.display_name || name, sublabel: this.animaNames.has(name) ? "Newer (DiT · Anima)" : "Classic (UNet)", image: p?.image || null, category: this.animaNames.has(name) ? "anima" : "sdxl" };
     });
   },
 
@@ -139,7 +163,7 @@ Object.assign(AdminTrainView.prototype, {
       title: t("admin_train_choose_a_base_checkpoint"),
       items: this.checkpointPickerItems(),
       selected: this.form.checkpoint,
-      categories: [{ key: "anima", label: "Anima" }, { key: "sdxl", label: "SDXL" }],
+      categories: [{ key: "anima", label: "Newer (DiT · Anima)" }, { key: "sdxl", label: "Classic (UNet)" }],
       onPick: (name) => { this.form.checkpoint = name; this.render(); },
     });
     const resumeBtn = document.getElementById("lt_resume_picker_btn");

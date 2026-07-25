@@ -19,7 +19,7 @@ from backend.imagegen_options import (
     list_object_options, list_checkpoints, list_anima_unets, list_clip_models,
     list_vaes, list_loras, list_upscalers, list_samplers,
     list_wan_unets, list_wan_clip_models,
-    CHECKPOINT_NAME_BLACKLIST_EXACT, LORA_NAME_BLACKLIST_PREFIXES, LORA_NAME_BLACKLIST_EXACT,
+    LORA_NAME_BLACKLIST_PREFIXES, LORA_NAME_BLACKLIST_EXACT,
     _lora_blacklisted,
 )
 

@@ -218,7 +218,7 @@ class AdminHealthView {
     const gridHasCards = !!grid.querySelector("[id^='health_card_']");
 
     if (!gridHasCards || !namesMatch) {
-      grid.innerHTML = `<div class="grid grid-cols-1 gap-3">${services.map((s) => this.serviceCardHtml(s)).join("")}</div>`;
+      grid.innerHTML = `<div class="admin-health-grid">${services.map((s) => this.serviceCardHtml(s)).join("")}</div>`;
       Object.values(this.charts).forEach((chart) => chart.destroy());
       this.charts = {};
       services.forEach((s) => this.renderChart(s));
@@ -287,18 +287,18 @@ AdminHealthView.prototype.render = function () {
         <button type="button" onclick="adminHealthView.refreshNow()" data-admin-health-refresh class="px-2.5 py-1 rounded-md border border-line text-xs text-ink">${t("admin_health_refresh_now", "Check now")}</button>
       </div>
     </div>
-    <div id="health_grid_desktop" class="mb-3 hidden md:block"><span class="text-sm text-muted">${t("admin_health_loading")}</span></div>
-    <div id="health_grid_mobile" class="mb-6 md:hidden rounded-[13px] border border-line bg-surface px-3"><span class="text-sm text-muted">${t("admin_health_loading")}</span></div>
+    <div id="health_grid_desktop" class="mb-3 hidden lg:block"><span class="text-sm text-muted">${t("admin_health_loading")}</span></div>
+    <div id="health_grid_mobile" class="mb-6 lg:hidden rounded-[13px] border border-line bg-surface px-3"><span class="text-sm text-muted">${t("admin_health_loading")}</span></div>
 
     <div class="flex items-center justify-between mb-2">
       <div class="font-display font-semibold text-base text-ink">${t("admin_health_server_logs")}</div>
-      <select onchange="adminHealthView.setLogLevel(this.value)" class="hidden md:block px-2.5 py-1.5 rounded-md border border-line bg-surface text-ink text-xs">
+      <select onchange="adminHealthView.setLogLevel(this.value)" class="hidden lg:block px-2.5 py-1.5 rounded-md border border-line bg-surface text-ink text-xs">
         <option value="DEBUG">${t("admin_health_log_level_debug")}</option>
         <option value="INFO" selected>${t("admin_health_log_level_info")}</option>
         <option value="WARNING">${t("admin_health_log_level_warning")}</option>
         <option value="ERROR">${t("admin_health_log_level_error")}</option>
       </select>
-      <div class="flex gap-1.5 md:hidden">
+      <div class="flex gap-1.5 lg:hidden">
         <button type="button" onclick="adminHealthView.setLogLevel('DEBUG')" data-health-log-chip="DEBUG" class="filter-chip admin-log-chip px-2.5 py-1 rounded-md border border-line text-xs text-ink">${t("admin_health_log_chip_all", "All")}</button>
         <button type="button" onclick="adminHealthView.setLogLevel('INFO')" data-health-log-chip="INFO" class="filter-chip on admin-log-chip px-2.5 py-1 rounded-md border border-line text-xs text-ink">${t("admin_health_log_level_info")}</button>
         <button type="button" onclick="adminHealthView.setLogLevel('WARNING')" data-health-log-chip="WARNING" class="filter-chip admin-log-chip px-2.5 py-1 rounded-md border border-line text-xs text-ink">${t("admin_health_log_level_warning")}</button>

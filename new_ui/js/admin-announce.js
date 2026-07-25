@@ -59,23 +59,25 @@ class AdminAnnouncePanel {
 
   notificationModeHtml() {
     return `
-      <div class="flex flex-col gap-3">
-        <label class="flex flex-col gap-1.5">
-          <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_title", "Title")}</span>
-          <input type="text" id="announceTitle" maxlength="120" value="${_attr(this._title)}" class="w-full px-3 py-2 rounded-[10px] border border-line bg-surface text-sm text-ink" placeholder="${_attr(t("admin_announce_title_placeholder", "Service degraded"))}">
-        </label>
-        <label class="flex flex-col gap-1.5">
-          <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_message", "Message")}</span>
-          <textarea id="announceBody" rows="4" maxlength="1000" class="w-full px-3 py-2 rounded-[10px] border border-line bg-surface text-sm text-ink" placeholder="${_attr(t("admin_announce_body_placeholder", "What happened, what still works, and when you expect it fixed."))}">${_esc(this._body)}</textarea>
-        </label>
-        <label class="flex flex-col gap-1.5">
-          <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_link", "Link (optional)")}</span>
-          <input type="text" id="announceLink" maxlength="300" value="${_attr(this._link)}" class="w-full px-3 py-2 rounded-[10px] border border-line bg-surface text-sm text-ink" placeholder="/forum">
-        </label>
-        <div id="announcePreview">${this.previewHtml()}</div>
-        <div class="flex justify-end sticky bottom-0 md:static bg-paper md:bg-transparent pt-2 pb-2 md:pt-0 md:pb-0">
-          <button type="button" id="announceSend" class="pe-gen-btn w-full md:w-auto">${t("admin_announce_send", "Send to all users")}</button>
+      <div class="admin-announce-grid">
+        <div class="flex flex-col gap-3 admin-announce-form">
+          <label class="flex flex-col gap-1.5">
+            <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_title", "Title")}</span>
+            <input type="text" id="announceTitle" maxlength="120" value="${_attr(this._title)}" class="w-full px-3 py-2 rounded-[10px] border border-line bg-surface text-sm text-ink" placeholder="${_attr(t("admin_announce_title_placeholder", "Service degraded"))}">
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_message", "Message")}</span>
+            <textarea id="announceBody" rows="4" maxlength="1000" class="w-full px-3 py-2 rounded-[10px] border border-line bg-surface text-sm text-ink" placeholder="${_attr(t("admin_announce_body_placeholder", "What happened, what still works, and when you expect it fixed."))}">${_esc(this._body)}</textarea>
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_link", "Link (optional)")}</span>
+            <input type="text" id="announceLink" maxlength="300" value="${_attr(this._link)}" class="w-full px-3 py-2 rounded-[10px] border border-line bg-surface text-sm text-ink" placeholder="/forum">
+          </label>
+          <div class="flex justify-end sticky bottom-0 md:static bg-paper md:bg-transparent pt-2 pb-2 md:pt-0 md:pb-0">
+            <button type="button" id="announceSend" class="pe-gen-btn w-full md:w-auto">${t("admin_announce_send", "Send to all users")}</button>
+          </div>
         </div>
+        <div id="announcePreview" class="admin-announce-preview">${this.previewHtml()}</div>
       </div>
     `;
   }
@@ -83,39 +85,41 @@ class AdminAnnouncePanel {
   bannerModeHtml() {
     const current = this.currentBanner;
     return `
-      <div class="flex flex-col gap-3">
-        ${current ? `
-          <div class="rounded-[10px] border p-3" style="border-color:var(--color-warn)">
-            <div class="font-mono text-[10px] tracking-[.1em] uppercase text-muted mb-1">${t("admin_announce_banner_currently_live", "Currently live")}</div>
-            <div class="text-sm text-ink">${_esc(current.message)}</div>
-            <div class="text-xs text-muted mt-1">${_esc(current.created_by || "")}${current.ends_at ? ` · ${t("admin_announce_banner_ends_at", "ends")} ${new Date(current.ends_at * 1000).toLocaleString()}` : ""}</div>
-            <button type="button" id="bannerClear" class="pe-gen-btn mt-2" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_announce_banner_clear", "Take down banner")}</button>
+      <div class="admin-announce-grid">
+        <div class="flex flex-col gap-3 admin-announce-form">
+          ${current ? `
+            <div class="rounded-[10px] border p-3" style="border-color:var(--color-warn)">
+              <div class="font-mono text-[10px] tracking-[.1em] uppercase text-muted mb-1">${t("admin_announce_banner_currently_live", "Currently live")}</div>
+              <div class="text-sm text-ink">${_esc(current.message)}</div>
+              <div class="text-xs text-muted mt-1">${_esc(current.created_by || "")}${current.ends_at ? ` · ${t("admin_announce_banner_ends_at", "ends")} ${new Date(current.ends_at * 1000).toLocaleString()}` : ""}</div>
+              <button type="button" id="bannerClear" class="pe-gen-btn mt-2" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_announce_banner_clear", "Take down banner")}</button>
+            </div>
+          ` : ""}
+          <label class="flex flex-col gap-1.5">
+            <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_message", "Message")}</span>
+            <textarea id="bannerMessage" rows="3" maxlength="300" class="w-full px-3 py-2 rounded-[10px] border border-line bg-surface text-sm text-ink" placeholder="${_attr(t("admin_announce_banner_placeholder", "Scheduled maintenance from 2am-3am UTC. Chat may be briefly unavailable."))}">${_esc(this._bannerMessage || "")}</textarea>
+          </label>
+          <div class="flex flex-col gap-1.5">
+            <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_type", "Type")}</span>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              ${["maintenance", "info", "warning"].map((k) => `
+                <button type="button" class="filter-chip${this.bannerType === k ? " on" : ""}" onclick="adminAnnouncePanel.bannerType='${k}';adminAnnouncePanel.render()">${t(`admin_announce_banner_type_${k}`, k)}</button>
+              `).join("")}
+            </div>
           </div>
-        ` : ""}
-        <label class="flex flex-col gap-1.5">
-          <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_message", "Message")}</span>
-          <textarea id="bannerMessage" rows="3" maxlength="300" class="w-full px-3 py-2 rounded-[10px] border border-line bg-surface text-sm text-ink" placeholder="${_attr(t("admin_announce_banner_placeholder", "Scheduled maintenance from 2am-3am UTC. Chat may be briefly unavailable."))}">${_esc(this._bannerMessage || "")}</textarea>
-        </label>
-        <div class="flex flex-col gap-1.5">
-          <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_type", "Type")}</span>
-          <div class="flex items-center gap-1.5 flex-wrap">
-            ${["maintenance", "info", "warning"].map((k) => `
-              <button type="button" class="filter-chip${this.bannerType === k ? " on" : ""}" onclick="adminAnnouncePanel.bannerType='${k}';adminAnnouncePanel.render()">${t(`admin_announce_banner_type_${k}`, k)}</button>
-            `).join("")}
+          <div class="flex flex-col gap-1.5">
+            <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_duration", "Stays up for")}</span>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              ${ADMIN_BANNER_DURATIONS.map((d) => `
+                <button type="button" class="filter-chip${this.bannerDuration === d.key ? " on" : ""}" onclick="adminAnnouncePanel.bannerDuration='${d.key}';adminAnnouncePanel.render()">${t(d.label, d.key === "none" ? "Until cleared" : d.key)}</button>
+              `).join("")}
+            </div>
+          </div>
+          <div class="flex justify-end sticky bottom-0 md:static bg-paper md:bg-transparent pt-2 pb-2 md:pt-0 md:pb-0">
+            <button type="button" id="bannerPost" class="pe-gen-btn w-full md:w-auto">${t("admin_announce_banner_post", "Post banner")}</button>
           </div>
         </div>
-        <div class="flex flex-col gap-1.5">
-          <span class="font-mono text-[10px] tracking-[.1em] uppercase text-muted">${t("admin_announce_field_duration", "Stays up for")}</span>
-          <div class="flex items-center gap-1.5 flex-wrap">
-            ${ADMIN_BANNER_DURATIONS.map((d) => `
-              <button type="button" class="filter-chip${this.bannerDuration === d.key ? " on" : ""}" onclick="adminAnnouncePanel.bannerDuration='${d.key}';adminAnnouncePanel.render()">${t(d.label, d.key === "none" ? "Until cleared" : d.key)}</button>
-            `).join("")}
-          </div>
-        </div>
-        <div id="bannerPreview">${this.bannerPreviewHtml()}</div>
-        <div class="flex justify-end sticky bottom-0 md:static bg-paper md:bg-transparent pt-2 pb-2 md:pt-0 md:pb-0">
-          <button type="button" id="bannerPost" class="pe-gen-btn w-full md:w-auto">${t("admin_announce_banner_post", "Post banner")}</button>
-        </div>
+        <div id="bannerPreview" class="admin-announce-preview">${this.bannerPreviewHtml()}</div>
       </div>
     `;
   }

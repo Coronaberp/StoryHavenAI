@@ -13,11 +13,8 @@ async def list_object_options(base_url: str, class_type: str, field: str) -> lis
             return spec[1]["options"]
         return []
 
-CHECKPOINT_NAME_BLACKLIST_EXACT = {"prefect_illustrous_sdxl.safetensors"}
-
 async def list_checkpoints(base_url: str) -> list[str]:
-    names = await list_object_options(base_url, "CheckpointLoaderSimple", "ckpt_name")
-    return [n for n in names if n not in CHECKPOINT_NAME_BLACKLIST_EXACT]
+    return await list_object_options(base_url, "CheckpointLoaderSimple", "ckpt_name")
 
 async def list_anima_unets(base_url: str) -> list[str]:
     names = await list_object_options(base_url, "UNETLoader", "unet_name")

@@ -1,7 +1,7 @@
 import json
 import random
 
-from backend.imagegen_options import CHECKPOINT_NAME_BLACKLIST_EXACT, _lora_blacklisted
+from backend.imagegen_options import _lora_blacklisted
 
 DEFAULT_WORKFLOW = {
     "3": {
@@ -101,8 +101,6 @@ def _build_workflow(positive: str, negative: str, checkpoint: str, custom_workfl
         name = lo.get("name") if isinstance(lo, dict) else None
         if name and _lora_blacklisted(name):
             raise ValueError(f"LoRA '{name}' is not available for generation")
-    if checkpoint in CHECKPOINT_NAME_BLACKLIST_EXACT:
-        raise ValueError(f"Checkpoint '{checkpoint}' is not available for generation")
 
     seed = random.randint(0, 2**32 - 1)
     if custom_workflow and custom_workflow.strip():
@@ -197,8 +195,6 @@ def _build_inpaint_workflow(positive: str, negative: str, checkpoint: str,
                             image_name: str, mask_name: str, denoise: float = 1.0,
                             sampler: str = "euler", scheduler: str = "normal",
                             steps: int = 20, cfg: float = 7.0) -> dict:
-    if checkpoint in CHECKPOINT_NAME_BLACKLIST_EXACT:
-        raise ValueError(f"Checkpoint '{checkpoint}' is not available for generation")
     seed = random.randint(0, 2**32 - 1)
     return {
         "1": {"class_type": "CheckpointLoaderSimple", "inputs": {"ckpt_name": checkpoint}},

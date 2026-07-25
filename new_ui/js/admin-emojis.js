@@ -1,26 +1,5 @@
 "use strict";
 
-function adminEmojiCardHtml(e) {
-  const badge = e.is_explicit
-    ? `<span class="font-mono text-[9px] uppercase px-1.5 py-0.5 rounded-md" style="background:var(--color-warn);color:var(--color-paper)">${t("admin_emojis_pending_review")}</span>`
-    : "";
-  const actions = e.is_explicit
-    ? `<button type="button" onclick="adminEmojisView.approveEmoji(${_attr(JSON.stringify(e.id))})" class="px-2.5 py-1 rounded-md text-xs text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_emojis_approve")}</button>
-       <button type="button" onclick="adminEmojisView.deleteEmoji(${_attr(JSON.stringify(e.id))})" class="px-2.5 py-1 rounded-md border text-xs" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_emojis_delete")}</button>`
-    : `<button type="button" onclick="adminEmojisView.editEmoji(${_attr(JSON.stringify(e.id))})" class="px-2.5 py-1 rounded-md border border-line text-xs text-ink">${t("admin_emojis_edit")}</button>
-       <button type="button" onclick="adminEmojisView.deleteEmoji(${_attr(JSON.stringify(e.id))})" class="px-2.5 py-1 rounded-md border text-xs" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_emojis_delete")}</button>`;
-  return `
-    <div class="flex items-center gap-3 p-3 rounded-[13px] border border-line bg-surface mb-2">
-      <img src="${_attr(e.image)}" alt="" class="w-12 h-12 rounded-lg object-cover flex-none">
-      <div class="min-w-0 flex-1">
-        <div class="text-sm text-ink">:${_esc(e.shortcode)}: <span class="text-xs text-muted">${_esc(e.kind)}</span> ${badge}</div>
-        <div class="text-xs text-muted mt-0.5">${_esc(e.uploader_username || e.uploader_id)}</div>
-      </div>
-      <div class="flex flex-wrap gap-1.5 flex-none">${actions}</div>
-    </div>
-  `;
-}
-
 function adminEmojiTileHtml(e, sizeClass) {
   return `
     <button type="button" data-admin-emoji-tile="${_attr(e.id)}" class="relative aspect-square rounded-[10px] border overflow-hidden flex flex-col ${sizeClass}" style="border-color:${e.is_explicit ? "color-mix(in srgb, var(--color-warn) 55%, var(--color-line))" : "var(--color-line)"};background:var(--color-surface)">
@@ -65,14 +44,14 @@ class AdminEmojisView {
     `;
   }
 
-  mobileGridHtml() {
+  gridPanelHtml() {
     const visible = this.emojis.filter((e) => this.matchesFilter(e));
     const pending = visible.filter((e) => e.is_explicit);
     const approved = visible.filter((e) => !e.is_explicit);
-    const emojiCols = "grid-cols-5 sm:grid-cols-9";
-    const stickerCols = "grid-cols-2 sm:grid-cols-4";
+    const emojiCols = "grid-cols-5 sm:grid-cols-9 lg:grid-cols-12";
+    const stickerCols = "grid-cols-2 sm:grid-cols-4 lg:grid-cols-6";
     return `
-      <div class="lg:hidden">
+      <div data-admin-emoji-grid-panel>
         <div class="mb-3">
           <input type="text" id="ae_search" value="${_attr(this.search)}" placeholder="${t("admin_emojis_search_placeholder", "Search :shortcode:")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
         </div>
@@ -93,8 +72,6 @@ class AdminEmojisView {
   }
 
   render() {
-    const pending = this.emojis.filter((e) => e.is_explicit);
-    const approved = this.emojis.filter((e) => !e.is_explicit);
     this.main.innerHTML = `
       <div class="content-col">
       ${backLinkHtml("Admin")}
@@ -110,13 +87,7 @@ class AdminEmojisView {
         <input type="file" id="ae_file" accept="image/*" class="w-full mb-3 text-sm text-ink">
         <button type="button" onclick="adminEmojisView.addEmoji()" data-feature="emojis" class="w-full py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_emojis_add")}</button>
       </div>
-      ${this.mobileGridHtml()}
-      <div class="hidden lg:block">
-        <div class="mb-2 font-display font-semibold text-base text-ink">${t("admin_emojis_pending_review")} <span class="text-xs text-muted font-normal">(${pending.length})</span></div>
-        ${pending.length ? pending.map(adminEmojiCardHtml).join("") : `<p class="text-sm text-muted mb-4">${t("admin_emojis_nothing_pending")}</p>`}
-        <div class="mt-5 mb-2 font-display font-semibold text-base text-ink">${t("admin_emojis_approved")} <span class="text-xs text-muted font-normal">(${approved.length})</span></div>
-        ${approved.length ? approved.map(adminEmojiCardHtml).join("") : `<p class="text-sm text-muted">${t("admin_emojis_none_yet")}</p>`}
-      </div>
+      ${this.gridPanelHtml()}
       </div>
     `;
     adminAttachScreenSwitcher(this.main);
@@ -130,10 +101,10 @@ class AdminEmojisView {
   }
 
   renderGridOnly() {
-    const grid = this.main.querySelector(".lg\\:hidden");
+    const grid = this.main.querySelector("[data-admin-emoji-grid-panel]");
     if (!grid) return;
     const focused = document.activeElement === document.getElementById("ae_search");
-    grid.outerHTML = this.mobileGridHtml();
+    grid.outerHTML = this.gridPanelHtml();
     this.main.querySelectorAll("[data-admin-emoji-tile]").forEach((el) => {
       el.onclick = () => this.openEmojiSheet(el.dataset.adminEmojiTile);
     });
