@@ -1,12 +1,12 @@
 "use strict";
 
 Object.assign(AdminTrainView.prototype, {
-  openJobDetail(jobId) {
+  async openJobDetail(jobId) {
     this.detailJobId = jobId;
     const job = this.jobs.find((j) => j.id === jobId);
     const running = job && ["queued", "provisioning", "training", "saving"].includes(job.status);
     this.detailScreen = running ? "progress" : (job?.output_file ? "test" : "progress");
-    if (this.detailScreen === "test") this.selectTestEntryForJob(job);
+    if (this.detailScreen === "test") await this.selectTestEntryForJob(job);
     this.screen = "detail";
     this.render();
   },
@@ -16,6 +16,7 @@ Object.assign(AdminTrainView.prototype, {
     if (!job) return `<p class="text-sm text-muted">${t("admin_train_no_active_job")}</p>`;
     const hasOutput = !!job.output_file;
     return `
+      <button type="button" id="lt_detail_back" class="lora-btn lora-btn-ghost lora-detail-back">&lsaquo; ${t("admin_train_tab_jobs", "Jobs")}</button>
       <div class="lora-detail-header">
         <div class="lora-detail-name">${_esc(job.name)}</div>
         ${this.jobStatusPill(job.status)}
@@ -29,13 +30,15 @@ Object.assign(AdminTrainView.prototype, {
   },
 
   wireDetailScreen() {
+    const backBtn = document.getElementById("lt_detail_back");
+    if (backBtn) backBtn.onclick = () => this.goToJobs();
     const progressSeg = document.getElementById("lt_detail_seg_progress");
     if (progressSeg) progressSeg.onclick = () => { this.detailScreen = "progress"; this.render(); };
     const testSeg = document.getElementById("lt_detail_seg_test");
-    if (testSeg) testSeg.onclick = () => {
+    if (testSeg) testSeg.onclick = async () => {
       if (testSeg.disabled) return;
       const job = this.jobs.find((j) => j.id === this.detailJobId);
-      this.selectTestEntryForJob(job);
+      await this.selectTestEntryForJob(job);
       this.detailScreen = "test";
       this.render();
     };

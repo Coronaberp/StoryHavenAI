@@ -101,110 +101,6 @@ class AdminTrainView {
     this.render();
   }
 
-  wireTrainTab() {
-    [["lt_name", "name"], ["lt_trigger", "trigger_word"], ["lt_res", "resolution"], ["lt_batch", "batch_size"],
-     ["lt_rank", "rank"], ["lt_alpha", "alpha"], ["lt_lr", "learning_rate"], ["lt_steps", "steps"],
-     ["lt_noise_offset", "noise_offset"], ["lt_network_dropout", "network_dropout"]]
-      .forEach(([id, key]) => {
-        const el = document.getElementById(id);
-        if (el) el.oninput = (e) => { this.form[key] = e.target.value; this.updateTimeEstimate(); };
-      });
-    const startBtn = document.getElementById("lt_start");
-    if (startBtn) startBtn.onclick = () => this.submitTraining();
-    const imagesSection = document.getElementById("lt_images_section");
-    if (imagesSection) imagesSection.innerHTML = this.imagesGridHtml();
-    document.querySelectorAll("[data-img-tile]").forEach((b) => b.onclick = () => this.openImageCaptionModal(parseInt(b.dataset.imgTile, 10)));
-    const imagesInput = document.getElementById("lt_images_input");
-    if (imagesInput) imagesInput.onchange = () => {
-      const newFiles = [...imagesInput.files];
-      this.trainImages.push(...newFiles);
-      newFiles.forEach(() => this.trainCaptions.push(""));
-      this.render();
-    };
-    const clearBtn = document.getElementById("lt_images_clear");
-    if (clearBtn) clearBtn.onclick = () => {
-      this.trainImages = [];
-      this.trainCaptions = [];
-      this.render();
-    };
-    const captionsInput = document.getElementById("lt_captions_input");
-    if (captionsInput) captionsInput.onchange = async () => {
-      const txtFiles = [...captionsInput.files];
-      if (!txtFiles.length) return;
-      const stem = (n) => n.replace(/\.[^.]+$/, "");
-      const byStem = new Map(txtFiles.map((f) => [stem(f.name), f]));
-      let matched = 0;
-      for (let i = 0; i < this.trainImages.length; i++) {
-        const match = byStem.get(stem(this.trainImages[i].name));
-        if (!match) continue;
-        this.trainCaptions[i] = (await match.text()).trim();
-        matched++;
-      }
-      captionsInput.value = "";
-      this.render();
-      toast(matched ? `${t("admin_train_imported_captions_prefix")} ${matched} ${t("admin_train_imported_captions_suffix")}` : t("admin_train_no_txt_filenames_matched"));
-    };
-    this.updateTimeEstimate();
-  }
-
-  imagesGridHtml() {
-    const files = this.trainImages;
-    return `
-      <div class="mb-4">
-        <label class="grimoire-field-label">${t("admin_train_training_images")}</label>
-        <div class="flex items-center gap-2 mb-2">
-          <label class="px-3 py-1.5 rounded-md border border-line text-xs text-ink cursor-pointer">
-            ${t("admin_train_add_images")}
-            <input type="file" id="lt_images_input" accept="image/png,image/jpeg,image/webp" multiple class="hidden">
-          </label>
-          <label class="px-3 py-1.5 rounded-md border border-line text-xs text-ink cursor-pointer">
-            ${t("admin_train_import_captions")}
-            <input type="file" id="lt_captions_input" accept=".txt" multiple class="hidden">
-          </label>
-          <button type="button" id="lt_images_clear" class="px-3 py-1.5 rounded-md border text-xs" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_train_remove_all")}</button>
-        </div>
-        <span class="text-xs text-muted">${files.length ? `${files.length} ${files.length === 1 ? t("admin_train_image_selected_singular") : t("admin_train_images_selected_plural")}` : ""}</span>
-        <div class="grid gap-2 mt-2" style="grid-template-columns:repeat(auto-fill,minmax(84px,1fr))">
-          ${files.map((f, i) => this.imageTileHtml(f, i)).join("")}
-        </div>
-        <div class="text-xs text-muted mt-2 leading-relaxed">
-          ${t("admin_train_images_help_text")}
-        </div>
-      </div>
-    `;
-  }
-
-  imageTileHtml(file, i) {
-    if (!this._imageUrls) this._imageUrls = new Map();
-    if (!this._imageUrls.has(file)) this._imageUrls.set(file, URL.createObjectURL(file));
-    const url = this._imageUrls.get(file);
-    const hasCaption = !!(this.trainCaptions[i] || "").trim();
-    return `
-      <button type="button" data-img-tile="${i}" style="position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden;border:1px solid var(--color-line);cursor:pointer;padding:0">
-        <img src="${_attr(url)}" alt="" style="width:100%;height:100%;object-fit:cover;display:block">
-        ${hasCaption ? `<span style="position:absolute;top:3px;left:3px;width:8px;height:8px;border-radius:50%;background:var(--color-accent)"></span>` : ""}
-      </button>
-    `;
-  }
-
-  openImageCaptionModal(i) {
-    const url = this._imageUrls.get(this.trainImages[i]);
-    openModal(`
-      <img src="${_attr(url)}" alt="" class="w-full rounded-lg mb-3">
-      <div class="mb-3">
-        <label class="text-xs text-sec block mb-1">${t("admin_train_caption_tags_for_image")}</label>
-        <input type="text" id="ic_caption" value="${_attr(this.trainCaptions[i] || "")}" placeholder="${t("admin_train_caption_tags_placeholder")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
-      </div>
-      <button type="button" id="ic_remove" class="w-full py-2 rounded-md border text-sm" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_train_remove_image")}</button>
-    `, { onClose: () => this.render() });
-    document.getElementById("ic_caption").oninput = (e) => { this.trainCaptions[i] = e.target.value; };
-    document.getElementById("ic_remove").onclick = () => {
-      this.trainImages.splice(i, 1);
-      this.trainCaptions.splice(i, 1);
-      closeTopModal();
-    };
-  }
-
   testUpscalePickerHtml() {
     if (!this.testUpscalers.length) {
       return `<div class="mb-4"><p class="text-xs text-sec">${t("admin_train_no_upscalers_available")}</p></div>`;
@@ -391,7 +287,8 @@ class AdminTrainView {
 
   jobCardHtml(job) {
     const running = ["queued", "provisioning", "training", "saving"].includes(job.status);
-    const lastMetric = (job.metrics || [])[job.metrics.length - 1];
+    const metrics = job.metrics || [];
+    const lastMetric = metrics[metrics.length - 1];
     const stepLine = running && lastMetric
       ? `${t("admin_train_column_epoch")} ${lastMetric.epoch ?? 0}/${lastMetric.total_epochs || "?"} · ${t("admin_train_column_step")} ${lastMetric.step || 0}/${job.steps || "?"}`
       : (job.error ? _esc(job.error) : "");
@@ -422,7 +319,7 @@ class AdminTrainView {
   }
 
   wireJobsScreen() {
-    this.main.querySelectorAll("[data-open-job]").forEach((b) => b.onclick = () => this.openJobDetail(b.dataset.openJob));
+    this.main.querySelectorAll("[data-open-job]").forEach((b) => b.onclick = async () => await this.openJobDetail(b.dataset.openJob));
     const fab = document.getElementById("lt_new_job_fab");
     if (fab) fab.onclick = () => this.openNewJobWizard();
   }
@@ -447,19 +344,6 @@ class AdminTrainView {
     return m ? `${h}h ${m}m` : `${h}h`;
   }
 
-  updateTimeEstimate() {
-    const pill = document.getElementById("lt_time_est");
-    if (!pill) return;
-    const f = this.form;
-    const steps = Number(f.steps), batch = Number(f.batch_size);
-    if (!f.checkpoint || !steps || !batch || steps <= 0 || batch <= 0) { pill.textContent = ""; return; }
-    const architecture = this.animaNames.has(f.checkpoint) ? "anima" : "sdxl";
-    const est = this.estimateTrainingRun(architecture, steps, batch);
-    const imageCount = this.trainImages.length;
-    const seenTxt = imageCount ? ` · sees each image ~${Math.round((steps * batch) / imageCount)}×` : "";
-    pill.textContent = `~${this.formatDuration(est.seconds)} · ~$${est.cost.toFixed(2)} est.${est.fromHistory ? "" : " (rough)"}${seenTxt}`;
-  }
-
   async submitTraining() {
     const errors = this.validateTrainForm();
     if (errors.length) { errorToast(errors[0]); return; }
@@ -478,6 +362,7 @@ class AdminTrainView {
     fd.append("batch_size", String(f.batch_size));
     fd.append("noise_offset", String(f.noise_offset || 0));
     fd.append("network_dropout", String(f.network_dropout || 0));
+    if (f.resume_from_lora) fd.append("resume_from_lora", f.resume_from_lora);
     fd.append("captions", JSON.stringify(this.trainImages.map((_, i) => this.trainCaptions[i] || "")));
     this.trainImages.forEach((file) => fd.append("images", file, file.name));
 
@@ -486,7 +371,7 @@ class AdminTrainView {
     try {
       const resp = await api("/api/admin/lora-training/jobs", { method: "POST", body: fd });
       this.jobs = await api("/api/admin/lora-training/jobs").catch(() => this.jobs);
-      this.openJobDetail(resp.job_id);
+      await this.openJobDetail(resp.job_id);
       this.watchJob(resp.job_id);
     } catch (err) {
       errorToast(err.message || t("admin_train_training_request_failed"));
@@ -506,12 +391,18 @@ class AdminTrainView {
       uploadCards: document.getElementById("lt_upload_cards"), downloadWrap: document.getElementById("lt_download_wrap"),
       downloadCards: document.getElementById("lt_download_cards"),
     };
+    const job = this.jobs.find((j) => j.id === jobId);
+    const isTerminal = job && !["queued", "provisioning", "training", "saving"].includes(job.status);
     if (this.watcher.isWatching && this.watcher.jobId === jobId) {
       this.watcher.rebind(refs);
+    } else if (job && isTerminal) {
+      if (refs.statusHero) this.watcher.renderStatusHero(refs.statusHero, job);
+      if (job.log) this.watcher.appendLog(refs.logEl, job.log);
+      if (refs.costBanner) this.watcher.updateCostBanner(refs.costBanner, job);
     } else {
       this.watcher.watch(jobId, refs, async (job) => {
         this.jobs = await api("/api/admin/lora-training/jobs").catch(() => this.jobs);
-        if (this.detailJobId === jobId) this.render();
+        if (this.detailJobId === jobId || this.screen === "jobs") this.render();
       });
     }
     const checkpointBtn = document.getElementById("lt_checkpoint_now");
@@ -616,6 +507,19 @@ class TrainingJobWatcher {
         </div>
       `).join("")}
     `;
+  }
+
+  jobStatusPill(status) {
+    const map = {
+      queued: { key: "pill-queued", text: t("admin_train_status_queued", "Queued") },
+      provisioning: { key: "pill-running", text: t("admin_train_status_provisioning", "Provisioning") },
+      training: { key: "pill-running", text: t("admin_train_status_training", "Training") },
+      saving: { key: "pill-running", text: t("admin_train_status_saving", "Saving") },
+      done: { key: "pill-done", text: t("admin_train_status_done", "Done") },
+      failed: { key: "pill-error", text: t("admin_train_status_failed", "Failed") },
+    };
+    const entry = map[status] || { key: "pill-queued", text: _esc(status) };
+    return `<span class="lora-job-pill lora-${entry.key}">${entry.text}</span>`;
   }
 
   renderStatusHero(el, job) {
