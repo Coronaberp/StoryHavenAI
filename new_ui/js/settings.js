@@ -81,10 +81,11 @@ class SettingsView {
     if (overrides.base_url) {
       try { modelSummary = new URL(overrides.base_url).host; } catch { modelSummary = "Custom endpoint"; }
     }
-    let voiceSummary = t("tts_voice_default", "Default");
-    if (overrides.default_tts_voice) {
-      try { voiceSummary = _formatVoiceName(overrides.default_tts_voice).name; } catch { voiceSummary = overrides.default_tts_voice; }
-    }
+    const voiceName = (voiceId) => {
+      if (!voiceId) return t("tts_voice_default", "Default");
+      try { return _formatVoiceName(voiceId).name; } catch { return voiceId; }
+    };
+    const voiceSummary = `${voiceName(overrides.default_character_voice)} · ${voiceName(overrides.default_narrator_voice)}`;
     const nsfwOn = !!ME?.nsfw_allowed;
     const privacyOn = document.documentElement.dataset.censor === "1";
     const experimentalOn = !!ME?.experimental_features_enabled;

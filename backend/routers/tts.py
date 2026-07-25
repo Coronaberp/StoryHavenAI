@@ -52,15 +52,16 @@ def normalize_voice_entries(entries: list) -> list[str]:
 async def _resolve_voices(session: dict, message: dict, user_id: str) -> tuple[str, str]:
     overrides = session.get("voice_overrides") or {}
     user_settings = await users_repo.get_user_settings(user_id)
-    user_default = _clean_voice((user_settings or {}).get("default_tts_voice"))
+    user_narrator_default = _clean_voice((user_settings or {}).get("default_narrator_voice"))
+    user_char_default = _clean_voice((user_settings or {}).get("default_character_voice"))
     narrator = (_clean_voice(overrides.get("narrator_voice"))
-                or user_default or CFG.get("tts_narrator_voice") or "af_heart")
+                or user_narrator_default or CFG.get("tts_narrator_voice") or "af_heart")
     char_voice = _clean_voice(overrides.get("character_voice"))
     if not char_voice:
         char_id = message.get("char_id") or session["char_id"]
         character = await characters_repo.get(char_id)
         char_voice = _clean_voice((character or {}).get("voice"))
-    return char_voice or user_default or narrator, narrator
+    return char_voice or user_char_default or narrator, narrator
 
 @api.post("/sessions/{sid}/messages/{mid}/speech", dependencies=[Depends(require_feature_enabled("tts"))])
 async def speak_message(sid: str, mid: str, current_user: dict = Depends(get_current_user)):
