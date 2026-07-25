@@ -4971,6 +4971,29 @@
     transform: translateY(0);
   }
 }
+.admin-announce-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid color-mix(in srgb, #0C0C0E 35%, transparent);
+  @supports (color: color-mix(in lab, red, red)) {
+    border: 2px solid color-mix(in srgb, var(--color-paper) 35%, transparent);
+  }
+  border-top-color: var(--color-paper);
+  border-radius: 50%;
+  animation: admin-announce-spin .7s linear infinite;
+  vertical-align: -1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-announce-spinner {
+    animation: none;
+  }
+}
+@keyframes admin-announce-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .update-banner-msg {
   flex: 1 1 auto;
   min-width: 0;
@@ -9784,13 +9807,17 @@ body {
     min-width: 0;
   }
   .admin-previews-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: 16px;
-    align-items: start;
   }
   .admin-previews-card {
     margin-bottom: 0;
+  }
+  .pv-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
   }
   .admin-features-grid {
     display: grid;
@@ -10097,11 +10124,6 @@ body {
 }
 @media (min-width: 1280px) {
   .lora-jobs-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-@media (min-width: 1400px) {
-  .admin-previews-grid {
     grid-template-columns: repeat(3, 1fr);
   }
 }

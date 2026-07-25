@@ -3144,13 +3144,17 @@ body { background-color: var(--color-paper) !important; }
     min-width: 0;
   }
   .admin-previews-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: 16px;
-    align-items: start;
   }
   .admin-previews-card {
     margin-bottom: 0;
+  }
+  .pv-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
   }
   .admin-features-grid {
     display: grid;
@@ -3388,9 +3392,6 @@ body { background-color: var(--color-paper) !important; }
 }
 @media (min-width: 1280px) {
   .lora-jobs-grid { grid-template-columns: repeat(3, 1fr); }
-}
-@media (min-width: 1400px) {
-  .admin-previews-grid { grid-template-columns: repeat(3, 1fr); }
 }
 .lora-job-card {
   background: var(--color-surface);

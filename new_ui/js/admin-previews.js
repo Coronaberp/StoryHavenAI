@@ -135,7 +135,7 @@ class AdminPreviewsView {
         ${isCollapsed ? "" : `
           <input type="text" id="pv_search_${_attr(kind.key)}" placeholder="${t("admin_previews_search_placeholder")} ${_attr(kind.label.toLowerCase())}…" value="${_attr(this.search[kind.key] || "")}" oninput="adminPreviewsView.setSearch(${_attr(JSON.stringify(kind.key))}, this.value)"
             class="w-full mb-3 px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
-          <div class="grid grid-cols-3 gap-2.5">${cards || `<p class="text-sm text-muted col-span-3">${t("admin_previews_no_models_found")}</p>`}</div>
+          <div class="pv-card-grid">${cards || `<p class="text-sm text-muted">${t("admin_previews_no_models_found")}</p>`}</div>
         `}
       </div>
     `;
@@ -240,11 +240,17 @@ class AdminPreviewsView {
         </div>
         <div class="mb-3">
           <label class="block text-xs text-sec mb-1">${t("admin_previews_default_sampler")}</label>
-          <select id="pv_default_sampler" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm"><option value="">${t("admin_previews_loading")}</option></select>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;border:1px solid var(--color-line);background:var(--color-surface)">
+            <span id="pv_default_sampler_label" style="flex:1;min-width:0;font-size:13.5px;color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(meta.default_sampler || t("admin_previews_default_option"))}</span>
+            <button type="button" id="pv_default_sampler_btn" class="pe-gen-btn" style="padding:5px 12px;font-size:11.5px">${t("masks_link_character_change", "Change")}</button>
+          </div>
         </div>
         <div class="mb-3">
           <label class="block text-xs text-sec mb-1">${t("admin_previews_default_scheduler")}</label>
-          <select id="pv_default_scheduler" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm"><option value="">${t("admin_previews_loading")}</option></select>
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;border:1px solid var(--color-line);background:var(--color-surface)">
+            <span id="pv_default_scheduler_label" style="flex:1;min-width:0;font-size:13.5px;color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(meta.default_scheduler || t("admin_previews_default_option"))}</span>
+            <button type="button" id="pv_default_scheduler_btn" class="pe-gen-btn" style="padding:5px 12px;font-size:11.5px">${t("masks_link_character_change", "Change")}</button>
+          </div>
         </div>
         <div class="mb-3">
           <label class="block text-xs text-sec mb-1">${t("admin_previews_default_cfg")}</label>
@@ -298,9 +304,10 @@ class AdminPreviewsView {
 
   previewBoxHtml(kind, meta) {
     const isVideoPreview = kind.key === "vidgen" && _pvIsVideoUrl(meta.image);
+    const aspectClass = kind.key === "vidgen" ? "aspect-video" : "aspect-square";
     if (!meta.image) {
       return `
-        <div class="relative w-full aspect-video rounded-lg overflow-hidden bg-surface-2 mb-3 flex flex-col items-center justify-center gap-1.5 cursor-pointer text-muted border border-dashed border-line" id="pv_preview_box">
+        <div class="relative w-full ${aspectClass} rounded-lg overflow-hidden bg-surface-2 mb-3 flex flex-col items-center justify-center gap-1.5 cursor-pointer text-muted border border-dashed border-line" id="pv_preview_box">
           <span style="width:22px;height:22px">${_PV_ICON_UPLOAD}</span>
           <span class="font-mono text-[11px] uppercase tracking-[.05em]">${t("admin_previews_tap_to_upload", "Tap to upload")}</span>
           <div class="absolute top-2 right-2 flex gap-1.5" id="pv_preview_actions">
@@ -313,7 +320,7 @@ class AdminPreviewsView {
       ? `<video src="${_attr(meta.image)}" autoplay loop muted playsinline class="w-full h-full object-cover" id="pv_preview_media"></video>`
       : `<img src="${_attr(meta.image)}" alt="" class="w-full h-full object-cover" id="pv_preview_media">`;
     return `
-      <div class="relative w-full aspect-video rounded-lg overflow-hidden bg-surface-2 mb-3 border border-line" id="pv_preview_box">
+      <div class="relative w-full ${aspectClass} rounded-lg overflow-hidden bg-surface-2 mb-3 border border-line" id="pv_preview_box">
         ${mediaHtml}
         ${!isVideoPreview ? `<span class="absolute left-2 bottom-2 font-mono text-[9px] uppercase tracking-[.04em] text-muted px-1.5 py-1 rounded-md" style="background:color-mix(in srgb, var(--color-paper) 55%, transparent)">${t("admin_previews_tap_to_zoom", "tap to zoom")}</span>` : ""}
         <div class="absolute top-2 right-2 flex gap-1.5" id="pv_preview_actions">
@@ -353,14 +360,34 @@ class AdminPreviewsView {
     `);
 
     if (kind.extraFields === "checkpoint") {
+      this._pvDefaultSampler = meta.default_sampler || "";
+      this._pvDefaultScheduler = meta.default_scheduler || "";
       const samplerData = await api("/api/imagegen/samplers").catch(() => ({ samplers: [], schedulers: [] }));
-      const samplerSel = document.getElementById("pv_default_sampler");
-      const schedulerSel = document.getElementById("pv_default_scheduler");
-      if (samplerSel) {
-        samplerSel.innerHTML = `<option value="">${t("admin_previews_default_option")}</option>${(samplerData.samplers || []).map((m) => `<option value="${_attr(m)}"${m === meta.default_sampler ? " selected" : ""}>${_esc(m)}</option>`).join("")}`;
+      const samplerBtn = document.getElementById("pv_default_sampler_btn");
+      const schedulerBtn = document.getElementById("pv_default_scheduler_btn");
+      if (samplerBtn) {
+        samplerBtn.onclick = () => openPickerSheet({
+          title: t("admin_previews_default_sampler"),
+          items: [{ name: "", label: t("admin_previews_default_option") },
+            ...(samplerData.samplers || []).map((m) => ({ name: m, label: m }))],
+          selected: this._pvDefaultSampler,
+          onPick: (name) => {
+            this._pvDefaultSampler = name;
+            document.getElementById("pv_default_sampler_label").textContent = name || t("admin_previews_default_option");
+          },
+        });
       }
-      if (schedulerSel) {
-        schedulerSel.innerHTML = `<option value="">${t("admin_previews_default_option")}</option>${(samplerData.schedulers || []).map((m) => `<option value="${_attr(m)}"${m === meta.default_scheduler ? " selected" : ""}>${_esc(m)}</option>`).join("")}`;
+      if (schedulerBtn) {
+        schedulerBtn.onclick = () => openPickerSheet({
+          title: t("admin_previews_default_scheduler"),
+          items: [{ name: "", label: t("admin_previews_default_option") },
+            ...(samplerData.schedulers || []).map((m) => ({ name: m, label: m }))],
+          selected: this._pvDefaultScheduler,
+          onPick: (name) => {
+            this._pvDefaultScheduler = name;
+            document.getElementById("pv_default_scheduler_label").textContent = name || t("admin_previews_default_option");
+          },
+        });
       }
     }
 
@@ -471,8 +498,8 @@ class AdminPreviewsView {
         const vaeSel = document.getElementById("pv_anima_vae");
         body.anima_clip_name = clipSel ? (clipSel.value || null) : null;
         body.anima_vae_name = vaeSel ? (vaeSel.value || null) : null;
-        body.default_sampler = document.getElementById("pv_default_sampler").value || null;
-        body.default_scheduler = document.getElementById("pv_default_scheduler").value || null;
+        body.default_sampler = this._pvDefaultSampler || null;
+        body.default_scheduler = this._pvDefaultScheduler || null;
         const cfg = document.getElementById("pv_default_cfg").value.trim();
         body.default_cfg = cfg ? parseFloat(cfg) : null;
         body.default_positive = document.getElementById("pv_default_positive").value.trim() || null;
