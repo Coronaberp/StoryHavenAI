@@ -52,7 +52,7 @@ def apply_directive(content: str, directive: str | None, arg: str | None = None)
     if directive not in DIRECTIVE_COMMANDS:
         return clean
     tag = f"[{directive} {strip_sigil(arg).strip()}]" if arg else f"[{directive}]"
-    return f"({DIRECTOR_SIGIL}:{tag} {clean.strip()})"
+    return f"({DIRECTOR_SIGIL}:{tag}\n{clean.strip()})"
 
 def apply_inline_directives(content: str) -> str:
     clean = strip_sigil(content or "")

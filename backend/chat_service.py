@@ -836,6 +836,10 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
         sanctioned_ooc = bool(query and query.lstrip().startswith(f"({DIRECTOR_SIGIL}"))
         if reply and reply.lstrip().startswith("(OOC") and not sanctioned_ooc:
             log.warning("immersion break: unsanctioned OOC reply: session=%s char=%s", sid, char["id"])
+        if reply and sanctioned_ooc and not reply.lstrip().upper().startswith("(OOC"):
+            log.info("chat: model omitted OOC wrapper on a sanctioned OOC reply, wrapping it in software: "
+                     "session=%s char=%s", sid, char["id"])
+            reply = f"(OOC:\n{reply.strip()})"
         if reply and "enc:" in reply:
             log.warning("ciphertext-leak-guard: blanked 'enc:' value leaking from chat stream session=%s", sid)
             reply = reply.replace("enc:", "")

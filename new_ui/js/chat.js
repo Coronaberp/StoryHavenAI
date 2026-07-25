@@ -129,7 +129,7 @@ function inlineToSigil(raw) {
   });
 }
 
-const SIGIL_DIRECTIVE_G = new RegExp(`\\(${DIRECTOR_SIGIL}:\\[(\\w+)(?:\\s+([^\\]]+))?\\]\\s*([^)]*)\\)`, "g");
+const SIGIL_DIRECTIVE_G = new RegExp(`\\(${DIRECTOR_SIGIL}:\\[(\\w+)(?:\\s+([^\\]]+))?\\]\\s*([\\s\\S]*?)\\)(?=\\s*(?:\\(${DIRECTOR_SIGIL}|$))`, "g");
 const ROLL_RESULT_G = /🎲\s*([^\n]*?=\s*\*\*\d+\*\*)/g;
 const AI_OOC_G = /(?:^|\n)[ \t]*(?:\(OOC:\s*([\s\S]*)\)|\[ooc:\s*([^\]]*)\])[ \t]*/gi;
 
