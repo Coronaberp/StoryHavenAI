@@ -2701,19 +2701,25 @@ class ChatView {
       <div style="margin-bottom:14px">
         <label style="font-size:11.5px;color:var(--color-muted);display:block;margin-bottom:4px">${label}</label>
         ${voices.length
-          ? `<button type="button" data-voice-field="${key}" class="settings-row" style="border:1px solid var(--color-line-2);border-radius:9px;padding:9px 11px;cursor:pointer;justify-content:space-between">
-              <span data-voice-field-label="${key}" style="font-size:13.5px;color:var(--color-ink)">${_esc(fieldLabel(key))}</span>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" style="flex:none;color:var(--color-muted)"><path d="M6 9l6 6 6-6"/></svg>
-            </button>`
+          ? `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:11px;border:1px solid var(--color-line-2);background:var(--color-surface-2)">
+              <span data-voice-field-label="${key}" style="flex:1;min-width:0;font-size:13.5px;font-weight:600;color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(fieldLabel(key))}</span>
+              <button type="button" data-voice-field="${key}" class="pe-gen-btn" style="padding:5px 12px;font-size:11.5px">${t("masks_link_character_change", "Change")}</button>
+            </div>`
           : `<input id="voice_${key}_input" type="text" maxlength="64" value="${_attr(state[key])}" placeholder="${t("tts_voice_default", "Default")}" style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--color-line-2);background:var(--color-surface-2);color:var(--color-ink);font-size:13.5px">`}
       </div>`;
     openModal(`
       <h3>${t("tts_voice_heading", "Voice")}</h3>
       ${fieldHtml("character_voice", t("tts_character_voice", "Character voice"))}
       ${fieldHtml("narrator_voice", t("tts_narrator_voice", "Narrator voice"))}
-      <div style="display:flex;gap:8px">
-        <button type="button" id="voiceCancel" class="dropdown-item" style="flex:1">${t("chat_cancel")}</button>
-        <button type="button" id="voiceSave" class="dropdown-item" style="flex:1;border-color:var(--color-accent);color:var(--color-accent)">${t("chat_save")}</button>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+        <button type="button" id="voiceCancel" class="pe-gen-btn" style="border-color:var(--color-line-2);color:var(--color-sec)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          ${t("chat_cancel")}
+        </button>
+        <button type="button" id="voiceSave" class="pe-gen-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          ${t("chat_save")}
+        </button>
       </div>
     `);
     const layer = document.querySelector(".modal-layer:last-child");
