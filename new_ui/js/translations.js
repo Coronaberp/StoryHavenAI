@@ -1590,6 +1590,8 @@ const UI_STRINGS = {
   create_add_greeting_button: "+ Add greeting",
   create_add_mood_button: "+ Add mood",
   create_advanced_button: "Advanced",
+  create_allow_byoe_hint: "Lets other players' own chat endpoints handle replies for this character. Off by default so their endpoint never sees your card, lore, or system prompt.",
+  create_allow_byoe_label: "Allow players' own endpoints for this character",
   create_allow_download_hint: "Lets other users export this character's full card file.",
   create_allow_download_label: "Allow others to download this card",
   create_alt_greetings_hint: "Extra opening lines the reader can swipe between.",

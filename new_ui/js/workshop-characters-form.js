@@ -405,6 +405,7 @@ class WorkshopCharactersFormView {
     this.presentationHtmlValue = c.presentation_html || "";
     this.canBePersona = !!c.can_be_persona;
     this.allowDownload = !!c.allow_download;
+    this.allowByoe = !!c.allow_byoe;
     this.isExplicit = !!c.is_explicit;
     this.avatar = c.avatar || "";
     const assets = c.assets || {};
@@ -447,6 +448,7 @@ class WorkshopCharactersFormView {
     this.presentationHtmlValue = draft.presentation_html || "";
     this.canBePersona = !!draft.can_be_persona;
     this.allowDownload = !!draft.allow_download;
+    this.allowByoe = !!draft.allow_byoe;
     this.isExplicit = !!draft.is_explicit;
     this.avatar = draft.avatar || "";
     const assets = draft.assets || {};
@@ -774,6 +776,7 @@ class WorkshopCharactersFormView {
           ${this.toggleRowHtml("cf_isPublic", t("create_share_to_community_label"), t("create_share_to_community_hint"), this.isPublic)}
           ${this.mode === "character" ? this.toggleRowHtml("cf_canBePersona", t("create_let_others_play_as_label"), t("create_let_others_play_as_hint"), this.canBePersona) : ""}
           ${this.toggleRowHtml("cf_allowDownload", t("create_allow_download_label"), t("create_allow_download_hint"), this.allowDownload)}
+          ${this.toggleRowHtml("cf_allowByoe", t("create_allow_byoe_label"), t("create_allow_byoe_hint"), this.allowByoe)}
           ${this.toggleRowHtml("cf_isExplicit", t("create_contains_mature_content_label"), t("create_contains_mature_content_hint"), this.isExplicit)}
         </div>
         <div style="padding:16px">
@@ -932,6 +935,7 @@ class WorkshopCharactersFormView {
       presentation_html: this.presentationHtmlValue.trim(),
       can_be_persona: this.mode === "character" ? this.canBePersona : false,
       allow_download: this.allowDownload,
+      allow_byoe: this.allowByoe,
       is_explicit: this.isExplicit,
       avatar: this.avatar && !this.avatar.startsWith("data:") ? this.avatar : "",
       voice: this.voice.trim() || null,
@@ -1262,6 +1266,8 @@ class WorkshopCharactersFormView {
     if (canBePersona) canBePersona.onchange = () => { this.canBePersona = canBePersona.checked; };
     const allowDownload = m.querySelector("#cf_allowDownload");
     if (allowDownload) allowDownload.onchange = () => { this.allowDownload = allowDownload.checked; };
+    const allowByoe = m.querySelector("#cf_allowByoe");
+    if (allowByoe) allowByoe.onchange = () => { this.allowByoe = allowByoe.checked; };
     const isExplicit = m.querySelector("#cf_isExplicit");
     if (isExplicit) isExplicit.onchange = () => { this.isExplicit = isExplicit.checked; };
 
