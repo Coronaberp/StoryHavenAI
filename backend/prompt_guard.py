@@ -56,11 +56,21 @@ class PromptInjectionBlocked(Exception):
         super().__init__(BLOCKED_MESSAGE)
 
 _NON_WORD_RE = re.compile(r"[^a-zA-Z0-9]+")
-_FAKE_OOC_RE = re.compile(r"[\[(]\s*ooc\s*:", re.I)
+_FAKE_DIRECTIVE_RE = re.compile(r"[\[(]\s*(ooc|scene|note|time|as|roll)\s*:", re.I)
+_REAL_SLASH_OOC_RE = re.compile(r"^\s*/ooc\b[^\n]*", re.I)
+_REAL_TYPED_OOC_RE = re.compile(r"\{\s*ooc\s*:[^}]*\}", re.I)
+_BARE_OOC_WORD_RE = re.compile(r"\booc\b", re.I)
+
+def _has_bare_fake_ooc(raw: str) -> bool:
+    stripped = _REAL_SLASH_OOC_RE.sub("", raw)
+    stripped = _REAL_TYPED_OOC_RE.sub("", stripped)
+    return bool(_BARE_OOC_WORD_RE.search(stripped))
 
 def looks_like_prompt_injection(text: str) -> bool:
     raw = text or ""
-    if _FAKE_OOC_RE.search(raw):
+    if _FAKE_DIRECTIVE_RE.search(raw):
+        return True
+    if _has_bare_fake_ooc(raw):
         return True
     normalized = _NON_WORD_RE.sub(" ", raw).strip()
     if not normalized:
