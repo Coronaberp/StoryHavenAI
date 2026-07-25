@@ -1,5 +1,62 @@
 "use strict";
 
+function _personaCharacterPickerTileHtml(c) {
+  const mine = c.owner_id === ME?.id;
+  return `
+    <button type="button" data-pcp-id="${_attr(c.id)}" class="pcp-tile">
+      <span class="sanctum-specimen" style="width:44px;height:44px;${c.avatar ? `background-image:url('${_attr(c.avatar)}')` : "background:var(--color-surface-2)"}">${c.avatar ? "" : _esc((c.name || "?")[0].toUpperCase())}</span>
+      <span class="pcp-tile-body">
+        <span class="pcp-tile-name">${_esc(c.name)}</span>
+        <span class="pcp-tile-badge ${mine ? "" : "pcp-tile-badge-explore"}">${mine ? t("masks_link_character_mine", "Yours") : t("masks_link_character_explore", "Explore")}</span>
+      </span>
+    </button>
+  `;
+}
+
+function _personaCharacterPickerModal(onPick) {
+  let chars = null;
+  let query = "";
+  const layer = openModal(`
+    <h3>${t("masks_link_character_heading", "Link a character")}</h3>
+    <input type="text" id="pcpSearch" placeholder="${_attr(t("masks_link_character_search_placeholder", "Search your characters or Explore"))}"
+      class="pcp-search" autocomplete="off">
+    <div id="pcpGrid" class="pcp-grid"></div>
+  `, { wide: true });
+  const renderGrid = () => {
+    const grid = layer.querySelector("#pcpGrid");
+    if (!grid) return;
+    if (chars === null) {
+      grid.innerHTML = `<div class="pcp-loading" aria-hidden="true">${"<span></span>".repeat(4)}</div>`;
+      return;
+    }
+    const q = query.trim().toLowerCase();
+    const filtered = q ? chars.filter((c) => (c.name || "").toLowerCase().includes(q)) : chars;
+    grid.innerHTML = filtered.length ? filtered.map(_personaCharacterPickerTileHtml).join("")
+      : `<p class="pcp-empty">${t("masks_link_character_no_matches", "No characters match.")}</p>`;
+    grid.querySelectorAll("[data-pcp-id]").forEach((b) => b.onclick = () => {
+      const char = chars.find((c) => c.id === b.dataset.pcpId);
+      closeModal(layer);
+      if (char) onPick(char);
+    });
+  };
+  layer.querySelector("#pcpSearch").oninput = (e) => { query = e.target.value; renderGrid(); };
+  renderGrid();
+  Promise.all([
+    api("/api/characters?scope=mine").catch(() => []),
+    api("/api/characters?scope=community").catch(() => []),
+  ]).then(([mine, community]) => {
+    const seen = new Set();
+    const all = [];
+    for (const c of [...mine, ...community]) {
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
+      all.push(c);
+    }
+    chars = all;
+    renderGrid();
+  });
+}
+
 function _masksEditModal(persona, onSave, opts = {}) {
   const sessionId = opts.sessionId || null;
   const p = persona || { name: "", description: "", gender: "", is_default: false, is_draft: false };
@@ -19,6 +76,19 @@ function _masksEditModal(persona, onSave, opts = {}) {
   };
 
   let curAvatar = p.avatar || "";
+  let linkedCharId = p.linked_char_id || null;
+  let linkedCharName = p.linked_char_name || null;
+  let linkedCharAvatar = p.linked_char_avatar || null;
+  const linkedCharBoxHtml = () => linkedCharId ? `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface-2)">
+      <span class="sanctum-specimen" style="width:32px;height:32px;flex:none;${linkedCharAvatar ? `background-image:url('${_attr(linkedCharAvatar)}');background-size:cover;background-position:center` : "background:var(--color-surface)"}">${linkedCharAvatar ? "" : _esc((linkedCharName || "?")[0].toUpperCase())}</span>
+      <span style="flex:1;min-width:0;font-size:13px;color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(linkedCharName || "")}</span>
+      <button type="button" id="mkLinkChange" class="pe-gen-btn" style="padding:5px 10px;font-size:11.5px">${t("masks_link_character_change", "Change")}</button>
+      <button type="button" id="mkLinkClear" class="pe-gen-btn" style="padding:5px 10px;font-size:11.5px;border-color:var(--color-warn);color:var(--color-warn)">${t("masks_link_character_unlink", "Unlink")}</button>
+    </div>
+  ` : `
+    <button type="button" id="mkLinkAdd" class="pe-gen-btn">${t("masks_link_character_add", "+ Link a character")}</button>
+  `;
   const layer = openModal(`
     <h3>${persona ? t("masks_edit_mask_heading") : t("masks_new_mask_heading")}</h3>
     ${sessionId && !persona ? `<p style="font-size:11.5px;color:var(--color-muted);margin:0 0 14px">${t("masks_session_exclusive_hint", "This persona will only be usable in this chat, not elsewhere.")}</p>` : ""}
@@ -51,6 +121,11 @@ function _masksEditModal(persona, onSave, opts = {}) {
       <textarea id="mkDescription" class="grimoire-field-textarea" rows="5" placeholder="${t("masks_description_placeholder")}">${_esc(p.description || "")}</textarea>
     </div>
     <button type="button" class="pe-gen-btn" id="mkExpand" style="margin-bottom:16px">${t("masks_expand_button")}</button>
+    <div style="margin-bottom:16px">
+      <label class="grimoire-field-label">${t("masks_link_character_label", "Link Character")}</label>
+      <div id="mkLinkCharBox" style="margin-top:6px">${linkedCharBoxHtml()}</div>
+      <div class="text-xs text-muted mt-1">${t("masks_link_character_hint", "Optional. Used as context when you tap Expand, and to group this persona in the list.")}</div>
+    </div>
     <div class="grimoire-toggle-row">
       <span style="font-size:14px;color:var(--color-ink)">${t("masks_set_as_default_label")}</span>
       <input type="checkbox" id="mkDefault" ${p.is_default ? "checked" : ""}>
@@ -62,6 +137,36 @@ function _masksEditModal(persona, onSave, opts = {}) {
       <button type="button" class="pe-gen-btn" id="mkSave" data-feature="personas">${t("masks_save_button")}</button>
     </div>
   `, { onClose: cleanupDraftIfAbandoned });
+
+  const renderLinkedCharBox = () => {
+    const box = layer.querySelector("#mkLinkCharBox");
+    if (box) box.innerHTML = linkedCharBoxHtml();
+    wireLinkedCharBox();
+  };
+  const wireLinkedCharBox = () => {
+    const addBtn = layer.querySelector("#mkLinkAdd");
+    if (addBtn) addBtn.onclick = () => _personaCharacterPickerModal((char) => {
+      linkedCharId = char.id;
+      linkedCharName = char.name;
+      linkedCharAvatar = char.avatar || null;
+      renderLinkedCharBox();
+    });
+    const changeBtn = layer.querySelector("#mkLinkChange");
+    if (changeBtn) changeBtn.onclick = () => _personaCharacterPickerModal((char) => {
+      linkedCharId = char.id;
+      linkedCharName = char.name;
+      linkedCharAvatar = char.avatar || null;
+      renderLinkedCharBox();
+    });
+    const clearBtn = layer.querySelector("#mkLinkClear");
+    if (clearBtn) clearBtn.onclick = () => {
+      linkedCharId = null;
+      linkedCharName = null;
+      linkedCharAvatar = null;
+      renderLinkedCharBox();
+    };
+  };
+  wireLinkedCharBox();
 
   const GENDER_OPTIONS = [
     { symbol: "&#9792;", label: "Female", displayKey: "masks_gender_female" },
@@ -121,6 +226,7 @@ function _masksEditModal(persona, onSave, opts = {}) {
     avatar: curAvatar.startsWith("data:") ? "" : curAvatar,
     avatar_data: curAvatar.startsWith("data:") ? curAvatar : null,
     is_default: layer.querySelector("#mkDefault").checked,
+    linked_char_id: linkedCharId,
     ...(isNewMask && sessionId ? { session_id: sessionId } : {}),
   });
 
@@ -154,7 +260,7 @@ function _masksEditModal(persona, onSave, opts = {}) {
     btn.disabled = true;
     btn.textContent = t("masks_expanding_button");
     try {
-      const r = await api("/api/personas/expand-description", { method: "POST", body: JSON.stringify({ text }) });
+      const r = await api("/api/personas/expand-description", { method: "POST", body: JSON.stringify({ text, linked_char_id: linkedCharId }) });
       textEl.value = r.description;
       autosaveNow();
     } catch (err) {
@@ -255,6 +361,30 @@ class WorkshopPersonasView {
     `;
   }
 
+  groupedFeedHtml(list) {
+    const groups = new Map();
+    const global = [];
+    for (const p of list) {
+      if (!p.linked_char_id) { global.push(p); continue; }
+      if (!groups.has(p.linked_char_id)) {
+        groups.set(p.linked_char_id, { name: p.linked_char_name, avatar: p.linked_char_avatar, items: [] });
+      }
+      groups.get(p.linked_char_id).items.push(p);
+    }
+    const sections = [...groups.values()].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    const sectionHtml = (title, avatar, items) => `
+      <div style="display:flex;align-items:center;gap:8px;margin:18px 0 8px">
+        ${avatar ? `<span class="sanctum-specimen" style="width:22px;height:22px;background-image:url('${_attr(avatar)}');background-size:cover;background-position:center"></span>` : ""}
+        <span class="font-mono text-[9.5px] uppercase tracking-[.06em] text-muted">${_esc(title)}</span>
+      </div>
+      <div class="sanctum-feed">${items.map((p) => this.rowHtml(p)).join("")}</div>
+    `;
+    return [
+      ...sections.map((g) => sectionHtml(g.name || t("masks_link_character_untitled", "Untitled character"), g.avatar, g.items)),
+      global.length ? sectionHtml(t("masks_global_group", "Global"), null, global) : "",
+    ].join("");
+  }
+
   openEdit(pid) {
     const persona = (this.tab === "drafts" ? this.drafts : this.personas).find((p) => p.id === pid);
     if (!persona) return;
@@ -286,6 +416,9 @@ class WorkshopPersonasView {
           ${this.tab === "masks" ? `<button type="button" class="sanctum-empty-cta" style="border:none;background:none;cursor:pointer" id="masksEmptyAdd">${t("masks_create_first_mask_cta")}</button>` : ""}
         </div>
       `;
+    }
+    if (this.tab === "masks" && list.some((p) => p.linked_char_id)) {
+      return `${tabsHtml}${this.groupedFeedHtml(list)}`;
     }
     return `${tabsHtml}<div class="sanctum-feed">${list.map((p) => this.rowHtml(p)).join("")}</div>`;
   }
