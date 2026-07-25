@@ -74,7 +74,8 @@ class ModelSettingsView {
       <div class="font-mono text-[9.5px] uppercase tracking-[.06em] text-muted mb-1.5">${t("model_settings_chat", "Chat")}</div>
       <div class="mb-3">${readOnlyProxyListHtml(this.settings.global_chat_proxies, t("model_settings_no_global_chat_proxies", "No chat endpoint configured yet."))}</div>
       <div class="font-mono text-[9.5px] uppercase tracking-[.06em] text-muted mb-1.5">${t("model_settings_embed", "Embedding")}</div>
-      <div class="mb-4">${readOnlyProxyListHtml(this.settings.global_embed_proxies, t("model_settings_no_global_embed_proxies", "No embedding endpoint configured yet."))}</div>
+      <div class="mb-2">${readOnlyProxyListHtml(this.settings.global_embed_proxies, t("model_settings_no_global_embed_proxies", "No embedding endpoint configured yet."))}</div>
+      <p class="text-xs text-muted mb-4">${t("model_settings_embed_why_locked", "Everyone's messages share one search index, so the embedding endpoint has to stay the same for all users. Only an admin can change it.")}</p>
 
       ${sEyebrowHtml(t("model_settings_my_endpoints", "My chat endpoint"))}
       <p class="text-xs text-muted mb-2">${t("model_settings_my_endpoints_hint", "Save your own backend profiles and switch which one is active. When one is active, it replaces the server endpoint above for your chats.")}</p>
