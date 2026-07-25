@@ -2055,6 +2055,8 @@ const UI_STRINGS = {
   masks_link_character_add: "+ Link a character",
   masks_link_character_change: "Change",
   masks_link_character_explore: "Explore",
+  masks_link_character_filter: "Filter",
+  masks_link_character_filter_all: "All",
   masks_link_character_heading: "Link a character",
   masks_link_character_hint: "Optional. Used as context when you tap Expand, and to group this persona in the list.",
   masks_link_character_label: "Link Character",

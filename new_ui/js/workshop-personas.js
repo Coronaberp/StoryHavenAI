@@ -1,62 +1,5 @@
 "use strict";
 
-function _personaCharacterPickerTileHtml(c) {
-  const mine = c.owner_id === ME?.id;
-  return `
-    <button type="button" data-pcp-id="${_attr(c.id)}" class="pcp-tile">
-      <span class="sanctum-specimen" style="width:44px;height:44px;${c.avatar ? `background-image:url('${_attr(c.avatar)}')` : "background:var(--color-surface-2)"}">${c.avatar ? "" : _esc((c.name || "?")[0].toUpperCase())}</span>
-      <span class="pcp-tile-body">
-        <span class="pcp-tile-name">${_esc(c.name)}</span>
-        <span class="pcp-tile-badge ${mine ? "" : "pcp-tile-badge-explore"}">${mine ? t("masks_link_character_mine", "Yours") : t("masks_link_character_explore", "Explore")}</span>
-      </span>
-    </button>
-  `;
-}
-
-function _personaCharacterPickerModal(onPick) {
-  let chars = null;
-  let query = "";
-  const layer = openModal(`
-    <h3>${t("masks_link_character_heading", "Link a character")}</h3>
-    <input type="text" id="pcpSearch" placeholder="${_attr(t("masks_link_character_search_placeholder", "Search your characters or Explore"))}"
-      class="pcp-search" autocomplete="off">
-    <div id="pcpGrid" class="pcp-grid"></div>
-  `, { wide: true });
-  const renderGrid = () => {
-    const grid = layer.querySelector("#pcpGrid");
-    if (!grid) return;
-    if (chars === null) {
-      grid.innerHTML = `<div class="pcp-loading" aria-hidden="true">${"<span></span>".repeat(4)}</div>`;
-      return;
-    }
-    const q = query.trim().toLowerCase();
-    const filtered = q ? chars.filter((c) => (c.name || "").toLowerCase().includes(q)) : chars;
-    grid.innerHTML = filtered.length ? filtered.map(_personaCharacterPickerTileHtml).join("")
-      : `<p class="pcp-empty">${t("masks_link_character_no_matches", "No characters match.")}</p>`;
-    grid.querySelectorAll("[data-pcp-id]").forEach((b) => b.onclick = () => {
-      const char = chars.find((c) => c.id === b.dataset.pcpId);
-      closeModal(layer);
-      if (char) onPick(char);
-    });
-  };
-  layer.querySelector("#pcpSearch").oninput = (e) => { query = e.target.value; renderGrid(); };
-  renderGrid();
-  Promise.all([
-    api("/api/characters?scope=mine").catch(() => []),
-    api("/api/characters?scope=community").catch(() => []),
-  ]).then(([mine, community]) => {
-    const seen = new Set();
-    const all = [];
-    for (const c of [...mine, ...community]) {
-      if (seen.has(c.id)) continue;
-      seen.add(c.id);
-      all.push(c);
-    }
-    chars = all;
-    renderGrid();
-  });
-}
-
 function _masksEditModal(persona, onSave, opts = {}) {
   const sessionId = opts.sessionId || null;
   const p = persona || { name: "", description: "", gender: "", is_default: false, is_draft: false };
@@ -145,14 +88,14 @@ function _masksEditModal(persona, onSave, opts = {}) {
   };
   const wireLinkedCharBox = () => {
     const addBtn = layer.querySelector("#mkLinkAdd");
-    if (addBtn) addBtn.onclick = () => _personaCharacterPickerModal((char) => {
+    if (addBtn) addBtn.onclick = () => openCharacterPickerModal((char) => {
       linkedCharId = char.id;
       linkedCharName = char.name;
       linkedCharAvatar = char.avatar || null;
       renderLinkedCharBox();
     });
     const changeBtn = layer.querySelector("#mkLinkChange");
-    if (changeBtn) changeBtn.onclick = () => _personaCharacterPickerModal((char) => {
+    if (changeBtn) changeBtn.onclick = () => openCharacterPickerModal((char) => {
       linkedCharId = char.id;
       linkedCharName = char.name;
       linkedCharAvatar = char.avatar || null;
