@@ -88,11 +88,16 @@ async def set_checkpoint_meta_route(name: str, body: ModelMetaIn,
                                     current_user: dict = Depends(get_admin)):
 
     await checkpoints.set_meta(name, body.display_name, body.description, body.model_type,
-                                   body.default_steps, body.anima_clip_name, body.anima_vae_name)
+                                   body.default_steps, body.anima_clip_name, body.anima_vae_name,
+                                   body.default_sampler, body.default_scheduler, body.default_cfg,
+                                   body.default_positive, body.default_negative)
     log.info("admin: checkpoint meta set by=%s checkpoint=%s", current_user["username"], name)
     return {"checkpoint_name": name, "display_name": body.display_name,
             "description": body.description, "model_type": body.model_type,
-            "anima_clip_name": body.anima_clip_name, "anima_vae_name": body.anima_vae_name}
+            "anima_clip_name": body.anima_clip_name, "anima_vae_name": body.anima_vae_name,
+            "default_sampler": body.default_sampler, "default_scheduler": body.default_scheduler,
+            "default_cfg": body.default_cfg, "default_positive": body.default_positive,
+            "default_negative": body.default_negative}
 
 @api.put("/admin/checkpoint-previews/{name:path}/video")
 async def set_checkpoint_preview_video(name: str, file: UploadFile = File(...),

@@ -428,6 +428,11 @@ checkpoint_previews = sa.Table(
     sa.Column("description", sa.Text, nullable=True),
 
     sa.Column("default_steps", sa.Integer, nullable=True),
+    sa.Column("default_sampler", sa.Text, nullable=True),
+    sa.Column("default_scheduler", sa.Text, nullable=True),
+    sa.Column("default_cfg", sa.Float, nullable=True),
+    sa.Column("default_positive", sa.Text, nullable=True),
+    sa.Column("default_negative", sa.Text, nullable=True),
 
     sa.Column("model_category", sa.Text, nullable=True),
 
@@ -925,6 +930,16 @@ async def init():
             "ALTER TABLE checkpoint_previews ADD COLUMN IF NOT EXISTS anima_clip_name TEXT"))
         await conn.execute(text(
             "ALTER TABLE checkpoint_previews ADD COLUMN IF NOT EXISTS anima_vae_name TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE checkpoint_previews ADD COLUMN IF NOT EXISTS default_sampler TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE checkpoint_previews ADD COLUMN IF NOT EXISTS default_scheduler TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE checkpoint_previews ADD COLUMN IF NOT EXISTS default_cfg DOUBLE PRECISION"))
+        await conn.execute(text(
+            "ALTER TABLE checkpoint_previews ADD COLUMN IF NOT EXISTS default_positive TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE checkpoint_previews ADD COLUMN IF NOT EXISTS default_negative TEXT"))
         await conn.execute(text(
             "ALTER TABLE lora_previews ALTER COLUMN image DROP NOT NULL"))
         await conn.execute(text(
@@ -1451,6 +1466,16 @@ def _model_meta_row(r: dict) -> dict:
         row["model_type"] = r.get("model_type")
     if "default_steps" in r:
         row["default_steps"] = r.get("default_steps")
+    if "default_sampler" in r:
+        row["default_sampler"] = r.get("default_sampler")
+    if "default_scheduler" in r:
+        row["default_scheduler"] = r.get("default_scheduler")
+    if "default_cfg" in r:
+        row["default_cfg"] = r.get("default_cfg")
+    if "default_positive" in r:
+        row["default_positive"] = r.get("default_positive")
+    if "default_negative" in r:
+        row["default_negative"] = r.get("default_negative")
     if "model_category" in r:
         row["model_category"] = _parse_model_categories(r.get("model_category"))
     if "anima_clip_name" in r:
@@ -1467,6 +1492,16 @@ async def _list_model_previews(table, name_col) -> dict:
         cols.append(table.c.model_type)
     if "default_steps" in table.c:
         cols.append(table.c.default_steps)
+    if "default_sampler" in table.c:
+        cols.append(table.c.default_sampler)
+    if "default_scheduler" in table.c:
+        cols.append(table.c.default_scheduler)
+    if "default_cfg" in table.c:
+        cols.append(table.c.default_cfg)
+    if "default_positive" in table.c:
+        cols.append(table.c.default_positive)
+    if "default_negative" in table.c:
+        cols.append(table.c.default_negative)
     if "model_category" in table.c:
         cols.append(table.c.model_category)
     if "anima_clip_name" in table.c:
@@ -1495,12 +1530,27 @@ _UNSET = object()
 async def _set_model_meta(table, name_col, name: str, display_name: str | None,
                           description: str | None, model_type: str | None = None,
                           default_steps: int | None = None,
+                          default_sampler: str | None = None,
+                          default_scheduler: str | None = None,
+                          default_cfg: float | None = None,
+                          default_positive: str | None = None,
+                          default_negative: str | None = None,
                           model_category=_UNSET, keywords=_UNSET):
     values = {name_col.name: name, "display_name": display_name, "description": description}
     if "model_type" in table.c:
         values["model_type"] = model_type
     if "default_steps" in table.c:
         values["default_steps"] = default_steps
+    if "default_sampler" in table.c:
+        values["default_sampler"] = default_sampler
+    if "default_scheduler" in table.c:
+        values["default_scheduler"] = default_scheduler
+    if "default_cfg" in table.c:
+        values["default_cfg"] = default_cfg
+    if "default_positive" in table.c:
+        values["default_positive"] = default_positive
+    if "default_negative" in table.c:
+        values["default_negative"] = default_negative
 
     if "model_category" in table.c and model_category is not _UNSET:
         values["model_category"] = json.dumps(model_category) if model_category else None

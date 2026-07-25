@@ -557,6 +557,11 @@ class ModelMetaIn(BaseModel):
     model_category: list[str] | None = None
     anima_clip_name: str | None = None
     anima_vae_name: str | None = None
+    default_sampler: str | None = None
+    default_scheduler: str | None = None
+    default_cfg: float | None = None
+    default_positive: str | None = None
+    default_negative: str | None = None
     keywords: list[str] | None = None
 
 class CommentIn(BaseModel):

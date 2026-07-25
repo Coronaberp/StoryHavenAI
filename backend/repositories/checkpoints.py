@@ -26,10 +26,15 @@ async def delete_preview(name: str):
 
 async def set_meta(name: str, display_name: str | None, description: str | None,
                     model_type: str | None = None, default_steps: int | None = None,
-                    anima_clip_name: str | None = None, anima_vae_name: str | None = None):
+                    anima_clip_name: str | None = None, anima_vae_name: str | None = None,
+                    default_sampler: str | None = None, default_scheduler: str | None = None,
+                    default_cfg: float | None = None, default_positive: str | None = None,
+                    default_negative: str | None = None):
 
     await _set_model_meta(checkpoint_previews, checkpoint_previews.c.checkpoint_name, name,
-                          display_name, description, model_type, default_steps)
+                          display_name, description, model_type, default_steps,
+                          default_sampler, default_scheduler, default_cfg,
+                          default_positive, default_negative)
     stmt = pg_insert(checkpoint_previews).values(
         checkpoint_name=name, anima_clip_name=anima_clip_name, anima_vae_name=anima_vae_name)
     stmt = stmt.on_conflict_do_update(
