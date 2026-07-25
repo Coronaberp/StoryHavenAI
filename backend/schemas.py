@@ -229,6 +229,7 @@ class UserSettingsIn(BaseModel):
     api_key: str | None = None
     tts_base_url: str | None = None
     tts_api_key: str | None = None
+    default_tts_voice: str | None = None
     chat_model: str | None = None
     history_turns: int | None = None
     enable_thinking: bool | None = None

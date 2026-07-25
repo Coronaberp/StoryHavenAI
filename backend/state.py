@@ -233,7 +233,7 @@ USER_CFG_KEYS = [
     "dry_multiplier", "dry_base", "dry_allowed_length",
     "xtc_threshold", "xtc_probability", "seed", "stop", "extra_params",
     "system_suffix", "post_history",
-    "tts_base_url", "tts_api_key",
+    "tts_base_url", "tts_api_key", "default_tts_voice",
 ]
 
 os.makedirs(MEDIA_DIR, exist_ok=True)

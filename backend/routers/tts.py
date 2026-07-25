@@ -12,6 +12,7 @@ from backend.prompt import strip_think
 from backend.ratelimit import SlidingWindow
 from backend.repositories import characters as characters_repo
 from backend.repositories import chat_sessions
+from backend.repositories import users as users_repo
 from backend.state import CFG, api, log
 from backend.tts import endpoint_cache_host
 
@@ -48,15 +49,18 @@ def normalize_voice_entries(entries: list) -> list[str]:
             result.append(voice_id)
     return result
 
-async def _resolve_voices(session: dict, message: dict) -> tuple[str, str]:
+async def _resolve_voices(session: dict, message: dict, user_id: str) -> tuple[str, str]:
     overrides = session.get("voice_overrides") or {}
-    narrator = _clean_voice(overrides.get("narrator_voice")) or CFG.get("tts_narrator_voice") or "af_heart"
+    user_settings = await users_repo.get_user_settings(user_id)
+    user_default = _clean_voice((user_settings or {}).get("default_tts_voice"))
+    narrator = (_clean_voice(overrides.get("narrator_voice"))
+                or user_default or CFG.get("tts_narrator_voice") or "af_heart")
     char_voice = _clean_voice(overrides.get("character_voice"))
     if not char_voice:
         char_id = message.get("char_id") or session["char_id"]
         character = await characters_repo.get(char_id)
         char_voice = _clean_voice((character or {}).get("voice"))
-    return char_voice or narrator, narrator
+    return char_voice or user_default or narrator, narrator
 
 @api.post("/sessions/{sid}/messages/{mid}/speech", dependencies=[Depends(require_feature_enabled("tts"))])
 async def speak_message(sid: str, mid: str, current_user: dict = Depends(get_current_user)):
@@ -75,7 +79,7 @@ async def speak_message(sid: str, mid: str, current_user: dict = Depends(get_cur
         raise HTTPException(400, "There is nothing to speak in this message.")
     if len(spoken) > tts.MAX_TTS_CHARS:
         raise HTTPException(413, "This message is too long to speak.")
-    char_voice, narrator_voice = await _resolve_voices(session, message)
+    char_voice, narrator_voice = await _resolve_voices(session, message, current_user["id"])
     started = time.time()
     try:
         url, cached = await tts.synthesize_message(spoken, char_voice,

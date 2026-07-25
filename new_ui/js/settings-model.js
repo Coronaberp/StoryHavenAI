@@ -28,8 +28,21 @@ class ModelSettingsView {
       errorToast(t("model_settings_couldnt_load_your_settings"));
     }
     this.proxyCardsState = { chat: (this.settings.overrides?.own_chat_proxies || []).map((p) => ({ ...p, api_key: "" })) };
+    this.defaultVoice = this.settings.overrides?.default_tts_voice || "";
     this.saving = false;
     this.render();
+  }
+
+  async openDefaultVoicePicker() {
+    const voices = await _fetchTtsVoices();
+    if (!voices.length) {
+      errorToast(t("model_settings_no_voices_available", "Couldn't load voices right now."));
+      return;
+    }
+    openVoicePickerModal(voices, this.defaultVoice, (voiceId) => {
+      this.defaultVoice = voiceId;
+      this.render();
+    });
   }
 
   onProxyCardsChanged(immediate) {
@@ -152,6 +165,13 @@ class ModelSettingsView {
         <textarea id="model_stop" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-xs font-mono" style="min-height:52px">${_esc((o.stop || []).join("\n"))}</textarea>
       </div>
 
+      ${sEyebrowHtml(t("model_settings_voice", "Voice"))}
+      <p class="text-xs text-muted mb-2">${t("model_settings_default_voice_hint", "Used whenever a chat has no voice override of its own.")}</p>
+      <div class="mb-5" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:11px;border:1px solid var(--color-line-2);background:var(--color-surface-2)">
+        <span style="flex:1;min-width:0;font-size:13.5px;font-weight:600;color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(this.defaultVoice ? _formatVoiceName(this.defaultVoice).name : t("tts_voice_default", "Default"))}</span>
+        <button type="button" onclick="modelView.openDefaultVoicePicker()" class="pe-gen-btn" style="padding:5px 12px;font-size:11.5px">${t("masks_link_character_change", "Change")}</button>
+      </div>
+
       ${sEyebrowHtml(t("model_settings_prompt_injection"))}
       <div class="mb-3">
         <label class="block text-xs text-sec mb-1">${t("model_settings_system_suffix")}</label>
@@ -216,6 +236,7 @@ class ModelSettingsView {
       stop: (document.getElementById("model_stop")?.value || "").split("\n").map((s) => s.trim()).filter(Boolean),
       system_suffix: document.getElementById("model_suffix")?.value.trim() || null,
       post_history: document.getElementById("model_posthist")?.value.trim() || null,
+      default_tts_voice: this.defaultVoice || null,
     };
     body.stop = body.stop.length ? body.stop : null;
     this.syncProxiesFromDom("chat");
@@ -229,6 +250,7 @@ class ModelSettingsView {
       await api("/api/me/settings", { method: "PUT", body: JSON.stringify(body) });
       this.settings = await api("/api/me/settings");
       this.proxyCardsState = { chat: (this.settings.overrides?.own_chat_proxies || []).map((p) => ({ ...p, api_key: "" })) };
+      this.defaultVoice = this.settings.overrides?.default_tts_voice || "";
       toast(t("model_settings_settings_saved"));
     } catch (e) {
       errorToast(t("model_settings_save_failed_prefix") + e.message);
@@ -261,11 +283,13 @@ class ModelSettingsView {
       chat_model: null,
       api_key: null,
       own_chat_proxies: null,
+      default_tts_voice: null,
     };
     try {
       await api("/api/me/settings", { method: "PUT", body: JSON.stringify(body) });
       this.settings = await api("/api/me/settings");
       this.proxyCardsState = { chat: [] };
+      this.defaultVoice = "";
       toast(t("model_settings_reset_to_defaults"));
     } catch (e) {
       errorToast(t("model_settings_reset_failed_prefix") + e.message);
