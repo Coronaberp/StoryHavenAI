@@ -222,3 +222,47 @@ async def test_post_party_chat_rejects_external_image_url(db_conn):
             sid, PartyChatIn(content="", image="https://evil.example/pixel.gif", attachment_kind="image"),
             _user("owner-1"))
     assert exc_info.value.status_code == 400
+
+async def test_leave_session_removes_participant(db_conn):
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    link = await mp.create_invite_link(sid, _user("owner-1"))
+    await mp.join_via_link(sid, MultiplayerJoinIn(token=link["token"], persona_id=None), _user("friend-1"))
+    result = await mp.leave_session(sid, _user("friend-1"))
+    assert result == {"ok": True}
+    participants = await sp.list_for_session(sid)
+    assert not any(p["user_id"] == "friend-1" for p in participants)
+
+async def test_leave_session_rejects_non_participant(db_conn):
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    with pytest.raises(HTTPException) as exc_info:
+        await mp.leave_session(sid, _user("stranger"))
+    assert exc_info.value.status_code == 404
+
+async def test_leave_session_allows_host_to_leave(db_conn):
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    await mp.create_invite_link(sid, _user("owner-1"))
+    result = await mp.leave_session(sid, _user("owner-1"))
+    assert result == {"ok": True}
+    participants = await sp.list_for_session(sid)
+    assert not any(p["user_id"] == "owner-1" for p in participants)
+
+async def test_host_retains_authority_after_leaving(db_conn):
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    link = await mp.create_invite_link(sid, _user("owner-1"))
+    await mp.join_via_link(sid, MultiplayerJoinIn(token=link["token"], persona_id=None), _user("friend-1"))
+    await mp.leave_session(sid, _user("owner-1"))
+    await mp.remove_participant(sid, "friend-1", _user("owner-1"))
+    participants = await sp.list_for_session(sid)
+    assert not any(p["user_id"] == "friend-1" for p in participants)
+
+async def test_list_participants_silently_rejoins_absent_owner(db_conn):
+    char_id = await _make_rpg_char()
+    sid = await chat_sessions.create(char_id, None, "Party", "Host", user_id="owner-1")
+    await mp.create_invite_link(sid, _user("owner-1"))
+    await mp.leave_session(sid, _user("owner-1"))
+    participants = await mp.list_participants(sid, _user("owner-1"))
+    assert any(p["user_id"] == "owner-1" and p["role"] == "host" for p in participants)

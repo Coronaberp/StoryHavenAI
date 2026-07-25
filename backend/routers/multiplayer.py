@@ -34,6 +34,15 @@ async def _require_host(session: dict, current_user: dict) -> None:
         return
     raise HTTPException(403, "Only the host can do this")
 
+async def _ensure_owner_participant(session: dict, current_user: dict) -> None:
+    if session.get("user_id") != current_user["id"]:
+        return
+    if await session_participants.is_participant(session["id"], current_user["id"]):
+        return
+    await session_participants.add(session["id"], current_user["id"], session.get("persona_id"), "host")
+    log.info("multiplayer: owner rejoined session=%s", session["id"])
+    live_broadcast.broadcast(session["id"], "participant_joined", {"user_id": current_user["id"]})
+
 @api.post("/sessions/{sid}/multiplayer/invite-link")
 async def create_invite_link(sid: str, current_user: dict = Depends(get_experimental_user)):
     session = await _own_session(sid, current_user)
@@ -117,7 +126,8 @@ async def list_my_personas_for_session(sid: str, current_user: dict = Depends(ge
 
 @api.get("/sessions/{sid}/multiplayer/participants")
 async def list_participants(sid: str, current_user: dict = Depends(get_current_user)):
-    await _own_session(sid, current_user)
+    session = await _own_session(sid, current_user)
+    await _ensure_owner_participant(session, current_user)
     from backend.repositories import users as user_repo, personas
     rows = await session_participants.list_for_session(sid)
     enriched = []
@@ -162,6 +172,17 @@ async def remove_participant(sid: str, user_id: str,
     live_broadcast.disconnect_user(sid, user_id)
     return {"ok": True}
 
+@api.post("/sessions/{sid}/multiplayer/leave")
+async def leave_session(sid: str, current_user: dict = Depends(get_current_user)):
+    session = await _own_session(sid, current_user)
+    if not await session_participants.is_participant(sid, current_user["id"]):
+        raise HTTPException(404, "You are not a participant in this session")
+    await session_participants.remove(sid, current_user["id"])
+    log.info("multiplayer: user=%s left session=%s", current_user["id"], sid)
+    live_broadcast.broadcast(sid, "participant_left", {"user_id": current_user["id"]})
+    live_broadcast.disconnect_user(sid, current_user["id"])
+    return {"ok": True}
+
 @api.post("/sessions/{sid}/multiplayer/typing")
 async def typing_ping(sid: str, current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
@@ -170,7 +191,8 @@ async def typing_ping(sid: str, current_user: dict = Depends(get_current_user)):
 
 @api.get("/sessions/{sid}/multiplayer/live")
 async def live(sid: str, current_user: dict = Depends(get_current_user)):
-    await _own_session(sid, current_user)
+    session = await _own_session(sid, current_user)
+    await _ensure_owner_participant(session, current_user)
     return StreamingResponse(
         live_broadcast.stream(sid, current_user["id"]),
         media_type="text/event-stream",
