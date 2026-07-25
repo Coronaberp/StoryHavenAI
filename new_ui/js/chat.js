@@ -3422,6 +3422,10 @@ class ChatView {
     const raw = input.value.trim();
     if (!raw || this.streaming) return;
     if (looksLikePromptInjection(raw)) {
+      input.value = "";
+      input.style.height = "auto";
+      store.set(`draft:${this.sid}`, "");
+      this.renderCmdChips("");
       showInjectionTimeoutOverlay(10);
       api("/api/security/report-blocked-message", { method: "POST" }).catch(() => {});
       return;
