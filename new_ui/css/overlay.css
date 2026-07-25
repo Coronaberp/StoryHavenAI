@@ -1,15 +1,21 @@
-.toast {
+.toast-container {
   position: fixed;
   top: 0;
   inset-inline-start: 0;
   inset-inline-end: 0;
-  bottom: auto;
-  transform: translateY(-100%);
+  z-index: 10010;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  max-height: 100vh;
+  overflow-y: auto;
+}
+.toast {
+  position: relative;
   background: var(--color-surface);
   color: var(--color-ink);
   border: none;
   border-bottom: 1px solid var(--color-accent);
-  max-width: none;
   width: 100%;
   max-height: 40vh;
   overflow: auto;
@@ -20,13 +26,14 @@
   padding: 14px 44px 14px 16px;
   border-radius: 0;
   box-shadow: 0 10px 34px -8px rgba(0, 0, 0, .5);
-  pointer-events: none;
-  z-index: 10010;
+  pointer-events: auto;
   box-sizing: border-box;
   font-size: 14px;
-  transition: transform .25s;
+  opacity: 0;
+  transform: translateY(-100%);
+  transition: transform .25s, opacity .25s;
 }
-.toast.show { transform: translateY(0); pointer-events: auto; }
+.toast.show { transform: translateY(0); opacity: 1; }
 .toast::before {
   content: "";
   flex: none;
@@ -312,3 +319,23 @@
   -webkit-box-orient: vertical;
 }
 .notif-item-time { font-size: 11px; color: var(--color-muted); margin-top: 1px; }
+
+.site-banner {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--color-ink);
+  background: color-mix(in srgb, var(--color-warn) 14%, var(--color-surface));
+  border-bottom: 1px solid var(--color-warn);
+}
+.site-banner.type-info { background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface)); border-bottom-color: var(--color-accent); }
+.site-banner.type-warning { background: color-mix(in srgb, var(--color-cmd-yellow) 16%, var(--color-surface)); border-bottom-color: var(--color-cmd-yellow); }
+.site-banner-icon { flex: none; width: 18px; height: 18px; color: var(--color-warn); }
+.site-banner.type-info .site-banner-icon { color: var(--color-accent); }
+.site-banner.type-warning .site-banner-icon { color: var(--color-cmd-yellow); }
+.site-banner-text { flex: 1; min-width: 0; line-height: 1.4; }
+.site-banner-eta { flex: none; font-family: var(--font-mono); font-size: 11px; color: var(--color-muted); white-space: nowrap; }

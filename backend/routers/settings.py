@@ -135,6 +135,12 @@ def _scrub_proxies(proxies: list) -> list[dict]:
               "icon_type": p.get("icon_type") or "favicon", "icon_value": p.get("icon_value") or "",
               "has_api_key": bool(p.get("api_key")), "priority": p.get("priority", 0)} for p in proxies]
 
+def _scrub_provider_configs(configs: dict) -> dict:
+    return {provider: {"url": cfg.get("url", ""), "model": cfg.get("model", ""),
+                        "has_key": bool(cfg.get("key")),
+                        "icon_type": cfg.get("icon_type") or "favicon", "icon_value": cfg.get("icon_value", "")}
+            for provider, cfg in (configs or {}).items()}
+
 async def _migrate_legacy_proxy(proxy_key: str, base_field: str, key_field: str, model_field: str):
     if CFG.get(proxy_key):
         return
@@ -172,6 +178,8 @@ async def get_settings(current_user: dict = Depends(get_current_user)):
     out["has_klipy_api_key"] = bool(CFG.get("klipy_api_key"))
     out["has_image_provider_key"] = bool(CFG.get("image_provider_key"))
     out["has_video_provider_key"] = bool(CFG.get("video_provider_key"))
+    out["image_provider_configs"] = _scrub_provider_configs(CFG.get("image_provider_configs", {}))
+    out["video_provider_configs"] = _scrub_provider_configs(CFG.get("video_provider_configs", {}))
     out["has_tts_api_key"] = bool(CFG.get("tts_api_key"))
     return out
 
@@ -215,6 +223,29 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
             data[base_field] = active["base_url"]
             data[key_field] = active["api_key"]
             data[model_field] = active.get("model") or ""
+    for configs_key, provider_field, url_field, key_field, model_field in (
+        ("image_provider_configs", "image_provider", "image_provider_url", "image_provider_key", "image_provider_model"),
+        ("video_provider_configs", "video_provider", "video_provider_url", "video_provider_key", "video_provider_model"),
+    ):
+        if configs_key not in data:
+            continue
+        existing_configs = CFG.get(configs_key, {})
+        merged = {}
+        for provider, cfg in data[configs_key].items():
+            existing = existing_configs.get(provider, {})
+            merged[provider] = {
+                "url": cfg.get("url", ""),
+                "model": cfg.get("model", ""),
+                "key": cfg.get("key") or existing.get("key", ""),
+                "icon_type": cfg.get("icon_type") or "favicon",
+                "icon_value": cfg.get("icon_value", ""),
+            }
+        data[configs_key] = merged
+        active_provider = data.get(provider_field, CFG.get(provider_field, "comfyui"))
+        active_config = merged.get(active_provider, {})
+        data[url_field] = active_config.get("url", "")
+        data[key_field] = active_config.get("key", "")
+        data[model_field] = active_config.get("model", "")
     for k, v in data.items():
         if isinstance(v, str) and k in _str_keys:
             v = v.strip()
@@ -236,6 +267,8 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
                         current_user["username"], type(e).__name__, e)
     out = {k: CFG[k] for k in PUBLIC_CFG_KEYS if k in CFG}
     out["model_request_hosts"] = _scrub_model_request_hosts(out.get("model_request_hosts", []))
+    out["chat_proxies"] = _scrub_proxies(out.get("chat_proxies", []))
+    out["embed_proxies"] = _scrub_proxies(out.get("embed_proxies", []))
     out["has_api_key"] = bool(CFG.get("api_key"))
     out["has_embed_api_key"] = bool(CFG.get("embed_api_key"))
     out["has_modal_shared_secret"] = bool(CFG.get("modal_shared_secret"))
@@ -243,6 +276,9 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
     out["has_tenor_api_key"] = bool(CFG.get("tenor_api_key"))
     out["has_klipy_api_key"] = bool(CFG.get("klipy_api_key"))
     out["has_image_provider_key"] = bool(CFG.get("image_provider_key"))
+    out["has_video_provider_key"] = bool(CFG.get("video_provider_key"))
+    out["image_provider_configs"] = _scrub_provider_configs(CFG.get("image_provider_configs", {}))
+    out["video_provider_configs"] = _scrub_provider_configs(CFG.get("video_provider_configs", {}))
     out["has_tts_api_key"] = bool(CFG.get("tts_api_key"))
     out["reindexed"] = changed_dim
     return out

@@ -117,6 +117,9 @@ async def get_comment_attachment_text(fname: str):
 
 _GIPHY_BASE = "https://api.giphy.com/v1/gifs"
 _GIPHY_RATING = "pg-13"
+_TENOR_BASE = "https://tenor.googleapis.com/v2"
+_TENOR_CONTENT_FILTER = "medium"
+_KLIPY_BASE = "https://api.klipy.co/api/v1"
 _GIPHY_CLEARED_MEDIA: set[str] = set()
 
 def _giphy_gif_summary(g: dict) -> dict:
@@ -128,6 +131,18 @@ def _giphy_gif_summary(g: dict) -> dict:
         "preview_url": preview.get("url", ""),
         "width": preview.get("width", ""),
         "height": preview.get("height", ""),
+    }
+
+def _tenor_gif_summary(g: dict) -> dict:
+    formats = g.get("media_formats", {})
+    preview = formats.get("tinygif", {}) or formats.get("nanogif", {})
+    dims = preview.get("dims") or [0, 0]
+    return {
+        "id": g.get("id", ""),
+        "title": g.get("content_description", ""),
+        "preview_url": preview.get("url", ""),
+        "width": dims[0] if len(dims) > 0 else "",
+        "height": dims[1] if len(dims) > 1 else "",
     }
 
 async def _giphy_get(path: str, params: dict) -> dict:
@@ -145,11 +160,104 @@ async def _giphy_get(path: str, params: dict) -> dict:
         raise HTTPException(502, "Couldn't reach Giphy right now.")
     return res.json()
 
+def _klipy_gif_summary(g: dict) -> dict:
+    file = g.get("file", {})
+    preview = file.get("sm", {}).get("gif", {}) or file.get("md", {}).get("gif", {})
+    return {
+        "id": str(g.get("id", "")),
+        "title": g.get("title", ""),
+        "preview_url": preview.get("url", ""),
+        "width": preview.get("width", ""),
+        "height": preview.get("height", ""),
+    }
+
+async def _klipy_get(path: str, params: dict) -> dict:
+    if not CFG.get("klipy_api_key"):
+        raise HTTPException(503, "GIF search isn't configured on this server yet.")
+    params = {**params, "customer_id": CFG.get("klipy_customer_id") or "storyhavenai"}
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            res = await client.get(f"{_KLIPY_BASE}/{CFG['klipy_api_key']}/gifs/{path}", params=params)
+        except httpx.HTTPError as e:
+            log.warning("comments: klipy %s request failed: %s: %s", path, type(e).__name__, e)
+            raise HTTPException(502, "Couldn't reach Klipy right now.")
+    if res.status_code != 200:
+        log.warning("comments: klipy %s returned %s", path, res.status_code)
+        raise HTTPException(502, "Couldn't reach Klipy right now.")
+    return res.json()
+
+async def _tenor_get(path: str, params: dict) -> dict:
+    if not CFG.get("tenor_api_key"):
+        raise HTTPException(503, "GIF search isn't configured on this server yet.")
+    params = {**params, "key": CFG["tenor_api_key"], "contentfilter": _TENOR_CONTENT_FILTER, "media_filter": "tinygif,gif"}
+    async with httpx.AsyncClient(timeout=10) as client:
+        try:
+            res = await client.get(f"{_TENOR_BASE}/{path}", params=params)
+        except httpx.HTTPError as e:
+            log.warning("comments: tenor %s request failed: %s: %s", path, type(e).__name__, e)
+            raise HTTPException(502, "Couldn't reach Tenor right now.")
+    if res.status_code != 200:
+        log.warning("comments: tenor %s returned %s", path, res.status_code)
+        raise HTTPException(502, "Couldn't reach Tenor right now.")
+    return res.json()
+
+def _configured_gif_providers() -> list[str]:
+    has_key = {
+        "giphy": bool(CFG.get("giphy_api_key")),
+        "tenor": bool(CFG.get("tenor_api_key")),
+        "klipy": bool(CFG.get("klipy_api_key")),
+    }
+    ordered = [CFG.get("gif_provider") or "giphy", "giphy", "tenor", "klipy"]
+    seen = set()
+    result = []
+    for provider in ordered:
+        if provider in seen or not has_key.get(provider):
+            continue
+        seen.add(provider)
+        result.append(provider)
+    return result
+
+async def _provider_trending(provider: str, limit: int) -> list[dict]:
+    if provider == "tenor":
+        data = await _tenor_get("featured", {"limit": limit})
+        return [_tenor_gif_summary(g) for g in data.get("results", [])]
+    if provider == "klipy":
+        data = await _klipy_get("trending", {"per_page": limit})
+        return [_klipy_gif_summary(g) for g in data.get("data", {}).get("data", [])]
+    data = await _giphy_get("trending", {"limit": limit})
+    return [_giphy_gif_summary(g) for g in data.get("data", [])]
+
+async def _provider_search(provider: str, q: str, limit: int) -> list[dict]:
+    if provider == "tenor":
+        data = await _tenor_get("search", {"q": q, "limit": limit})
+        return [_tenor_gif_summary(g) for g in data.get("results", [])]
+    if provider == "klipy":
+        data = await _klipy_get("search", {"q": q, "per_page": limit})
+        return [_klipy_gif_summary(g) for g in data.get("data", {}).get("data", [])]
+    data = await _giphy_get("search", {"q": q, "limit": limit})
+    return [_giphy_gif_summary(g) for g in data.get("data", [])]
+
+async def _merged_gif_results(fetch) -> list[dict]:
+    providers = _configured_gif_providers()
+    if not providers:
+        raise HTTPException(503, "GIF search isn't configured on this server yet.")
+    merged = []
+    for provider in providers:
+        try:
+            results = await fetch(provider)
+        except HTTPException as e:
+            log.warning("comments: gif provider=%s failed: %s", provider, e.detail)
+            continue
+        for r in results:
+            r["id"] = f"{provider}:{r['id']}"
+        merged.extend(results)
+    return merged
+
 @api.get("/comments/giphy/trending")
 async def giphy_trending(limit: int = 24, current_user: dict = Depends(get_current_user)):
     _GIPHY_SEARCH_LIMIT.check_and_record(current_user["id"])
-    data = await _giphy_get("trending", {"limit": min(max(limit, 1), 48)})
-    return {"results": [_giphy_gif_summary(g) for g in data.get("data", [])]}
+    limit = min(max(limit, 1), 48)
+    return {"results": await _merged_gif_results(lambda p: _provider_trending(p, limit))}
 
 @api.get("/comments/giphy/search")
 async def giphy_search(q: str, limit: int = 24, current_user: dict = Depends(get_current_user)):
@@ -157,26 +265,17 @@ async def giphy_search(q: str, limit: int = 24, current_user: dict = Depends(get
     q = q.strip()
     if not q:
         return {"results": []}
-    data = await _giphy_get("search", {"q": q, "limit": min(max(limit, 1), 48)})
-    return {"results": [_giphy_gif_summary(g) for g in data.get("data", [])]}
+    limit = min(max(limit, 1), 48)
+    return {"results": await _merged_gif_results(lambda p: _provider_search(p, q, limit))}
 
-@api.post("/comments/giphy/send")
-async def giphy_send(body: GiphySendIn, current_user: dict = Depends(get_current_user)):
-    _COMMENT_IMAGE_LIMIT.check_and_record(current_user["id"])
-    gif_id = re.sub(r"[^a-zA-Z0-9]", "", body.id)[:64]
-    if not gif_id:
-        raise HTTPException(400, "invalid gif id")
-    data = await _giphy_get(f"{gif_id}", {})
-    images = data.get("data", {}).get("images", {})
-    original = images.get("original", {})
-    url = original.get("url", "")
-    if not url or not url.startswith("https://media"):
+async def _download_gif_and_save(url: str, provider: str, gif_id: str, current_user: dict) -> str:
+    if not url:
         raise HTTPException(502, "That GIF isn't available right now.")
     async with httpx.AsyncClient(timeout=20) as client:
         try:
             res = await client.get(url)
         except httpx.HTTPError as e:
-            log.warning("comments: giphy download failed id=%s: %s: %s", gif_id, type(e).__name__, e)
+            log.warning("comments: gif download failed provider=%s id=%s: %s: %s", provider, gif_id, type(e).__name__, e)
             raise HTTPException(502, "Couldn't download that GIF.")
     if res.status_code != 200:
         raise HTTPException(502, "Couldn't download that GIF.")
@@ -184,7 +283,43 @@ async def giphy_send(body: GiphySendIn, current_user: dict = Depends(get_current
     ext = await _save_uploaded_image(res.content, basename, ".gif", allow_animated=True)
     url = f"/media/{basename}{ext}"
     _GIPHY_CLEARED_MEDIA.add(url)
-    log.info("comment gif sent by=%s giphy_id=%s url=%s", current_user["username"], gif_id, url)
+    log.info("comment gif sent by=%s provider=%s gif_id=%s url=%s",
+             current_user["username"], provider, gif_id, url)
+    return url
+
+@api.post("/comments/giphy/send")
+async def giphy_send(body: GiphySendIn, current_user: dict = Depends(get_current_user)):
+    _COMMENT_IMAGE_LIMIT.check_and_record(current_user["id"])
+    provider, _, raw_id = body.id.partition(":")
+    if provider not in ("giphy", "tenor", "klipy") or not raw_id:
+        raise HTTPException(400, "invalid gif id")
+    gif_id = re.sub(r"[^a-zA-Z0-9]", "", raw_id)[:64]
+    if not gif_id:
+        raise HTTPException(400, "invalid gif id")
+    if provider == "tenor":
+        data = await _tenor_get("posts", {"ids": gif_id})
+        results = data.get("results", [])
+        formats = results[0].get("media_formats", {}) if results else {}
+        source_url = formats.get("gif", {}).get("url", "")
+        if not source_url or not source_url.startswith("https://media"):
+            raise HTTPException(502, "That GIF isn't available right now.")
+        url = await _download_gif_and_save(source_url, provider, gif_id, current_user)
+        return {"image": url, "attachment_kind": "image"}
+    if provider == "klipy":
+        data = await _klipy_get(gif_id, {})
+        item = data.get("data", {})
+        source_url = item.get("file", {}).get("hd", {}).get("gif", {}).get("url", "") or item.get("file", {}).get("md", {}).get("gif", {}).get("url", "")
+        if not source_url:
+            raise HTTPException(502, "That GIF isn't available right now.")
+        url = await _download_gif_and_save(source_url, provider, gif_id, current_user)
+        return {"image": url, "attachment_kind": "image"}
+    data = await _giphy_get(f"{gif_id}", {})
+    images = data.get("data", {}).get("images", {})
+    original = images.get("original", {})
+    source_url = original.get("url", "")
+    if not source_url or not source_url.startswith("https://media"):
+        raise HTTPException(502, "That GIF isn't available right now.")
+    url = await _download_gif_and_save(source_url, provider, gif_id, current_user)
     return {"image": url, "attachment_kind": "image"}
 
 async def _resolve_target_owner(target_type: str, target_id: str) -> str | None:

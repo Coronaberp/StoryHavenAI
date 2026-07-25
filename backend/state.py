@@ -9,7 +9,7 @@ from backend import llm
 from fastapi import APIRouter
 
 PROCESS_START_TIME = time.time()
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.0.1"
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
@@ -132,11 +132,20 @@ CFG = {
     "image_provider_url":   os.environ.get("IMAGE_PROVIDER_URL", ""),
     "image_provider_key":   os.environ.get("IMAGE_PROVIDER_KEY", ""),
     "image_provider_model": os.environ.get("IMAGE_PROVIDER_MODEL", ""),
+    "image_provider_configs": {},
+
+    "video_provider":       os.environ.get("VIDEO_PROVIDER", "comfyui"),
+    "video_provider_url":   os.environ.get("VIDEO_PROVIDER_URL", ""),
+    "video_provider_key":   os.environ.get("VIDEO_PROVIDER_KEY", ""),
+    "video_provider_model": os.environ.get("VIDEO_PROVIDER_MODEL", ""),
+    "video_provider_configs": {},
 
     "model_request_hosts": [
         {"host": "huggingface.co", "api_key": ""},
         {"host": "civitai.red", "api_key": ""},
     ],
+    "chat_proxies": [],
+    "embed_proxies": [],
 
     "embed_link_hosts": [
         "tenor.com", "media.tenor.com", "giphy.com", "media.giphy.com",
@@ -153,7 +162,11 @@ CFG = {
 
     "modal_download_output_url": os.environ.get("MODAL_LORA_DOWNLOAD_OUTPUT_URL", ""),
 
+    "gif_provider": os.environ.get("GIF_PROVIDER", "giphy"),
     "giphy_api_key": os.environ.get("GIPHY_API_KEY", ""),
+    "tenor_api_key": os.environ.get("TENOR_API_KEY", ""),
+    "klipy_api_key": os.environ.get("KLIPY_API_KEY", ""),
+    "klipy_customer_id": os.environ.get("KLIPY_CUSTOMER_ID", ""),
 
     "wan_unet_name": os.environ.get("WAN_UNET_NAME", ""),
     "wan_clip_name": os.environ.get("WAN_CLIP_NAME", ""),
@@ -198,8 +211,10 @@ PUBLIC_CFG_KEYS = [
     "xtc_threshold", "xtc_probability", "seed", "stop", "extra_params",
     "system_suffix", "post_history", "default_language",
     "comfyui_url", "comfyui_checkpoint", "comfyui_workflow",
-    "image_provider", "image_provider_url", "image_provider_model",
-    "model_request_hosts", "embed_link_hosts",
+    "image_provider", "image_provider_url", "image_provider_model", "image_provider_configs",
+    "video_provider", "video_provider_url", "video_provider_model", "video_provider_configs",
+    "gif_provider",
+    "model_request_hosts", "embed_link_hosts", "chat_proxies", "embed_proxies",
     "modal_train_url", "modal_checkpoint_url", "modal_check_cached_url", "modal_upload_model_url",
     "modal_download_output_url",
     "wan_unet_name", "wan_clip_name", "wan_vae_name",

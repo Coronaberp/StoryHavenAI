@@ -193,6 +193,12 @@ class SettingsIn(BaseModel):
     image_provider: str | None = None
     image_provider_url: str | None = None
     image_provider_key: str | None = None
+    image_provider_configs: dict[str, dict] | None = None
+    video_provider: str | None = None
+    video_provider_url: str | None = None
+    video_provider_key: str | None = None
+    video_provider_model: str | None = None
+    video_provider_configs: dict[str, dict] | None = None
     image_provider_model: str | None = None
     model_request_hosts: list[ModelRequestHostIn] | None = None
     chat_proxies: list[ProxyProfileIn] | None = None
@@ -201,7 +207,11 @@ class SettingsIn(BaseModel):
     modal_train_url: str | None = None
     modal_shared_secret: str | None = None
     modal_checkpoint_url: str | None = None
+    gif_provider: str | None = None
     giphy_api_key: str | None = None
+    tenor_api_key: str | None = None
+    klipy_api_key: str | None = None
+    klipy_customer_id: str | None = None
     gpu_temp_limit: int | None = None
     gpu_temp_resume: int | None = None
     wan_unet_name: str | None = None

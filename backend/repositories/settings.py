@@ -9,6 +9,7 @@ from backend.db import settings, _q, _encrypt_secret, _decrypt_secret
 from backend.state import log
 
 _SECRET_KEYS = {"api_key", "embed_api_key", "modal_shared_secret"}
+_PROXY_LIST_KEYS = {"chat_proxies", "embed_proxies"}
 
 def _encrypt_value(key: str, value):
     if key in _SECRET_KEYS:
@@ -16,6 +17,9 @@ def _encrypt_value(key: str, value):
     if key == "model_request_hosts" and isinstance(value, list):
         return [{**host, "api_key": _encrypt_secret(host.get("api_key") or "")}
                 if isinstance(host, dict) else host for host in value]
+    if key in _PROXY_LIST_KEYS and isinstance(value, list):
+        return [{**p, "api_key": _encrypt_secret(p.get("api_key") or "")}
+                if isinstance(p, dict) else p for p in value]
     return value
 
 def _decrypt_value(key: str, value):
@@ -24,6 +28,9 @@ def _decrypt_value(key: str, value):
     if key == "model_request_hosts" and isinstance(value, list):
         return [{**host, "api_key": _decrypt_secret(host.get("api_key") or "")}
                 if isinstance(host, dict) else host for host in value]
+    if key in _PROXY_LIST_KEYS and isinstance(value, list):
+        return [{**p, "api_key": _decrypt_secret(p.get("api_key") or "")}
+                if isinstance(p, dict) else p for p in value]
     return value
 
 async def all_settings() -> dict:

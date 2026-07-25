@@ -1,5 +1,24 @@
 "use strict";
 
+const GUEST_USAGE_LIMITS = { tokens: 1000000, images: 400, videos: 8 };
+
+function guestUsageMetrics(u) {
+  return [
+    { key: "tokens", label: t("admin_users_guest_usage_tokens", "Tokens"), used: u.guest_tokens_used || 0, limit: GUEST_USAGE_LIMITS.tokens },
+    { key: "images", label: t("admin_users_guest_usage_images", "Images"), used: u.guest_images_used || 0, limit: GUEST_USAGE_LIMITS.images },
+    { key: "videos", label: t("admin_users_guest_usage_videos", "Videos"), used: u.guest_videos_used || 0, limit: GUEST_USAGE_LIMITS.videos },
+  ].map((m) => ({ ...m, pct: Math.min(100, Math.round((m.used / m.limit) * 100)) }));
+}
+
+function guestUsageDotColor(maxPct) {
+  if (maxPct >= 70) return "var(--color-warn)";
+  return "var(--color-primary)";
+}
+
+function guestUsageWorst(metrics) {
+  return metrics.reduce((worst, m) => (m.pct > worst.pct ? m : worst), metrics[0]);
+}
+
 function adminRoleBadge(u) {
   if (u.role === "dev") return `<span class="font-mono text-[9px] tracking-[.08em] uppercase px-2 py-1 rounded-md" style="color:var(--color-accent);border:1px solid var(--color-accent);background:color-mix(in srgb, var(--color-accent) 12%, transparent)">${t("admin_users_role_dev")}</span>`;
   if (u.is_admin) return `<span class="font-mono text-[9px] tracking-[.08em] uppercase px-2 py-1 rounded-md" style="color:var(--color-accent);border:1px solid var(--color-accent);background:color-mix(in srgb, var(--color-accent) 12%, transparent)">${t("admin_users_role_admin")}</span>`;
@@ -10,8 +29,15 @@ function adminRoleBadge(u) {
 class AdminUsersView {
   async mount(main) {
     this.main = main;
+    this.expandedGuests = new Set();
     main.innerHTML = `<div class="text-sm text-muted">${_esc(t("common_loading"))}</div>`;
     await this.load();
+  }
+
+  toggleGuestUsage(uid) {
+    if (this.expandedGuests.has(uid)) this.expandedGuests.delete(uid);
+    else this.expandedGuests.add(uid);
+    this.render();
   }
 
   async load() {
@@ -158,12 +184,51 @@ class AdminUsersView {
     if (u.is_admin) return t("admin_users_role_admin");
     if (u.status === "pending") return t("admin_users_status_pending", "Pending");
     if (u.status === "suspended") return t("admin_users_role_suspended");
+    if (u.tier === "guest") return t("admin_users_status_guest", "Guest");
     return t("admin_users_status_member", "Member");
+  }
+
+  guestMobileRowHtml(u) {
+    const metrics = guestUsageMetrics(u);
+    const worst = guestUsageWorst(metrics);
+    const expanded = this.expandedGuests.has(u.id);
+    return `
+      <div class="rounded-[10px] border border-line bg-surface mb-1.5 overflow-hidden">
+        <button type="button" data-admin-row="${_attr(u.id)}" class="admin-row" style="border:none;border-radius:0;margin-bottom:0">
+          <span class="admin-row-main">
+            <span class="admin-row-title">${_esc(u.display_name || u.username)}</span>
+            <span class="admin-row-meta">@${_esc(u.username)}${typeof u.chat_count === "number" ? ` · ${u.chat_count} ${t("admin_users_chats_suffix", "chats")}` : ""}</span>
+          </span>
+          <span class="admin-pill${this.userRowPillTone(u) ? ` ${this.userRowPillTone(u)}` : ""}">${_esc(this.userRowPill(u))}</span>
+          <span class="admin-row-chev">›</span>
+        </button>
+        <button type="button" data-guest-usage-toggle="${_attr(u.id)}" class="w-full flex items-center gap-1.5 px-3 py-2 border-t border-line text-[11px] font-mono text-muted">
+          <span class="w-2 h-2 rounded-full flex-none" style="background:${guestUsageDotColor(worst.pct)}"></span>
+          <span>${t("admin_users_guest_usage_summary", "Guest usage")} · ${worst.pct}% ${_esc(worst.label.toLowerCase())}</span>
+          <span class="ml-auto">${expanded ? "▾" : "›"}</span>
+        </button>
+        ${expanded ? `
+          <div class="px-3 py-2.5 border-t border-line flex flex-wrap gap-4" data-guest-usage-panel="${_attr(u.id)}">
+            ${metrics.map((m) => `
+              <div class="min-w-[120px]">
+                <div class="flex items-center justify-between font-mono text-[10px] text-muted mb-1">
+                  <span>${_esc(m.label)}</span>
+                  <span>${m.used.toLocaleString()} / ${m.limit.toLocaleString()}</span>
+                </div>
+                <div class="h-1.5 rounded-full bg-surface-2 overflow-hidden">
+                  <div class="h-full rounded-full" style="width:${m.pct}%;background:${guestUsageDotColor(m.pct)}"></div>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        ` : ""}
+      </div>
+    `;
   }
 
   render() {
     const visible = this.users.filter((u) => this.matchesFilter(u));
-    const rows = `<div class="lg:hidden">${visible.map((u) => adminRowHtml({
+    const rows = `<div class="lg:hidden">${visible.map((u) => u.tier === "guest" ? this.guestMobileRowHtml(u) : adminRowHtml({
       id: u.id,
       title: u.display_name || u.username,
       pill: this.userRowPill(u),
@@ -171,7 +236,12 @@ class AdminUsersView {
       meta: `@${u.username}${typeof u.chat_count === "number" ? ` · ${u.chat_count} ${t("admin_users_chats_suffix", "chats")}` : ""}`,
     })).join("")}</div>`;
 
-    const tableRows = visible.map((u) => `
+    const tableRows = visible.map((u) => {
+      const isGuest = u.tier === "guest";
+      const metrics = isGuest ? guestUsageMetrics(u) : null;
+      const worst = isGuest ? guestUsageWorst(metrics) : null;
+      const expanded = isGuest && this.expandedGuests.has(u.id);
+      return `
       <tr class="border-b border-line align-top">
         <td class="py-2.5 pr-3">
           <div class="flex items-center gap-2.5">
@@ -193,10 +263,39 @@ class AdminUsersView {
             : `<span class="font-mono text-[10px] text-muted">${t("admin_users_active")}</span>`}
         </td>
         <td class="py-2.5">
-          <div class="flex flex-wrap gap-1.5 max-w-[420px]">${this.userActionsHtml(u)}</div>
+          <div class="flex flex-wrap items-center gap-1.5 max-w-[420px]">
+            ${isGuest ? `
+              <button type="button" data-guest-usage-toggle="${_attr(u.id)}" class="flex items-center gap-1.5 px-2 py-1 rounded-md border border-line text-[10px] font-mono text-muted">
+                <span class="w-2 h-2 rounded-full flex-none" style="background:${guestUsageDotColor(worst.pct)}"></span>
+                ${worst.pct}% ${_esc(worst.label.toLowerCase())}
+                <span>${expanded ? "▾" : "›"}</span>
+              </button>
+            ` : ""}
+            ${this.userActionsHtml(u)}
+          </div>
         </td>
       </tr>
-    `).join("");
+      ${isGuest ? `
+        <tr class="border-b border-line${expanded ? "" : " hidden"}" data-guest-usage-panel="${_attr(u.id)}">
+          <td colspan="4" class="py-3">
+            <div class="flex flex-wrap gap-6 px-2">
+              ${metrics.map((m) => `
+                <div class="min-w-[140px]">
+                  <div class="flex items-center justify-between font-mono text-[10px] text-muted mb-1">
+                    <span>${_esc(m.label)}</span>
+                    <span>${m.used.toLocaleString()} / ${m.limit.toLocaleString()}</span>
+                  </div>
+                  <div class="h-1.5 rounded-full bg-surface-2 overflow-hidden">
+                    <div class="h-full rounded-full" style="width:${m.pct}%;background:${guestUsageDotColor(m.pct)}"></div>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          </td>
+        </tr>
+      ` : ""}
+    `;
+    }).join("");
 
     this.main.innerHTML = `
       <div class="content-col admin-users-content">
@@ -226,6 +325,9 @@ class AdminUsersView {
     adminAttachScreenSwitcher(this.main);
     this.main.querySelectorAll("[data-admin-row]").forEach((el) => {
       el.onclick = () => this.openUserSheet(el.dataset.adminRow);
+    });
+    this.main.querySelectorAll("[data-guest-usage-toggle]").forEach((el) => {
+      el.onclick = () => this.toggleGuestUsage(el.dataset.guestUsageToggle);
     });
   }
 

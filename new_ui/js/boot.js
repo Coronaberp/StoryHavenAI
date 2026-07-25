@@ -16,6 +16,7 @@ async function boot() {
   route();
   if (ME) checkOwnProfileComplianceOnBoot();
   if (typeof featureFlags !== "undefined") featureFlags.start();
+  if (typeof siteBanner !== "undefined") siteBanner.start();
 }
 
 boot();

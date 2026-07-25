@@ -1,58 +1,34 @@
 "use strict";
 
 class ToastManager {
-  constructor() {
-    this.timer = null;
-    this.queue = [];
-    this.showing = false;
-  }
-
   _render(message, isError) {
-    const box = document.getElementById("toast");
-    if (!box) return;
-    clearTimeout(this.timer);
-    box.classList.toggle("error", isError);
+    const container = document.getElementById("toastContainer");
+    if (!container) return;
+    const box = document.createElement("div");
+    box.className = `toast${isError ? " error" : ""}`;
     box.innerHTML = `
       <span class="toast-msg"></span>
       <button type="button" class="toast-close" aria-label="${_attr(t("modal_close"))}">&times;</button>
     `;
     box.querySelector(".toast-msg").textContent = message;
-    box.querySelector(".toast-close").onclick = () => {
-      clearTimeout(this.timer);
+    const dismiss = () => {
+      clearTimeout(timer);
       box.classList.remove("show");
-      this.showing = false;
-      this._dequeue();
+      box.addEventListener("transitionend", () => box.remove(), { once: true });
+      setTimeout(() => box.remove(), 300);
     };
-    box.classList.add("show");
-    this.showing = true;
-    this.timer = setTimeout(() => {
-      box.classList.remove("show", "error");
-      this.showing = false;
-      this._dequeue();
-    }, 10000);
-  }
-
-  _dequeue() {
-    if (this.queue.length > 0) {
-      const { message, kind } = this.queue.shift();
-      this._render(message, kind === "error");
-    }
+    box.querySelector(".toast-close").onclick = dismiss;
+    container.appendChild(box);
+    requestAnimationFrame(() => box.classList.add("show"));
+    const timer = setTimeout(dismiss, 5000);
   }
 
   show(message) {
-    if (this.showing) {
-      this.queue.push({ message, kind: "normal" });
-    } else {
-      this._render(message, false);
-    }
+    this._render(message, false);
   }
 
   showError(message) {
-    if (this.showing) {
-      this.queue.push({ message, kind: "error" });
-    } else {
-      this._render(message, true);
-    }
+    this._render(message, true);
   }
 }
 

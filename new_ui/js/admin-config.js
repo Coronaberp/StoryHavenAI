@@ -23,12 +23,100 @@ class AdminConfigView {
     this.mrHosts = (this.st.model_request_hosts || []).map((h) => ({ host: h.host || "", api_key: "", has_api_key: !!h.has_api_key }));
     this.chatProxies = (this.st.chat_proxies || []).map((p) => ({ ...p, api_key: "" }));
     this.embedProxies = (this.st.embed_proxies || []).map((p) => ({ ...p, api_key: "" }));
-    this.proxyCardsState = { chat: this.chatProxies, embed: this.embedProxies };
+    this.proxyCardsState = {
+      chat: this.chatProxies, embed: this.embedProxies,
+      image: this.buildProviderProxyList("image", this.st),
+      video: this.buildProviderProxyList("video", this.st),
+      gif: this.buildProviderProxyList("gif", this.st),
+    };
     this.proxyCardsExpanded = new Set();
     this.proxyCardsEmojiGridOpen = null;
     this._proxyCardsGlobalName = "adminConfigView";
     this.render();
     this.loadWanOptions();
+  }
+
+  _providerLabels(kind) {
+    if (kind === "image") return [
+      ["comfyui", t("admin_config_image_provider_comfyui", "ComfyUI (self-hosted)")],
+      ["openai", t("admin_config_image_provider_openai", "OpenAI-compatible API")],
+      ["stability", t("admin_config_image_provider_stability", "Stability AI")],
+      ["novelai", t("admin_config_image_provider_novelai", "NovelAI")],
+      ["a1111", t("admin_config_image_provider_a1111", "AUTOMATIC1111")],
+    ];
+    if (kind === "video") return [
+      ["comfyui", t("admin_config_video_provider_comfyui", "ComfyUI (Wan, self-hosted)")],
+      ["gemini_veo", t("admin_config_video_provider_gemini_veo", "Google Gemini Veo")],
+      ["qwen_wan", t("admin_config_video_provider_qwen_wan", "Qwen Wan (hosted)")],
+      ["openrouter", t("admin_config_video_provider_openrouter", "OpenRouter")],
+    ];
+    return [["giphy", "Giphy"], ["tenor", "Tenor"], ["klipy", "Klipy"]];
+  }
+
+  buildProviderProxyList(kind, st) {
+    if (kind === "gif") {
+      const active = st.gif_provider || "giphy";
+      return this._providerLabels("gif").map(([id, label]) => ({
+        id, name: label, active: active === id, priority: 0,
+        icon_type: "favicon", icon_value: "",
+        base_url: id === "klipy" ? (st.klipy_customer_id || "") : "",
+        model: "", api_key: "",
+        has_api_key: id === "giphy" ? !!st.has_giphy_api_key : id === "tenor" ? !!st.has_tenor_api_key : !!st.has_klipy_api_key,
+      }));
+    }
+    const configs = (kind === "image" ? st.image_provider_configs : st.video_provider_configs) || {};
+    const active = (kind === "image" ? st.image_provider : st.video_provider) || "comfyui";
+    return this._providerLabels(kind).map(([id, label]) => {
+      const cfg = configs[id] || {};
+      if (id === "comfyui") {
+        return {
+          id, name: label, active: active === id, priority: 0,
+          icon_type: cfg.icon_type || "favicon", icon_value: cfg.icon_value || "",
+          base_url: kind === "image" ? (st.comfyui_url || "") : "",
+          model: kind === "image" ? (st.comfyui_checkpoint || "") : "",
+          api_key: "", has_api_key: false,
+        };
+      }
+      return {
+        id, name: label, active: active === id, priority: 0,
+        icon_type: cfg.icon_type || "favicon", icon_value: cfg.icon_value || "",
+        base_url: cfg.url || "", model: cfg.model || "", api_key: "", has_api_key: !!cfg.has_key,
+      };
+    });
+  }
+
+  providerProxiesToBody(kind) {
+    const list = this.proxyCardsState[kind] || [];
+    const active = list.find((p) => p.active) || list[0];
+    if (kind === "gif") {
+      const out = { gif_provider: active ? active.id : "giphy" };
+      const giphy = list.find((p) => p.id === "giphy");
+      const tenor = list.find((p) => p.id === "tenor");
+      const klipy = list.find((p) => p.id === "klipy");
+      if (giphy?.api_key) out.giphy_api_key = giphy.api_key;
+      if (tenor?.api_key) out.tenor_api_key = tenor.api_key;
+      if (klipy?.api_key) out.klipy_api_key = klipy.api_key;
+      out.klipy_customer_id = klipy?.base_url || "";
+      return out;
+    }
+    const configs = {};
+    for (const p of list) {
+      configs[p.id] = {
+        url: p.id === "comfyui" ? "" : (p.base_url || ""),
+        model: p.id === "comfyui" ? "" : (p.model || ""),
+        key: p.id === "comfyui" ? "" : (p.api_key || ""),
+        icon_type: p.icon_type || "favicon", icon_value: p.icon_value || "",
+      };
+    }
+    const provField = kind === "image" ? "image_provider" : "video_provider";
+    const configsField = kind === "image" ? "image_provider_configs" : "video_provider_configs";
+    const out = { [provField]: active ? active.id : "comfyui", [configsField]: configs };
+    if (kind === "image") {
+      const comfy = list.find((p) => p.id === "comfyui");
+      out.comfyui_url = comfy?.base_url || "";
+      out.comfyui_checkpoint = comfy?.model || "";
+    }
+    return out;
   }
 
   onProxyCardsChanged(immediate) {
@@ -92,69 +180,21 @@ class AdminConfigView {
   }
 
   async loadWanOptions() {
-    const [unets, clips, vaes] = await Promise.all([
-      api("/api/imagegen/wan-unets").catch(() => []),
-      api("/api/imagegen/wan-clip-models").catch(() => []),
-      api("/api/imagegen/vaes").catch(() => []),
-    ]);
-    this.fillCustomSelect("cfg_wan_unet", unets, this.st.wan_unet_name);
-    this.fillCustomSelect("cfg_wan_clip", clips, this.st.wan_clip_name);
-    this.fillCustomSelect("cfg_wan_vae", vaes, this.st.wan_vae_name);
-  }
-
-  providerSelectHtml(id, pairs, current, fallback) {
-    const value = current || fallback;
-    return `
-      <input type="hidden" id="${id}" value="${_attr(value)}">
-      <div class="space-y-1.5">
-        ${pairs.map(([v, label]) => `
-          <div class="rounded-md border p-2 flex items-center gap-2.5" style="border-color:${v === value ? "var(--color-accent)" : "var(--color-line)"}">
-            <span class="w-7 h-7 rounded-full flex items-center justify-center flex-none" style="background:radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--color-accent) 25%, var(--color-surface-2)), var(--color-surface-2) 70%);border:1px solid var(--color-line-2);color:var(--color-accent)">
-              <span class="font-display font-semibold text-xs">${_esc(label[0].toUpperCase())}</span>
-            </span>
-            <span class="flex-1 min-w-0 font-medium text-sm text-ink truncate">${_esc(label)}</span>
-            ${v === value
-              ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none" style="color:var(--color-accent);border:1px solid var(--color-accent)">${t("admin_config_proxy_default", "Default")}</span>`
-              : `<button type="button" onclick="adminConfigView.pickProviderCard('${id}', '${v}')" class="px-2.5 py-1.5 rounded-md border border-line text-xs text-ink flex-none">${t("admin_config_proxy_set_default", "Set as default")}</button>`}
-          </div>
-        `).join("")}
-      </div>
-    `;
-  }
-
-  pickProviderCard(selectId, value) {
-    const field = { cfg_image_provider: "image_provider", cfg_video_provider: "video_provider", cfg_gif_provider: "gif_provider" }[selectId];
-    if (!field) return;
-    this.st[field] = value;
+    let unets, clips, vaes;
+    try {
+      [unets, clips, vaes] = await Promise.all([
+        api("/api/imagegen/wan-unets"),
+        api("/api/imagegen/wan-clip-models"),
+        api("/api/imagegen/vaes"),
+      ]);
+    } catch (e) {
+      errorToast(t("admin_config_wan_options_load_failed", "Couldn't load ComfyUI's UNET/CLIP/VAE file lists: ") + e.message);
+      return;
+    }
+    this.wanUnetOptions = unets;
+    this.wanClipOptions = clips;
+    this.wanVaeOptions = vaes;
     this.render();
-    this.scheduleAutosave();
-  }
-
-  imageProviderSelectHtml(current) {
-    return this.providerSelectHtml("cfg_image_provider", [
-      ["comfyui", t("admin_config_image_provider_comfyui", "ComfyUI (self-hosted)")],
-      ["openai", t("admin_config_image_provider_openai", "OpenAI-compatible API")],
-      ["stability", t("admin_config_image_provider_stability", "Stability AI")],
-      ["novelai", t("admin_config_image_provider_novelai", "NovelAI")],
-      ["a1111", t("admin_config_image_provider_a1111", "AUTOMATIC1111")],
-    ], current, "comfyui");
-  }
-
-  videoProviderSelectHtml(current) {
-    return this.providerSelectHtml("cfg_video_provider", [
-      ["comfyui", t("admin_config_video_provider_comfyui", "ComfyUI (Wan, self-hosted)")],
-      ["gemini_veo", t("admin_config_video_provider_gemini_veo", "Google Gemini Veo")],
-      ["qwen_wan", t("admin_config_video_provider_qwen_wan", "Qwen Wan (hosted)")],
-      ["openrouter", t("admin_config_video_provider_openrouter", "OpenRouter")],
-    ], current, "comfyui");
-  }
-
-  gifProviderSelectHtml(current) {
-    return this.providerSelectHtml("cfg_gif_provider", [
-      ["giphy", "Giphy"],
-      ["tenor", "Tenor"],
-      ["klipy", "Klipy"],
-    ], current, "giphy");
   }
 
   customSelectHtml(id, names, current) {
@@ -200,12 +240,6 @@ class AdminConfigView {
         if (label) label.textContent = item.textContent;
         this.main.querySelectorAll(`[data-custom-select-item="${id}"]`).forEach((el) => el.classList.toggle("active", el === item));
         this.main.querySelector(`[data-custom-select-menu="${id}"]`).classList.remove("open");
-        if (id === "cfg_image_provider" || id === "cfg_video_provider" || id === "cfg_gif_provider") {
-          this.st[{ cfg_image_provider: "image_provider", cfg_video_provider: "video_provider", cfg_gif_provider: "gif_provider" }[id]] = value;
-          this.render();
-          this.scheduleAutosave();
-          return;
-        }
         hidden.dispatchEvent(new Event("change", { bubbles: true }));
       };
     });
@@ -399,6 +433,60 @@ class AdminConfigView {
 
 Object.assign(AdminConfigView.prototype, ProxyCardsMixin);
 
+const _mixinSetActiveProxy = AdminConfigView.prototype.setActiveProxy;
+const _mixinFetchModelsForRow = AdminConfigView.prototype.fetchModelsForRow;
+const _mixinToggleProxyExpand = AdminConfigView.prototype.toggleProxyExpand;
+Object.assign(AdminConfigView.prototype, {
+  toggleProxyExpand(kind, id) {
+    _mixinToggleProxyExpand.call(this, kind, id);
+    if (kind === "video" && id === "comfyui" && this.proxyCardsExpanded.has(`${kind}:${id}`)) {
+      this.loadWanOptions();
+    }
+  },
+
+  setActiveProxy(kind, id) {
+    _mixinSetActiveProxy.call(this, kind, id);
+    if (kind === "image") this.st.image_provider = id;
+    if (kind === "video") this.st.video_provider = id;
+    if (kind === "gif") this.st.gif_provider = id;
+  },
+
+  async fetchModelsForRow(kind, id) {
+    if (kind === "image" && id === "comfyui") {
+      const listEl = document.querySelector(`[data-proxy-model-list="${kind}-${id}"]`);
+      try {
+        const unets = await api("/api/imagegen/anima-unets");
+        if (!unets?.length) { toast(t("proxy_cards_no_models_returned", "No models returned")); return; }
+        if (listEl) {
+          listEl.innerHTML = unets.map((m) => `<button type="button" class="px-2 py-1 rounded-md border border-line bg-surface-2 text-xs" onclick="adminConfigView.pickModelForRow('${kind}', '${id}', this.dataset.m)" data-m="${_attr(m)}">${_esc(m)}</button>`).join("");
+        }
+      } catch (e) {
+        errorToast(t("proxy_cards_fetch_failed", "Fetch failed: ") + e.message);
+      }
+      return;
+    }
+    return _mixinFetchModelsForRow.call(this, kind, id);
+  },
+
+  videoComfyuiExtraHtml() {
+    const st = this.st;
+    if ((st.image_provider || "comfyui") !== "comfyui") {
+      return `<p class="text-xs mt-1.5" style="color:var(--color-warn)">${t("admin_config_wan_needs_comfyui_image_provider", "ComfyUI (Wan) needs Image generation's Backend set to ComfyUI too — it's currently pointed at a different provider above.")}</p>`;
+    }
+    return `
+      <p class="text-xs text-muted mb-1.5 mt-1.5">${t("admin_config_wan_video_model_description")}</p>
+      <div class="rounded-md border border-line p-2.5">
+        <label class="block text-xs text-sec mb-1">${t("admin_config_unet_file")}</label>
+        <div class="mb-2">${this.customSelectHtml("cfg_wan_unet", [], st.wan_unet_name)}</div>
+        <label class="block text-xs text-sec mb-1">${t("admin_config_clip_text_encoder_file")}</label>
+        <div class="mb-2">${this.customSelectHtml("cfg_wan_clip", [], st.wan_clip_name)}</div>
+        <label class="block text-xs text-sec mb-1">${t("admin_config_vae_file")}</label>
+        ${this.customSelectHtml("cfg_wan_vae", [], st.wan_vae_name)}
+      </div>
+    `;
+  },
+});
+
 const ADMIN_CFG_SAMPLING_FIELDS = [
   { id: "temperature", label: "Temperature", min: 0, max: 2, step: 0.01, fallback: 0.85 },
   { id: "top_p", label: "Top-p", min: 0, max: 1, step: 0.01, fallback: 0.9 },
@@ -505,6 +593,9 @@ Object.assign(AdminConfigView.prototype, {
     this.syncMrHostsFromDom();
     this.syncProxiesFromDom("chat");
     this.syncProxiesFromDom("embed");
+    this.syncProxiesFromDom("image");
+    this.syncProxiesFromDom("video");
+    this.syncProxiesFromDom("gif");
     const extraText = document.getElementById("cfg_extra").value.trim();
     let extra = {};
     if (extraText) {
@@ -550,11 +641,9 @@ Object.assign(AdminConfigView.prototype, {
       chat_proxies: this.chatProxies.map((p) => ({ id: p.id, name: p.name || "", base_url: p.base_url || "", api_key: p.api_key || "", model: p.model || "", active: !!p.active, icon_type: p.icon_type || "favicon", icon_value: p.icon_value || "", priority: p.priority ?? 0 })),
       embed_proxies: this.embedProxies.map((p) => ({ id: p.id, name: p.name || "", base_url: p.base_url || "", api_key: p.api_key || "", model: p.model || "", active: !!p.active, icon_type: p.icon_type || "favicon", icon_value: p.icon_value || "" })),
       embed_dim: newEmbedDim,
-      comfyui_url: strOrNull("cfg_comfy_url"),
-      comfyui_checkpoint: strOrNull("cfg_comfy_ckpt"),
-      image_provider: document.getElementById("cfg_image_provider").value,
-      image_provider_url: strOrNull("cfg_image_provider_url"),
-      image_provider_model: strOrNull("cfg_image_provider_model"),
+      ...this.providerProxiesToBody("image"),
+      ...this.providerProxiesToBody("video"),
+      ...this.providerProxiesToBody("gif"),
       wan_unet_name: strOrNull("cfg_wan_unet") || "",
       wan_clip_name: strOrNull("cfg_wan_clip") || "",
       wan_vae_name: strOrNull("cfg_wan_vae") || "",
@@ -592,19 +681,6 @@ Object.assign(AdminConfigView.prototype, {
       system_suffix: document.getElementById("cfg_suffix").value || null,
       post_history: document.getElementById("cfg_posthist").value || null,
     };
-    const gifProviderEl = document.getElementById("cfg_gif_provider");
-    if (gifProviderEl) body.gif_provider = gifProviderEl.value;
-    const gkey = document.getElementById("cfg_giphy_key")?.value.trim();
-    if (gkey) body.giphy_api_key = gkey;
-    const tkey = document.getElementById("cfg_tenor_key")?.value.trim();
-    if (tkey) body.tenor_api_key = tkey;
-    const kkey = document.getElementById("cfg_klipy_key")?.value.trim();
-    if (kkey) body.klipy_api_key = kkey;
-    const kcid = document.getElementById("cfg_klipy_customer_id");
-    if (kcid) body.klipy_customer_id = kcid.value.trim();
-    const ipkey = document.getElementById("cfg_image_provider_key")?.value.trim();
-    if (ipkey) body.image_provider_key = ipkey;
-
     const newApiBase = document.getElementById("cfg_api").value.trim();
     if (newApiBase) {
       try { new URL(newApiBase); } catch (e) {
@@ -622,6 +698,11 @@ Object.assign(AdminConfigView.prototype, {
       this.mrHosts = (r.model_request_hosts || []).map((h) => ({ host: h.host || "", api_key: "", has_api_key: !!h.has_api_key }));
       this.chatProxies = (r.chat_proxies || []).map((p) => ({ ...p, api_key: "" }));
       this.embedProxies = (r.embed_proxies || []).map((p) => ({ ...p, api_key: "" }));
+      this.proxyCardsState.chat = this.chatProxies;
+      this.proxyCardsState.embed = this.embedProxies;
+      this.proxyCardsState.image = this.buildProviderProxyList("image", r);
+      this.proxyCardsState.video = this.buildProviderProxyList("video", r);
+      this.proxyCardsState.gif = this.buildProviderProxyList("gif", r);
       if (r.reindexed) toast(t("admin_config_saved_vector_index_rebuilt"));
       else if (apiBaseChanged) toast(t("admin_config_saved_reload_for_backend"));
       this.saveStatus = "saved";
@@ -683,39 +764,12 @@ AdminConfigView.prototype.render = function () {
       </div>
     ${cardClose}
 
-    ${dossierCardOpen("image", dossierIcons.image, imageOrigin, t("admin_config_image_provider_title", "Image generation"), t("admin_config_image_provider_description", "Pick which service generates images. ComfyUI is the self-hosted default. Hosted providers use the URL, model and key below."), imageOrigin ? t("admin_config_status_configured", "configured") : t("admin_config_status_not_configured", "not configured"), imageOrigin ? "" : "warn")}
-      <label class="block text-xs text-sec mb-1">${t("admin_config_image_provider_backend_label", "Backend")}</label>
-      <div class="mb-2">${this.imageProviderSelectHtml(st.image_provider)}</div>
-      ${(st.image_provider || "comfyui") === "comfyui" ? `
-        <label class="block text-xs text-sec mb-1">ComfyUI</label>
-        <input type="text" id="cfg_comfy_url" value="${_attr(st.comfyui_url || "")}" placeholder="http://comfyui:8188" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-        <input type="text" id="cfg_comfy_ckpt" value="${_attr(st.comfyui_checkpoint || "")}" placeholder="${t("admin_config_default_checkpoint_placeholder")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      ` : `
-        <input type="text" id="cfg_image_provider_url" value="${_attr(st.image_provider_url || "")}" placeholder="${t("admin_config_image_provider_url_placeholder", "Provider API URL")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-        <input type="text" id="cfg_image_provider_model" value="${_attr(st.image_provider_model || "")}" placeholder="${t("admin_config_image_provider_model_placeholder", "Model name (optional)")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-        <input type="password" autocomplete="new-password" id="cfg_image_provider_key" placeholder="${st.has_image_provider_key ? t("admin_config_key_set_placeholder") : t("admin_config_image_provider_key_placeholder", "Provider API key")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      `}
+    ${dossierCardOpen("image", dossierIcons.image, imageOrigin, t("admin_config_image_provider_title", "Image generation"), t("admin_config_image_provider_description", "Pick which service generates images. ComfyUI is the self-hosted default. Hosted providers use their own URL, model and key."), imageOrigin ? t("admin_config_status_configured", "configured") : t("admin_config_status_not_configured", "not configured"), imageOrigin ? "" : "warn")}
+      ${this.proxyListHtml("image", t("admin_config_no_proxies", "No profiles yet."))}
     ${cardClose}
 
-    ${dossierCardOpen("video", dossierIcons.video, videoOrigin, t("admin_config_video_provider_title", "Video generation"), t("admin_config_video_provider_description", "Pick which service generates video. ComfyUI (Wan) is the self-hosted default. Hosted providers use the URL, model and key below."), videoOrigin ? t("admin_config_status_configured", "configured") : t("admin_config_status_not_configured", "not configured"), videoOrigin ? "" : "warn")}
-      <div class="mb-2">${this.videoProviderSelectHtml(st.video_provider)}</div>
-      ${(st.video_provider || "comfyui") === "comfyui" && (st.image_provider || "comfyui") === "comfyui" ? `
-        <p class="text-xs text-muted mb-3">${t("admin_config_wan_video_model_description")}</p>
-        <div class="rounded-md border border-line p-2.5">
-          <label class="block text-xs text-sec mb-1">${t("admin_config_unet_file")}</label>
-          <div class="mb-2">${this.customSelectHtml("cfg_wan_unet", [], st.wan_unet_name)}</div>
-          <label class="block text-xs text-sec mb-1">${t("admin_config_clip_text_encoder_file")}</label>
-          <div class="mb-2">${this.customSelectHtml("cfg_wan_clip", [], st.wan_clip_name)}</div>
-          <label class="block text-xs text-sec mb-1">${t("admin_config_vae_file")}</label>
-          ${this.customSelectHtml("cfg_wan_vae", [], st.wan_vae_name)}
-        </div>
-      ` : (st.video_provider || "comfyui") === "comfyui" ? `
-        <p class="text-xs" style="color:var(--color-warn)">${t("admin_config_wan_needs_comfyui_image_provider", "ComfyUI (Wan) needs Image generation's Backend set to ComfyUI too — it's currently pointed at a different provider above.")}</p>
-      ` : `
-        <input type="text" id="cfg_video_provider_url" value="${_attr(st.video_provider_url || "")}" placeholder="${t("admin_config_video_provider_url_placeholder", "Provider API URL")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-        <input type="text" id="cfg_video_provider_model" value="${_attr(st.video_provider_model || "")}" placeholder="${t("admin_config_video_provider_model_placeholder", "Model name (optional)")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-        <input type="password" autocomplete="new-password" id="cfg_video_provider_key" placeholder="${st.has_video_provider_key ? t("admin_config_key_set_placeholder") : t("admin_config_video_provider_key_placeholder", "Provider API key")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      `}
+    ${dossierCardOpen("video", dossierIcons.video, videoOrigin, t("admin_config_video_provider_title", "Video generation"), t("admin_config_video_provider_description", "Pick which service generates video. ComfyUI (Wan) is the self-hosted default. Hosted providers use their own URL, model and key."), videoOrigin ? t("admin_config_status_configured", "configured") : t("admin_config_status_not_configured", "not configured"), videoOrigin ? "" : "warn")}
+      ${this.proxyListHtml("video", t("admin_config_no_proxies", "No profiles yet."))}
     ${cardClose}
 
     ${(() => {
@@ -723,16 +777,7 @@ AdminConfigView.prototype.render = function () {
       const gifConfigured = gp === "giphy" ? st.has_giphy_api_key : gp === "tenor" ? st.has_tenor_api_key : st.has_klipy_api_key;
       return `
     ${dossierCardOpen("giphy", dossierIcons.gif, "", t("admin_config_gif_providers_title", "GIF providers"), t("admin_config_giphy_description"), gifConfigured ? t("admin_config_status_key_set", "key set") : t("admin_config_status_no_key", "no key set"), gifConfigured ? "" : "warn")}
-      <label class="block text-xs text-sec mb-1">${t("admin_config_gif_provider_backend_label", "Provider")}</label>
-      <div class="mb-2">${this.gifProviderSelectHtml(gp)}</div>
-      ${gp === "giphy" ? `
-        <input type="password" autocomplete="new-password" id="cfg_giphy_key" placeholder="${st.has_giphy_api_key ? t("admin_config_key_set_placeholder") : t("admin_config_giphy_api_key_placeholder")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      ` : gp === "tenor" ? `
-        <input type="password" autocomplete="new-password" id="cfg_tenor_key" placeholder="${st.has_tenor_api_key ? t("admin_config_key_set_placeholder") : t("admin_config_tenor_api_key_placeholder", "Tenor API key")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      ` : `
-        <input type="password" autocomplete="new-password" id="cfg_klipy_key" placeholder="${st.has_klipy_api_key ? t("admin_config_key_set_placeholder") : t("admin_config_klipy_api_key_placeholder", "Klipy API key")}" class="w-full mb-2 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-        <input type="text" id="cfg_klipy_customer_id" value="${_attr(st.klipy_customer_id || "")}" placeholder="${t("admin_config_klipy_customer_id_placeholder", "Klipy customer ID")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-      `}
+      ${this.proxyListHtml("gif", t("admin_config_no_proxies", "No profiles yet."))}
     ${cardClose}
       `;
     })()}

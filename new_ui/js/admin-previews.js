@@ -1,12 +1,25 @@
 "use strict";
 
+const _PV_ICON_SAVE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`;
+const _PV_ICON_DELETE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a1 1 0 01-1 1H7a1 1 0 01-1-1L5 6"/></svg>`;
+const _PV_ICON_REGEN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>`;
+const _PV_ICON_UPLOAD = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"/></svg>`;
+const _PV_ICON_STOP = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>`;
+const _PV_ICON_SEARCH = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>`;
+
 const ADMIN_PREVIEW_KINDS = [
-  { key: "checkpoint", label: "Checkpoints", listPath: "/api/imagegen/checkpoints", listField: null, previewPath: "/api/imagegen/checkpoint-previews", adminBase: "/api/admin/checkpoint-previews", extraFields: "checkpoint", deleteKind: "ckpt", addLabel: "+ Add model" },
-  { key: "lora", label: "LoRAs", listPath: "/api/imagegen/loras", listField: null, previewPath: "/api/imagegen/lora-previews", adminBase: "/api/admin/lora-previews", extraFields: "lora", deleteKind: "lora", addLabel: "+ Add LoRA" },
-  { key: "sampler", label: "Samplers", listPath: "/api/imagegen/samplers", listField: "samplers", previewPath: "/api/imagegen/sampler-previews", adminBase: "/api/admin/sampler-previews", extraFields: null, deleteKind: null, addLabel: null },
-  { key: "scheduler", label: "Schedulers", listPath: "/api/imagegen/samplers", listField: "schedulers", previewPath: "/api/imagegen/scheduler-previews", adminBase: "/api/admin/scheduler-previews", extraFields: null, deleteKind: null, addLabel: null },
-  { key: "upscaler", label: "Upscalers", listPath: "/api/imagegen/upscalers", listField: null, previewPath: "/api/imagegen/upscaler-previews", adminBase: "/api/admin/upscaler-previews", extraFields: null, deleteKind: "upsc", addLabel: "+ Request upscaler" },
-  { key: "vidgen", label: "Vidgen", listPath: "/api/imagegen/wan-unets", listField: null, previewPath: "/api/imagegen/checkpoint-previews", adminBase: "/api/admin/checkpoint-previews", extraFields: null, deleteKind: "ckpt", addLabel: "+ Request video model" },
+  { key: "checkpoint", label: "Checkpoints", listPath: "/api/imagegen/checkpoints", listField: null, previewPath: "/api/imagegen/checkpoint-previews", adminBase: "/api/admin/checkpoint-previews", extraFields: "checkpoint", deleteKind: "ckpt", addLabel: "+ Add model",
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>` },
+  { key: "lora", label: "LoRAs", listPath: "/api/imagegen/loras", listField: null, previewPath: "/api/imagegen/lora-previews", adminBase: "/api/admin/lora-previews", extraFields: "lora", deleteKind: "lora", addLabel: "+ Add LoRA",
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg>` },
+  { key: "sampler", label: "Samplers", listPath: "/api/imagegen/samplers", listField: "samplers", previewPath: "/api/imagegen/sampler-previews", adminBase: "/api/admin/sampler-previews", extraFields: null, deleteKind: null, addLabel: null,
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4v16M4 4l6 4-6 4M14 6h6M14 12h6M14 18h6"/></svg>` },
+  { key: "scheduler", label: "Schedulers", listPath: "/api/imagegen/samplers", listField: "schedulers", previewPath: "/api/imagegen/scheduler-previews", adminBase: "/api/admin/scheduler-previews", extraFields: null, deleteKind: null, addLabel: null,
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>` },
+  { key: "upscaler", label: "Upscalers", listPath: "/api/imagegen/upscalers", listField: null, previewPath: "/api/imagegen/upscaler-previews", adminBase: "/api/admin/upscaler-previews", extraFields: null, deleteKind: "upsc", addLabel: "+ Request upscaler",
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>` },
+  { key: "vidgen", label: "Vidgen", listPath: "/api/imagegen/wan-unets", listField: null, previewPath: "/api/imagegen/checkpoint-previews", adminBase: "/api/admin/checkpoint-previews", extraFields: null, deleteKind: "ckpt", addLabel: "+ Request video model",
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3"/></svg>` },
 ];
 
 const ADMIN_MODEL_CATEGORIES = ["flux_v2", "anima", "sdxl", "il", "pony"];
@@ -23,11 +36,16 @@ function _pvDataUrlToBlob(dataUrl) {
   return new Blob([arr], { type: mime });
 }
 
+function _pvIsVideoUrl(url) {
+  return /\.(mp4|webm)(\?|$)/i.test(url || "");
+}
+
 class AdminPreviewsView {
   async mount(main) {
     this.main = main;
     this.search = {};
     this.collapsed = {};
+    this.activeKind = ADMIN_PREVIEW_KINDS[0].key;
     try { this.collapsed = JSON.parse(store.get("admin_previews_collapsed", "{}")) || {}; } catch (e) { this.collapsed = {}; }
     main.innerHTML = `<div class="text-sm text-muted">${_esc(t("common_loading"))}</div>`;
     await this.load();
@@ -65,42 +83,48 @@ class AdminPreviewsView {
     this.render();
   }
 
-  kindSectionHtml(kind) {
+  filteredNames(kind) {
     const { names, previews } = this.data[kind.key];
     const search = (this.search[kind.key] || "").toLowerCase();
-    const filtered = names.filter((n) => {
+    return names.filter((n) => {
       if (!search) return true;
       const meta = previews[n] || {};
       const haystack = [n, meta.display_name, meta.description, ...(meta.keywords || [])].filter(Boolean).join(" ").toLowerCase();
       return haystack.includes(search);
     });
-    const cards = filtered.map((name) => {
-      const meta = previews[name] || {};
-      const cats = meta.model_category || [];
-      const badges = cats.length ? `<div class="flex flex-wrap gap-1 mt-1">${cats.map((c) => `<span class="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded border border-line text-muted">${_esc(ADMIN_MODEL_CATEGORY_LABELS[c] || c)}</span>`).join("")}</div>` : "";
-      const unpublished = kind.key === "lora" && meta.is_published === false;
-      const isVideoPreview = kind.key === "vidgen" && /\.(mp4|webm)(\?|$)/i.test(meta.image || "");
-      const mediaHtml = isVideoPreview
-        ? `<video src="${_attr(meta.image)}" class="w-full h-full object-cover" autoplay loop muted playsinline></video>`
-        : (meta.image ? `<img src="${_attr(meta.image)}" alt="" class="w-full h-full object-cover">` : `<span class="text-xs text-muted">${_esc(t("admin_previews_no_preview"))}</span>`);
-      return `
-        <div class="rounded-[13px] border border-line bg-surface p-2.5 cursor-pointer" onclick="adminPreviewsView.openEdit(${_attr(JSON.stringify(kind.key))}, ${_attr(JSON.stringify(name))})">
-          <div class="w-full aspect-square rounded-lg overflow-hidden bg-surface-2 mb-2 grid place-items-center">
-            ${mediaHtml}
-          </div>
-          <div class="text-xs text-ink truncate">${_esc(meta.display_name || name)}</div>
-          ${unpublished ? `<div class="text-[10px] text-warn mt-0.5">${t("admin_previews_unpublished")}</div>` : ""}
-          ${badges}
+  }
+
+  cardHtml(kind, name) {
+    const meta = this.data[kind.key].previews[name] || {};
+    const cats = meta.model_category || [];
+    const badges = cats.length ? `<div class="flex flex-wrap gap-1 mt-1">${cats.map((c) => `<span class="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded border border-line text-muted">${_esc(ADMIN_MODEL_CATEGORY_LABELS[c] || c)}</span>`).join("")}</div>` : "";
+    const unpublished = kind.key === "lora" && meta.is_published === false;
+    const isVideoPreview = kind.key === "vidgen" && _pvIsVideoUrl(meta.image);
+    const mediaHtml = isVideoPreview
+      ? `<video src="${_attr(meta.image)}" class="w-full h-full object-cover" autoplay loop muted playsinline></video>`
+      : (meta.image ? `<img src="${_attr(meta.image)}" alt="" class="w-full h-full object-cover">` : `<span class="text-xs text-muted">${_esc(t("admin_previews_no_preview"))}</span>`);
+    return `
+      <div class="rounded-[13px] border border-line bg-surface p-2.5 cursor-pointer" onclick="adminPreviewsView.openEdit(${_attr(JSON.stringify(kind.key))}, ${_attr(JSON.stringify(name))})">
+        <div class="w-full aspect-square rounded-lg overflow-hidden bg-surface-2 mb-2 grid place-items-center">
+          ${mediaHtml}
         </div>
-      `;
-    }).join("");
+        <div class="text-xs text-ink truncate">${_esc(meta.display_name || name)}</div>
+        ${unpublished ? `<div class="text-[10px] text-warn mt-0.5">${t("admin_previews_unpublished")}</div>` : ""}
+        ${badges}
+      </div>
+    `;
+  }
+
+  kindSectionHtml(kind) {
+    const filtered = this.filteredNames(kind);
+    const cards = filtered.map((name) => this.cardHtml(kind, name)).join("");
     const isCollapsed = !!this.collapsed[kind.key];
     return `
       <div class="mb-6">
         <div class="flex items-center justify-between gap-2 mb-2.5">
           <button type="button" onclick="adminPreviewsView.toggleSection(${_attr(JSON.stringify(kind.key))})" class="flex items-center gap-1.5 font-display font-semibold text-base text-ink">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${isCollapsed ? "-90deg" : "0deg"});transition:transform .15s"><path d="M6 9l6 6 6-6"/></svg>
-            ${_esc(kind.label)} <span class="text-xs text-muted font-normal">(${names.length})</span>
+            ${_esc(kind.label)} <span class="text-xs text-muted font-normal">(${this.data[kind.key].names.length})</span>
           </button>
           ${kind.addLabel ? `<button type="button" onclick="event.stopPropagation();adminPreviewsView.openAddRequest(${_attr(JSON.stringify(kind.key))})" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-paper bg-gradient-to-br from-primary to-primary-dark">${_esc(kind.addLabel)}</button>` : ""}
         </div>
@@ -113,22 +137,85 @@ class AdminPreviewsView {
     `;
   }
 
+  mobileViewHtml() {
+    const kind = ADMIN_PREVIEW_KINDS.find((k) => k.key === this.activeKind) || ADMIN_PREVIEW_KINDS[0];
+    const filtered = this.filteredNames(kind);
+    const cards = filtered.map((name) => this.cardHtml(kind, name)).join("");
+    return `
+      <div class="lg:hidden">
+        <button type="button" id="pv_kind_trigger" class="w-full flex items-center gap-2.5 px-3.5 py-2.5 mb-3 rounded-xl border border-line bg-surface text-left">
+          <span style="width:16px;height:16px" class="flex-none text-ink">${kind.icon}</span>
+          <span class="flex-1 font-display font-semibold text-sm text-ink">${_esc(kind.label)}</span>
+          <span class="font-mono text-[10px] text-muted">(${this.data[kind.key].names.length})</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted flex-none"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        </button>
+        <div class="relative mb-3">
+          <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" style="width:14px;height:14px">${_PV_ICON_SEARCH}</span>
+          <input type="text" id="pv_mobile_search" placeholder="${t("admin_previews_search_placeholder")} ${_attr(kind.label.toLowerCase())}…" value="${_attr(this.search[kind.key] || "")}"
+            class="w-full pl-8 pr-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
+        </div>
+        ${kind.addLabel ? `<button type="button" onclick="adminPreviewsView.openAddRequest(${_attr(JSON.stringify(kind.key))})" class="w-full mb-3 py-2 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark">${_esc(kind.addLabel)}</button>` : ""}
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">${cards || `<p class="text-sm text-muted col-span-2 sm:col-span-4">${t("admin_previews_no_models_found")}</p>`}</div>
+      </div>
+    `;
+  }
+
   render() {
     this.main.innerHTML = `
       <div class="content-col">
       ${backLinkHtml("Admin")}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_previews_title"), t("ph_admin_previews_sub"))}
       ${adminScreenSwitcherHtml("admin-previews", window._adminSwitcherBadges || {})}
-      ${ADMIN_PREVIEW_KINDS.map((k) => this.kindSectionHtml(k)).join("")}
+      ${this.mobileViewHtml()}
+      <div class="hidden lg:block">
+        ${ADMIN_PREVIEW_KINDS.map((k) => this.kindSectionHtml(k)).join("")}
+      </div>
       </div>
     `;
     adminAttachScreenSwitcher(this.main);
+    const mobileSearch = document.getElementById("pv_mobile_search");
+    if (mobileSearch) {
+      mobileSearch.oninput = () => this.setSearch(this.activeKind, mobileSearch.value);
+      mobileSearch.focus();
+      mobileSearch.setSelectionRange(mobileSearch.value.length, mobileSearch.value.length);
+    }
+    const kindTrigger = document.getElementById("pv_kind_trigger");
+    if (kindTrigger) kindTrigger.onclick = () => this.openKindSheet();
+  }
+
+  openKindSheet() {
+    const node = document.createElement("div");
+    node.className = "admin-sheet-layer";
+    node.innerHTML = `
+      <div class="admin-sheet-backdrop" data-kind-sheet-close></div>
+      <div class="admin-sheet">
+        <div class="admin-sheet-title">${t("admin_previews_pick_a_kind", "Pick a kind")}</div>
+        <div class="grid grid-cols-3 gap-2.5">
+          ${ADMIN_PREVIEW_KINDS.map((k) => `
+            <button type="button" data-kind-pick="${_attr(k.key)}" class="flex flex-col items-center gap-1.5 py-3.5 rounded-xl border${k.key === this.activeKind ? " border-2" : ""}" style="border-color:${k.key === this.activeKind ? "var(--color-accent)" : "var(--color-line-2)"};background:${k.key === this.activeKind ? "color-mix(in srgb, var(--color-accent) 12%, var(--color-surface-2))" : "var(--color-surface-2)"};color:${k.key === this.activeKind ? "var(--color-accent)" : "var(--color-ink)"}">
+              <span style="width:20px;height:20px">${k.icon}</span>
+              <span class="font-display font-semibold text-xs">${_esc(k.label)}</span>
+              <span class="font-mono text-[9px] opacity-70">${this.data[k.key].names.length}</span>
+            </button>
+          `).join("")}
+        </div>
+      </div>
+    `;
+    node.querySelector("[data-kind-sheet-close]").onclick = () => node.remove();
+    node.querySelectorAll("[data-kind-pick]").forEach((btn) => {
+      btn.onclick = () => {
+        this.activeKind = btn.dataset.kindPick;
+        node.remove();
+        this.render();
+      };
+    });
+    document.body.appendChild(node);
   }
 
   setSearch(kindKey, value) {
     this.search[kindKey] = value;
     this.render();
-    const input = document.getElementById(`pv_search_${kindKey}`);
+    const input = document.getElementById(`pv_search_${kindKey}`) || document.getElementById("pv_mobile_search");
     if (input) {
       input.focus();
       input.setSelectionRange(value.length, value.length);
@@ -185,23 +272,51 @@ class AdminPreviewsView {
     return "";
   }
 
+  previewBoxHtml(kind, meta) {
+    const isVideoPreview = kind.key === "vidgen" && _pvIsVideoUrl(meta.image);
+    if (!meta.image) {
+      return `
+        <div class="relative w-full aspect-video rounded-lg overflow-hidden bg-surface-2 mb-3 flex flex-col items-center justify-center gap-1.5 cursor-pointer text-muted border border-dashed border-line" id="pv_preview_box">
+          <span style="width:22px;height:22px">${_PV_ICON_UPLOAD}</span>
+          <span class="font-mono text-[11px] uppercase tracking-[.05em]">${t("admin_previews_tap_to_upload", "Tap to upload")}</span>
+          <div class="absolute top-2 right-2 flex gap-1.5" id="pv_preview_actions">
+            <button type="button" id="pv_regenerate" title="${_attr(t("admin_previews_regenerate", "Regenerate"))}" class="w-7 h-7 rounded-full flex items-center justify-center border border-line text-ink" style="background:color-mix(in srgb, var(--color-paper) 70%, transparent);backdrop-filter:blur(3px)"><span style="width:14px;height:14px">${_PV_ICON_REGEN}</span></button>
+          </div>
+        </div>
+      `;
+    }
+    const mediaHtml = isVideoPreview
+      ? `<video src="${_attr(meta.image)}" autoplay loop muted playsinline class="w-full h-full object-cover" id="pv_preview_media"></video>`
+      : `<img src="${_attr(meta.image)}" alt="" class="w-full h-full object-cover" id="pv_preview_media">`;
+    return `
+      <div class="relative w-full aspect-video rounded-lg overflow-hidden bg-surface-2 mb-3 border border-line" id="pv_preview_box">
+        ${mediaHtml}
+        ${!isVideoPreview ? `<span class="absolute left-2 bottom-2 font-mono text-[9px] uppercase tracking-[.04em] text-muted px-1.5 py-1 rounded-md" style="background:color-mix(in srgb, var(--color-paper) 55%, transparent)">${t("admin_previews_tap_to_zoom", "tap to zoom")}</span>` : ""}
+        <div class="absolute top-2 right-2 flex gap-1.5" id="pv_preview_actions">
+          <button type="button" id="pv_regenerate" title="${_attr(t("admin_previews_regenerate", "Regenerate"))}" class="w-7 h-7 rounded-full flex items-center justify-center border border-line text-ink" style="background:color-mix(in srgb, var(--color-paper) 70%, transparent);backdrop-filter:blur(3px)"><span style="width:14px;height:14px">${_PV_ICON_REGEN}</span></button>
+          <button type="button" id="pv_clear_image" title="${_attr(t("admin_previews_delete_preview", "Delete preview"))}" class="w-7 h-7 rounded-full flex items-center justify-center border" style="border-color:color-mix(in srgb, var(--color-warn) 50%, var(--color-line));color:var(--color-warn);background:color-mix(in srgb, var(--color-paper) 70%, transparent);backdrop-filter:blur(3px)"><span style="width:14px;height:14px">${_PV_ICON_DELETE}</span></button>
+          <button type="button" id="pv_upload_trigger" title="${_attr(t("admin_previews_upload", "Upload"))}" class="w-7 h-7 rounded-full flex items-center justify-center border border-line text-ink" style="background:color-mix(in srgb, var(--color-paper) 70%, transparent);backdrop-filter:blur(3px)"><span style="width:14px;height:14px">${_PV_ICON_UPLOAD}</span></button>
+        </div>
+      </div>
+    `;
+  }
+
   async openEdit(kindKey, name) {
     const kind = ADMIN_PREVIEW_KINDS.find((k) => k.key === kindKey);
     const meta = this.data[kindKey].previews[name] || {};
     openModal(`
-      <h3>${_esc(meta.display_name || name)}</h3>
-      <p class="font-mono text-xs text-muted mb-3 break-all">${_esc(name)}</p>
-      <div class="w-full aspect-video rounded-lg overflow-hidden bg-surface-2 mb-3 grid place-items-center cursor-zoom-in" id="pv_zoom_trigger">
-        ${meta.image ? `<img src="${_attr(meta.image)}" alt="" class="w-full h-full object-cover">` : `<span class="text-xs text-muted">${_esc(t("admin_previews_no_preview"))}</span>`}
+      <div class="flex items-start justify-between gap-2 mb-1" style="padding-right:42px">
+        <div class="min-w-0">
+          <h3 class="mb-0">${_esc(meta.display_name || name)}</h3>
+          <p class="font-mono text-xs text-muted mt-0.5 break-all">${_esc(name)}</p>
+        </div>
+        <div class="flex gap-1.5 flex-none">
+          <button type="button" id="pv_save" title="${_attr(t("admin_previews_save"))}" class="w-8 h-8 rounded-md flex items-center justify-center text-paper bg-gradient-to-br from-primary to-primary-dark"><span style="width:15px;height:15px">${_PV_ICON_SAVE}</span></button>
+          ${kind.deleteKind ? `<button type="button" id="pv_delete_file" title="${_attr(t("admin_previews_delete_file"))}" class="w-8 h-8 rounded-md flex items-center justify-center border" style="border-color:var(--color-warn);color:var(--color-warn)"><span style="width:15px;height:15px">${_PV_ICON_DELETE}</span></button>` : ""}
+        </div>
       </div>
-      <div class="flex gap-2 mb-4">
-        <button type="button" id="pv_generate" class="flex-1 py-2 rounded-md border border-line text-center text-sm text-ink cursor-pointer">${_esc(t("admin_previews_generate_preview_button"))}</button>
-        <label class="flex-1 py-2 rounded-md border border-line text-center text-sm text-ink cursor-pointer">
-          Upload image
-          <input type="file" id="pv_file" accept="image/*" class="hidden">
-        </label>
-      </div>
-      ${meta.image ? `<button type="button" id="pv_clear_image" class="w-full mb-4 py-2 rounded-md border text-sm" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_previews_clear_preview_image")}</button>` : ""}
+      <div class="mt-3">${this.previewBoxHtml(kind, meta)}</div>
+      <input type="file" id="pv_file" accept="image/*" class="hidden">
       <div class="mb-3">
         <label class="block text-xs text-sec mb-1">${t("admin_previews_display_name")}</label>
         <input type="text" id="pv_display_name" value="${_attr(meta.display_name || "")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
@@ -211,10 +326,6 @@ class AdminPreviewsView {
         <textarea id="pv_description" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm" style="min-height:60px">${_esc(meta.description || "")}</textarea>
       </div>
       ${this.extraFieldsHtml(kind, name, meta)}
-      <div class="flex gap-2">
-        <button type="button" id="pv_save" class="flex-1 py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_previews_save")}</button>
-        ${kind.deleteKind ? `<button type="button" id="pv_delete_file" class="px-4 py-2.5 rounded-xl font-semibold text-sm border" style="border-color:var(--color-warn);color:var(--color-warn)">${t("admin_previews_delete_file")}</button>` : ""}
-      </div>
     `);
 
     if (kind.extraFields === "checkpoint" && this.animaNames.has(name)) {
@@ -241,14 +352,20 @@ class AdminPreviewsView {
       };
     });
 
-    const zoomTrigger = document.getElementById("pv_zoom_trigger");
-    if (zoomTrigger && meta.image) zoomTrigger.onclick = () => {
-      openModal(`<img src="${_attr(meta.image)}" alt="" class="w-full rounded-lg">`, { wide: true });
-    };
+    const isVideoPreview = kind.key === "vidgen" && _pvIsVideoUrl(meta.image);
+    const previewMedia = document.getElementById("pv_preview_media");
+    if (previewMedia && !isVideoPreview && typeof _wireZoomPan === "function") {
+      _wireZoomPan(previewMedia);
+    }
 
-    document.getElementById("pv_generate").onclick = () => this.openGeneratePreview(kind, name, meta);
+    const fileInput = document.getElementById("pv_file");
+    const previewBox = document.getElementById("pv_preview_box");
+    if (!meta.image && previewBox) previewBox.onclick = (e) => { if (e.target.closest("#pv_preview_actions")) return; fileInput.click(); };
 
-    document.getElementById("pv_file").onchange = async (e) => {
+    const uploadTrigger = document.getElementById("pv_upload_trigger");
+    if (uploadTrigger) uploadTrigger.onclick = () => fileInput.click();
+
+    fileInput.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
       if (file.size > 10 * 1024 * 1024) { errorToast(t("admin_previews_file_too_large")); return; }
@@ -276,6 +393,9 @@ class AdminPreviewsView {
         errorToast(err.message || t("admin_previews_couldnt_clear_preview"));
       }
     };
+
+    const regenBtn = document.getElementById("pv_regenerate");
+    if (regenBtn) regenBtn.onclick = (e) => { e.stopPropagation(); this.openGeneratePreview(kind, name, meta); };
 
     const publishBtn = document.getElementById("pv_publish");
     if (publishBtn) publishBtn.onclick = async () => {
@@ -349,6 +469,17 @@ class AdminPreviewsView {
     return s.includes("karras") ? "karras" : (s.includes("normal") ? "normal" : (s[0] || "normal"));
   }
 
+  _setGenRunButton(runBtn, running) {
+    runBtn.disabled = running;
+    runBtn.innerHTML = running
+      ? `<span style="width:15px;height:15px">${_PV_ICON_STOP}</span>${_esc(t("admin_previews_stop", "Stop"))}`
+      : `<span style="width:15px;height:15px">${_PV_ICON_REGEN}</span>${_esc(t("admin_previews_generate"))}`;
+  }
+
+  _genGeneratingBadgeHtml() {
+    return `<span style="position:absolute;top:10px;left:10px;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#fff;background:rgba(10,10,12,.5);padding:4px 9px;border-radius:8px;backdrop-filter:blur(4px)">${t("forge_generating_badge")}</span>`;
+  }
+
   async openGenerateVidgenPreview(name) {
     const kind = ADMIN_PREVIEW_KINDS.find((k) => k.key === "vidgen");
     const st = await api("/api/settings").catch(() => ({}));
@@ -359,10 +490,10 @@ class AdminPreviewsView {
         <label class="block text-xs text-sec mb-1">${t("admin_previews_prompt")}</label>
         <textarea id="pvv_prompt" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm" style="min-height:60px">${_esc(ADMIN_PREVIEW_GEN_DEFAULT_PROMPT)}</textarea>
       </div>
-      <div class="w-full aspect-video rounded-lg overflow-hidden bg-surface-2 mb-3 grid place-items-center" id="pvv_preview">
+      <div class="relative w-full aspect-video rounded-lg overflow-hidden bg-surface-2 mb-3 grid place-items-center" id="pvv_preview">
         <span class="text-xs text-muted">${t("admin_previews_preview_will_appear_here")}</span>
       </div>
-      <button type="button" id="pvv_run" class="w-full py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_previews_generate")}</button>
+      <button type="button" id="pvv_run" class="w-full py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center gap-2"><span style="width:15px;height:15px">${_PV_ICON_REGEN}</span>${_esc(t("admin_previews_generate"))}</button>
       <button type="button" id="pvv_use" class="w-full mt-2 py-2.5 rounded-xl font-semibold text-sm border border-line text-ink hidden">${t("admin_previews_use_as_preview")}</button>
     `, { wide: true });
 
@@ -370,13 +501,15 @@ class AdminPreviewsView {
     const useBtn = layer.querySelector("#pvv_use");
     const previewBox = layer.querySelector("#pvv_preview");
     let videoUrl = null;
+    let controller = null;
 
     runBtn.onclick = async () => {
-      runBtn.disabled = true;
-      runBtn.textContent = t("admin_previews_generating");
+      if (controller) { controller.abort(); return; }
+      controller = new AbortController();
+      this._setGenRunButton(runBtn, true);
       useBtn.classList.add("hidden");
       videoUrl = null;
-      previewBox.innerHTML = `<span class="text-xs text-muted">${t("admin_previews_starting")}</span>`;
+      previewBox.innerHTML = this._genGeneratingBadgeHtml() + `<span class="text-xs text-muted">${t("admin_previews_starting")}</span>`;
       const body = {
         positive: layer.querySelector("#pvv_prompt").value.trim(),
         negative: "",
@@ -387,7 +520,7 @@ class AdminPreviewsView {
       };
       try {
         const res = await fetch(`${API}/api/imagegen/video`, {
-          method: "POST", credentials: "include",
+          method: "POST", credentials: "include", signal: controller.signal,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
@@ -398,10 +531,10 @@ class AdminPreviewsView {
         }
         await sseEvents(res, (ev) => {
           if (ev.type === "status") {
-            previewBox.innerHTML = `<span class="text-xs text-muted">${_esc(ev.message)}</span>`;
+            previewBox.innerHTML = this._genGeneratingBadgeHtml() + `<span class="text-xs text-muted">${_esc(ev.message)}</span>`;
           } else if (ev.type === "preview") {
             let img = previewBox.querySelector("#pvv_live_preview");
-            if (!img) previewBox.innerHTML = `<img id="pvv_live_preview" src="${_attr(ev.image)}" style="width:100%;height:100%;object-fit:cover">`;
+            if (!img) previewBox.innerHTML = this._genGeneratingBadgeHtml() + `<img id="pvv_live_preview" src="${_attr(ev.image)}" style="width:100%;height:100%;object-fit:cover">`;
             else img.src = ev.image;
           } else if (ev.type === "done") {
             videoUrl = ev.video.image;
@@ -412,10 +545,10 @@ class AdminPreviewsView {
           }
         });
       } catch (err) {
-        errorToast(err.message || t("admin_previews_generation_failed"));
+        if (err.name !== "AbortError") errorToast(err.message || t("admin_previews_generation_failed"));
       } finally {
-        runBtn.disabled = false;
-        runBtn.textContent = t("admin_previews_generate");
+        controller = null;
+        this._setGenRunButton(runBtn, false);
       }
     };
 
@@ -452,23 +585,26 @@ class AdminPreviewsView {
         <label class="block text-xs text-sec mb-1">${t("admin_previews_prompt")}</label>
         <textarea id="pvg_prompt" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm" style="min-height:60px">${_esc(ADMIN_PREVIEW_GEN_DEFAULT_PROMPT)}</textarea>
       </div>
-      <div class="w-full aspect-square rounded-lg overflow-hidden bg-surface-2 mb-3 grid place-items-center" id="pvg_preview">
+      <div class="relative w-full aspect-square rounded-lg overflow-hidden bg-surface-2 mb-3 grid place-items-center" id="pvg_preview">
         <span class="text-xs text-muted">${t("admin_previews_preview_will_appear_here")}</span>
       </div>
-      <button type="button" id="pvg_run" class="w-full py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_previews_generate")}</button>
+      <button type="button" id="pvg_run" class="w-full py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center gap-2"><span style="width:15px;height:15px">${_PV_ICON_REGEN}</span>${_esc(t("admin_previews_generate"))}</button>
       <button type="button" id="pvg_use" class="w-full mt-2 py-2.5 rounded-xl font-semibold text-sm border border-line text-ink hidden">${t("admin_previews_use_as_preview")}</button>
     `, { wide: true });
 
     let resultDataUrl = null;
+    let controller = null;
     const runBtn = layer.querySelector("#pvg_run");
     const useBtn = layer.querySelector("#pvg_use");
     const previewBox = layer.querySelector("#pvg_preview");
 
     runBtn.onclick = async () => {
-      runBtn.disabled = true;
-      runBtn.textContent = t("admin_previews_generating");
+      if (controller) { controller.abort(); return; }
+      controller = new AbortController();
+      this._setGenRunButton(runBtn, true);
       useBtn.classList.add("hidden");
       resultDataUrl = null;
+      previewBox.innerHTML = this._genGeneratingBadgeHtml();
       const anima = architecture === "anima";
       const body = {
         positive: layer.querySelector("#pvg_prompt").value.trim(),
@@ -483,14 +619,14 @@ class AdminPreviewsView {
       };
       try {
         const res = await fetch(`${API}/api/imagegen/standalone/stream`, {
-          method: "POST", credentials: "include",
+          method: "POST", credentials: "include", signal: controller.signal,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
         if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
         await sseEvents(res, (ev) => {
           if (ev.type === "preview") {
-            previewBox.innerHTML = `<img src="${_attr(ev.image)}" alt="" class="w-full h-full object-cover">`;
+            previewBox.innerHTML = this._genGeneratingBadgeHtml() + `<img src="${_attr(ev.image)}" alt="" class="w-full h-full object-cover">`;
           } else if (ev.type === "done") {
             resultDataUrl = ev.image;
             previewBox.innerHTML = `<img src="${_attr(ev.image)}" alt="" class="w-full h-full object-cover">`;
@@ -500,10 +636,10 @@ class AdminPreviewsView {
           }
         });
       } catch (err) {
-        errorToast(err.message || t("admin_previews_generation_failed"));
+        if (err.name !== "AbortError") errorToast(err.message || t("admin_previews_generation_failed"));
       } finally {
-        runBtn.disabled = false;
-        runBtn.textContent = t("admin_previews_generate");
+        controller = null;
+        this._setGenRunButton(runBtn, false);
       }
     };
 

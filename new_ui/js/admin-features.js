@@ -38,16 +38,17 @@ class AdminFeaturesPanel {
 
   render(container) {
     const rows = Object.entries(this.flags).map(([key, flag]) => `
-      <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--color-line);border-radius:10px;margin-bottom:6px">
-        <input type="checkbox" data-feature-key="${_attr(key)}" ${this.selected.has(key) ? "checked" : ""}>
-        <span style="flex:1">
-          <div style="font-weight:600;color:var(--color-ink)">${_esc(flag.label)}</div>
+      <div style="display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--color-line);border-radius:10px;margin-bottom:6px">
+        <input type="checkbox" data-feature-key="${_attr(key)}" ${this.selected.has(key) ? "checked" : ""} style="flex:none">
+        <div style="flex:1">
+          <div style="font-weight:600;color:var(--color-ink);margin-bottom:2px">${_esc(flag.label)}</div>
           <div style="font-size:12px;color:${flag.enabled ? "var(--color-success)" : "var(--color-cmd-yellow)"}">
             ${flag.enabled ? t("admin_features_state_enabled", "Enabled") : t("admin_features_state_disabled", "Disabled")}
             ${!flag.enabled && flag.updated_by_name ? ` · ${_esc(flag.updated_by_role === "dev" ? "Dev" : "Admin")} ${_esc(flag.updated_by_name)}` : ""}
           </div>
-        </span>
-      </label>
+        </div>
+        ${toggleSwitchHtml(`adminFeaturesPanel.onToggleFlag('${_attr(key)}')`, flag.enabled)}
+      </div>
     `).join("");
     container.innerHTML = `
       <div class="sticky bottom-0 md:static bg-paper md:bg-transparent pt-2 pb-2 md:pt-0 md:pb-0" style="display:flex;gap:8px;margin-bottom:14px">
@@ -74,6 +75,16 @@ class AdminFeaturesPanel {
     };
   }
 
+  onToggleFlag(key) {
+    const wantEnabled = !this.flags[key]?.enabled;
+    const onDone = () => {
+      const fresh = document.querySelector("[data-admin-features-container]");
+      if (fresh) this.render(fresh);
+    };
+    if (wantEnabled) this.runEnableWizard([key], onDone);
+    else this.runDisableWizard([key], onDone);
+  }
+
   async refreshAndRerender(container) {
     this.flags = await api("/api/admin/feature-flags").catch(() => this.flags);
     this.selected.clear();
@@ -92,7 +103,7 @@ class AdminFeaturesPanel {
     return context;
   }
 
-  runDisableWizard(keys) {
+  runDisableWizard(keys, onDone) {
     const labels = keys.map((k) => this.flags[k].label);
     const steps = [
       {
@@ -236,7 +247,7 @@ class AdminFeaturesPanel {
       },
     ];
     this.runWizardSteps(steps).then(async (context) => {
-      if (!context) return;
+      if (!context) { if (onDone) onDone(); return; }
       try {
         await api("/api/admin/feature-flags/batch", {
           method: "PUT",
@@ -246,11 +257,12 @@ class AdminFeaturesPanel {
         if (container) await this.refreshAndRerender(container);
       } catch (e) {
         errorToast(t("admin_features_disable_failed", "Failed to disable features.") + " " + (e.message || ""));
+        if (onDone) onDone();
       }
     });
   }
 
-  runEnableWizard(keys) {
+  runEnableWizard(keys, onDone) {
     const labels = keys.map((k) => this.flags[k].label);
     const steps = [
       {
@@ -380,7 +392,7 @@ class AdminFeaturesPanel {
       },
     ];
     this.runWizardSteps(steps).then(async (context) => {
-      if (!context) return;
+      if (!context) { if (onDone) onDone(); return; }
       try {
         await api("/api/admin/feature-flags/batch", {
           method: "PUT",
@@ -390,6 +402,7 @@ class AdminFeaturesPanel {
         if (container) await this.refreshAndRerender(container);
       } catch (e) {
         errorToast(t("admin_features_enable_failed", "Failed to enable features.") + " " + (e.message || ""));
+        if (onDone) onDone();
       }
     });
   }

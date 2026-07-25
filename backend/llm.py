@@ -273,3 +273,54 @@ async def chat_stream(messages, model, params=None, parse_think=False,
     if splitter:
         for ev in splitter.flush():
             yield ev
+
+_REFUSAL_PATTERNS = [
+    re.compile(p, re.IGNORECASE) for p in [
+        r"\bi (?:can'?t|cannot|won'?t|will not) (?:help|assist|provide|generate|create|write|continue)\b",
+        r"\bi'?m (?:not able|unable) to (?:help|assist|provide|generate|create|continue)\b",
+        r"\bi'?m sorry,? (?:but )?i (?:can'?t|cannot|won'?t)\b",
+        r"\bas an ai(?: language model)?,? i (?:can'?t|cannot|am not able)\b",
+        r"\bthis (?:content|request) (?:violates|goes against) (?:my|the) (?:guidelines|policy|policies)\b",
+        r"\bi'?m not (?:comfortable|able to) (?:generating|creating|writing) (?:that|this|explicit)\b",
+        r"\bi (?:need|have|want) to keep (?:this|it|the (?:content|story|scene)) (?:appropriate|respectful|within (?:my|the) guidelines)\b",
+        r"\blet'?s keep (?:this|it|things) (?:appropriate|respectful|sfw|pg)\b",
+        r"\bi'?ve (?:toned down|softened|adjusted|modified) (?:this|the) (?:content|scene|response)\b",
+        r"\bi (?:will|'ll) (?:need to |have to )?(?:avoid|refrain from) (?:explicit|graphic|sexual|nsfw)\b",
+        r"\b(?:content|response) (?:has been |was )?(?:redacted|removed|omitted|filtered) (?:due to|because of|per) (?:content )?(?:policy|guidelines|safety)\b",
+        r"\[(?:content (?:removed|redacted|omitted)|explicit content (?:removed|omitted))\]",
+        r"\bi'?m (?:going to|gonna) (?:keep|provide) a (?:more )?(?:tame|sanitized|cleaner|toned-down) version\b",
+        r"\bplease note,? this (?:response|content) has been (?:edited|adjusted|modified) (?:to comply|for compliance)\b",
+    ]
+]
+
+def _looks_like_refusal(text: str) -> bool:
+    sample = (text or "").strip()[:600]
+    return any(p.search(sample) for p in _REFUSAL_PATTERNS)
+
+async def chat_stream_with_fallback(messages, profiles, params=None, parse_think=False, pin_host=False):
+    if not profiles:
+        raise RuntimeError("no chat endpoint profiles configured")
+    last_error = None
+    for idx, profile in enumerate(profiles):
+        is_last = idx == len(profiles) - 1
+        events = []
+        try:
+            async for ev in chat_stream(
+                    messages, profile["model"], params, parse_think=parse_think,
+                    base_url=profile["base_url"], api_key=profile.get("api_key") or None,
+                    pin_host=pin_host):
+                events.append(ev)
+        except Exception as e:
+            last_error = e
+            log.warning("chat fallback: profile=%s (%s) failed, trying next: %s",
+                        profile.get("name") or profile["base_url"], idx, e)
+            continue
+        content_text = "".join(text for channel, text in events if channel == "content")
+        if _looks_like_refusal(content_text) and not is_last:
+            log.warning("chat fallback: profile=%s (%s) looked like a refusal, trying next",
+                        profile.get("name") or profile["base_url"], idx)
+            continue
+        for ev in events:
+            yield ev
+        return
+    raise last_error

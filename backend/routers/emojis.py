@@ -15,8 +15,8 @@ from backend.classify import classify_image_nsfw, _is_animated_image
 from backend.ratelimit import SlidingWindow
 from backend.schemas import EmojiUpdateIn
 
-_MAX_EMOJI_DIM = 160
-_MAX_STICKER_DIM = 512
+_MAX_EMOJI_DIM = 320
+_MAX_STICKER_DIM = 1024
 
 _MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 _UPLOAD_LIMIT = SlidingWindow(
