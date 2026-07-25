@@ -416,6 +416,15 @@ function route() {
     history.replaceState(null, "", ME?.username ? `/u/${encodeURIComponent(ME.username)}` : "/explore");
     return route();
   }
+  const outgoingChatView = window._activeChatView;
+  if (outgoingChatView?.multiplayer) {
+    const newParts = location.pathname.split("/").filter(Boolean);
+    const stayingOnSameChat = newParts[0] === "chats" && newParts[1] === outgoingChatView.sid;
+    if (!stayingOnSameChat) {
+      outgoingChatView._postLeaveMultiplayer().catch(() => {});
+      window._activeChatView = null;
+    }
+  }
   let routeName = currentRoute();
   if (!ME && routeName === "explore/index") {
     history.replaceState(null, "", "/explore/characters");

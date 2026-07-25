@@ -540,6 +540,21 @@ class ChatView {
     this.loadPersonaAvatar();
     this.render();
     this._openMultiplayerLive();
+    this._registerLeaveOnUnload();
+  }
+
+  _registerLeaveOnUnload() {
+    if (this._leaveOnUnloadHandler) return;
+    this._leaveOnUnloadHandler = () => {
+      navigator.sendBeacon(`/api/sessions/${encodeURIComponent(this.sid)}/multiplayer/leave`);
+    };
+    window.addEventListener("pagehide", this._leaveOnUnloadHandler);
+  }
+
+  _unregisterLeaveOnUnload() {
+    if (!this._leaveOnUnloadHandler) return;
+    window.removeEventListener("pagehide", this._leaveOnUnloadHandler);
+    this._leaveOnUnloadHandler = null;
   }
 
   _watchLiveUnmount() {
@@ -549,6 +564,7 @@ class ChatView {
       if (document.contains(this.main)) return;
       this._liveObserver.disconnect();
       this._liveAbort?.abort();
+      this._unregisterLeaveOnUnload();
     });
     this._liveObserver.observe(parent, { childList: true });
   }
