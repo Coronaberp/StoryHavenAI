@@ -506,7 +506,26 @@ class ChatView {
     this.render();
     this.scrollToBottom();
     this.pollPendingGreeting();
+    this.loadEndpointChoices();
     if (ME?.experimental_features_enabled) this._loadMultiplayer();
+  }
+
+  async loadEndpointChoices() {
+    try {
+      const { choices, server_default_model, server_default_base_url, server_default_icon_type, server_default_icon_value } =
+        await api(`/api/sessions/${encodeURIComponent(this.sid)}/chat-endpoint-choices`);
+      this.endpointChoices = choices;
+      this.serverDefault = {
+        model: server_default_model || "",
+        base_url: server_default_base_url || "",
+        icon_type: server_default_icon_type || "favicon",
+        icon_value: server_default_icon_value || "",
+      };
+    } catch (e) {
+      this.endpointChoices = [];
+      this.serverDefault = { model: "", base_url: "", icon_type: "favicon", icon_value: "" };
+    }
+    this.refreshEndpointBtn();
   }
 
   async _loadMultiplayer() {
@@ -1555,7 +1574,7 @@ class ChatView {
         ${narrHtml}
         ${trayRow}
         ${bubbleInner}
-        ${hasBubble ? (this._multiplayerNameLabelHtml(msg, name) || `<div class="chat-name-label"${isGroup && groupMember ? ` style="color:${memberCol}"` : ""}>${_esc(name)}</div>`) : ""}
+        ${hasBubble ? (this._multiplayerNameLabelHtml(msg, name) || `<div class="chat-name-label"${isGroup && groupMember ? ` style="color:${memberCol}"` : ""}>${_esc(name)}${this._generatedByTagHtml(msg)}</div>`) : ""}
         ${this.recallHtml(msg.id)}
         <div class="chat-actions-row" data-actions-for="${_esc(msg.id)}">
           <button type="button" class="ig-icon-btn" style="position:static;width:26px;height:26px" data-act="copy" aria-label="${t("chat_copy")}" data-tooltip="${t("chat_copy")}">
@@ -1616,6 +1635,13 @@ class ChatView {
         </div>
       </div>
     `;
+  }
+
+  _generatedByTagHtml(msg) {
+    if (msg.role !== "assistant" || !msg.generated_by?.name) return "";
+    return ` <span style="display:inline-flex;align-items:center;gap:4px;vertical-align:middle;opacity:.75" title="${_attr(msg.generated_by.name)}">
+      <span style="opacity:.6">·</span>${proxyIconHtml(msg.generated_by, 13)}<span>${_esc(msg.generated_by.name)}</span>
+    </span>`;
   }
 
   recallHtml(mid) {
@@ -1782,6 +1808,9 @@ class ChatView {
                       return `<span style="font-size:16px;line-height:1">${l.emoji}</span><span>${_esc(l.label)}</span>`;
                     })()}
                   </button>
+                  <button type="button" id="chatEndpointBtn" class="chat-composer-btn chat-composer-btn-labeled" aria-label="${t("chat_endpoint_label", "Model")}" data-tooltip="${t("chat_endpoint_label", "Model")}">
+                    ${this._endpointBtnInnerHtml()}
+                  </button>
                 </div>
                 <div id="chatToolsWrap" style="position:relative">
                   <button type="button" id="chatToolsBtn" class="chat-composer-btn" aria-label="${t("chat_chat_tools")}" data-tooltip="${t("chat_chat_tools")}">
@@ -1792,6 +1821,7 @@ class ChatView {
                       <button type="button" class="dropdown-item" data-tools-act="persona" style="display:flex;align-items:center;gap:9px">${svgIcon("masks")} ${t("chat_switch_mask")}</button>
                       <button type="button" class="dropdown-item" data-tools-act="style" style="display:flex;align-items:center;gap:9px">${(getAllChatStyles().find((x) => x.key === (this.session.style_key || "unspecified")) || CHAT_STYLES[0]).emoji} ${t("chat_message_style")}</button>
                       <button type="button" class="dropdown-item" data-tools-act="length" style="display:flex;align-items:center;gap:9px">${(RESPONSE_LENGTHS.find((x) => x.key === (this.session.length_key || "epic")) || RESPONSE_LENGTHS[4]).emoji} ${t("chat_response_length")}</button>
+                      <button type="button" class="dropdown-item" data-tools-act="endpoint" style="display:flex;align-items:center;gap:9px">${proxyIconHtml(this._myEndpointChoice() || this.serverDefault || { icon_type: "favicon", base_url: "" }, 18)} ${t("chat_endpoint_label", "Model")}</button>
                       <button type="button" class="dropdown-item" data-tools-act="explicit" style="display:flex;align-items:center;gap:9px;${this.session.explicit_mode ? "color:var(--color-warn)" : ""}">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 3.5l-2 2M15 6l3 3-8.5 8.5-4-4L14 4.5l1-1"/><path d="M13 8l3 3"/><path d="M6.5 14.5L4 21l6.5-2.5"/></svg>
                         ${t("chat_explicit_inject")}${this.session.explicit_mode ? ` ${t("chat_armed_suffix")}` : ""}
@@ -1945,6 +1975,7 @@ class ChatView {
         if (which === "persona") this.openPersonaSwitchModal();
         else if (which === "style") this.openStyleModal();
         else if (which === "length") this.openLengthModal();
+        else if (which === "endpoint") this.openEndpointModal();
         else if (which === "explicit") this.toggleExplicitMode();
       });
     });
@@ -2569,6 +2600,91 @@ class ChatView {
     if (!btn) return;
     const current = RESPONSE_LENGTHS.find((l) => l.key === (this.session.length_key || "epic")) || RESPONSE_LENGTHS[4];
     btn.innerHTML = `<span style="font-size:16px;line-height:1">${current.emoji}</span><span class="hidden md:inline">${_esc(current.label)}</span>`;
+  }
+
+  _myEndpointChoice() {
+    return (this.endpointChoices || []).find((c) => c.is_self) || null;
+  }
+
+  _endpointChoiceLabel(c) {
+    const source = c?.proxy_name || t("chat_endpoint_server_default", "Server default");
+    return c?.model ? `${source} · ${c.model}` : source;
+  }
+
+  _endpointBtnInnerHtml() {
+    const mine = this._myEndpointChoice();
+    const icon = proxyIconHtml(mine || this.serverDefault || { icon_type: "favicon", base_url: "" }, 18);
+    return `${icon}<span>${_esc(this._endpointChoiceLabel(mine))}</span>`;
+  }
+
+  refreshEndpointBtn() {
+    const btn = this.main?.querySelector("#chatEndpointBtn");
+    if (!btn) return;
+    btn.innerHTML = this._endpointBtnInnerHtml();
+  }
+
+  async openEndpointModal() {
+    openModal(`
+      <h3>${t("chat_endpoint_heading", "Which model answers here?")}</h3>
+      <p style="font-size:12px;color:var(--color-muted);margin:0 0 10px">${t("chat_endpoint_hint", "Overrides the server default (and your own account-wide default) for this chat only. Pick one of your own saved endpoint profiles from Settings, or leave it on Server default.")}</p>
+      <div id="endpointList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+      <div id="endpointOthers"></div>
+    `);
+    const layer = document.querySelector(".modal-layer:last-child");
+    const list = layer.querySelector("#endpointList");
+    const othersWrap = layer.querySelector("#endpointOthers");
+    let ownProxies = [];
+    try {
+      const settings = await api("/api/me/settings");
+      ownProxies = settings.overrides?.own_chat_proxies || [];
+    } catch (e) {
+      errorToast(t("chat_endpoint_couldnt_load_profiles", "Couldn't load your saved profiles."));
+    }
+    const renderMine = () => {
+      const mine = this._myEndpointChoice();
+      const currentId = mine?.proxy_id || null;
+      const rows = [{ id: null, name: t("chat_endpoint_server_default", "Server default"), ...this.serverDefault }, ...ownProxies];
+      list.innerHTML = rows.map((p) => `
+        <button type="button" data-endpoint-id="${_attr(p.id || "")}" class="dropdown-item" style="display:flex;gap:10px;align-items:center;text-align:left;border:1px solid ${p.id === currentId ? "var(--color-accent)" : "var(--color-line-2)"}">
+          ${proxyIconHtml(p, 32)}
+          <span>
+            <div style="font-weight:600;font-size:13.5px">${_esc(p.name || t("proxy_cards_untitled", "Untitled profile"))}${p.id === currentId ? " ✓" : ""}</div>
+            ${p.model ? `<div style="font-size:11.5px;color:var(--color-muted)">${_esc(p.model)}</div>` : ""}
+          </span>
+        </button>
+      `).join("");
+      list.querySelectorAll("[data-endpoint-id]").forEach((btn) => {
+        btn.onclick = async () => {
+          const proxyId = btn.dataset.endpointId || null;
+          try {
+            await api(`/api/sessions/${encodeURIComponent(this.sid)}/chat-endpoint-override`, { method: "PUT", body: JSON.stringify({ proxy_id: proxyId }) });
+            await this.loadEndpointChoices();
+            renderMine();
+            toast(t("chat_endpoint_saved", "Model choice saved."));
+          } catch (err) {
+            errorToast(err.message || t("chat_endpoint_save_failed", "Couldn't save."));
+          }
+        };
+      });
+    };
+    renderMine();
+    const others = (this.endpointChoices || []).filter((c) => !c.is_self);
+    if (others.length) {
+      othersWrap.innerHTML = `
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--color-muted);margin:6px 0">${t("chat_endpoint_other_players", "Other players")}</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          ${others.map((c) => `
+            <div class="dropdown-item" style="display:flex;justify-content:space-between;align-items:center;gap:10px;opacity:.55;pointer-events:none">
+              <span style="display:flex;align-items:center;gap:8px;min-width:0">
+                ${proxyIconHtml(c, 24)}
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(c.username || "?")}</span>
+              </span>
+              <span style="color:var(--color-muted);font-size:12px;flex:none">${_esc(this._endpointChoiceLabel(c))}</span>
+            </div>
+          `).join("")}
+        </div>
+      `;
+    }
   }
 
   canChangeLanguage() {
@@ -3329,6 +3445,7 @@ class ChatView {
     document.getElementById("chatPersonaBtn").onclick = () => this.openPersonaSwitchModal();
     document.getElementById("chatStyleBtn").onclick = () => this.openStyleModal();
     document.getElementById("chatLengthBtn").onclick = () => this.openLengthModal();
+    document.getElementById("chatEndpointBtn").onclick = () => this.openEndpointModal();
     if (this.streaming) {
       document.getElementById("chatStop").onclick = () => this.abortController?.abort();
       return;

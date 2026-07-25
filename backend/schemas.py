@@ -282,6 +282,9 @@ class LanguageIn(BaseModel):
 class PersonaSwitchIn(BaseModel):
     persona_id: str | None = None
 
+class ChatProxyOverrideIn(BaseModel):
+    proxy_id: str | None = None
+
 class AuthorNoteIn(BaseModel):
     note: str | None = None
 

@@ -281,6 +281,7 @@ sessions = sa.Table(
     sa.Column("group_mode", sa.Text, nullable=False, server_default=text("'roleplay'")),
     sa.Column("source_group_id", sa.Text),
     sa.Column("voice_overrides", sa.Text, nullable=False, server_default=text("'{}'")),
+    sa.Column("chat_proxy_override_id", sa.Text),
 )
 
 session_characters = sa.Table(
@@ -302,6 +303,7 @@ session_participants = sa.Table(
     sa.Column("persona_id", sa.Text),
     sa.Column("role", sa.Text, nullable=False, server_default=text("'member'")),
     sa.Column("joined_at", sa.Float, nullable=False),
+    sa.Column("chat_proxy_override_id", sa.Text),
 )
 
 session_invite_tokens = sa.Table(
@@ -367,6 +369,7 @@ messages = sa.Table(
     sa.Column("char_id", sa.Text),
     sa.Column("turn_group", sa.Text),
     sa.Column("sender_user_id", sa.Text),
+    sa.Column("generated_by", sa.Text),
 )
 
 settings = sa.Table(
@@ -778,11 +781,17 @@ async def init():
         await conn.execute(text(
             "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS source_group_id TEXT"))
         await conn.execute(text(
+            "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS chat_proxy_override_id TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE session_participants ADD COLUMN IF NOT EXISTS chat_proxy_override_id TEXT"))
+        await conn.execute(text(
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS char_id TEXT"))
         await conn.execute(text(
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS turn_group TEXT"))
         await conn.execute(text(
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS sender_user_id TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE messages ADD COLUMN IF NOT EXISTS generated_by TEXT"))
         await conn.execute(text(
             "ALTER TABLE lore ADD COLUMN IF NOT EXISTS owner_id TEXT"))
         await conn.execute(text(

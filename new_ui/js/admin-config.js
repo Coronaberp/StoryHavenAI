@@ -652,7 +652,6 @@ Object.assign(AdminConfigView.prototype, {
       history_turns: this.intOrFallback("cfg_hist", 16),
       max_tokens: this.intOrFallback("cfg_max", 4096),
       enable_thinking: !!document.getElementById("cfg_think").checked,
-      nsfw_classification: !!document.getElementById("cfg_nsfw_classify").checked,
       temperature: this.numOrFallback("cfg_temperature", 0.85),
       top_p: this.numOrFallback("cfg_top_p", 0.9),
       top_k: this.intOrFallback("cfg_top_k", 0),
@@ -792,17 +791,18 @@ AdminConfigView.prototype.render = function () {
 
   const chatIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`;
   const embedIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M8.2 7.4L15.8 4.6M8.2 7.9L11 15.8M15.8 7.9L13 15.8"/></svg>`;
-  const chatActive = this.chatProxies.find((p) => p.active);
+  const chatActive = this.chatProxies.reduce((best, p) =>
+    !best || (p.priority ?? 0) < (best.priority ?? 0) ? p : best, null);
   const embedActive = this.embedProxies.find((p) => p.active);
 
   const modelsContent = `
-    ${dossierCardOpen("chat_endpoint", chatIcon, "", t("admin_config_chat_endpoint"), t("admin_config_proxy_multi_hint", "Save several backend profiles and switch which one is active. The active profile is what the app actually talks to."), chatActive ? `${this.chatProxies.length} ${t("admin_config_status_profiles", "profiles")} · ${_esc(chatActive.name || t("admin_config_proxy_untitled", "Untitled profile"))}` : t("admin_config_status_no_profiles", "no profiles"), chatActive ? "" : "warn")}
-      <div id="cfg_chat_proxies">${this.chatProxies.map((p, i) => this.proxyRowHtml("chat", p, i)).join("") || `<p class="text-xs text-muted">${t("admin_config_no_proxies", "No profiles yet — add one.")}</p>`}</div>
+    ${dossierCardOpen("chat_endpoint", chatIcon, "", t("admin_config_chat_endpoint"), t("admin_config_proxy_multi_hint", "Save several backend profiles with a priority number each. Every reply starts at priority 0 - if that one fails, the server automatically retries the next-lowest number for you, so a paid API can quietly back up a free/local one going down."), chatActive ? `${this.chatProxies.length} ${t("admin_config_status_profiles", "profiles")} · ${_esc(chatActive.name || t("admin_config_proxy_untitled", "Untitled profile"))}` : t("admin_config_status_no_profiles", "no profiles"), chatActive ? "" : "warn")}
+      <div id="cfg_chat_proxies">${this.proxyListHtml("chat", t("admin_config_no_proxies", "No profiles yet — add one."))}</div>
       <button type="button" onclick="adminConfigView.addProxyRow('chat')" class="w-full mt-1 py-2 rounded-md border border-line text-xs text-ink" style="border-style:dashed">${t("admin_config_add_proxy", "+ Add profile")}</button>
     ${cardClose}
 
     ${dossierCardOpen("embed_endpoint", embedIcon, "", t("admin_config_embed_endpoint"), t("admin_config_blank_reuse_chat_endpoint"), embedActive ? `${this.embedProxies.length} ${t("admin_config_status_profiles", "profiles")} · ${_esc(embedActive.name || t("admin_config_proxy_untitled", "Untitled profile"))}` : t("admin_config_status_reusing_chat", "reusing chat endpoint"), embedActive ? "" : "off")}
-      <div id="cfg_embed_proxies">${this.embedProxies.map((p, i) => this.proxyRowHtml("embed", p, i)).join("") || `<p class="text-xs text-muted">${t("admin_config_no_proxies_embed", "No profiles yet — leave empty to reuse the chat endpoint, or add one.")}</p>`}</div>
+      <div id="cfg_embed_proxies">${this.proxyListHtml("embed", t("admin_config_no_proxies_embed", "No profiles yet — leave empty to reuse the chat endpoint, or add one."))}</div>
       <button type="button" onclick="adminConfigView.addProxyRow('embed')" class="w-full mt-1 py-2 rounded-md border border-line text-xs text-ink" style="border-style:dashed">${t("admin_config_add_proxy", "+ Add profile")}</button>
       ${this.embedProxies.length ? "" : `
         <label class="block text-xs text-sec mb-1 mt-1.5">${t("admin_config_embed_dim", "Embedding dimension")}</label>
@@ -826,13 +826,9 @@ AdminConfigView.prototype.render = function () {
         <input type="text" id="cfg_max" value="${_attr(st.max_tokens ?? 4096)}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
       </div>
     </div>
-    <label class="flex items-center gap-2.5 mb-3 text-sm text-ink">
+    <label class="flex items-center gap-2.5 text-sm text-ink">
       <input type="checkbox" id="cfg_think" ${st.enable_thinking ? "checked" : ""}>
       ${t("admin_config_enable_thinking_by_default")}
-    </label>
-    <label class="flex items-center gap-2.5 text-sm text-ink">
-      <input type="checkbox" id="cfg_nsfw_classify" ${st.nsfw_classification !== false ? "checked" : ""}>
-      ${t("admin_config_nsfw_classification", "Automatic NSFW image classification (unchecking hides the privacy eye button for everyone)")}
     </label>
   `;
 

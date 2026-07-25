@@ -19,6 +19,12 @@ class AdminFeaturesPanel {
       this.flags = {};
       errorToast(t("admin_features_couldnt_load", "Couldn't load feature flags."));
     }
+    try {
+      const settings = await api("/api/settings");
+      this.nsfwClassification = settings.nsfw_classification !== false;
+    } catch (e) {
+      this.nsfwClassification = true;
+    }
     this.renderShell();
   }
 
@@ -29,11 +35,31 @@ class AdminFeaturesPanel {
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_features_title", "Feature Flags"), t("ph_admin_features_sub", "Disable or restore features platform-wide."))}
       ${adminScreenSwitcherHtml("admin-features", window._adminSwitcherBadges || {})}
       <div data-admin-features-container></div>
+      <h2 class="font-display font-semibold text-sm text-ink mt-5 mb-2">${t("admin_features_behavior_toggles_title", "Behavior toggles")}</h2>
+      <div style="display:flex;align-items:center;gap:12px;padding:10px;border:1px solid var(--color-line);border-radius:10px">
+        <div style="flex:1">
+          <div style="font-weight:600;color:var(--color-ink);margin-bottom:2px">${t("admin_config_nsfw_classification_title", "Automatic NSFW image classification")}</div>
+          <div style="font-size:12px;color:var(--color-muted)">${t("admin_config_nsfw_classification_hint", "Unchecking hides the privacy eye button for everyone.")}</div>
+        </div>
+        ${toggleSwitchHtml("adminFeaturesPanel.onToggleNsfwClassification()", this.nsfwClassification)}
+      </div>
       </div>
     `;
     const container = this.main.querySelector("[data-admin-features-container]");
     this.render(container);
     adminAttachScreenSwitcher(this.main);
+  }
+
+  async onToggleNsfwClassification() {
+    const next = !this.nsfwClassification;
+    try {
+      await api("/api/settings", { method: "PUT", body: JSON.stringify({ nsfw_classification: next }) });
+      this.nsfwClassification = next;
+      toast(next ? t("admin_features_nsfw_classification_enabled", "NSFW classification enabled") : t("admin_features_nsfw_classification_disabled", "NSFW classification disabled"));
+    } catch (e) {
+      errorToast(t("admin_features_nsfw_classification_save_failed", "Couldn't save: ") + e.message);
+    }
+    this.renderShell();
   }
 
   render(container) {

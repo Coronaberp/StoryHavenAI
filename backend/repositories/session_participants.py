@@ -46,6 +46,21 @@ async def set_persona(session_id: str, user_id: str, persona_id: str | None) -> 
     ).values(persona_id=persona_id))
     log.info("session_participants: persona set user=%s session=%s persona=%s", user_id, session_id, persona_id)
 
+async def set_chat_proxy_override(session_id: str, user_id: str, proxy_id: str | None) -> None:
+    await _w(sa_update(session_participants).where(
+        session_participants.c.session_id == session_id,
+        session_participants.c.user_id == user_id,
+    ).values(chat_proxy_override_id=proxy_id))
+    log.info("session_participants: chat_proxy_override set user=%s session=%s proxy_id=%s", user_id, session_id, proxy_id)
+
+async def get(session_id: str, user_id: str) -> dict | None:
+    return await _q1(
+        select(session_participants).where(
+            session_participants.c.session_id == session_id,
+            session_participants.c.user_id == user_id,
+        )
+    )
+
 async def is_participant(session_id: str, user_id: str) -> bool:
     row = await _q1(
         select(session_participants.c.user_id).where(

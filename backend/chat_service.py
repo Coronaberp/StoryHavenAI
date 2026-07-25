@@ -68,6 +68,24 @@ async def _endpoints(user_overrides: dict, user_id: str | None = None,
         "embed_key": None,
     }
 
+async def _session_chat_proxy_override(s: dict, current_user: dict | None, user_overrides: dict,
+                                       chat_model: str) -> list[dict] | None:
+    if not current_user:
+        return None
+    if s.get("user_id") == current_user["id"]:
+        proxy_id = s.get("chat_proxy_override_id")
+    else:
+        participant = await session_participants.get(s["id"], current_user["id"])
+        proxy_id = participant.get("chat_proxy_override_id") if participant else None
+    if not proxy_id:
+        return None
+    proxy = next((p for p in user_overrides.get("own_chat_proxies", []) if p.get("id") == proxy_id), None)
+    if not proxy or not proxy.get("base_url"):
+        return None
+    return [{"name": proxy.get("name") or "your endpoint", "base_url": proxy["base_url"],
+             "api_key": proxy.get("api_key") or "", "model": proxy.get("model") or chat_model,
+             "icon_type": proxy.get("icon_type") or "favicon", "icon_value": proxy.get("icon_value") or ""}]
+
 def _chat_fallback_profiles(eff_chat_base: str | None, eff_api_key: str | None, chat_model: str) -> list[dict]:
     if eff_chat_base:
         return [{"name": "personal override", "base_url": eff_chat_base, "api_key": eff_api_key, "model": chat_model}]
@@ -324,7 +342,7 @@ def _assemble_system(char, s, persona, user_name, mode, language, do_think, eff,
 
 async def _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep, chat_model,
                               persona, user_name, language, do_think, turn_group, query, viewer_id,
-                              chat_mode=False):
+                              chat_mode=False, fallback_profiles=None):
     sid = s["id"]
     char = chars_by_id.get(cid)
     if not char:
@@ -389,9 +407,10 @@ async def _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep, 
         params["max_tokens"] = length_preset["max_tokens"]
     yield "data: " + json.dumps({"type": "status", "phase": "generating", "char_id": cid}) + "\n\n"
     ans, thought = [], []
+    profiles = fallback_profiles or _chat_fallback_profiles(ep["chat_base"], ep["chat_key"], chat_model)
     try:
-        async for channel, text in llm.chat_stream(oai, chat_model, params, parse_think=do_think,
-                base_url=ep["chat_base"], api_key=ep["chat_key"], pin_host=True):
+        async for channel, text in llm.chat_stream_with_fallback(oai, profiles, params, parse_think=do_think,
+                pin_host=True):
             if channel == "thinking":
                 thought.append(text)
                 yield "data: " + json.dumps({"type": "thinking", "content": text, "char_id": cid}) + "\n\n"
@@ -469,13 +488,16 @@ async def _group_single(s, eff, ep, chat_model, cid, current_user, think, user_o
     user_turn = next((m for m in reversed(msgs) if m["role"] == "user"), None)
     query = user_turn["content"] if user_turn else ""
     log.info("group %s: session=%s char=%s", "reassign" if replace_mid else "speak", sid, cid)
+    fallback_profiles = await _session_chat_proxy_override(s, current_user, user_overrides, chat_model) \
+        or _chat_fallback_profiles(ep["chat_base"], ep["chat_key"], chat_model)
 
     async def gen():
         yield "data: " + json.dumps({"type": "meta", "turn_group": turn_group, "think": do_think}) + "\n\n"
         working = list(msgs)
         async for ev in _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep, chat_model,
                                             persona, user_name, language, do_think, turn_group, query, viewer_id,
-                                            chat_mode=(s.get("group_mode") == "chat")):
+                                            chat_mode=(s.get("group_mode") == "chat"),
+                                            fallback_profiles=fallback_profiles):
             yield ev
         yield "data: " + json.dumps({"type": "done", "turn_group": turn_group, "replaced": replace_mid}) + "\n\n"
 
@@ -585,6 +607,8 @@ async def _run_group(s, eff, ep, chat_model, user_content, current_user, think, 
     responder_ids = await next_speaker(cast, route_text, last_speaker, recent_text(msgs), chat_model, ep)
     turn_group = db.nid("tg")
     log.info("group turn start: session=%s responders=%s lang=%s", sid, responder_ids, language)
+    fallback_profiles = await _session_chat_proxy_override(s, current_user, user_overrides, chat_model) \
+        or _chat_fallback_profiles(ep["chat_base"], ep["chat_key"], chat_model)
 
     async def gen():
         yield "data: " + json.dumps({"type": "meta", "user_mid": user_mid,
@@ -594,7 +618,8 @@ async def _run_group(s, eff, ep, chat_model, user_content, current_user, think, 
         for cid in responder_ids:
             async for ev in _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep,
                                                 chat_model, persona, user_name, language, do_think,
-                                                turn_group, query, viewer_id, chat_mode=chat_mode):
+                                                turn_group, query, viewer_id, chat_mode=chat_mode,
+                                                fallback_profiles=fallback_profiles):
                 yield ev
         primary = chars_by_id.get(responder_ids[0]) if responder_ids else next(iter(chars_by_id.values()))
         names_by_id = {cid: c["name"] for cid, c in chars_by_id.items()}
@@ -805,10 +830,13 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
         yield "data: " + json.dumps(meta) + "\n\n"
         yield "data: " + json.dumps({"type": "status", "phase": "generating"}) + "\n\n"
         ans, thought = [], []
+        gen_result = {}
         try:
-            fallback_profiles = _chat_fallback_profiles(eff_chat_base, eff_api_key, chat_model)
+            fallback_profiles = await _session_chat_proxy_override(s, current_user, user_overrides, chat_model) \
+                or _chat_fallback_profiles(eff_chat_base, eff_api_key, chat_model)
             async for channel, text in llm.chat_stream_with_fallback(
-                    oai_messages, fallback_profiles, params, parse_think=do_think, pin_host=True):
+                    oai_messages, fallback_profiles, params, parse_think=do_think, pin_host=True,
+                    result=gen_result):
                 if channel == "thinking":
                     thought.append(text)
                     yield "data: " + json.dumps({"type": "thinking", "content": text}) + "\n\n"
@@ -853,19 +881,28 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
             log.info("mood tag: session=%s char=%s -> %s", sid, char["id"],
                      mood if mood else "none (model did not emit a [mood: X] tag)")
 
+        used_profile = gen_result.get("profile")
+        generated_by = {
+            "name": used_profile.get("name") or "",
+            "icon_type": used_profile.get("icon_type") or "favicon",
+            "icon_value": used_profile.get("icon_value") or "",
+            "base_url": used_profile.get("base_url") or "",
+        } if used_profile else None
         stored = (f"<think>{thinking_disp}</think>\n\n{reply}" if thinking_disp else reply)
         if prev:
             merged_reply = (f"{prev_disp}\n\n{reply}" if reply else prev_disp)
             merged_think = "\n\n".join(part for part in (prev_think, thinking_disp) if part)
             stored = (f"<think>{merged_think}</think>\n\n{merged_reply}" if merged_think else merged_reply)
-            await chat_sessions.edit_message(sid, prev["id"], stored)
-            amsg = {**prev, "content": stored, "lang": language, "mood": mood or None}
+            await chat_sessions.edit_message(sid, prev["id"], stored, generated_by=generated_by)
+            amsg = {**prev, "content": stored, "lang": language, "mood": mood or None, "generated_by": generated_by}
         elif regen_target:
-            swipe_info = await chat_sessions.add_swipe(sid, regen_target["id"], stored)
+            swipe_info = await chat_sessions.add_swipe(sid, regen_target["id"], stored, generated_by=generated_by)
             amsg = {**regen_target, "content": stored, "lang": language, "mood": mood or None,
-                   "swipe_index": swipe_info["index"], "swipe_count": swipe_info["count"]}
+                   "swipe_index": swipe_info["index"], "swipe_count": swipe_info["count"],
+                   "generated_by": generated_by}
         else:
-            amsg = await chat_sessions.add_message(sid, "assistant", stored, lang=language, mood=mood or None)
+            amsg = await chat_sessions.add_message(sid, "assistant", stored, lang=language, mood=mood or None,
+                                                   generated_by=generated_by)
         if current_user:
             try:
                 await guest_quota.record(current_user, "tokens", guest_quota.estimate_tokens(

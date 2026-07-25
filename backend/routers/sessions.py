@@ -12,6 +12,7 @@ from backend.repositories import session_characters as session_char_repo
 from backend.repositories import groups as groups_repo
 from backend.repositories import notifications as notification_repo
 from backend.repositories import memory_facts
+from backend.repositories import users as user_repo
 from backend import live_broadcast
 from backend.state import api, log
 from backend.auth import get_current_user
@@ -25,7 +26,8 @@ from backend.state import CFG
 from backend.routers.misc import translate_text_live
 from backend.routers.multiplayer import _require_host
 from backend.schemas import (SessionIn, RenameIn, StyleIn, LengthIn, ExplicitModeIn, GlossaryIn,
-                     LanguageIn, AuthorNoteIn, MessageEdit, PersonaSwitchIn, GroupCreateIn, MuteIn)
+                     LanguageIn, AuthorNoteIn, MessageEdit, PersonaSwitchIn, GroupCreateIn, MuteIn,
+                     ChatProxyOverrideIn)
 
 MILESTONES = [10, 50, 100, 500, 1000]
 
@@ -288,6 +290,76 @@ async def set_session_persona(sid: str, body: PersonaSwitchIn,
         live_broadcast.broadcast(sid, "session_updated", {})
     log.info("sessions: persona switched session=%s persona=%s multiplayer=%s", sid, body.persona_id, is_multiplayer)
     return {"ok": True, "user_name": user_name}
+
+@api.get("/sessions/{sid}/chat-endpoint-choices")
+async def get_chat_endpoint_choices(sid: str, current_user: dict = Depends(get_current_user)):
+    s = await _own_session(sid, current_user)
+    entries = []
+    if s.get("user_id"):
+        entries.append({"user_id": s["user_id"], "proxy_id": s.get("chat_proxy_override_id")})
+    for p in await session_participants.list_for_session(sid):
+        entries.append({"user_id": p["user_id"], "proxy_id": p.get("chat_proxy_override_id")})
+    server_proxies = sorted(CFG.get("chat_proxies") or [], key=lambda p: p.get("priority", 0))
+    server_default = server_proxies[0] if server_proxies else None
+    server_default_model = (server_default.get("model") if server_default else None) or CFG.get("chat_model", "")
+    server_default_base_url = (server_default.get("base_url") if server_default else None) or CFG.get("base_url", "")
+    server_default_icon_type = (server_default.get("icon_type") if server_default else None) or "favicon"
+    server_default_icon_value = (server_default.get("icon_value") if server_default else None) or ""
+    choices = []
+    for entry in entries:
+        user_row = await user_repo.get_user_by_id(entry["user_id"])
+        username = (user_row.get("display_name") or user_row.get("username")) if user_row else "?"
+        proxy_name = None
+        proxy_model = None
+        proxy_base_url = None
+        proxy_icon_type = None
+        proxy_icon_value = None
+        if entry["proxy_id"]:
+            settings = await user_repo.get_user_settings(entry["user_id"])
+            proxy = next((p for p in settings.get("own_chat_proxies", []) if p.get("id") == entry["proxy_id"]), None)
+            proxy_name = proxy.get("name") if proxy else None
+            proxy_model = proxy.get("model") if proxy else None
+            proxy_base_url = proxy.get("base_url") if proxy else None
+            proxy_icon_type = proxy.get("icon_type") if proxy else None
+            proxy_icon_value = proxy.get("icon_value") if proxy else None
+        choices.append({
+            "user_id": entry["user_id"],
+            "username": username,
+            "is_self": entry["user_id"] == current_user["id"],
+            "proxy_id": entry["proxy_id"] if proxy_name else None,
+            "proxy_name": proxy_name,
+            "base_url": proxy_base_url or (server_default_base_url if not proxy_name else None),
+            "icon_type": proxy_icon_type or (server_default_icon_type if not proxy_name else "favicon"),
+            "icon_value": proxy_icon_value or (server_default_icon_value if not proxy_name else ""),
+            "model": proxy_model or server_default_model,
+        })
+    choices.sort(key=lambda c: (c["username"] or "").lower())
+    return {
+        "choices": choices,
+        "server_default_model": server_default_model,
+        "server_default_base_url": server_default_base_url,
+        "server_default_icon_type": server_default_icon_type,
+        "server_default_icon_value": server_default_icon_value,
+    }
+
+@api.put("/sessions/{sid}/chat-endpoint-override")
+async def set_chat_endpoint_override(sid: str, body: ChatProxyOverrideIn,
+                                     current_user: dict = Depends(get_current_user)):
+    s = await _own_session(sid, current_user)
+    if body.proxy_id:
+        settings = await user_repo.get_user_settings(current_user["id"])
+        own_proxies = settings.get("own_chat_proxies", [])
+        if not any(p.get("id") == body.proxy_id for p in own_proxies):
+            raise HTTPException(404, "profile not found")
+    if s.get("user_id") == current_user["id"]:
+        await chat_sessions.set_chat_proxy_override(sid, body.proxy_id)
+        live_broadcast.broadcast(sid, "session_updated", {})
+    else:
+        await session_participants.set_chat_proxy_override(sid, current_user["id"], body.proxy_id)
+        live_broadcast.broadcast(sid, "participant_updated", {"user_id": current_user["id"]})
+    log.info("sessions: chat endpoint override set session=%s user=%s proxy_id=%s",
+             sid, current_user["username"], body.proxy_id)
+    return {"ok": True}
 
 @api.put("/sessions/{sid}/glossary")
 async def set_session_glossary(sid: str, body: GlossaryIn,

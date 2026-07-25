@@ -83,24 +83,27 @@ function addProxyProfileButtonHtml(globalName, kind) {
   return `<button type="button" onclick="${globalName}.addProxyRow('${kind}')" class="w-full mt-1 py-2 rounded-md border border-line text-xs text-ink" style="border-style:dashed">${t("proxy_cards_add_profile", "+ Add profile")}</button>`;
 }
 
-function readOnlyProxyCardHtml(p) {
+function readOnlyProxyCardHtml(p, isDefault) {
   const label = p.name || t("proxy_cards_untitled", "Untitled profile");
+  const highlighted = isDefault !== undefined ? isDefault : p.active;
   return `
-    <div class="rounded-md border p-2.5 mb-2 flex items-center gap-2.5" style="border-color:${p.active ? "var(--color-accent)" : "var(--color-line)"}">
+    <div class="rounded-md border p-2.5 mb-2 flex items-center gap-2.5" style="border-color:${highlighted ? "var(--color-accent)" : "var(--color-line)"}">
       ${proxyIconHtml(p, 36)}
       <span class="flex-1 min-w-0">
         <span class="block font-medium text-sm text-ink truncate">${_esc(label)}</span>
         <span class="block text-xs text-muted truncate">${_esc(p.model || "")}</span>
       </span>
-      <span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none text-muted" style="border:1px solid var(--color-line)" title="${_attr(t("proxy_cards_priority_hint", "Lower numbers are tried first if a higher-priority endpoint fails."))}">${t("proxy_cards_priority_short", "P")}${p.priority ?? 0}</span>
-      ${p.active ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none" style="color:var(--color-accent);border:1px solid var(--color-accent)">${t("proxy_cards_active", "Active")}</span>` : ""}
+      ${isDefault === undefined ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none text-muted" style="border:1px solid var(--color-line)" title="${_attr(t("proxy_cards_priority_hint", "Lower numbers are tried first if a higher-priority endpoint fails."))}">${t("proxy_cards_priority_short", "P")}${p.priority ?? 0}</span>` : ""}
+      ${highlighted ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none" style="color:var(--color-accent);border:1px solid var(--color-accent)">${isDefault !== undefined ? t("proxy_cards_default", "Default") : t("proxy_cards_active", "Active")}</span>` : ""}
     </div>
   `;
 }
 
-function readOnlyProxyListHtml(proxies, emptyText) {
+function readOnlyProxyListHtml(proxies, emptyText, usePriority) {
   if (!proxies || !proxies.length) return `<p class="text-xs text-muted mb-2">${_esc(emptyText)}</p>`;
-  return proxies.map((p) => readOnlyProxyCardHtml(p)).join("");
+  if (!usePriority) return proxies.map((p) => readOnlyProxyCardHtml(p)).join("");
+  const ordered = [...proxies].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
+  return ordered.map((p, i) => readOnlyProxyCardHtml(p, i === 0)).join("");
 }
 
 const ProxyCardsMixin = {
@@ -117,16 +120,23 @@ const ProxyCardsMixin = {
     const id = _attr(p.id);
     const expanded = this.proxyCardsExpanded.has(`${kind}:${p.id}`);
     const collapsedName = p.name || t("proxy_cards_untitled", "Untitled profile");
-    const priorityChip = kind === "chat"
-      ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none text-muted border border-line" title="${_attr(t("proxy_cards_priority_hint", "Lower numbers are tried first if a higher-priority endpoint fails."))}">${t("proxy_cards_priority_short", "P")}${p.priority ?? 0}</span>`
+    const isChat = kind === "chat";
+    const isDefault = isChat && [...this._proxyList(kind)].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0))[0]?.id === p.id;
+    const dragAttrs = "";
+    const dragHandle = isChat
+      ? `<span style="cursor:grab;color:var(--color-muted);flex:none;touch-action:none" title="${_attr(t("proxy_cards_drag_hint", "Drag to reorder"))}" onpointerdown="${global}.onProxyHandlePointerDown(event, '${kind}', '${id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="pointer-events:none"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>`
+      : "";
+    const priorityChip = isChat
+      ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none ${isDefault ? "" : "text-muted border border-line"}" style="${isDefault ? "color:var(--color-accent);border:1px solid var(--color-accent)" : ""}" title="${_attr(t("proxy_cards_priority_hint", "Lower numbers are tried first if a higher-priority endpoint fails."))}">${isDefault ? t("proxy_cards_default", "Default") : `${t("proxy_cards_priority_short", "P")}${p.priority ?? 0}`}</span>`
       : "";
     if (!expanded) {
       return `
-        <div class="rounded-md border p-2.5 mb-2 flex items-center gap-2.5 cursor-pointer" data-proxy-row="${kind}-${id}" onclick="${global}.toggleProxyExpand('${kind}', '${id}')" style="border-color:${p.active ? "var(--color-accent)" : "var(--color-line)"}">
+        <div class="rounded-md border p-2.5 mb-2 flex items-center gap-2.5 cursor-pointer" data-proxy-row="${kind}-${id}" ${dragAttrs} onclick="${global}.toggleProxyExpand('${kind}', '${id}')" style="border-color:${(p.active && !isChat) || (isChat && isDefault) ? "var(--color-accent)" : "var(--color-line)"}">
+          ${dragHandle}
           ${proxyIconHtml(p, 36)}
           <span class="flex-1 min-w-0 font-medium text-sm text-ink truncate">${_esc(collapsedName)}</span>
           ${priorityChip}
-          ${p.active ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none" style="color:var(--color-accent);border:1px solid var(--color-accent)">${kind === "gif" ? t("proxy_cards_checked_first", "Checked first") : t("proxy_cards_active", "Active")}</span>` : ""}
+          ${p.active && !isChat ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none" style="color:var(--color-accent);border:1px solid var(--color-accent)">${kind === "gif" ? t("proxy_cards_checked_first", "Checked first") : t("proxy_cards_active", "Active")}</span>` : ""}
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted flex-none"><path d="M9 6l6 6-6 6"/></svg>
         </div>
       `;
@@ -134,8 +144,9 @@ const ProxyCardsMixin = {
     const modelPlaceholder = t("proxy_cards_model_placeholder", "Model name");
     const iconTypes = [["favicon", t("proxy_cards_icon_favicon", "Favicon")], ["image", t("proxy_cards_icon_image", "Upload")], ["emoji", t("proxy_cards_icon_emoji", "Emoji")], ["svg", t("proxy_cards_icon_svg", "SVG (logos)")]];
     return `
-      <div class="rounded-md border p-2.5 mb-2" data-proxy-row="${kind}-${id}" style="border-color:${p.active ? "var(--color-accent)" : "var(--color-line)"}">
+      <div class="rounded-md border p-2.5 mb-2" data-proxy-row="${kind}-${id}" ${dragAttrs} style="border-color:${(p.active && !isChat) || (isChat && isDefault) ? "var(--color-accent)" : "var(--color-line)"}">
         <div class="flex items-center gap-2.5 mb-2 cursor-pointer" onclick="${global}.toggleProxyExpand('${kind}', '${id}')">
+          ${dragHandle}
           ${proxyIconHtml(p, 36)}
           <span class="flex-1 min-w-0 font-medium text-sm text-ink truncate">${_esc(collapsedName)}</span>
           ${priorityChip}
@@ -143,21 +154,26 @@ const ProxyCardsMixin = {
         </div>
         <div class="flex items-center gap-2 mb-1.5">
           <input type="text" data-proxy-name value="${_attr(p.name || "")}" placeholder="${t("proxy_cards_name_placeholder", "Profile name")}" class="flex-1 px-2.5 py-1.5 rounded-md border border-line bg-surface text-ink text-sm font-medium">
-          ${p.active
-            ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none" style="color:var(--color-accent);border:1px solid var(--color-accent)">${kind === "gif" ? t("proxy_cards_checked_first", "Checked first") : t("proxy_cards_active", "Active")}</span>`
-            : `<button type="button" onclick="${global}.setActiveProxy('${kind}', '${id}')" class="px-2.5 py-1.5 rounded-md border border-line text-xs text-ink flex-none">${kind === "gif" ? t("proxy_cards_check_first", "Check first") : t("proxy_cards_set_active", "Use this")}</button>`}
+          ${isChat
+            ? (isDefault
+              ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none" style="color:var(--color-accent);border:1px solid var(--color-accent)">${t("proxy_cards_default", "Default")}</span>`
+              : `<button type="button" onclick="${global}.promoteProxyToDefault('${kind}', '${id}')" class="px-2.5 py-1.5 rounded-md border border-line text-xs text-ink flex-none">${t("proxy_cards_set_active", "Use this")}</button>`)
+            : (p.active
+              ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none" style="color:var(--color-accent);border:1px solid var(--color-accent)">${kind === "gif" ? t("proxy_cards_checked_first", "Checked first") : t("proxy_cards_active", "Active")}</span>`
+              : `<button type="button" onclick="${global}.setActiveProxy('${kind}', '${id}')" class="px-2.5 py-1.5 rounded-md border border-line text-xs text-ink flex-none">${kind === "gif" ? t("proxy_cards_check_first", "Check first") : t("proxy_cards_set_active", "Use this")}</button>`)}
           ${kind === "image" || kind === "video" || kind === "gif" ? "" : `<button type="button" onclick="${global}.removeProxyRow('${kind}', '${id}')" class="px-2 py-1.5 rounded-md border text-xs flex-none" style="border-color:var(--color-warn);color:var(--color-warn)">×</button>`}
         </div>
         <button type="button" onclick="${global}.saveProxyCard('${kind}', '${id}')" class="w-full mb-1.5 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold text-paper bg-gradient-to-br from-primary to-primary-dark">
           <span style="width:13px;height:13px">${_PROXY_CARDS_ICON_SAVE}</span>${t("proxy_cards_save", "Save profile")}
         </button>
-        ${kind === "chat" ? `
-          <label class="block text-xs text-sec mb-1">${t("proxy_cards_priority_label", "Fallback priority (0 = tried first)")}</label>
+        ${isChat ? `
+          <label class="block text-xs text-sec mb-1">${t("proxy_cards_priority_label", "Priority (0 = default, tried first)")}</label>
           <div class="flex items-stretch mb-1.5 rounded-md border border-line overflow-hidden">
             <button type="button" onclick="${global}.stepProxyPriority('${kind}', '${id}', -1)" class="w-10 flex-none flex items-center justify-center text-ink bg-surface-2 border-e border-line" style="font-size:16px;line-height:1">−</button>
-            <input type="number" readonly data-proxy-priority value="${_attr(p.priority ?? 0)}" min="0" step="1" class="w-full px-2.5 py-2 bg-surface-2 text-ink text-sm text-center" style="-moz-appearance:textfield">
+            <input type="number" data-proxy-priority value="${_attr(p.priority ?? 0)}" min="0" step="1" class="w-full px-2.5 py-2 bg-surface-2 text-ink text-sm text-center" style="-moz-appearance:textfield">
             <button type="button" onclick="${global}.stepProxyPriority('${kind}', '${id}', 1)" class="w-10 flex-none flex items-center justify-center text-ink bg-surface-2 border-s border-line" style="font-size:16px;line-height:1">+</button>
           </div>
+          <p class="text-xs text-muted mb-1.5">${t("proxy_cards_priority_explainer", "The profile at priority 0 is the default - every reply tries it first. If it doesn't answer (down, rate-limited, or refuses the request), the server automatically retries the next-lowest number, no action needed. Drag a profile's row to reorder it, or type a number directly - either way updates its priority. Two profiles with the same number: whichever the server checks first wins, so keep numbers unique if the order matters.")}</p>
         ` : ""}
         ${kind === "video" && id === "comfyui" ? `
           <p class="text-xs text-muted mb-1.5">${t("proxy_cards_video_comfyui_hint", "Uses the same ComfyUI instance configured on the Image generation card.")}</p>
@@ -209,7 +225,68 @@ const ProxyCardsMixin = {
 
   proxyListHtml(kind, emptyText) {
     const list = this._proxyList(kind);
-    return list.map((p) => this.proxyRowHtml(kind, p)).join("") || `<p class="text-xs text-muted">${_esc(emptyText)}</p>`;
+    const ordered = kind === "chat" ? [...list].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0)) : list;
+    return ordered.map((p) => this.proxyRowHtml(kind, p)).join("") || `<p class="text-xs text-muted">${_esc(emptyText)}</p>`;
+  },
+
+  onProxyHandlePointerDown(ev, kind, id) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.syncProxiesFromDom(kind);
+    this._proxyDrag = { kind, id, lastTargetId: id };
+    const row = this.main?.querySelector(`[data-proxy-row="${kind}-${id}"]`);
+    if (row) row.style.opacity = "0.5";
+    const move = (e) => this._onProxyPointerMove(e);
+    const up = (e) => this._onProxyPointerUp(e, move, up);
+    document.addEventListener("pointermove", move);
+    document.addEventListener("pointerup", up, { once: true });
+    document.addEventListener("pointercancel", up, { once: true });
+  },
+
+  _onProxyPointerMove(ev) {
+    const drag = this._proxyDrag;
+    if (!drag) return;
+    const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    const row = el?.closest(`[data-proxy-row^="${drag.kind}-"]`);
+    if (!row) return;
+    const targetId = row.dataset.proxyRow.slice(drag.kind.length + 1);
+    if (targetId === drag.lastTargetId) return;
+    drag.lastTargetId = targetId;
+    const list = this._proxyList(drag.kind);
+    const ordered = [...list].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
+    const fromIdx = ordered.findIndex((p) => p.id === drag.id);
+    const toIdx = ordered.findIndex((p) => p.id === targetId);
+    if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+    const [moved] = ordered.splice(fromIdx, 1);
+    ordered.splice(toIdx, 0, moved);
+    ordered.forEach((p, i) => { p.priority = i; });
+    this.render();
+    const row2 = this.main?.querySelector(`[data-proxy-row="${drag.kind}-${drag.id}"]`);
+    if (row2) row2.style.opacity = "0.5";
+  },
+
+  _onProxyPointerUp(ev, move, up) {
+    document.removeEventListener("pointermove", move);
+    document.removeEventListener("pointercancel", up);
+    const drag = this._proxyDrag;
+    this._proxyDrag = null;
+    if (!drag) return;
+    const row = this.main?.querySelector(`[data-proxy-row="${drag.kind}-${drag.id}"]`);
+    if (row) row.style.opacity = "";
+    this.onProxyCardsChanged(true);
+  },
+
+  promoteProxyToDefault(kind, id) {
+    this.syncProxiesFromDom(kind);
+    const list = this._proxyList(kind);
+    const ordered = [...list].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
+    const idx = ordered.findIndex((p) => p.id === id);
+    if (idx <= 0) return;
+    const [moved] = ordered.splice(idx, 1);
+    ordered.unshift(moved);
+    ordered.forEach((p, i) => { p.priority = i; });
+    this.render();
+    this.onProxyCardsChanged(true);
   },
 
   syncProxiesFromDom(kind) {
@@ -285,8 +362,21 @@ const ProxyCardsMixin = {
       const raw = this.main.querySelector(`[data-proxy-row="${kind}-${id}"] [data-proxy-svg]`)?.value || "";
       row.icon_value = _sanitizeIconSvg(raw);
     }
+    if (kind === "chat") this._cascadeProxyPriorities(kind, id);
     this.render();
     this.onProxyCardsChanged(true);
+  },
+
+  _cascadeProxyPriorities(kind, preferredId) {
+    const list = this._proxyList(kind);
+    const ordered = [...list].sort((a, b) => {
+      const pa = a.priority ?? 0, pb = b.priority ?? 0;
+      if (pa !== pb) return pa - pb;
+      if (a.id === preferredId) return -1;
+      if (b.id === preferredId) return 1;
+      return 0;
+    });
+    ordered.forEach((p, i) => { p.priority = i; });
   },
 
   setProxyIconImage(kind, id, fileInput) {

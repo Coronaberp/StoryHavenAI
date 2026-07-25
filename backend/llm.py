@@ -239,8 +239,31 @@ async def chat_stream(messages, model, params=None, parse_think=False,
         req = client.build_request("POST", url, headers=headers, json=payload, extensions=extensions)
         resp = await client.send(req, stream=True)
         try:
+            first_error_detail = None
+            if resp.status_code == 400:
+                raw_detail = (await resp.aread()).decode()
+                first_error_detail = raw_detail
+                error_text = raw_detail
+                try:
+                    parsed_err = json.loads(raw_detail)
+                    err_obj = parsed_err[0] if isinstance(parsed_err, list) and parsed_err else parsed_err
+                    if isinstance(err_obj, dict):
+                        error_text = err_obj.get("error", {}).get("message") or raw_detail
+                except (ValueError, TypeError, AttributeError, IndexError, KeyError):
+                    pass
+                unknown_fields = set(re.findall(r'[Uu]nknown (?:name|field) "([a-zA-Z_]+)"', error_text))
+                unknown_fields &= payload.keys()
+                if unknown_fields:
+                    for f in unknown_fields:
+                        payload.pop(f, None)
+                    log.warning("chat_stream: endpoint %s rejected fields %s as unknown, retrying without them",
+                                url, sorted(unknown_fields))
+                    await resp.aclose()
+                    req = client.build_request("POST", url, headers=headers, json=payload, extensions=extensions)
+                    resp = await client.send(req, stream=True)
+                    first_error_detail = None
             if resp.status_code != 200:
-                detail = (await resp.aread()).decode()[:200]
+                detail = first_error_detail[:200] if first_error_detail is not None else (await resp.aread()).decode()[:200]
                 raise RuntimeError(f"chat endpoint {resp.status_code}: {detail}")
             async for line in resp.aiter_lines():
                 line = line.strip()
@@ -297,7 +320,7 @@ def _looks_like_refusal(text: str) -> bool:
     sample = (text or "").strip()[:600]
     return any(p.search(sample) for p in _REFUSAL_PATTERNS)
 
-async def chat_stream_with_fallback(messages, profiles, params=None, parse_think=False, pin_host=False):
+async def chat_stream_with_fallback(messages, profiles, params=None, parse_think=False, pin_host=False, result=None):
     if not profiles:
         raise RuntimeError("no chat endpoint profiles configured")
     last_error = None
@@ -320,6 +343,8 @@ async def chat_stream_with_fallback(messages, profiles, params=None, parse_think
             log.warning("chat fallback: profile=%s (%s) looked like a refusal, trying next",
                         profile.get("name") or profile["base_url"], idx)
             continue
+        if result is not None:
+            result["profile"] = profile
         for ev in events:
             yield ev
         return

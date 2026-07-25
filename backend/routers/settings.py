@@ -72,7 +72,7 @@ async def put_my_settings(body: UserSettingsIn,
             {**p, "api_key": p.get("api_key") or existing_by_id.get(p.get("id"), "")}
             for p in data["own_chat_proxies"]
         ]
-        active = next((p for p in data["own_chat_proxies"] if p.get("active")), None)
+        active = min(data["own_chat_proxies"], key=lambda p: p.get("priority", 0)) if data["own_chat_proxies"] else None
         if active:
             ok, reason, detail = await _validate_chat_endpoint(active["base_url"], active["api_key"],
                                                                 current_user.get("is_admin", False))
@@ -207,9 +207,9 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
             {"host": h["host"], "api_key": h.get("api_key") or existing_by_host.get(h["host"], "")}
             for h in data["model_request_hosts"]
         ]
-    for proxy_key, base_field, key_field, model_field in (
-        ("chat_proxies", "base_url", "api_key", "chat_model"),
-        ("embed_proxies", "embed_base_url", "embed_api_key", "embed_model"),
+    for proxy_key, base_field, key_field, model_field, by_priority in (
+        ("chat_proxies", "base_url", "api_key", "chat_model", True),
+        ("embed_proxies", "embed_base_url", "embed_api_key", "embed_model", False),
     ):
         if proxy_key not in data:
             continue
@@ -218,7 +218,10 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
             {**p, "api_key": p.get("api_key") or existing_by_id.get(p.get("id"), "")}
             for p in data[proxy_key]
         ]
-        active = next((p for p in data[proxy_key] if p.get("active")), None)
+        if by_priority:
+            active = min(data[proxy_key], key=lambda p: p.get("priority", 0)) if data[proxy_key] else None
+        else:
+            active = next((p for p in data[proxy_key] if p.get("active")), None)
         if active:
             data[base_field] = active["base_url"]
             data[key_field] = active["api_key"]

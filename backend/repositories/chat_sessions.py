@@ -129,6 +129,10 @@ async def set_explicit_mode(sid: str, enabled: bool):
     await _w(sa_update(sessions).where(sessions.c.id == sid).values(explicit_mode=1 if enabled else 0))
     log.info("chat_sessions: explicit_mode set id=%s enabled=%s", sid, enabled)
 
+async def set_chat_proxy_override(sid: str, proxy_id: str | None):
+    await _w(sa_update(sessions).where(sessions.c.id == sid).values(chat_proxy_override_id=proxy_id))
+    log.info("chat_sessions: chat_proxy_override set id=%s proxy_id=%s", sid, proxy_id)
+
 async def set_language(sid: str, language: str | None):
     await _w(sa_update(sessions).where(sessions.c.id == sid).values(language=language))
     log.info("chat_sessions: language set id=%s language=%s", sid, language)
@@ -172,20 +176,24 @@ async def delete(sid: str):
 async def add_message(sid: str, role: str, content: str, lang: str | None = None,
                       mood: str | None = None, user_name: str | None = None,
                       persona_avatar: str | None = None, char_id: str | None = None,
-                      turn_group: str | None = None, sender_user_id: str | None = None) -> dict:
+                      turn_group: str | None = None, sender_user_id: str | None = None,
+                      generated_by: dict | None = None) -> dict:
     mid = nid("m")
     ts = int(time.time())
+    generated_by_json = json.dumps(generated_by) if generated_by else None
     async with engine().begin() as conn:
         await conn.execute(insert(messages).values(
             id=mid, session_id=sid, role=role,
             content=_encrypt_secret(content or ""), ts=ts, lang=lang, mood=mood,
             user_name=user_name, persona_avatar=persona_avatar,
-            char_id=char_id, turn_group=turn_group, sender_user_id=sender_user_id))
+            char_id=char_id, turn_group=turn_group, sender_user_id=sender_user_id,
+            generated_by=generated_by_json))
         await conn.execute(sa_update(sessions).where(sessions.c.id == sid)
                            .values(updated=time.time()))
     return {"id": mid, "role": role, "content": content, "ts": ts, "lang": lang, "mood": mood,
             "user_name": user_name, "persona_avatar": persona_avatar,
-            "char_id": char_id, "turn_group": turn_group, "sender_user_id": sender_user_id}
+            "char_id": char_id, "turn_group": turn_group, "sender_user_id": sender_user_id,
+            "generated_by": generated_by}
 
 async def branch(sid: str, mid: str, user_id: str | None) -> str | None:
     src = await get(sid)
@@ -232,7 +240,8 @@ async def list_messages(sid: str) -> list[dict]:
     stmt = (select(messages.c.id, messages.c.role, messages.c.content,
                    messages.c.ts, messages.c.image, messages.c.lang, messages.c.mood,
                    messages.c.user_name, messages.c.persona_avatar, messages.c.swipes,
-                   messages.c.char_id, messages.c.turn_group, messages.c.sender_user_id)
+                   messages.c.char_id, messages.c.turn_group, messages.c.sender_user_id,
+                   messages.c.generated_by)
             .where(messages.c.session_id == sid).order_by(messages.c.seq.asc()))
     rows = await _q(stmt)
     for r in rows:
@@ -241,6 +250,10 @@ async def list_messages(sid: str) -> list[dict]:
         r["swipe_count"] = len(swipes) if swipes else 1
         r["swipe_index"] = swipes.index(r["content"]) if r["content"] in swipes else 0
         del r["swipes"]
+        try:
+            r["generated_by"] = json.loads(r["generated_by"]) if r.get("generated_by") else None
+        except ValueError:
+            r["generated_by"] = None
     return rows
 
 async def set_message_image(sid: str, mid: str, url: str, positive: str = None,
@@ -257,10 +270,12 @@ async def set_message_image_explicit(sid: str, mid: str):
         messages.c.session_id == sid, messages.c.id == mid)).values(image_is_explicit=1))
     log.info("chat_sessions: message image marked explicit session=%s message=%s", sid, mid)
 
-async def edit_message(sid: str, mid: str, content: str):
+async def edit_message(sid: str, mid: str, content: str, generated_by: dict | None = None):
+    values = {"content": _encrypt_secret(content or "")}
+    if generated_by is not None:
+        values["generated_by"] = json.dumps(generated_by)
     await _w(sa_update(messages).where(and_(
-        messages.c.session_id == sid, messages.c.id == mid)).values(
-        content=_encrypt_secret(content or "")))
+        messages.c.session_id == sid, messages.c.id == mid)).values(**values))
     log.info("chat_sessions: message edited session=%s message=%s", sid, mid)
 
 async def delete_message(sid: str, mid: str):
@@ -268,16 +283,18 @@ async def delete_message(sid: str, mid: str):
         messages.c.session_id == sid, messages.c.id == mid)))
     log.info("chat_sessions: message deleted session=%s message=%s", sid, mid)
 
-async def add_swipe(sid: str, mid: str, new_content: str) -> dict:
+async def add_swipe(sid: str, mid: str, new_content: str, generated_by: dict | None = None) -> dict:
     row = await _q1(select(messages.c.content, messages.c.swipes).where(and_(
         messages.c.session_id == sid, messages.c.id == mid)))
     if not row:
         raise ValueError(f"message {mid} not found in session {sid}")
     swipes = _decrypt_json_list(row.get("swipes")) or [_decrypt_secret(row.get("content") or "")]
     swipes.append(new_content)
+    values = {"content": _encrypt_secret(new_content), "swipes": _encrypt_json_list(swipes)}
+    if generated_by is not None:
+        values["generated_by"] = json.dumps(generated_by)
     await _w(sa_update(messages).where(and_(
-        messages.c.session_id == sid, messages.c.id == mid)).values(
-        content=_encrypt_secret(new_content), swipes=_encrypt_json_list(swipes)))
+        messages.c.session_id == sid, messages.c.id == mid)).values(**values))
     log.info("chat_sessions: swipe added session=%s message=%s count=%d", sid, mid, len(swipes))
     return {"index": len(swipes) - 1, "count": len(swipes)}
 

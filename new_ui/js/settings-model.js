@@ -93,10 +93,12 @@ class ModelSettingsView {
 
     const chatIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`;
     const serverIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="6" rx="1.5"/><rect x="2" y="14" width="20" height="6" rx="1.5"/><circle cx="6" cy="7" r="0.6" fill="currentColor" stroke="none"/><circle cx="6" cy="17" r="0.6" fill="currentColor" stroke="none"/></svg>`;
-    const globalChatActive = (this.settings.global_chat_proxies || []).find((p) => p.active);
+    const lowestPriority = (list) => (list || []).reduce((best, p) =>
+      !best || (p.priority ?? 0) < (best.priority ?? 0) ? p : best, null);
+    const globalChatActive = lowestPriority(this.settings.global_chat_proxies);
     const globalEmbedActive = (this.settings.global_embed_proxies || []).find((p) => p.active);
     const ownChatProxies = this.proxyCardsState.chat;
-    const ownChatActive = ownChatProxies.find((p) => p.active);
+    const ownChatActive = lowestPriority(ownChatProxies);
 
     const serverEndpointsCard = dossierCardHtml({
       globalName: "modelView", cardKey: "server_endpoints", isCollapsed: !!this.collapsed["card:server_endpoints"],
@@ -106,10 +108,10 @@ class ModelSettingsView {
       statusTone: globalChatActive ? "" : "warn",
       innerHtml: `
         <div class="font-mono text-[9.5px] uppercase tracking-[.06em] text-muted mb-1.5">${t("model_settings_chat", "Chat")}</div>
-        <div class="mb-3">${readOnlyProxyListHtml(this.settings.global_chat_proxies, t("model_settings_no_global_chat_proxies", "No chat endpoint configured yet."))}</div>
+        <div class="mb-3">${readOnlyProxyListHtml(this.settings.global_chat_proxies, t("model_settings_no_global_chat_proxies", "No chat endpoint configured yet."), true)}</div>
         <div class="font-mono text-[9.5px] uppercase tracking-[.06em] text-muted mb-1.5">${t("model_settings_embed", "Embedding")}</div>
         <div class="mb-2">${readOnlyProxyListHtml(this.settings.global_embed_proxies, t("model_settings_no_global_embed_proxies", "No embedding endpoint configured yet."))}</div>
-        <p class="text-xs text-muted mb-2">${t("model_settings_priority_hint", "The \"P\" number is priority. If the active endpoint stops responding, the server automatically tries the next one in priority order, lowest number first.")}</p>
+        <p class="text-xs text-muted mb-2">${t("model_settings_priority_hint", "The one marked Default is tried first. If it stops responding, the server automatically tries the next one in priority order, lowest number first.")}</p>
         <p class="text-xs text-muted">${t("model_settings_embed_why_locked", "Everyone's messages share one search index, so the embedding endpoint has to stay the same for all users. Only an admin can change it.")}</p>
       `,
     });
@@ -117,7 +119,7 @@ class ModelSettingsView {
     const myChatCard = dossierCardHtml({
       globalName: "modelView", cardKey: "my_chat_endpoint", isCollapsed: !!this.collapsed["card:my_chat_endpoint"],
       icon: chatIcon, logoOrigin: "", title: t("model_settings_my_endpoints", "My chat endpoint"),
-      subtitle: t("model_settings_my_endpoints_hint", "Save your own backend profiles and switch which one is active. When one is active, it replaces the server endpoint above for your chats."),
+      subtitle: t("model_settings_my_endpoints_hint", "Save your own backend profile(s) with a priority number each. Every reply starts at priority 0 - if it fails, the server automatically retries the next-lowest number for you, so a backup endpoint can quietly take over if your main one goes down."),
       status: ownChatActive
         ? `${ownChatProxies.length} ${t("proxy_cards_profiles", "profiles")} · ${_esc(ownChatActive.name || t("proxy_cards_untitled", "Untitled profile"))}`
         : t("model_settings_using_server_default", "using server default"),
@@ -128,10 +130,26 @@ class ModelSettingsView {
       `,
     });
 
+    const usingOwnApi = !!ownChatActive;
+    const currentEndpointName = usingOwnApi
+      ? (ownChatActive.name || t("proxy_cards_untitled", "Untitled profile"))
+      : (globalChatActive?.name || t("proxy_cards_untitled", "Untitled profile"));
+    const currentApiIconSource = usingOwnApi ? ownChatActive : globalChatActive;
+    const currentApiBannerHtml = `
+      <div class="rounded-xl border p-3 mb-4 flex items-center gap-2.5" style="border-color:${usingOwnApi ? "var(--color-accent)" : "var(--color-line-2)"};background:${usingOwnApi ? "color-mix(in srgb, var(--color-accent) 10%, var(--color-paper))" : "var(--color-paper)"}">
+        ${proxyIconHtml(currentApiIconSource || { icon_type: "favicon", base_url: "" }, 28)}
+        <div class="min-w-0 flex-1">
+          <div class="font-mono text-[9.5px] uppercase tracking-[.06em]" style="color:${usingOwnApi ? "var(--color-accent)" : "var(--color-muted)"}">${usingOwnApi ? t("model_settings_currently_using_own_api", "Currently using your own API") : t("model_settings_currently_using_server_api", "Currently using the server's API")}</div>
+          <div class="text-sm text-ink font-medium truncate">${_esc(currentEndpointName)}</div>
+        </div>
+      </div>
+    `;
+
     this.main.innerHTML = `
       <div class="content-col">
       ${backLinkHtml(t("settings_row_settings"))}
       ${pageHeaderHtml("My Dossier", "Settings", t("ph_model_memory_title"), t("ph_model_memory_sub"))}
+      ${currentApiBannerHtml}
 
       ${sEyebrowHtml(t("model_settings_models_section", "Models"))}
       ${serverEndpointsCard}
