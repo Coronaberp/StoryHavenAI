@@ -71,6 +71,7 @@ class ModelSettingsView {
 
       ${sEyebrowHtml(t("model_settings_global_endpoints", "Server endpoints"))}
       <p class="text-xs text-muted mb-2">${t("model_settings_global_endpoints_hint", "Set by an admin. Shown for reference — you can't select these directly, add your own profile below to use a different endpoint.")}</p>
+      <p class="text-xs text-muted mb-2">${t("model_settings_priority_hint", "The \"P\" number is priority. If the active endpoint stops responding, the server automatically tries the next one in priority order, lowest number first.")}</p>
       <div class="font-mono text-[9.5px] uppercase tracking-[.06em] text-muted mb-1.5">${t("model_settings_chat", "Chat")}</div>
       <div class="mb-3">${readOnlyProxyListHtml(this.settings.global_chat_proxies, t("model_settings_no_global_chat_proxies", "No chat endpoint configured yet."))}</div>
       <div class="font-mono text-[9.5px] uppercase tracking-[.06em] text-muted mb-1.5">${t("model_settings_embed", "Embedding")}</div>

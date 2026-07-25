@@ -53,6 +53,7 @@ function readOnlyProxyCardHtml(p) {
         <span class="block font-medium text-sm text-ink truncate">${_esc(label)}</span>
         <span class="block text-xs text-muted truncate">${_esc(p.model || "")}</span>
       </span>
+      <span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none text-muted" style="border:1px solid var(--color-line)" title="${_attr(t("proxy_cards_priority_hint", "Lower numbers are tried first if a higher-priority endpoint fails."))}">${t("proxy_cards_priority_short", "P")}${p.priority ?? 0}</span>
       ${p.active ? `<span class="font-mono text-[9px] uppercase tracking-[.06em] px-1.5 py-0.5 rounded flex-none" style="color:var(--color-accent);border:1px solid var(--color-accent)">${t("proxy_cards_active", "Active")}</span>` : ""}
     </div>
   `;

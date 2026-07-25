@@ -133,7 +133,7 @@ def _scrub_proxies(proxies: list) -> list[dict]:
     return [{"id": p.get("id"), "name": p.get("name"), "base_url": p.get("base_url"),
               "model": p.get("model"), "active": bool(p.get("active")),
               "icon_type": p.get("icon_type") or "favicon", "icon_value": p.get("icon_value") or "",
-              "has_api_key": bool(p.get("api_key"))} for p in proxies]
+              "has_api_key": bool(p.get("api_key")), "priority": p.get("priority", 0)} for p in proxies]
 
 async def _migrate_legacy_proxy(proxy_key: str, base_field: str, key_field: str, model_field: str):
     if CFG.get(proxy_key):
@@ -168,7 +168,10 @@ async def get_settings(current_user: dict = Depends(get_current_user)):
     out["has_embed_api_key"] = bool(CFG.get("embed_api_key"))
     out["has_modal_shared_secret"] = bool(CFG.get("modal_shared_secret"))
     out["has_giphy_api_key"] = bool(CFG.get("giphy_api_key"))
+    out["has_tenor_api_key"] = bool(CFG.get("tenor_api_key"))
+    out["has_klipy_api_key"] = bool(CFG.get("klipy_api_key"))
     out["has_image_provider_key"] = bool(CFG.get("image_provider_key"))
+    out["has_video_provider_key"] = bool(CFG.get("video_provider_key"))
     out["has_tts_api_key"] = bool(CFG.get("tts_api_key"))
     return out
 
@@ -177,11 +180,17 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
     data = body.model_dump(exclude_none=True)
     if "image_provider" in data and data["image_provider"] not in ("comfyui", "openai", "stability", "novelai", "a1111"):
         raise HTTPException(400, "image_provider must be one of comfyui, openai, stability, novelai, a1111")
+    if "video_provider" in data and data["video_provider"] not in ("comfyui", "gemini_veo", "qwen_wan", "openrouter"):
+        raise HTTPException(400, "video_provider must be one of comfyui, gemini_veo, qwen_wan, openrouter")
+    if "gif_provider" in data and data["gif_provider"] not in ("giphy", "tenor", "klipy"):
+        raise HTTPException(400, "gif_provider must be one of giphy, tenor, klipy")
     changed_dim = "embed_dim" in data and data["embed_dim"] != CFG["embed_dim"]
     persist = {}
     _str_keys = {"chat_model", "embed_model", "base_url", "api_key", "embed_api_key", "embed_base_url",
-                "modal_train_url", "modal_shared_secret", "modal_checkpoint_url", "giphy_api_key",
+                "modal_train_url", "modal_shared_secret", "modal_checkpoint_url",
+                "gif_provider", "giphy_api_key", "tenor_api_key", "klipy_api_key", "klipy_customer_id",
                 "image_provider", "image_provider_url", "image_provider_key", "image_provider_model",
+                "video_provider", "video_provider_url", "video_provider_key", "video_provider_model",
                 "tts_base_url", "tts_api_key", "tts_narrator_voice"}
     if "model_request_hosts" in data:
         existing_by_host = {e.get("host"): e.get("api_key", "")
@@ -231,6 +240,8 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
     out["has_embed_api_key"] = bool(CFG.get("embed_api_key"))
     out["has_modal_shared_secret"] = bool(CFG.get("modal_shared_secret"))
     out["has_giphy_api_key"] = bool(CFG.get("giphy_api_key"))
+    out["has_tenor_api_key"] = bool(CFG.get("tenor_api_key"))
+    out["has_klipy_api_key"] = bool(CFG.get("klipy_api_key"))
     out["has_image_provider_key"] = bool(CFG.get("image_provider_key"))
     out["has_tts_api_key"] = bool(CFG.get("tts_api_key"))
     out["reindexed"] = changed_dim
