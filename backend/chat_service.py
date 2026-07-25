@@ -94,6 +94,25 @@ def _chat_fallback_profiles(eff_chat_base: str | None, eff_api_key: str | None, 
         return [{"name": "default", "base_url": CFG["base_url"], "api_key": CFG["api_key"], "model": chat_model}]
     return sorted(proxies, key=lambda p: p.get("priority", 0))
 
+def _character_byoe_allowed(char: dict, current_user: dict | None) -> bool:
+    if not current_user:
+        return False
+    if char.get("owner_id") == current_user["id"]:
+        return True
+    return bool(char.get("allow_byoe"))
+
+async def _resolve_fallback_profiles(char: dict, s: dict, current_user: dict | None, user_overrides: dict,
+                                     chat_model: str, eff_chat_base: str | None,
+                                     eff_api_key: str | None) -> list[dict]:
+    session_override = await _session_chat_proxy_override(s, current_user, user_overrides, chat_model)
+    if _character_byoe_allowed(char, current_user):
+        return session_override or _chat_fallback_profiles(eff_chat_base, eff_api_key, chat_model)
+    if session_override or eff_chat_base:
+        log.info("chat: blocked bring-your-own-endpoint for a non-owned character (allow_byoe unset): "
+                 "session=%s char=%s user=%s", s["id"], char["id"],
+                 current_user["id"] if current_user else None)
+    return _chat_fallback_profiles(None, None, chat_model)
+
 def _ui_language(user_overrides: dict) -> str:
     return (user_overrides.get("interface_language") or "").strip() \
         or (CFG.get("default_language") or "").strip() or "English"
@@ -832,8 +851,8 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
         ans, thought = [], []
         gen_result = {}
         try:
-            fallback_profiles = await _session_chat_proxy_override(s, current_user, user_overrides, chat_model) \
-                or _chat_fallback_profiles(eff_chat_base, eff_api_key, chat_model)
+            fallback_profiles = await _resolve_fallback_profiles(
+                char, s, current_user, user_overrides, chat_model, eff_chat_base, eff_api_key)
             async for channel, text in llm.chat_stream_with_fallback(
                     oai_messages, fallback_profiles, params, parse_think=do_think, pin_host=True,
                     result=gen_result):

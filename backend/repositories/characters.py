@@ -31,6 +31,7 @@ def _char_row(row) -> dict:
     d["is_public"] = bool(d.get("is_public"))
     d["can_be_persona"] = bool(d.get("can_be_persona"))
     d["allow_download"] = bool(d.get("allow_download"))
+    d["allow_byoe"] = bool(d.get("allow_byoe"))
     d["is_explicit"] = bool(d.get("is_explicit"))
     d["is_draft"] = bool(d.get("is_draft"))
     return d
@@ -60,6 +61,7 @@ async def create(data: dict) -> dict:
         presentation_html=data.get("presentation_html") or "",
         can_be_persona=int(bool(data.get("can_be_persona", False))),
         allow_download=int(bool(data.get("allow_download", False))),
+        allow_byoe=int(bool(data.get("allow_byoe", False))),
         description=_encrypt_secret(data.get("description") or ""),
         is_explicit=int(bool(data.get("is_explicit", False))),
         is_draft=int(bool(data.get("is_draft", False))),
@@ -205,6 +207,7 @@ async def update(cid: str, data: dict) -> dict | None:
         presentation_html=data.get("presentation_html", c.get("presentation_html", "")),
         can_be_persona=int(bool(data.get("can_be_persona", c.get("can_be_persona", False)))),
         allow_download=int(bool(data.get("allow_download", c.get("allow_download", False)))),
+        allow_byoe=int(bool(data.get("allow_byoe", c.get("allow_byoe", False)))),
         description=_encrypt_secret(data.get("description", c.get("description", "")) or ""),
         is_explicit=int(bool(data.get("is_explicit", c.get("is_explicit", False)))),
         is_draft=int(bool(data.get("is_draft", c.get("is_draft", False)))),

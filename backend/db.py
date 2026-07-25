@@ -162,6 +162,7 @@ characters = sa.Table(
     sa.Column("presentation_html", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("can_be_persona", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("allow_download", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("allow_byoe", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("description", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("is_explicit", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("is_draft", sa.Integer, nullable=False, server_default=text("0")),
@@ -813,6 +814,9 @@ async def init():
             "ALTER TABLE personas ADD COLUMN IF NOT EXISTS session_id TEXT"))
         await conn.execute(text(
             "ALTER TABLE personas ADD COLUMN IF NOT EXISTS linked_char_id TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE characters ADD COLUMN IF NOT EXISTS allow_byoe "
+            "INTEGER NOT NULL DEFAULT 0"))
         await conn.execute(text(
             "ALTER TABLE party_chat_messages ADD COLUMN IF NOT EXISTS image TEXT"))
         await conn.execute(text(

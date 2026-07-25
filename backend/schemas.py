@@ -33,6 +33,7 @@ class CharacterIn(BaseModel):
     presentation_html: str = ""
     can_be_persona: bool = False
     allow_download: bool = False
+    allow_byoe: bool = False
     is_explicit: bool = False
     is_draft: bool = False
     appearance_tags: str = ""
