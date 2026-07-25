@@ -297,19 +297,78 @@ function splitThink(content) {
   return { think, body };
 }
 
-function exportChat(c, s) {
+function _exportChatFileBase(c, s) {
+  return `${c.name.replace(/[^a-z0-9]+/gi, "-")}-${s.id.slice(0, 8)}`;
+}
+
+function _downloadBlob(content, type, filename) {
+  const blob = new Blob([content], { type });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function exportChatAsMarkdown(c, s) {
   const lines = [`# ${c.name}`, `Session: ${s.title || s.id}`, `Exported: ${new Date().toLocaleString()}`, "", ...s.messages.map((m) => {
     const { body: rawBody } = splitThink(m.content || "");
     const body = m.role === "user" ? formatDirective(rawBody) : rawBody;
     const who = m.role === "assistant" ? c.name : (m.user_name || s.user_name || "You");
     return `**${who}**\n${body}\n`;
   })];
-  const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${c.name.replace(/[^a-z0-9]+/gi, "-")}-${s.id.slice(0, 8)}.md`;
-  a.click();
-  URL.revokeObjectURL(a.href);
+  _downloadBlob(lines.join("\n"), "text/markdown", `${_exportChatFileBase(c, s)}.md`);
+}
+
+function exportChatAsHtml(c, s) {
+  const rows = s.messages.map((m) => {
+    const { body: rawBody } = splitThink(m.content || "");
+    const body = m.role === "user" ? formatDirective(rawBody) : rawBody;
+    const who = m.role === "assistant" ? c.name : (m.user_name || s.user_name || "You");
+    return `<section class="chat-export-msg chat-export-${_esc(m.role)}">
+      <h2>${_esc(who)}</h2>
+      <div class="chat-export-body">${chatMd(body)}</div>
+    </section>`;
+  }).join("\n");
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${_esc(c.name)}</title>
+<style>
+body { font-family: Georgia, "Times New Roman", serif; max-width: 720px; margin: 40px auto; padding: 0 20px; color: #222; background: #fdfcf9; line-height: 1.6; }
+h1 { font-size: 24px; margin-bottom: 2px; }
+.chat-export-meta { color: #777; font-size: 13px; margin-bottom: 32px; }
+.chat-export-msg { margin-bottom: 22px; }
+.chat-export-msg h2 { font-size: 14px; letter-spacing: .02em; margin: 0 0 4px; color: #555; }
+.chat-export-user h2 { color: #2a5db0; }
+.chat-export-assistant h2 { color: #a0522d; }
+.chat-export-body p { margin: 0 0 10px; }
+.chat-export-body em { color: #666; }
+</style>
+</head>
+<body>
+<h1>${_esc(c.name)}</h1>
+<p class="chat-export-meta">Session: ${_esc(s.title || s.id)} &middot; Exported: ${_esc(new Date().toLocaleString())}</p>
+${rows}
+</body>
+</html>`;
+  _downloadBlob(html, "text/html", `${_exportChatFileBase(c, s)}.html`);
+}
+
+function openExportChatModal(c, s) {
+  const layer = openModal(`
+    <div style="padding:4px 2px 2px">
+      <h3 class="font-display" style="font-size:16px;font-weight:600;color:var(--color-ink);margin:0 0 6px">${t("chat_export_chat")}</h3>
+      <p style="font-size:13px;color:var(--color-sec);margin:0 0 18px">${t("chat_export_format_prompt", "Choose a format for this chat's export.")}</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button type="button" class="pe-gen-btn" id="chatExportMarkdown" style="border-color:var(--color-line-2);color:var(--color-ink);justify-content:flex-start">${t("chat_export_format_markdown", "Markdown (.md)")}</button>
+        <button type="button" class="pe-gen-btn" id="chatExportHtml" style="border-color:var(--color-accent);color:var(--color-accent);justify-content:flex-start">${t("chat_export_format_html", "Rich HTML (.html)")}</button>
+      </div>
+    </div>
+  `);
+  layer.querySelector("#chatExportMarkdown").onclick = () => { exportChatAsMarkdown(c, s); closeModal(layer); };
+  layer.querySelector("#chatExportHtml").onclick = () => { exportChatAsHtml(c, s); closeModal(layer); };
 }
 
 const CHAT_STYLES = [
@@ -2027,7 +2086,7 @@ class ChatView {
         else if (which === "voice") this.openVoiceModal();
         else if (which === "language") this.openLanguageModal();
         else if (which === "hideooc") this.toggleHideOoc();
-        else if (which === "export") exportChat(this.char, this.session);
+        else if (which === "export") openExportChatModal(this.char, this.session);
         else if (which === "mute") this.toggleMute();
         else if (which === "publishgroup") this.publishGroup();
         else if (which === "newchat") this.startNewChat();
