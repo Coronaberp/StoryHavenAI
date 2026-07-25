@@ -52,17 +52,21 @@ class AdminTrainView {
   }
 
   async loadCheckpoints() {
-    const [checkpoints, animaUnets, previews, samplerData] = await Promise.all([
+    const [checkpoints, animaUnets, previews, samplerData, samplerPreviews, schedulerPreviews] = await Promise.all([
       api("/api/imagegen/checkpoints").catch(() => []),
       api("/api/imagegen/anima-unets").catch(() => []),
       api("/api/imagegen/checkpoint-previews").catch(() => ({})),
       api("/api/imagegen/samplers").catch(() => ({ samplers: [], schedulers: [] })),
+      api("/api/imagegen/sampler-previews").catch(() => ({})),
+      api("/api/imagegen/scheduler-previews").catch(() => ({})),
     ]);
     this.checkpoints = [...checkpoints, ...animaUnets];
     this.animaNames = new Set(animaUnets);
     this.checkpointPreviews = previews;
     this.samplers = samplerData.samplers || [];
     this.schedulers = samplerData.schedulers || [];
+    this.samplerPreviews = samplerPreviews;
+    this.schedulerPreviews = schedulerPreviews;
     this.testSampler = this.samplers.includes("dpmpp_2m_sde_gpu") ? "dpmpp_2m_sde_gpu" : (this.samplers.includes("euler") ? "euler" : (this.samplers[0] || ""));
     this.testScheduler = this.schedulers.includes("karras") ? "karras" : (this.schedulers.includes("normal") ? "normal" : (this.schedulers[0] || ""));
     this.render();
