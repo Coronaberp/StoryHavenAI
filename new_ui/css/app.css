@@ -4157,6 +4157,16 @@
       position: static;
     }
   }
+  .lg\:sticky {
+    @media (width >= 64rem) {
+      position: sticky;
+    }
+  }
+  .lg\:top-0 {
+    @media (width >= 64rem) {
+      top: calc(var(--spacing) * 0);
+    }
+  }
   .lg\:-mr-1 {
     @media (width >= 64rem) {
       margin-right: calc(var(--spacing) * -1);
@@ -4175,6 +4185,11 @@
   .lg\:hidden {
     @media (width >= 64rem) {
       display: none;
+    }
+  }
+  .lg\:h-screen {
+    @media (width >= 64rem) {
+      height: 100vh;
     }
   }
   .lg\:w-\[calc\(100vw-32px\)\] {
