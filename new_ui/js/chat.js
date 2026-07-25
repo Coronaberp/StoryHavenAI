@@ -761,6 +761,10 @@ class ChatView {
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     ${t("chat_multiplayer_party_chat_menu", "Party chat")}
                   </button>
+                  <button type="button" class="dropdown-item" data-menu="leave" style="display:flex;align-items:center;gap:9px;color:var(--color-warn)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    ${t("chat_multiplayer_leave_menu", "Leave this session")}
+                  </button>
                 ` : ""}
                 ${this.session.is_group ? `
                   <button type="button" class="dropdown-item" data-menu="publishgroup" data-feature="groups" style="display:flex;align-items:center;gap:9px">
@@ -1944,6 +1948,7 @@ class ChatView {
         else if (which === "delete") this.deleteChat();
         else if (which === "invite") this.openInviteModal();
         else if (which === "partychat") this.openPartyChatModal();
+        else if (which === "leave") this.leaveSession();
       });
     });
   }
@@ -2019,6 +2024,19 @@ class ChatView {
     } catch (err) {
       errorToast(err.message || t("group_publish_failed", "Couldn't publish that group."));
     }
+  }
+
+  async _postLeaveMultiplayer() {
+    try {
+      await api(`/api/sessions/${encodeURIComponent(this.sid)}/multiplayer/leave`, { method: "POST" });
+    } catch {}
+  }
+
+  async leaveSession() {
+    if (!(await confirmDialog(t("chat_multiplayer_leave_confirm", "Leave this session? You can rejoin later with the same invite link.")))) return;
+    await this._postLeaveMultiplayer();
+    toast(t("chat_multiplayer_left_session", "You left the session."));
+    navigate("/chats");
   }
 
   async deleteChat() {
