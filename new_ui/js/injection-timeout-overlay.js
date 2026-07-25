@@ -15,10 +15,19 @@ const INJECTION_RANT_PARAGRAPHS = [
 
 let _injectionOverlayActive = false;
 
+function _playRantSpeech() {
+  try {
+    const audio = new Audio("/audio/injection-rant.wav");
+    audio.volume = 0.9;
+    audio.play().catch(() => {});
+  } catch (e) {}
+}
+
 function showInjectionTimeoutOverlay(seconds) {
   if (_injectionOverlayActive) return;
   _injectionOverlayActive = true;
   const duration = Math.max(1, seconds || 10);
+  _playRantSpeech();
 
   const overlay = document.createElement("div");
   overlay.id = "injectionTimeoutOverlay";
