@@ -136,7 +136,7 @@ const ProxyCardsMixin = {
             <div class="rounded-md border border-line bg-surface-2 flex items-center justify-center flex-none" style="height:40px;max-width:120px;padding:2px 6px" id="proxySvgPreview-${kind}-${i}">
               <img src="${_attr(p.icon_value ? _svgIconDataUri(_sanitizeIconSvg(p.icon_value)) : "")}" style="height:100%;max-width:100%;object-fit:contain;${p.icon_value ? "" : "display:none"}" alt="">
             </div>
-            <textarea data-proxy-svg rows="3" oninput="${global}.previewProxyIconSvg('${kind}', ${i}, this.value)" placeholder="${_attr(t("proxy_cards_svg_placeholder", "<svg viewBox=\"0 0 24 24\">...</svg>"))}" class="flex-1 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-xs font-mono" style="min-height:70px">${_esc(p.icon_value || "")}</textarea>
+            <textarea data-proxy-svg rows="3" oninput="${global}.previewProxyIconSvg('${kind}', ${i}, this.value)" placeholder="${_attr('<svg viewBox="0 0 24 24">...</svg>')}" class="flex-1 px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-xs font-mono" style="min-height:70px">${_esc(p.icon_value || "")}</textarea>
           </div>
         ` : ""}
       </div>

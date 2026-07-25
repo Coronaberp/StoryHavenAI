@@ -618,7 +618,6 @@ const UI_STRINGS = {
   proxy_cards_no_models_returned: "No models returned",
   proxy_cards_row_missing: "This profile card is out of sync — collapse and reopen it, then try again.",
   proxy_cards_save: "Save profile",
-  proxy_cards_svg_placeholder: "<svg viewBox=\"0 0 24 24\">...</svg>",
   proxy_cards_untitled: "Untitled profile",
   profile_avatar_hint: "shown next to your username, GIFs supported",
   profile_avatar_uploaded: "Avatar uploaded.",
