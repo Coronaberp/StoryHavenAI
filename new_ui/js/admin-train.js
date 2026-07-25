@@ -626,28 +626,23 @@ class AdminTrainView {
   }
 
   watchJob(jobId) {
-    this.tab = "progress";
-    this.render();
     this.bindWatcherRefs(jobId);
   }
 
   bindWatcherRefs(jobId) {
     const refs = {
-      statusLabel: document.getElementById("lt_status_label"), bar: document.getElementById("lt_progress_bar"),
-      logEl: document.getElementById("lt_log"), costBanner: document.getElementById("lt_cost_banner"),
-      metricsTable: document.getElementById("lt_metrics_table"), chart: document.getElementById("lt_loss_chart"),
-      metricsWrap: document.getElementById("lt_metrics_wrap"), finalizing: document.getElementById("lt_finalizing"),
-      doneTile: document.getElementById("lt_done_tile"), uploadWrap: document.getElementById("lt_upload_wrap"),
-      uploadTable: document.getElementById("lt_upload_table"), downloadWrap: document.getElementById("lt_download_wrap"),
-      downloadTable: document.getElementById("lt_download_table"),
+      statusHero: document.getElementById("lt_status_hero"), logEl: document.getElementById("lt_log"),
+      costBanner: document.getElementById("lt_cost_banner"), metricCards: document.getElementById("lt_metric_cards"),
+      chart: document.getElementById("lt_loss_chart"), uploadWrap: document.getElementById("lt_upload_wrap"),
+      uploadCards: document.getElementById("lt_upload_cards"), downloadWrap: document.getElementById("lt_download_wrap"),
+      downloadCards: document.getElementById("lt_download_cards"),
     };
-    document.getElementById("lt_idle").style.display = "none";
-    document.getElementById("lt_live").style.display = "";
     if (this.watcher.isWatching && this.watcher.jobId === jobId) {
       this.watcher.rebind(refs);
     } else {
       this.watcher.watch(jobId, refs, async (job) => {
-        if (job.status === "done") this.jobs = await api("/api/admin/lora-training/jobs").catch(() => this.jobs);
+        this.jobs = await api("/api/admin/lora-training/jobs").catch(() => this.jobs);
+        if (this.detailJobId === jobId) this.render();
       });
     }
     const checkpointBtn = document.getElementById("lt_checkpoint_now");
@@ -705,42 +700,65 @@ class TrainingJobWatcher {
     if (wasAtBottom) logEl.scrollTop = logEl.scrollHeight;
   }
 
-  renderMetricsTable(tbody, metrics, job) {
-    if (!tbody) return;
+  renderMetricCards(wrap, metrics, job) {
+    if (!wrap) return;
     const arr = metrics || [];
     const m = arr[arr.length - 1];
-    if (!m) { tbody.innerHTML = ""; return; }
+    if (!m) { wrap.innerHTML = ""; return; }
     const eta = m.eta_text || "-";
     const speed = m.speed_img_s != null ? `${m.speed_img_s.toFixed(1)} img/s` : "-";
     const gpu = m.gpu_mem_gb != null ? `${m.gpu_mem_gb.toFixed(1)} GB` : "-";
     const loss = m.loss != null ? m.loss.toFixed(4) : "-";
     const lr = job.learning_rate != null ? job.learning_rate.toExponential(2) : "-";
-    tbody.innerHTML = `
-      <tr class="border-t border-line">
-        <td class="py-1 pr-2">${m.epoch ?? 0}/${m.total_epochs || "?"}</td>
-        <td class="py-1 px-2">${m.step || 0}/${job.steps || "?"}</td>
-        <td class="py-1 px-2">${loss}</td>
-        <td class="py-1 px-2">${lr}</td>
-        <td class="py-1 px-2">${speed}</td>
-        <td class="py-1 px-2">${eta}</td>
-        <td class="py-1 pl-2">${gpu}</td>
-      </tr>
-    `;
+    const cards = [
+      [t("admin_train_column_epoch"), `${m.epoch ?? 0}/${m.total_epochs || "?"}`],
+      [t("admin_train_column_step"), `${m.step || 0}/${job.steps || "?"}`],
+      [t("admin_train_column_loss"), loss, true],
+      [t("admin_train_column_lr"), lr],
+      [t("admin_train_column_speed"), speed],
+      [t("admin_train_column_eta"), eta],
+      [t("admin_train_column_gpu"), gpu],
+    ];
+    wrap.innerHTML = cards.map(([label, value, accent]) => `
+      <div class="lora-metric-card">
+        <span class="lora-metric-label">${_esc(label)}</span>
+        <span class="lora-metric-value${accent ? " accent" : ""}">${_esc(value)}</span>
+      </div>
+    `).join("");
   }
 
-  renderTransferTable(tbody, tp) {
-    if (!tbody) return;
+  renderTransferCards(wrap, tp) {
+    if (!wrap) return;
     const recv = (tp.bytes || 0) / (1024 * 1024);
     const total = tp.total_bytes ? tp.total_bytes / (1024 * 1024) : null;
     const pct = total ? `${Math.min(100, Math.round((recv / total) * 100))}%` : "-";
     const speed = tp.speed_mb_s != null ? `${tp.speed_mb_s.toFixed(1)} MB/s` : "-";
-    tbody.innerHTML = `
-      <tr class="border-t border-line">
-        <td class="py-1 pr-2 truncate max-w-[160px]">${_esc(tp.name || "")}</td>
-        <td class="py-1 px-2">${recv.toFixed(0)}${total ? `/${total.toFixed(0)}` : ""} MB</td>
-        <td class="py-1 px-2">${pct}</td>
-        <td class="py-1 pl-2">${speed}</td>
-      </tr>
+    const cards = [
+      [t("admin_train_column_received"), `${recv.toFixed(0)}${total ? `/${total.toFixed(0)}` : ""} MB`],
+      [t("admin_train_column_progress"), pct],
+      [t("admin_train_column_speed"), speed],
+    ];
+    wrap.innerHTML = `
+      <div class="lora-metric-card"><span class="lora-metric-label">${_esc(tp.name || "")}</span><span></span></div>
+      ${cards.map(([label, value]) => `
+        <div class="lora-metric-card">
+          <span class="lora-metric-label">${_esc(label)}</span>
+          <span class="lora-metric-value">${_esc(value)}</span>
+        </div>
+      `).join("")}
+    `;
+  }
+
+  renderStatusHero(el, job) {
+    if (!el) return;
+    const pct = Math.round((job.progress || 0) * 100);
+    const m = (job.metrics || [])[(job.metrics || []).length - 1];
+    const eta = m?.eta_text ? ` &middot; ${t("admin_train_column_eta")} ${_esc(m.eta_text)}` : "";
+    const stepLine = m ? `${t("admin_train_column_epoch")} ${m.epoch ?? 0}/${m.total_epochs || "?"} &middot; ${t("admin_train_column_step")} ${m.step || 0}/${job.steps || "?"}${eta}` : "";
+    el.innerHTML = `
+      ${this.jobStatusPill(job.status)}
+      <div class="lora-status-pct">${pct}%</div>
+      <div class="lora-status-eta">${stepLine}</div>
     `;
   }
 
@@ -797,29 +815,23 @@ class TrainingJobWatcher {
         return;
       }
       if (!job) return;
-      const { statusLabel, bar, logEl, costBanner, metricsTable, chart, metricsWrap, finalizing, doneTile,
-              uploadWrap, uploadTable, downloadWrap, downloadTable } = this.refs;
-      const refsAttached = statusLabel && statusLabel.isConnected;
+      const { statusHero, logEl, costBanner, metricCards, chart,
+              uploadWrap, uploadCards, downloadWrap, downloadCards } = this.refs;
+      const refsAttached = statusHero && statusHero.isConnected;
       if (refsAttached) {
-        statusLabel.textContent = `${t("admin_train_status_label_prefix")}: ${job.status}` + (job.resume_from_lora ? ` · ${t("admin_train_resumed_from")} ${job.resume_from_lora}` : "");
-        bar.style.width = `${Math.round((job.progress || 0) * 100)}%`;
-        if (job.log) this.appendLog(logEl, job.log);
+        this.renderStatusHero(statusHero, job);
         this.updateCostBanner(costBanner, job);
         const tp = job.transfer_progress || {};
         const uploadNow = tp.phase === "upload" && job.status === "provisioning";
         const downloadNow = tp.phase === "download" && ["training", "saving"].includes(job.status);
         const trainingNow = job.status === "training";
-        const finalizingNow = job.status === "saving" && !downloadNow;
-        const doneNow = job.status === "done";
         uploadWrap.style.display = uploadNow ? "" : "none";
         downloadWrap.style.display = downloadNow ? "" : "none";
-        metricsWrap.style.display = trainingNow ? "" : "none";
-        finalizing.style.display = finalizingNow ? "" : "none";
-        doneTile.style.display = doneNow ? "" : "none";
-        if (uploadNow) this.renderTransferTable(uploadTable, tp);
-        if (downloadNow) this.renderTransferTable(downloadTable, tp);
+        if (job.log) this.appendLog(logEl, job.log);
+        if (uploadNow) this.renderTransferCards(uploadCards, tp);
+        if (downloadNow) this.renderTransferCards(downloadCards, tp);
         if (trainingNow) {
-          this.renderMetricsTable(metricsTable, job.metrics, job);
+          this.renderMetricCards(metricCards, job.metrics, job);
           this.renderLossChart(chart, job.metrics);
         }
       }

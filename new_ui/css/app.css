@@ -10311,6 +10311,128 @@ body {
   font-size: 11px;
   color: var(--color-muted);
 }
+.lora-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.lora-detail-name {
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--color-ink);
+}
+.lora-segmented {
+  display: flex;
+  background: var(--color-surface-2);
+  border-radius: 11px;
+  padding: 3px;
+  margin-bottom: 16px;
+}
+.lora-segmented-btn {
+  flex: 1;
+  text-align: center;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+.lora-segmented-btn.on {
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+.lora-segmented-btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+.lora-status-hero {
+  text-align: center;
+  padding: 6px 0 18px;
+}
+.lora-status-pct {
+  font-size: 34px;
+  font-weight: 700;
+  margin: 10px 0 4px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+}
+.lora-status-eta {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.lora-metric-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 13px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.lora-metric-label {
+  font-size: 11px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.lora-metric-value {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+}
+.lora-metric-value.accent {
+  color: var(--color-accent);
+}
+.lora-transfer-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin: 14px 0 8px;
+}
+.lora-log-box {
+  background: color-mix(in srgb, #0C0C0E 96%, black);
+  @supports (color: color-mix(in lab, red, red)) {
+    background: color-mix(in srgb, var(--color-paper) 96%, black);
+  }
+  border: 1px solid var(--color-line);
+  border-radius: 12px;
+  padding: 11px 13px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--color-muted);
+  line-height: 1.6;
+  max-height: 160px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  margin-bottom: 14px;
+}
+.lora-cost-banner-live {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  padding: 9px 13px;
+  border-radius: 11px;
+  border: 1px solid var(--color-line);
+  margin-bottom: 12px;
+  color: var(--color-ink);
+}
+@media (min-width: 1024px) {
+  #lt_metric_cards, #lt_upload_cards, #lt_download_cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .lora-metric-card {
+    margin-bottom: 0;
+  }
+}
 .settings-row {
   display: flex;
   align-items: center;
