@@ -56,9 +56,13 @@ class PromptInjectionBlocked(Exception):
         super().__init__(BLOCKED_MESSAGE)
 
 _NON_WORD_RE = re.compile(r"[^a-zA-Z0-9]+")
+_FAKE_OOC_RE = re.compile(r"[\[(]\s*ooc\s*:", re.I)
 
 def looks_like_prompt_injection(text: str) -> bool:
-    normalized = _NON_WORD_RE.sub(" ", text or "").strip()
+    raw = text or ""
+    if _FAKE_OOC_RE.search(raw):
+        return True
+    normalized = _NON_WORD_RE.sub(" ", raw).strip()
     if not normalized:
         return False
     if any(pattern.search(normalized) for pattern in STRONG_PATTERNS):

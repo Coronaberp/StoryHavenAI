@@ -25,9 +25,12 @@ const WEAK_INJECTION_PATTERNS = [
 ];
 
 const WEAK_PATTERN_MIN_MATCHES = 2;
+const FAKE_OOC_RE = /[\[(]\s*ooc\s*:/i;
 
 function looksLikePromptInjection(text) {
-  const normalized = (text || "").replace(/[^a-zA-Z0-9]+/g, " ").trim();
+  const raw = text || "";
+  if (FAKE_OOC_RE.test(raw)) return true;
+  const normalized = raw.replace(/[^a-zA-Z0-9]+/g, " ").trim();
   if (!normalized) return false;
   if (STRONG_INJECTION_PATTERNS.some((pattern) => pattern.test(normalized))) return true;
   const weakMatches = WEAK_INJECTION_PATTERNS.filter((pattern) => pattern.test(normalized)).length;

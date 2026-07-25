@@ -131,6 +131,7 @@ function inlineToSigil(raw) {
 
 const SIGIL_DIRECTIVE_G = new RegExp(`\\(${DIRECTOR_SIGIL}:\\[(\\w+)(?:\\s+([^\\]]+))?\\]\\s*([^)]*)\\)`, "g");
 const ROLL_RESULT_G = /🎲\s*([^\n]*?=\s*\*\*\d+\*\*)/g;
+const AI_OOC_G = /(?:^|\n)[ \t]*(?:\(OOC:\s*([\s\S]*)\)|\[ooc:\s*([^\]]*)\])[ \t]*/gi;
 
 function parseCommandedMessage(raw, role) {
   let text = String(raw || "");
@@ -155,6 +156,7 @@ function parseCommandedMessage(raw, role) {
       if (cmd === "ooc" && val) actions.push({ kind: "ooc", detail: val });
       return "";
     });
+    text = text.replace(AI_OOC_G, (m, a, b) => { const v = (a || b || "").trim(); if (v) actions.push({ kind: "ooc", detail: v }); return ""; });
   }
   const prose = text.replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
   return { scenes, times, actions, asName, prose };
