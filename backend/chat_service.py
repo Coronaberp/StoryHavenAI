@@ -359,10 +359,12 @@ async def next_speaker(cast, user_text, last_speaker_id, recent, model, ep) -> l
     return ids[:MAX_GROUP_RESPONDERS]
 
 def _assemble_system(char, s, persona, user_name, mode, language, do_think, eff, block, full_system,
-                     is_multiplayer=False, other_player_names=None, session_persona_names=None):
+                     is_multiplayer=False, other_player_names=None, session_persona_names=None,
+                     absent_persona_names=None):
     system = build_system(char, persona, user_name, mode, language=language, full=full_system,
                           is_multiplayer=is_multiplayer, other_player_names=other_player_names,
-                          session_persona_names=session_persona_names)
+                          session_persona_names=session_persona_names,
+                          absent_persona_names=absent_persona_names)
     system += ("\n\n# Story context\n"
                "Everything below is what you actually know: established world facts, ongoing "
                "conditions, and things recalled from earlier in this story, plus the recent "
@@ -809,11 +811,13 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
     assistant_turns = sum(1 for m in msgs if m["role"] == "assistant")
     full_system = (assistant_turns % 4 == 0)
     session_persona_names = await _session_persona_names(s, persona)
+    absent_persona_names = await _session_absent_names(s) if is_multiplayer else []
     system, length_preset = _assemble_system(char, s, persona, user_name, mode, language,
                                              do_think, eff, block, full_system,
                                              is_multiplayer=is_multiplayer,
                                              other_player_names=other_player_names,
-                                             session_persona_names=session_persona_names)
+                                             session_persona_names=session_persona_names,
+                                             absent_persona_names=absent_persona_names)
 
     history = msgs[-eff["history_turns"]:]
     def _history_content(m):
