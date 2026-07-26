@@ -70,13 +70,22 @@ def test_build_system_character_mode_ignores_multiplayer_flag():
     assert "second person" not in system.lower()
 
 @pytest.mark.parametrize("full", [True, False])
-def test_build_system_rpg_includes_undefined_name_guard(full):
-    system = build_system(_char("rpg"), None, "Alice", mode="rpg", full=full, is_multiplayer=False)
-    assert "named people without a defined profile" in system.lower()
+def test_build_system_rpg_includes_known_persona_guard(full):
+    system = build_system(_char("rpg"), None, "Alice", mode="rpg", full=full, is_multiplayer=False,
+                          session_persona_names=["Andrea Von Humboldt"])
+    assert "Andrea Von Humboldt" in system
+    assert "other players' personas" in system.lower()
 
-def test_build_system_character_mode_omits_undefined_name_guard():
-    system = build_system(_char("character"), None, "Alice", mode="character", full=True)
-    assert "named people without a defined profile" not in system.lower()
+def test_build_system_rpg_without_session_personas_omits_known_persona_guard():
+    system = build_system(_char("rpg"), None, "Alice", mode="rpg", full=True, is_multiplayer=False,
+                          session_persona_names=[])
+    assert "other players' personas" not in system.lower()
+
+def test_build_system_character_mode_omits_known_persona_guard():
+    system = build_system(_char("character"), None, "Alice", mode="character", full=True,
+                          session_persona_names=["Andrea Von Humboldt"])
+    assert "other players' personas" not in system.lower()
+    assert "Andrea Von Humboldt" not in system
 
 def test_build_system_bans_moralizing_and_hedging():
     system = build_system(_char("character"), None, "Alice", mode="character", full=True)

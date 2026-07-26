@@ -147,6 +147,14 @@ async def _other_player_names(participant_rows: list[dict], sender_id: str | Non
         names.append(participant_display_name(row_persona, user_row))
     return names
 
+async def _session_persona_names(s: dict, current_persona: dict | None) -> list[str]:
+    owner_id = s.get("user_id")
+    if not owner_id:
+        return []
+    rows = await personas.list_selectable_for_session(owner_id, s["id"])
+    current_id = current_persona.get("id") if current_persona else None
+    return [row["name"] for row in rows if row.get("name") and row["id"] != current_id]
+
 async def _resolve_sender_persona(s: dict, current_user: dict | None) -> tuple[dict | None, str]:
     if current_user:
         rows = await session_participants.list_for_session(s["id"])
@@ -326,9 +334,10 @@ async def next_speaker(cast, user_text, last_speaker_id, recent, model, ep) -> l
     return ids[:MAX_GROUP_RESPONDERS]
 
 def _assemble_system(char, s, persona, user_name, mode, language, do_think, eff, block, full_system,
-                     is_multiplayer=False, other_player_names=None):
+                     is_multiplayer=False, other_player_names=None, session_persona_names=None):
     system = build_system(char, persona, user_name, mode, language=language, full=full_system,
-                          is_multiplayer=is_multiplayer, other_player_names=other_player_names)
+                          is_multiplayer=is_multiplayer, other_player_names=other_player_names,
+                          session_persona_names=session_persona_names)
     system += ("\n\n# Story context\n"
                "Everything below is what you actually know: established world facts, ongoing "
                "conditions, and things recalled from earlier in this story, plus the recent "
@@ -773,10 +782,12 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
 
     assistant_turns = sum(1 for m in msgs if m["role"] == "assistant")
     full_system = (assistant_turns % 4 == 0)
+    session_persona_names = await _session_persona_names(s, persona)
     system, length_preset = _assemble_system(char, s, persona, user_name, mode, language,
                                              do_think, eff, block, full_system,
                                              is_multiplayer=is_multiplayer,
-                                             other_player_names=other_player_names)
+                                             other_player_names=other_player_names,
+                                             session_persona_names=session_persona_names)
 
     history = msgs[-eff["history_turns"]:]
     def _history_content(m):
