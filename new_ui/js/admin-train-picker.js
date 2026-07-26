@@ -182,7 +182,7 @@ function openPickerSheet(opts) {
       if (!multiSelect) {
         b.addEventListener("mouseenter", () => { state.focused = b.dataset.pickerName; renderDetailFooter(); });
       }
-      const strengthRow = b.querySelector("[data-picker-strength]");
+      const strengthRow = b.closest("[data-picker-tile-wrap]")?.querySelector("[data-picker-strength]");
       if (strengthRow && item) wireStrengthRow(strengthRow, item);
       const thumb = b.querySelector("[data-picker-thumb]");
       if (thumb && opts.onZoom && item) {
