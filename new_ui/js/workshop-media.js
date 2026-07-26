@@ -867,96 +867,34 @@ class WorkshopMediaView {
   }
 
   openModelPicker() {
-    this._mpQuery = "";
-    this._mpPicked = this.checkpoint;
-    this._mpTab = "models";
-    this._mrType = this.architecture === "anima" ? "anima" : "checkpoint";
-    openModal(`<div id="mpRoot">${this.modelPickerBodyHtml()}</div>`, { wide: true });
-    this.wireModelPickerBody();
-  }
-
-  modelPickerBodyHtml() {
-    return `
-      <h3>${t("forge_choose_model_heading")}</h3>
-      <div style="display:flex;gap:6px;margin-bottom:14px">
-        <button type="button" onclick="_activeForgeView.switchMpTab('models')" class="filter-chip${this._mpTab === "models" ? " on" : ""}">${t("forge_tab_models", "Models")}</button>
-        <button type="button" onclick="_activeForgeView.switchMpTab('request')" class="filter-chip${this._mpTab === "request" ? " on" : ""}">${t("forge_tab_request_model", "Request a model")}</button>
-      </div>
-      <div id="mpBody">${this._mpTab === "request" ? this.modelRequestTabHtml() : this.modelBrowseTabHtml()}</div>
-    `;
-  }
-
-  switchMpTab(tab) {
-    this._mpTab = tab;
-    const root = document.getElementById("mpRoot");
-    if (root) root.innerHTML = this.modelPickerBodyHtml();
-    this.wireModelPickerBody();
-  }
-
-  wireModelPickerBody() {
-    if (this._mpTab === "request") {
-      this.wireModelRequestTab();
-      return;
-    }
-    const search = document.getElementById("mpSearch");
-    if (search) search.oninput = (e) => { this._mpQuery = e.target.value; this.renderModelPickerGrid(); };
-    this.renderModelPickerGrid();
-    this.renderModelPickerDetail();
-  }
-
-  modelBrowseTabHtml() {
-    return `
-      <input type="text" id="mpSearch" placeholder="${t("forge_search_models_placeholder")}" value="${_attr(this._mpQuery)}" style="width:100%;margin-bottom:12px;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)">
-      <div id="mpGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px;max-height:300px;overflow-y:auto;margin-bottom:14px;padding:2px"></div>
-      <div id="mpDetail"></div>
-    `;
-  }
-
-  renderModelPickerGrid() {
-    const grid = document.getElementById("mpGrid");
-    if (!grid) return;
-    const q = (this._mpQuery || "").trim().toLowerCase();
-    let list = this.checkpoints;
-    if (q) list = list.filter((n) => n.toLowerCase().includes(q) || (this.checkpointPreviews[n]?.display_name || "").toLowerCase().includes(q));
-    grid.innerHTML = list.length ? list.map((name) => {
-      const p = this.checkpointPreviews[name];
-      const label = p?.display_name || name;
-      const active = name === this._mpPicked;
-      return `
-        <button type="button" data-mp-name="${_attr(name)}" style="display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:none;cursor:pointer">
-          ${this.modelThumbHtml(name, p, 64).replace(/border-color:var\(--color-line\)/, `border-color:${active ? "var(--color-accent)" : "var(--color-line)"};border-width:${active ? "2px" : "1px"}`)}
-          <span style="font-size:10.5px;text-align:center;color:${active ? "var(--color-accent)" : "var(--color-sec)"};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:78px">${_esc(label)}</span>
-        </button>
-      `;
-    }).join("") : `<p style="font-size:12.5px;color:var(--color-sec);grid-column:1/-1">${t("forge_no_models_match")}</p>`;
-    grid.querySelectorAll("[data-mp-name]").forEach((b) => b.onclick = () => {
-      this._mpPicked = b.dataset.mpName;
-      this.renderModelPickerGrid();
-      this.renderModelPickerDetail();
+    const buildItems = () => this.checkpoints.map((name) => {
+      const p = this.checkpointPreviews[name] || {};
+      return {
+        name,
+        label: p.display_name || name,
+        sublabel: p.description || "",
+        description: p.description || "",
+        image: p.image || null,
+        image_nsfw: p.image_nsfw || null,
+        config: (p.default_sampler || p.default_scheduler || p.default_steps || p.default_cfg || p.default_positive || p.default_negative) ? {
+          sampler: p.default_sampler, scheduler: p.default_scheduler, steps: p.default_steps, cfg: p.default_cfg,
+          positiveAdd: p.default_positive, negativeAdd: p.default_negative,
+        } : null,
+      };
     });
-  }
-
-  renderModelPickerDetail() {
-    const detail = document.getElementById("mpDetail");
-    if (!detail) return;
-    const name = this._mpPicked;
-    const p = this.checkpointPreviews[name];
-    const label = p?.display_name || name || "";
-    detail.innerHTML = name ? `
-      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--color-surface);border:1px solid var(--color-line);border-radius:14px;margin-bottom:12px">
-        <span id="mpDetailThumb" style="cursor:zoom-in;display:inline-flex;flex:none" title="${_attr(t("forge_zoom_preview", "Zoom preview"))}">${this.modelThumbHtml(name, p, 56)}</span>
-        <span style="flex:1;min-width:0">
-          <span style="display:block;font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--color-ink)">${_esc(label)}</span>
-          ${p?.description ? `<span style="display:block;font-size:11.5px;color:var(--color-muted);margin-top:2px">${_esc(p.description)}</span>` : ""}
-        </span>
-      </div>
-      <button type="button" id="mpUse" style="width:100%;padding:12px;border-radius:12px;font-weight:600;font-size:14px;color:var(--color-paper);background:linear-gradient(150deg, var(--color-accent), var(--color-accent-deep));border:none;cursor:pointer">${t("forge_use_this_model_button")}</button>
-    ` : "";
-    const useBtn = document.getElementById("mpUse");
-    if (useBtn) useBtn.onclick = () => { this.setCheckpoint(name); closeTopModal(); };
-    const thumb = document.getElementById("mpDetailThumb");
-    const thumbImg = thumb?.querySelector("img");
-    if (thumbImg) thumb.onclick = () => this.openPreviewZoom(thumbImg.dataset.sfwSrc || thumbImg.src, label, thumbImg.dataset.nsfwSrc || null);
+    openPickerSheet({
+      title: t("forge_choose_model_heading"),
+      items: buildItems(),
+      selected: this.checkpoint,
+      tabs: [
+        { key: "models", label: t("forge_tab_models", "Models"), itemsForTab: buildItems },
+        { key: "request", label: t("forge_tab_request_model", "Request a model"), itemsForTab: () => null },
+      ],
+      tabRenderFn: (key) => key === "request" ? this.modelRequestTabHtml() : "",
+      onTabRender: (key) => { if (key === "request") this.wireModelRequestTab(); },
+      onPick: (name) => { this.setCheckpoint(name); this.render(); },
+      onZoom: (url, label, nsfwUrl) => this.openPreviewZoom(url, label, nsfwUrl),
+    });
   }
 
   openPreviewZoom(url, label, nsfwUrl) {
@@ -1475,57 +1413,31 @@ class WorkshopMediaView {
   }
 
   openSimplePicker(kind) {
-    this._spQuery = "";
-    this._spKind = kind;
-    openModal(this.simplePickerModalHtml(kind), { wide: true });
-    document.getElementById("spSearch").oninput = (e) => { this._spQuery = e.target.value; this.renderSimplePickerList(); };
-    this.renderSimplePickerList();
-  }
-
-  simplePickerModalHtml(kind) {
-    const title = kind === "sampler" ? t("forge_choose_sampler_heading") : t("forge_choose_scheduler_heading");
-    const hint = kind === "sampler" ? t("forge_sampler_picker_hint") : t("forge_scheduler_picker_hint");
-    return `
-      <h3>${title}</h3>
-      <p style="font-size:12px;color:var(--color-muted);margin:-4px 0 12px;line-height:1.4">${hint}</p>
-      <input type="text" id="spSearch" placeholder="${t("forge_search_ellipsis_placeholder")}" value="${_attr(this._spQuery)}" style="width:100%;margin-bottom:12px;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)">
-      <div id="spList" style="display:flex;flex-direction:column;gap:4px;max-height:360px;overflow-y:auto;padding:2px"></div>
-    `;
-  }
-
-  renderSimplePickerList() {
-    const list = document.getElementById("spList");
-    if (!list) return;
-    const kind = this._spKind;
     const source = kind === "sampler" ? this.samplers : this.schedulers;
+    const previews = kind === "sampler" ? this.samplerPreviews : this.schedulerPreviews;
+    const descFn = kind === "sampler" ? forgeSamplerDesc : forgeSchedulerDesc;
     const recommended = kind === "sampler"
       ? (source.includes("dpmpp_2m_sde_gpu") ? "dpmpp_2m_sde_gpu" : (source.includes("euler") ? "euler" : source[0]))
       : (source.includes("karras") ? "karras" : (source.includes("normal") ? "normal" : source[0]));
-    const descFn = kind === "sampler" ? forgeSamplerDesc : forgeSchedulerDesc;
-    const previews = kind === "sampler" ? this.samplerPreviews : this.schedulerPreviews;
-    const q = (this._spQuery || "").trim().toLowerCase();
-    const filtered = q ? source.filter((s) => s.toLowerCase().includes(q) || descFn(s).toLowerCase().includes(q)) : source;
-    list.innerHTML = filtered.length ? filtered.map((name) => {
-      const active = this[kind] === name;
+    const items = source.map((name) => {
+      const p = previews[name] || {};
       const desc = descFn(name);
-      return `
-        <button type="button" data-sp-name="${_attr(name)}" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid ${active ? "var(--color-accent)" : "transparent"};background:${active ? "var(--color-surface-2)" : "none"};cursor:pointer;text-align:left">
-          ${this.modelThumbHtml(name, previews[name], 40)}
-          <span style="flex:1;min-width:0">
-            <span style="display:flex;align-items:center;gap:6px">
-              <span style="font-family:var(--font-mono);font-size:13px;color:${active ? "var(--color-accent)" : "var(--color-ink)"}">${_esc(name)}</span>
-              ${name === recommended ? `<span style="font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-accent);border:1px solid var(--color-accent);border-radius:5px;padding:1px 5px">${t("forge_recommended_badge")}</span>` : ""}
-            </span>
-            ${desc ? `<span style="display:block;font-size:11px;color:var(--color-muted);margin-top:3px;line-height:1.4">${_esc(desc)}</span>` : ""}
-          </span>
-          ${active ? `<span style="color:var(--color-accent);flex:none">&check;</span>` : ""}
-        </button>
-      `;
-    }).join("") : `<p style="font-size:12.5px;color:var(--color-sec)">${t("forge_no_matches")}</p>`;
-    list.querySelectorAll("[data-sp-name]").forEach((b) => b.onclick = () => {
-      this[kind] = b.dataset.spName;
-      closeTopModal();
-      this.render();
+      return {
+        name,
+        label: name + (name === recommended ? ` (${t("forge_recommended_badge")})` : ""),
+        sublabel: desc,
+        description: desc,
+        image: p.image || null,
+        image_nsfw: null,
+        config: null,
+      };
+    });
+    openPickerSheet({
+      title: kind === "sampler" ? t("forge_choose_sampler_heading") : t("forge_choose_scheduler_heading"),
+      items,
+      selected: this[kind],
+      onPick: (name) => { this[kind] = name; this.render(); },
+      onZoom: (url, label) => this.openPreviewZoom(url, label, null),
     });
   }
 
