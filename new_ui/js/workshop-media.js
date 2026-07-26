@@ -1204,48 +1204,48 @@ class WorkshopMediaView {
   }
 
   openLoraPicker() {
-    this._lpQuery = "";
-    this._lpFocused = this.loras[0]?.name || this.loraOptions[0] || null;
-    this._lpTab = "loras";
-    openModal(`<div id="lpRoot">${this.loraPickerBodyHtml()}</div>`, { wide: true });
-    this.wireLoraPickerBody();
-  }
-
-  loraPickerBodyHtml() {
-    return `
-      <h3>${t("forge_choose_loras_heading")}</h3>
-      <div style="display:flex;gap:6px;margin-bottom:14px">
-        <button type="button" onclick="_activeForgeView.switchLpTab('loras')" class="filter-chip${this._lpTab === "loras" ? " on" : ""}">${t("forge_tab_loras", "LoRAs")}</button>
-        <button type="button" onclick="_activeForgeView.switchLpTab('request')" class="filter-chip${this._lpTab === "request" ? " on" : ""}">${t("forge_tab_request_lora", "Request a LoRA")}</button>
-      </div>
-      <div id="lpBody">${this._lpTab === "request" ? this.loraRequestTabHtml() : this.loraBrowseTabHtml()}</div>
-    `;
-  }
-
-  switchLpTab(tab) {
-    this._lpTab = tab;
-    const root = document.getElementById("lpRoot");
-    if (root) root.innerHTML = this.loraPickerBodyHtml();
-    this.wireLoraPickerBody();
-  }
-
-  wireLoraPickerBody() {
-    if (this._lpTab === "request") {
-      this.wireLoraRequestTab();
-      return;
-    }
-    const search = document.getElementById("lpSearch");
-    if (search) search.oninput = (e) => { this._lpQuery = e.target.value; this.renderLoraPickerGrid(); };
-    this.renderLoraPickerGrid();
-    this.renderLoraPickerDetail();
-  }
-
-  loraBrowseTabHtml() {
-    return `
-      <input type="text" id="lpSearch" placeholder="${t("forge_search_loras_placeholder")}" value="${_attr(this._lpQuery)}" style="width:100%;margin-bottom:12px;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)">
-      <div id="lpGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:10px;max-height:300px;overflow-y:auto;margin-bottom:14px;padding:2px"></div>
-      <div id="lpDetail"></div>
-    `;
+    const buildItems = () => this.loraOptions.map((name) => {
+      const p = this.loraPreviews[name] || {};
+      return {
+        name,
+        label: p.display_name || name,
+        sublabel: p.description || "",
+        description: p.description || "",
+        image: p.image || null,
+        image_nsfw: p.image_nsfw || null,
+        tags: p.keywords || [],
+        config: null,
+      };
+    });
+    openPickerSheet({
+      title: t("forge_choose_loras_heading"),
+      items: buildItems(),
+      selected: this.loras.map((l) => l.name),
+      multiSelect: true,
+      tabs: [
+        { key: "loras", label: t("forge_tab_loras", "LoRAs"), itemsForTab: buildItems },
+        { key: "request", label: t("forge_tab_request_lora", "Request a LoRA"), itemsForTab: () => null },
+      ],
+      tabRenderFn: (key) => key === "request" ? this.loraRequestTabHtml() : "",
+      onTabRender: (key) => { if (key === "request") this.wireLoraRequestTab(); },
+      strengthFor: (name) => {
+        const lora = this.loras.find((l) => l.name === name);
+        if (!lora) return null;
+        return {
+          value: lora.strength, min: -8, max: 8, step: 0.05,
+          onChange: (v) => this.setLoraStrength(name, v),
+        };
+      },
+      onPick: (name) => {
+        this.toggleLora(name);
+      },
+      onTagClick: (tag) => {
+        this.positive = this.positive ? `${this.positive}, ${tag}` : tag;
+        const posEl = this.main?.querySelector("#forgePositive");
+        if (posEl) posEl.value = this.positive;
+      },
+      onZoom: (url, label, nsfwUrl) => this.openPreviewZoom(url, label, nsfwUrl),
+    });
   }
 
   loraRequestTabHtml() {
@@ -1311,49 +1311,6 @@ class WorkshopMediaView {
     if (freshBtn) { freshBtn.disabled = false; freshBtn.textContent = t("forge_request_submit_button", "Submit request"); }
   }
 
-  renderLoraPickerGrid() {
-    const grid = document.getElementById("lpGrid");
-    if (!grid) return;
-    const q = (this._lpQuery || "").trim().toLowerCase();
-    let list = this.loraOptions;
-    if (q) list = list.filter((n) => n.toLowerCase().includes(q) || (this.loraPreviews[n]?.display_name || "").toLowerCase().includes(q));
-    grid.innerHTML = list.length ? list.map((name) => this.loraTileHtml(name)).join("") : `<p style="font-size:12.5px;color:var(--color-sec);grid-column:1/-1">${t("forge_no_loras_match")}</p>`;
-    grid.querySelectorAll("[data-lora-tile]").forEach((b) => b.onclick = () => {
-      this._lpFocused = b.dataset.loraTile;
-      this.toggleLora(b.dataset.loraTile);
-      this.renderLoraPickerGrid();
-      this.renderLoraPickerDetail();
-    });
-  }
-
-  renderLoraPickerDetail() {
-    const detail = document.getElementById("lpDetail");
-    if (!detail) return;
-    const name = this._lpFocused;
-    const p = this.loraPreviews[name];
-    const label = p?.display_name || name || "";
-    const active = !!this.loras.find((l) => l.name === name);
-    detail.innerHTML = name ? `
-      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--color-surface);border:1px solid var(--color-line);border-radius:14px;margin-bottom:12px">
-        <span id="lpDetailThumb" style="cursor:zoom-in;display:inline-flex;flex:none" title="${_attr(t("forge_zoom_preview", "Zoom preview"))}">${this.modelThumbHtml(name, p, 56)}</span>
-        <span style="flex:1;min-width:0">
-          <span style="display:block;font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--color-ink)">${_esc(label)}</span>
-          ${p?.description ? `<span style="display:block;font-size:11.5px;color:var(--color-muted);margin-top:2px">${_esc(p.description)}</span>` : ""}
-          ${this.loraTagsHtml(name)}
-        </span>
-      </div>
-      <button type="button" id="lpToggle" style="width:100%;padding:12px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;${active ? "color:var(--color-warn);background:var(--color-surface);border:1px solid var(--color-warn)" : "color:var(--color-paper);background:linear-gradient(150deg, var(--color-accent), var(--color-accent-deep));border:none"}">${active ? t("forge_remove_button") : t("forge_add_this_lora_button")}</button>
-    ` : "";
-    const loraThumb = document.getElementById("lpDetailThumb");
-    const loraThumbImg = loraThumb?.querySelector("img");
-    if (loraThumbImg) loraThumb.onclick = () => this.openPreviewZoom(loraThumbImg.dataset.sfwSrc || loraThumbImg.src, label, loraThumbImg.dataset.nsfwSrc || null);
-    const toggleBtn = document.getElementById("lpToggle");
-    if (toggleBtn) toggleBtn.onclick = () => {
-      this.toggleLora(name);
-      this.renderLoraPickerGrid();
-      this.renderLoraPickerDetail();
-    };
-  }
 
   advancedHtml() {
     if (this.mode === "upscale") return "";
