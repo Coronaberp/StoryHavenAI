@@ -98,6 +98,14 @@ async def preview_message_image_prompt(sid: str, mid: str,
     _, _, _, positive, negative = await _build_image_prompt_for_message(sid, mid, current_user)
     return {"positive": positive, "negative": negative}
 
+def _image_gen_defaults(architecture: str | None) -> dict:
+    suffix = "anima" if architecture == "anima" else "sdxl"
+    return {
+        "checkpoint": CFG[f"image_gen_default_checkpoint_{suffix}"] or None,
+        "sampler": CFG[f"image_gen_default_sampler_{suffix}"],
+        "scheduler": CFG[f"image_gen_default_scheduler_{suffix}"],
+    }
+
 @api.post("/sessions/{sid}/messages/{mid}/image")
 async def generate_message_image(sid: str, mid: str, body: ImageGenIn,
                                  current_user: dict = Depends(get_current_user)):
@@ -107,8 +115,10 @@ async def generate_message_image(sid: str, mid: str, body: ImageGenIn,
     negative = body.negative if body.negative is not None else auto_negative
     provider_active = _provider_active()
     checkpoint = None
+    defaults = _image_gen_defaults(body.architecture)
     if not provider_active:
-        checkpoint = body.checkpoint or (CFG["comfyui_checkpoint"] if body.architecture != "anima" else None)
+        checkpoint = body.checkpoint or defaults["checkpoint"] or (
+            CFG["comfyui_checkpoint"] if body.architecture != "anima" else None)
         if not checkpoint:
             raise HTTPException(400, "checkpoint is required for Anima generation")
     reference_image = _decode_reference_image(body.reference_image)
@@ -129,7 +139,7 @@ async def generate_message_image(sid: str, mid: str, body: ImageGenIn,
                 loras=[l.model_dump() for l in body.loras],
                 reference_image=reference_image, denoise=body.denoise,
                 width=body.width, height=body.height,
-                sampler=body.sampler or "dpmpp_2m_sde_gpu", scheduler=body.scheduler or "karras",
+                sampler=body.sampler or defaults["sampler"], scheduler=body.scheduler or defaults["scheduler"],
                 steps=body.steps, cfg=body.cfg, architecture=body.architecture)
     except Exception as e:
         log.warning("imagegen: message image failed user=%s session=%s mid=%s: %s",
@@ -204,6 +214,11 @@ async def prompt_from_description(body: ImagePromptFromDescriptionIn,
              current_user["username"], result["sampler"], result["scheduler"])
     return result
 
+_ACTIVE_PROMPTS: dict[str, str] = {}
+
+def _remember_prompt(user_id: str, prompt_id: str) -> None:
+    _ACTIVE_PROMPTS[user_id] = prompt_id
+
 @api.post("/imagegen/standalone/stream")
 async def stream_standalone_image(body: ImageGenStandaloneIn,
                                   current_user: dict = Depends(get_current_user)):
@@ -212,8 +227,10 @@ async def stream_standalone_image(body: ImageGenStandaloneIn,
     await guest_quota.record(current_user, "images")
     provider_active = _provider_active()
     checkpoint = None
+    defaults = _image_gen_defaults(body.architecture)
     if not provider_active:
-        checkpoint = body.checkpoint or (CFG["comfyui_checkpoint"] if body.architecture != "anima" else None)
+        checkpoint = body.checkpoint or defaults["checkpoint"] or (
+            CFG["comfyui_checkpoint"] if body.architecture != "anima" else None)
         if not checkpoint:
             raise HTTPException(400, "No model selected")
     reference_image = _decode_reference_image(body.reference_image)
@@ -236,6 +253,9 @@ async def stream_standalone_image(body: ImageGenStandaloneIn,
                 "type": "done", "image": f"data:image/png;base64,{b64}",
             }) + "\n\n"
             log.info("imagegen: standalone done user=%s", current_user["username"])
+        except imagegen.GenerationInterrupted:
+            log.info("imagegen: standalone stopped by user=%s", current_user["username"])
+            yield "data: " + json.dumps({"type": "cancelled"}) + "\n\n"
         except Exception as e:
             log.warning("imagegen: standalone failed user=%s: %s", current_user["username"], e)
             yield "data: " + json.dumps({"type": "error", "message": str(e)}) + "\n\n"
@@ -255,10 +275,11 @@ async def stream_standalone_image(body: ImageGenStandaloneIn,
         try:
             async for kind, data in imagegen.generate_image_stream(
                     body.positive, body.negative, CFG["comfyui_url"], checkpoint,
+                    on_prompt=lambda pid: _remember_prompt(current_user["id"], pid),
                     loras=[l.model_dump() for l in body.loras],
                     reference_image=reference_image, denoise=body.denoise,
                     width=width, height=height,
-                    sampler=body.sampler or "euler", scheduler=body.scheduler or "normal",
+                    sampler=body.sampler or defaults["sampler"], scheduler=body.scheduler or defaults["scheduler"],
                     steps=_clamp_steps(body.steps), cfg=body.cfg, architecture=body.architecture):
                 mime = "image/jpeg" if kind == "preview" else "image/png"
                 b64 = base64.b64encode(data).decode()
@@ -266,10 +287,14 @@ async def stream_standalone_image(body: ImageGenStandaloneIn,
                     "type": kind, "image": f"data:{mime};base64,{b64}",
                 }) + "\n\n"
             log.info("imagegen: standalone done user=%s", current_user["username"])
+        except imagegen.GenerationInterrupted:
+            log.info("imagegen: standalone stopped by user=%s", current_user["username"])
+            yield "data: " + json.dumps({"type": "cancelled"}) + "\n\n"
         except Exception as e:
             log.warning("imagegen: standalone failed user=%s: %s", current_user["username"], e)
             yield "data: " + json.dumps({"type": "error", "message": str(e)}) + "\n\n"
         finally:
+            _ACTIVE_PROMPTS.pop(current_user["id"], None)
             gpu_queue.release()
             _IMAGEGEN_INFLIGHT.release(current_user["id"])
 
@@ -283,11 +308,17 @@ async def imagegen_queue_status(current_user: dict = Depends(get_current_user)):
 async def stop_standalone_image(current_user: dict = Depends(get_current_user)):
     if _provider_active():
         return {"stopped": False}
+    prompt_id = _ACTIVE_PROMPTS.pop(current_user["id"], None)
     try:
+        if prompt_id:
+            await imagegen.cancel_queued_prompt(CFG["comfyui_url"], prompt_id)
         await imagegen.interrupt(CFG["comfyui_url"])
     except Exception as e:
+        log.warning("imagegen: stop failed user=%s prompt=%s: %s",
+                    current_user["username"], prompt_id, e)
         raise HTTPException(502, f"Could not reach ComfyUI: {e}")
-    log.info("imagegen: standalone interrupted user=%s", current_user["username"])
+    log.info("imagegen: standalone interrupted user=%s prompt=%s",
+             current_user["username"], prompt_id or "-")
     return {"stopped": True}
 
 @api.post("/imagegen/inpaint")
@@ -302,7 +333,9 @@ async def stream_inpaint_image(body: ImageGenInpaintIn, current_user: dict = Dep
     if not mask_bytes:
         raise HTTPException(400, "mask is required")
 
-    checkpoint = body.checkpoint or (CFG["comfyui_checkpoint"] if body.architecture != "anima" else None)
+    defaults = _image_gen_defaults(body.architecture)
+    checkpoint = body.checkpoint or defaults["checkpoint"] or (
+        CFG["comfyui_checkpoint"] if body.architecture != "anima" else None)
     if not checkpoint:
         raise HTTPException(400, "checkpoint is required for Anima inpainting")
     log.info("imagegen: inpaint start user=%s checkpoint=%s architecture=%s",
@@ -320,16 +353,21 @@ async def stream_inpaint_image(body: ImageGenInpaintIn, current_user: dict = Dep
             async for kind, data in imagegen.generate_inpaint_image_stream(
                     body.positive, body.negative, CFG["comfyui_url"], checkpoint,
                     image_bytes, mask_bytes, denoise=body.denoise,
-                    sampler=body.sampler or "euler", scheduler=body.scheduler or "normal",
-                    steps=_clamp_steps(body.steps), cfg=body.cfg, architecture=body.architecture):
+                    sampler=body.sampler or defaults["sampler"], scheduler=body.scheduler or defaults["scheduler"],
+                    steps=_clamp_steps(body.steps), cfg=body.cfg, architecture=body.architecture,
+                    on_prompt=lambda pid: _remember_prompt(current_user["id"], pid)):
                 mime = "image/jpeg" if kind == "preview" else "image/png"
                 b64 = base64.b64encode(data).decode()
                 yield "data: " + json.dumps({"type": kind, "image": f"data:{mime};base64,{b64}"}) + "\n\n"
             log.info("imagegen: inpaint done user=%s", current_user["username"])
+        except imagegen.GenerationInterrupted:
+            log.info("imagegen: inpaint stopped by user=%s", current_user["username"])
+            yield "data: " + json.dumps({"type": "cancelled"}) + "\n\n"
         except Exception as e:
             log.warning("imagegen: inpaint failed user=%s: %s", current_user["username"], e)
             yield "data: " + json.dumps({"type": "error", "message": str(e)}) + "\n\n"
         finally:
+            _ACTIVE_PROMPTS.pop(current_user["id"], None)
             gpu_queue.release()
             _IMAGEGEN_INFLIGHT.release(current_user["id"])
 
@@ -428,7 +466,8 @@ async def stream_video(body: ImageGenVideoIn, current_user: dict = Depends(get_c
                     body.positive, body.negative, CFG["comfyui_url"],
                     unet_name, clip_name, vae_name,
                     fps=body.fps, num_frames=body.num_frames,
-                    width=body.width, height=body.height, steps=body.steps, cfg=body.cfg):
+                    width=body.width, height=body.height, steps=body.steps, cfg=body.cfg,
+                    on_prompt=lambda pid: _remember_prompt(current_user["id"], pid)):
                 if kind == "done":
                     video_bytes = data
                     continue
@@ -450,10 +489,14 @@ async def stream_video(body: ImageGenVideoIn, current_user: dict = Depends(get_c
                 classified=True)
             log.info("imagegen: video done user=%s id=%s", current_user["username"], saved["id"])
             yield "data: " + json.dumps({"type": "done", "video": saved}) + "\n\n"
+        except imagegen.GenerationInterrupted:
+            log.info("imagegen: video stopped by user=%s", current_user["username"])
+            yield "data: " + json.dumps({"type": "cancelled"}) + "\n\n"
         except Exception as e:
             log.warning("imagegen: video failed user=%s: %s", current_user["username"], e)
             yield "data: " + json.dumps({"type": "error", "message": str(e)}) + "\n\n"
         finally:
+            _ACTIVE_PROMPTS.pop(current_user["id"], None)
             gpu_queue.release()
             _IMAGEGEN_INFLIGHT.release(current_user["id"])
 
@@ -506,7 +549,9 @@ async def upscale_standalone_image_stream(body: ImageGenUpscaleIn, current_user:
                 else f"Waiting for a GPU slot ({queue_state['queued'] + 1} in line)")}) + "\n\n"
         await gpu_queue.acquire(current_user)
         try:
-            async for kind, data in imagegen.upscale_image_stream(image_bytes, CFG["comfyui_url"], upscaler):
+            async for kind, data in imagegen.upscale_image_stream(
+                    image_bytes, CFG["comfyui_url"], upscaler,
+                    on_prompt=lambda pid: _remember_prompt(current_user["id"], pid)):
                 if kind == "done":
 
                     data = await reencode_webp(data)
@@ -521,10 +566,14 @@ async def upscale_standalone_image_stream(body: ImageGenUpscaleIn, current_user:
                     "type": kind, "image": f"data:{mime};base64,{b64}",
                 }) + "\n\n"
             log.info("imagegen: upscale done user=%s upscaler=%s", current_user["username"], upscaler)
+        except imagegen.GenerationInterrupted:
+            log.info("imagegen: upscale stopped by user=%s", current_user["username"])
+            yield "data: " + json.dumps({"type": "cancelled"}) + "\n\n"
         except Exception as e:
             log.warning("imagegen: upscale failed user=%s: %s", current_user["username"], e)
             yield "data: " + json.dumps({"type": "error", "message": str(e)}) + "\n\n"
         finally:
+            _ACTIVE_PROMPTS.pop(current_user["id"], None)
             gpu_queue.release()
             _IMAGEGEN_INFLIGHT.release(current_user["id"])
 
