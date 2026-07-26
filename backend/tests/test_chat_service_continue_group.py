@@ -88,8 +88,8 @@ async def test_multiplayer_gate_registers_before_first_await(monkeypatch, db_con
     from backend.repositories import session_participants as sp
     char = await characters.create({"owner_id": "owner-1", "name": "Narrator", "mode": "rpg"})
     sid = await chat_sessions.create(char["id"], None, "Party", "Host", user_id="owner-1")
-    await sp.add(sid, "owner-1", None, "host")
-    await sp.add(sid, "friend-1", None, "member")
+    await sp.add(sid, "owner-1", "host")
+    await sp.add(sid, "friend-1", "member")
     seen = {}
     original = chat_service._resolve_sender_persona
     async def _spy(s, current_user):
@@ -106,8 +106,8 @@ async def test_multiplayer_gate_placeholder_cleared_on_failure(db_conn):
     from backend.repositories import session_participants as sp
     char = await characters.create({"owner_id": "owner-1", "name": "Narrator", "mode": "rpg"})
     sid = await chat_sessions.create(char["id"], None, "Party", "Host", user_id="owner-1")
-    await sp.add(sid, "owner-1", None, "host")
-    await sp.add(sid, "friend-1", None, "member")
+    await sp.add(sid, "owner-1", "host")
+    await sp.add(sid, "friend-1", "member")
     with pytest.raises(HTTPException):
         await chat_service._run(sid, continue_mode=True, current_user={"id": "owner-1"})
     assert sid not in chat_service._active_gen

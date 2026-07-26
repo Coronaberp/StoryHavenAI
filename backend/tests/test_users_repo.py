@@ -219,24 +219,34 @@ async def test_admin_clear_totp_route_404_for_missing_user(db_conn):
 
     assert exc_info.value.status_code == 404
 
-async def test_totp_backup_codes_roundtrip_and_consume(db_conn):
+async def _raw_backup_codes(uid: str) -> str:
+    from sqlalchemy import select
+    from backend.db import users as users_tbl, _q1
+    row = await _q1(select(users_tbl.c.totp_backup_codes).where(users_tbl.c.id == uid))
+    return row["totp_backup_codes"] or ""
+
+async def test_totp_backup_codes_are_hashed_and_single_use(db_conn):
     user = await user_repo.create_user("repo_test_totp_3", "s3cret-password")
     await user_repo.set_totp_secret(user["id"], "JBSWY3DPEHPK3PXP", ["aaaa1111", "bbbb2222"])
-    codes = await user_repo.get_totp_backup_codes(user["id"])
-    assert set(codes) == {"aaaa1111", "bbbb2222"}
+    assert await user_repo.count_totp_backup_codes(user["id"]) == 2
+
+    stored = await user_repo.get_user_by_id(user["id"])
+    raw = await _raw_backup_codes(user["id"])
+    assert "aaaa1111" not in raw and "bbbb2222" not in raw
+    assert stored is not None
 
     assert await user_repo.consume_totp_backup_code(user["id"], "aaaa1111") is True
-    remaining = await user_repo.get_totp_backup_codes(user["id"])
-    assert remaining == ["bbbb2222"]
-
+    assert await user_repo.count_totp_backup_codes(user["id"]) == 1
     assert await user_repo.consume_totp_backup_code(user["id"], "aaaa1111") is False
+    assert await user_repo.consume_totp_backup_code(user["id"], "bbbb2222") is True
+    assert await user_repo.count_totp_backup_codes(user["id"]) == 0
 
 async def test_set_totp_secret_none_clears_secret_and_backup_codes(db_conn):
     user = await user_repo.create_user("repo_test_totp_4", "s3cret-password")
     await user_repo.set_totp_secret(user["id"], "JBSWY3DPEHPK3PXP", ["aaaa1111"])
     await user_repo.set_totp_secret(user["id"], None)
     assert await user_repo.get_totp_secret(user["id"]) is None
-    assert await user_repo.get_totp_backup_codes(user["id"]) == []
+    assert await user_repo.count_totp_backup_codes(user["id"]) == 0
 
 async def test_totp_login_required_independent_of_totp_enabled(db_conn):
     user = await user_repo.create_user("repo_test_totp_5", "s3cret-password")

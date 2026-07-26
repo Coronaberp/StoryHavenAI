@@ -67,6 +67,19 @@ async def revoke_user_tokens(user_id: str, keep_access_jti: str | None = None,
     log.info("users: JWT tokens revoked user_id=%s kept_current=%s",
              user_id, bool(keep_access_jti or keep_refresh_jti))
 
+def hash_backup_codes(codes: list[str] | None) -> str | None:
+    if not codes:
+        return None
+    return json.dumps([hash_password(code) for code in codes])
+
+def _stored_backup_hashes(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    try:
+        return json.loads(_decrypt_secret(raw))
+    except Exception:
+        return []
+
 async def create_user(username: str, password: str, is_admin: bool = False,
                        status: str = "active", totp_secret: str | None = None,
                        totp_backup_codes: list[str] | None = None,
@@ -78,7 +91,7 @@ async def create_user(username: str, password: str, is_admin: bool = False,
         password_hash=hash_password(password), is_admin=int(is_admin),
         status=status, created=time.time(), invite_code_id=invite_code_id, tier=tier,
         totp_secret=_encrypt_secret(totp_secret) if totp_secret else None,
-        totp_backup_codes=_encrypt_secret(json.dumps(totp_backup_codes)) if totp_backup_codes else None,
+        totp_backup_codes=hash_backup_codes(totp_backup_codes),
         totp_enabled=int(totp_enabled), totp_login_required=int(totp_login_required)))
     log.info(f"user created id={uid} is_admin={is_admin} status={status} totp_enabled={totp_enabled}")
     return await get_user_by_id(uid)
@@ -88,7 +101,7 @@ async def set_totp_secret(uid: str, secret: str | None, backup_codes: list[str] 
     if secret is None:
         values["totp_backup_codes"] = None
     elif backup_codes is not None:
-        values["totp_backup_codes"] = _encrypt_secret(json.dumps(backup_codes))
+        values["totp_backup_codes"] = hash_backup_codes(backup_codes)
     await _w(update(users).where(users.c.id == uid).values(**values))
     log.info(f"user totp_secret set id={uid} has_secret={bool(secret)}")
 
@@ -98,14 +111,9 @@ async def get_totp_secret(uid: str) -> str | None:
         return None
     return _decrypt_secret(row["totp_secret"])
 
-async def get_totp_backup_codes(uid: str) -> list[str]:
+async def count_totp_backup_codes(uid: str) -> int:
     row = await _q1(select(users.c.totp_backup_codes).where(users.c.id == uid))
-    if not row or not row["totp_backup_codes"]:
-        return []
-    try:
-        return json.loads(_decrypt_secret(row["totp_backup_codes"]))
-    except Exception:
-        return []
+    return len(_stored_backup_hashes(row["totp_backup_codes"] if row else None))
 
 async def set_totp_enabled(uid: str, enabled: bool):
     values = {"totp_enabled": int(enabled)}
@@ -132,18 +140,16 @@ async def set_passkey_required(uid: str, required: bool):
 
 async def consume_totp_backup_code(uid: str, code: str) -> bool:
     row = await _q1(select(users.c.totp_backup_codes).where(users.c.id == uid))
-    if not row or not row["totp_backup_codes"]:
+    hashes = _stored_backup_hashes(row["totp_backup_codes"] if row else None)
+    if not hashes:
         return False
-    try:
-        codes = json.loads(_decrypt_secret(row["totp_backup_codes"]))
-    except Exception:
+    match = next((h for h in hashes if verify_password(code, h)), None)
+    if match is None:
         return False
-    if code not in codes:
-        return False
-    codes.remove(code)
+    hashes.remove(match)
     await _w(update(users).where(users.c.id == uid).values(
-        totp_backup_codes=_encrypt_secret(json.dumps(codes))))
-    log.info(f"user totp backup code consumed id={uid} remaining={len(codes)}")
+        totp_backup_codes=json.dumps(hashes)))
+    log.info(f"user totp backup code consumed id={uid} remaining={len(hashes)}")
     return True
 
 async def get_user_by_id(uid: str) -> dict | None:

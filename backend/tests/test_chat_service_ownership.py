@@ -19,7 +19,7 @@ async def test_own_session_rejects_non_owner_non_participant(db_conn):
 
 async def test_own_session_allows_multiplayer_participant(db_conn):
     sid = await chat_sessions.create("char-1", None, "Party", "Host", user_id="owner-1")
-    await sp.add(sid, "owner-1", None, "host")
-    await sp.add(sid, "friend-1", None, "member")
+    await sp.add(sid, "owner-1", "host")
+    await sp.add(sid, "friend-1", "member")
     session = await chat_service._own_session(sid, {"id": "friend-1"})
     assert session["id"] == sid

@@ -5,7 +5,8 @@ import os
 import pytest
 
 from backend import chat_service, live_broadcast, llm, memory_service
-from backend.repositories import chat_sessions, characters, personas, session_participants as sp, memory_facts
+from backend.repositories import (chat_sessions, characters, personas, persona_claims,
+                                  session_participants as sp, memory_facts)
 
 pytestmark = pytest.mark.asyncio
 
@@ -48,8 +49,8 @@ async def test_gen_handle_finish_broadcasts_done():
 async def _make_rpg_session():
     char = await characters.create({"owner_id": "owner-1", "name": "Narrator", "mode": "rpg"})
     sid = await chat_sessions.create(char["id"], None, "Party", "Host", user_id="owner-1")
-    await sp.add(sid, "owner-1", None, "host")
-    await sp.add(sid, "friend-1", None, "member")
+    await sp.add(sid, "owner-1", "host")
+    await sp.add(sid, "friend-1", "member")
     return sid
 
 async def test_run_broadcasts_generating_with_sender_before_any_failure(db_conn, monkeypatch):
@@ -72,8 +73,10 @@ async def test_run_attributes_message_to_acting_participants_own_persona(db_conn
     friend_persona = await personas.create({"name": "Tanaki"}, user_id="friend-1")
     char = await characters.create({"owner_id": "owner-1", "name": "Narrator", "mode": "rpg"})
     sid = await chat_sessions.create(char["id"], host_persona["id"], "Party", "Tomio", user_id="owner-1")
-    await sp.add(sid, "owner-1", host_persona["id"], "host")
-    await sp.add(sid, "friend-1", friend_persona["id"], "member")
+    await sp.add(sid, "owner-1", "host")
+    await sp.add(sid, "friend-1", "member")
+    await persona_claims.claim(sid, host_persona["id"], "owner-1")
+    await persona_claims.claim(sid, friend_persona["id"], "friend-1")
     await chat_service._run(sid, user_content="I act.", current_user={"id": "friend-1"})
     await chat_service._active_gen[sid].task
     messages = await chat_sessions.list_messages(sid)
