@@ -97,3 +97,39 @@ async def test_participants_endpoint_returns_resolved_name(db_conn):
     await session_participants.add(sid, theo["id"], None, "host")
     rows = await mp.list_participants(sid, current_user=theo)
     assert rows[0]["name"] == "theo"
+
+
+from backend.chat_service import _session_persona_names
+from backend.repositories import personas
+
+
+async def test_session_persona_names_includes_unclaimed_session_persona(db_conn):
+    session = await _multiplayer_session()
+    persona = await personas.create({"name": "Andrea Von Humboldt", "session_id": session["id"]}, user_id="someone-else")
+    names = await _session_persona_names(session, None)
+    assert "Andrea Von Humboldt" in names
+
+
+async def test_session_persona_names_includes_actively_claimed_persona(db_conn):
+    session = await _multiplayer_session()
+    persona = await personas.create({"name": "Alexander Von Humboldt", "session_id": session["id"]}, user_id="host-1")
+    await session_participants.set_persona(session["id"], "host-1", persona["id"])
+    names = await _session_persona_names(session, None)
+    assert "Alexander Von Humboldt" in names
+
+
+async def test_session_persona_names_excludes_persona_abandoned_by_departed_player(db_conn):
+    session = await _multiplayer_session()
+    persona = await personas.create({"name": "Faye", "session_id": session["id"]}, user_id="wanderer-1")
+    await session_participants.add(session["id"], "wanderer-1", persona["id"], "member")
+    await session_participants.remove(session["id"], "wanderer-1")
+    names = await _session_persona_names(session, None)
+    assert "Faye" not in names
+
+
+async def test_session_persona_names_excludes_current_speakers_own_persona(db_conn):
+    session = await _multiplayer_session()
+    persona = await personas.create({"name": "Alexander Von Humboldt", "session_id": session["id"]}, user_id="host-1")
+    await session_participants.set_persona(session["id"], "host-1", persona["id"])
+    names = await _session_persona_names(session, persona)
+    assert "Alexander Von Humboldt" not in names

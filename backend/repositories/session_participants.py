@@ -57,6 +57,11 @@ async def remove(session_id: str, user_id: str) -> None:
     ).values(left_at=time.time()))
     log.info("session_participants: removed user=%s session=%s", user_id, session_id)
 
+async def list_all_for_session(session_id: str) -> list[dict]:
+    return await _q(
+        select(session_participants).where(session_participants.c.session_id == session_id)
+    )
+
 async def list_session_ids_for_user(user_id: str) -> list[str]:
     rows = await _q(
         select(session_participants.c.session_id).where(session_participants.c.user_id == user_id)

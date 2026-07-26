@@ -151,9 +151,17 @@ async def _session_persona_names(s: dict, current_persona: dict | None) -> list[
     owner_id = s.get("user_id")
     if not owner_id:
         return []
-    rows = await personas.list_selectable_for_session(owner_id, s["id"])
+    sid = s["id"]
+    rows = await personas.list_selectable_for_session(owner_id, sid)
+    all_participant_rows = await session_participants.list_all_for_session(sid)
+    active_persona_ids = {r["persona_id"] for r in all_participant_rows
+                          if r.get("persona_id") and r.get("left_at") is None}
+    abandoned_persona_ids = {r["persona_id"] for r in all_participant_rows
+                             if r.get("persona_id") and r.get("left_at") is not None
+                             and r["persona_id"] not in active_persona_ids}
     current_id = current_persona.get("id") if current_persona else None
-    return [row["name"] for row in rows if row.get("name") and row["id"] != current_id]
+    return [row["name"] for row in rows if row.get("name") and row["id"] != current_id
+           and row["id"] not in abandoned_persona_ids]
 
 async def _resolve_sender_persona(s: dict, current_user: dict | None) -> tuple[dict | None, str]:
     if current_user:
