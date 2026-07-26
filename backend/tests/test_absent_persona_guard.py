@@ -13,15 +13,15 @@ def test_absent_persona_guard_returns_none_for_empty_list():
 
 def test_build_system_includes_absent_guard_when_names_given():
     from backend.prompt import build_system
-    char = {"name": "Aria", "mode": "character", "persona": "", "scenario": "", "system_prompt": "", "dialogue": ""}
-    system = build_system(char, None, "Player", mode="character", is_multiplayer=True,
+    char = {"name": "Aria", "mode": "rpg", "persona": "", "scenario": "", "system_prompt": "", "dialogue": ""}
+    system = build_system(char, None, "Player", mode="rpg", is_multiplayer=True,
                           other_player_names=[], session_persona_names=[],
                           absent_persona_names=["Mira"])
     assert "Mira" in system
 
 def test_build_system_omits_absent_guard_when_no_names():
     from backend.prompt import build_system
-    char = {"name": "Aria", "mode": "character", "persona": "", "scenario": "", "system_prompt": "", "dialogue": ""}
-    system = build_system(char, None, "Player", mode="character", is_multiplayer=False,
+    char = {"name": "Aria", "mode": "rpg", "persona": "", "scenario": "", "system_prompt": "", "dialogue": ""}
+    system = build_system(char, None, "Player", mode="rpg", is_multiplayer=False,
                           other_player_names=[], session_persona_names=[], absent_persona_names=[])
     assert "stepped out" not in system.lower()

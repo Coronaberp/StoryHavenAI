@@ -665,11 +665,6 @@ def build_system(char, persona, user_name, mode="character", language="English",
                 "sentence structure or length. Follow all of the above without restating it."
             )
 
-    if mode != "rpg":
-        absent_guard = _absent_persona_guard(absent_persona_names)
-        if absent_guard:
-            parts.append(absent_guard)
-
     in_fiction_role = "the DM" if mode == "rpg" else f"only {name}"
     if full:
         parts.append(
