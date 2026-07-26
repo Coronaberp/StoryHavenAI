@@ -125,7 +125,10 @@ function inlineToSigil(raw) {
   return String(raw || "").replace(/\{(\w+):\s*([^}]*)\}/g, (m, word, args) => {
     word = word.toLowerCase();
     if (word === "roll" || !["ooc", "scene", "note", "time", "as"].includes(word)) return m;
-    return directiveToSigil(word, args.trim(), "");
+    const body = args.trim();
+    if (word !== "as") return directiveToSigil(word, null, body);
+    const [name, ...rest] = body.split(/\s+/);
+    return directiveToSigil(word, name || null, rest.join(" "));
   });
 }
 
@@ -1363,8 +1366,12 @@ class ChatView {
       }
       const isMe = m.sender_user_id === ME?.id;
       const participant = this.multiplayer?.participants?.find((p) => p.user_id === m.sender_user_id);
-      const name = isMe ? this._myPersonaName() : (participant?.name || t("chat_multiplayer_unknown_participant", "Someone"));
-      const avatar = isMe ? ME?.avatar : participant?.avatar;
+      const fallbackUser = isMe ? (ME?.display_name || ME?.username)
+        : (participant?.user_display_name || participant?.username);
+      const fallbackPersona = isMe ? this._myPersonaName() : participant?.persona_name;
+      const fallbackName = [fallbackUser, fallbackPersona].filter(Boolean).filter((part, idx, all) => all.indexOf(part) === idx).join(" · ");
+      const name = m.sender_name || fallbackName || t("chat_multiplayer_unknown_participant", "Someone");
+      const avatar = m.sender_avatar || (isMe ? ME?.avatar : participant?.avatar);
       const when = m.created ? timeAgo(m.created) : "";
       return `
         <div class="comment-row">
@@ -1978,7 +1985,7 @@ class ChatView {
                     </div>
                   ` : ""}
                 </div>
-                ${this.streaming ? `
+                ${this.streaming || this.multiplayerLocked ? `
                   <button type="button" id="chatStop" class="chat-composer-pill" aria-label="${t("chat_stop_generating")}">
                     <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" style="width:13px;height:13px"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
                     ${t("chat_stop")}
@@ -3330,15 +3337,16 @@ class ChatView {
   }
 
   async openImageGenModal(msg) {
-    let checkpoints, animaUnets, loras, loraPreviews, checkpointPreviews, samplerData;
+    let checkpoints, animaUnets, loras, loraPreviews, checkpointPreviews, samplerData, settings;
     try {
-      [checkpoints, animaUnets, loras, loraPreviews, checkpointPreviews, samplerData] = await Promise.all([
+      [checkpoints, animaUnets, loras, loraPreviews, checkpointPreviews, samplerData, settings] = await Promise.all([
         api("/api/imagegen/checkpoints"),
         api("/api/imagegen/anima-unets").catch(() => []),
         api("/api/imagegen/loras"),
         api("/api/imagegen/lora-previews").catch(() => ({})),
         api("/api/imagegen/checkpoint-previews").catch(() => ({})),
         api("/api/imagegen/samplers").catch(() => ({ samplers: [], schedulers: [] })),
+        api("/api/settings").catch(() => ({})),
       ]);
     } catch (err) {
       errorToast(err.message || t("chat_couldnt_load_imagegen_options"));
@@ -3349,10 +3357,23 @@ class ChatView {
     let advanced = false;
     let modalLayer = null;
     let selectedCheckpoint = null;
-    let selectedSampler = null;
-    let selectedScheduler = null;
-    let selectedSteps = 20;
-    let selectedCfg = 7.0;
+    const igDefaultsFor = (arch) => arch === "anima" ? {
+      checkpoint: settings.image_gen_default_checkpoint_anima || "",
+      sampler: settings.image_gen_default_sampler_anima || "er_sde",
+      scheduler: settings.image_gen_default_scheduler_anima || "simple",
+      steps: settings.image_gen_default_steps_anima || 20,
+      cfg: settings.image_gen_default_cfg_anima || 4.0,
+    } : {
+      checkpoint: settings.image_gen_default_checkpoint_sdxl || "",
+      sampler: settings.image_gen_default_sampler_sdxl || "dpmpp_2m_sde_gpu",
+      scheduler: settings.image_gen_default_scheduler_sdxl || "karras",
+      steps: settings.image_gen_default_steps_sdxl || 20,
+      cfg: settings.image_gen_default_cfg_sdxl || 7.0,
+    };
+    let selectedSampler = igDefaultsFor(architecture).sampler;
+    let selectedScheduler = igDefaultsFor(architecture).scheduler;
+    let selectedSteps = igDefaultsFor(architecture).steps;
+    let selectedCfg = igDefaultsFor(architecture).cfg;
     let selectedDenoise = 0.6;
     let refDataUrl = null;
     let promptFilled = false;
@@ -3360,7 +3381,11 @@ class ChatView {
     let negativeText = "";
 
     const modelsFor = () => architecture === "anima" ? animaUnets : checkpoints;
-    const defaultCheckpointFor = (models) => models.find((m) => m.toLowerCase().includes("realskin")) || models[0] || null;
+    const defaultCheckpointFor = (models) => {
+      const configured = igDefaultsFor(architecture).checkpoint;
+      if (configured && models.includes(configured)) return configured;
+      return models.find((m) => m.toLowerCase().includes("realskin")) || models[0] || null;
+    };
 
     const renderModal = () => {
       const models = modelsFor();
@@ -3473,7 +3498,16 @@ class ChatView {
         posEl.disabled = negEl.disabled = false;
       }
       selectedCheckpoint = selectedCheckpoint && models.includes(selectedCheckpoint) ? selectedCheckpoint : defaultCheckpointFor(models);
-      wireCheckpointPicker("igCheckpoint", (v) => { selectedCheckpoint = v; });
+      const applyChatCheckpointDefaults = (name) => {
+        const preset = checkpointPreviews[name] || {};
+        if (preset.default_sampler) selectedSampler = preset.default_sampler;
+        if (preset.default_scheduler) selectedScheduler = preset.default_scheduler;
+        if (preset.default_steps) selectedSteps = preset.default_steps;
+        if (preset.default_cfg) selectedCfg = preset.default_cfg;
+        applyCheckpointPromptDefaults(preset, posEl, negEl);
+      };
+      wireCheckpointPicker("igCheckpoint", (v) => { selectedCheckpoint = v; applyChatCheckpointDefaults(v); });
+      applyChatCheckpointDefaults(selectedCheckpoint);
       if (loras.length) wireLoraPicker("igLoras", { onKeywordClick: (kw) => {
         positiveText = positiveText.trim() ? `${positiveText.trim()}, ${kw}` : kw;
         posEl.value = positiveText;
@@ -3493,7 +3527,16 @@ class ChatView {
       layer.querySelector("#igSimpleTab").onclick = () => { advanced = false; renderModal(); };
       layer.querySelector("#igAdvancedTab").onclick = () => { advanced = true; renderModal(); };
       if (animaUnets.length) {
-        wireCustomSelect("igArch", (v) => { architecture = v; selectedCheckpoint = null; renderModal(); });
+        wireCustomSelect("igArch", (v) => {
+          architecture = v;
+          selectedCheckpoint = null;
+          const igd = igDefaultsFor(architecture);
+          selectedSampler = igd.sampler;
+          selectedScheduler = igd.scheduler;
+          selectedSteps = igd.steps;
+          selectedCfg = igd.cfg;
+          renderModal();
+        });
       }
       const denoiseRow = layer.querySelector("#igDenoiseRow");
       const denoise = layer.querySelector("#igDenoise");
@@ -3640,8 +3683,11 @@ class ChatView {
     document.getElementById("chatStyleBtn").onclick = () => this.openStyleModal();
     document.getElementById("chatLengthBtn").onclick = () => this.openLengthModal();
     document.getElementById("chatEndpointBtn").onclick = () => this.openEndpointModal();
-    if (this.streaming) {
-      document.getElementById("chatStop").onclick = () => this.abortController?.abort();
+    if (this.streaming || this.multiplayerLocked) {
+      document.getElementById("chatStop").onclick = () => {
+        this.abortController?.abort();
+        api(`/api/sessions/${encodeURIComponent(this.sid)}/chat/abort`, { method: "POST" }).catch(() => {});
+      };
       return;
     }
     if (!input) return;
