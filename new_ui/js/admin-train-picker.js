@@ -30,17 +30,20 @@ function _pickerStrengthHtml(name, strength) {
   `;
 }
 
-function _pickerTileHtml(item, selected, hasZoom) {
+function _pickerTileHtml(item, selected, hasZoom, strengthHtml) {
   return `
-    <button type="button" data-picker-name="${_attr(item.name)}"
-      style="width:100%;display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:13px;cursor:pointer;text-align:left;background:${selected ? "color-mix(in srgb, var(--color-accent) 8%, var(--color-surface))" : "var(--color-surface)"};border:1.5px solid ${selected ? "var(--color-accent)" : "var(--color-line)"}">
-      ${_pickerTileThumbHtml(item, 52, hasZoom)}
-      <span style="flex:1;min-width:0">
-        <span style="display:block;font-weight:600;font-size:14px;color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(item.label || item.name)}</span>
-        ${item.sublabel ? `<span style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:11px;color:var(--color-muted);margin-top:2px">${_esc(item.sublabel)}</span>` : ""}
-        ${_pickerTileTagsHtml(item)}
-      </span>
-    </button>
+    <div data-picker-tile-wrap="${_attr(item.name)}" style="border-radius:13px;background:${selected ? "color-mix(in srgb, var(--color-accent) 8%, var(--color-surface))" : "var(--color-surface)"};border:1.5px solid ${selected ? "var(--color-accent)" : "var(--color-line)"};padding:9px 10px">
+      <button type="button" data-picker-name="${_attr(item.name)}"
+        style="width:100%;display:flex;align-items:center;gap:12px;border:none;background:none;padding:0;cursor:pointer;text-align:left">
+        ${_pickerTileThumbHtml(item, 52, hasZoom)}
+        <span style="flex:1;min-width:0">
+          <span style="display:block;font-weight:600;font-size:14px;color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(item.label || item.name)}</span>
+          ${item.sublabel ? `<span style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:11px;color:var(--color-muted);margin-top:2px">${_esc(item.sublabel)}</span>` : ""}
+          ${_pickerTileTagsHtml(item)}
+        </span>
+      </button>
+      ${strengthHtml || ""}
+    </div>
   `;
 }
 
@@ -57,8 +60,8 @@ function _pickerDetailFooterHtml(item) {
       c.cfg ? `<span>cfg <b style="color:var(--color-accent);font-weight:400">${_esc(String(c.cfg))}</b></span>` : "",
     ].filter(Boolean).join("");
     if (slugParts) parts.push(`<div style="display:flex;flex-wrap:wrap;gap:0 10px;margin:10px 0 0;padding-top:10px;border-top:1px solid var(--color-line);font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-muted)">${slugParts}</div>`);
-    if (c.positiveAdd) parts.push(`<div style="font-size:11px;color:var(--color-muted);margin-top:8px;line-height:1.5"><b style="color:var(--color-sec);font-weight:600">Adds to your prompt:</b> "${_esc(c.positiveAdd)}"</div>`);
-    if (c.negativeAdd) parts.push(`<div style="font-size:11px;color:var(--color-muted);margin-top:6px;line-height:1.5"><b style="color:var(--color-sec);font-weight:600">Adds to negative:</b> "${_esc(c.negativeAdd)}"</div>`);
+    if (c.positiveAdd) parts.push(`<div style="font-size:11px;color:var(--color-muted);margin-top:8px;line-height:1.5"><b style="color:var(--color-sec);font-weight:600">${t("admin_picker_adds_to_prompt", "Adds to your prompt:")}</b> "${_esc(c.positiveAdd)}"</div>`);
+    if (c.negativeAdd) parts.push(`<div style="font-size:11px;color:var(--color-muted);margin-top:6px;line-height:1.5"><b style="color:var(--color-sec);font-weight:600">${t("admin_picker_adds_to_negative", "Adds to negative:")}</b> "${_esc(c.negativeAdd)}"</div>`);
   }
   if (!parts.length) return "";
   return `<div style="padding:0 4px 4px">${parts.join("")}</div>`;
@@ -158,9 +161,8 @@ function openPickerSheet(opts) {
     grid.innerHTML = list.length
       ? list.map((item) => {
           const selected = isSelected(item.name);
-          const row = _pickerTileHtml(item, selected, !!opts.onZoom);
-          if (!multiSelect || !selected || !opts.strengthFor) return row;
-          return row.replace("</button>", `${_pickerStrengthHtml(item.name, opts.strengthFor(item.name))}</button>`);
+          const strengthHtml = (multiSelect && selected && opts.strengthFor) ? _pickerStrengthHtml(item.name, opts.strengthFor(item.name)) : "";
+          return _pickerTileHtml(item, selected, !!opts.onZoom, strengthHtml);
         }).join("")
       : `<p style="font-size:12.5px;color:var(--color-muted);padding:20px 4px;text-align:center">${t("admin_picker_no_matches", "Nothing matches")}</p>`;
     grid.querySelectorAll("[data-picker-name]").forEach((b) => {
