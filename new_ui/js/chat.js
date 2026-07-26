@@ -921,17 +921,6 @@ class ChatView {
     await this.revealTyping(content, controller.signal, render);
   }
 
-  _lockedByLabel() {
-    const uid = this.multiplayerLockedBy;
-    const generic = t("chat_multiplayer_locked_label_generic", "Someone's acting. The composer opens back up once the reply lands.");
-    if (!uid) return generic;
-    const isMe = uid === ME?.id;
-    const p = this.multiplayer?.participants?.find((row) => row.user_id === uid);
-    const who = isMe ? this._myPersonaName() : p?.name;
-    if (!who) return generic;
-    return t("chat_multiplayer_locked_label", "{who} is acting. The composer opens back up once the reply lands.").replace("{who}", who);
-  }
-
   participantStripHtml() {
     const colors = ["#7DBEF0", "#C4A0FF", "#7BD88F", "#F0788F", "#F2CE87", "#E3BD6C", "#B8892B", "#8B7A6E"];
     const rows = this.multiplayer.participants.map((p, i) => {
@@ -961,15 +950,11 @@ class ChatView {
           ${this.partyChatUnread ? `<span style="position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--color-accent);color:var(--color-paper-base);font-family:var(--font-mono);font-size:10px;font-weight:600;display:grid;place-items:center;line-height:1">${this.partyChatUnread > 9 ? "9+" : this.partyChatUnread}</span>` : ""}
         </button>
       </div>
-      ${this.multiplayerLocked ? `
-        <div style="flex:none;padding:6px 14px;font-family:var(--font-mono);font-size:11px;color:var(--color-accent);background:color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));border-bottom:1px solid var(--color-line)">
-          🔒 ${this._lockedByLabel()}
+      ${this.multiplayerTypingBy ? `
+        <div style="flex:none;padding:6px 14px;border-bottom:1px solid var(--color-line)">
+          <div class="chat-writing"><span class="chat-writing-dot"></span>${this._typingByLabel()}</div>
         </div>
-      ` : (!this.multiplayerLocked && this.multiplayerTypingBy ? `
-        <div style="flex:none;padding:6px 14px;font-family:var(--font-mono);font-size:11px;color:var(--color-muted);border-bottom:1px solid var(--color-line)">
-          ${this._typingByLabel()}
-        </div>
-      ` : "")}
+      ` : ""}
     `;
   }
 
@@ -1935,7 +1920,7 @@ class ChatView {
           <div class="chat-composer">
             <div class="chat-composer-card">
               <div style="position:relative">
-                <textarea id="chatInput" rows="2" class="${rpg ? "chat-input-has-dice" : ""}" placeholder="${this.multiplayerLocked ? t("chat_multiplayer_locked_placeholder", "Someone's acting. Hang tight.") : (rpg ? t("chat_composer_placeholder_rpg") : t("chat_composer_placeholder_normal"))}" ${this.streaming || this.multiplayerLocked ? "disabled" : ""}></textarea>
+                <textarea id="chatInput" rows="2" class="${rpg ? "chat-input-has-dice" : ""}" placeholder="${rpg ? t("chat_composer_placeholder_rpg") : t("chat_composer_placeholder_normal")}"></textarea>
                 ${rpg ? `
                   <button type="button" id="chatDiceBtn" class="chat-dice-emoji-btn" aria-label="${t("chat_roll_dice")}" data-tooltip="${t("chat_roll_dice")}" ${this.diceRolledThisTurn || this.streaming ? "disabled" : ""}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="8" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="8" r="1.3" fill="currentColor" stroke="none"/><circle cx="8" cy="16" r="1.3" fill="currentColor" stroke="none"/><circle cx="16" cy="16" r="1.3" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>
@@ -1991,7 +1976,7 @@ class ChatView {
                     ${t("chat_stop")}
                   </button>
                 ` : `
-                  <button type="button" id="chatSend" class="chat-composer-pill" data-feature="chat" aria-label="${t("chat_send")}" ${this.multiplayerLocked ? "disabled" : ""}>
+                  <button type="button" id="chatSend" class="chat-composer-pill" data-feature="chat" aria-label="${t("chat_send")}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                     ${t("chat_send")}
                   </button>
@@ -3683,12 +3668,12 @@ class ChatView {
     document.getElementById("chatStyleBtn").onclick = () => this.openStyleModal();
     document.getElementById("chatLengthBtn").onclick = () => this.openLengthModal();
     document.getElementById("chatEndpointBtn").onclick = () => this.openEndpointModal();
-    if (this.streaming || this.multiplayerLocked) {
-      document.getElementById("chatStop").onclick = () => {
+    const stopBtn = document.getElementById("chatStop");
+    if (stopBtn) {
+      stopBtn.onclick = () => {
         this.abortController?.abort();
         api(`/api/sessions/${encodeURIComponent(this.sid)}/chat/abort`, { method: "POST" }).catch(() => {});
       };
-      return;
     }
     if (!input) return;
     const draft = store.get(`draft:${this.sid}`, "");
@@ -3721,7 +3706,7 @@ class ChatView {
       input.addEventListener("input", () => this.updateCharMention(input));
       input.addEventListener("blur", () => setTimeout(() => this.closeCharMention(), 150));
     }
-    document.getElementById("chatSend").onclick = () => this.submitComposer();
+    document.getElementById("chatSend")?.addEventListener("click", () => this.submitComposer());
   }
 
   _mentionCast() {
@@ -3831,7 +3816,7 @@ class ChatView {
   async submitComposer() {
     const input = document.getElementById("chatInput");
     const raw = input.value.trim();
-    if (!raw || this.streaming) return;
+    if (!raw) return;
     if (looksLikePromptInjection(raw)) {
       input.value = "";
       input.style.height = "auto";
@@ -3964,7 +3949,6 @@ class ChatView {
   }
 
   async sendTurn(endpoint, body, { optimisticUser } = {}) {
-    if (this.streaming) return;
     if (this.draftCharId) {
       try {
         const created = await api(`/api/characters/${encodeURIComponent(this.draftCharId)}/sessions`, {
