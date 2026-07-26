@@ -497,7 +497,7 @@ class ChatView {
     this.multiplayer = null;
     this.multiplayerLocked = false;
     this.multiplayerLockedBy = null;
-    this.multiplayerTypingBy = null;
+    this.multiplayerTypingBy = new Map();
     this.partyChatMessages = [];
     this.partyChatUnread = 0;
     this._pcMentionOpen = false;
@@ -687,10 +687,12 @@ class ChatView {
       await this._revealIncomingDelta(ev.content || "");
     } else if (ev.type === "typing") {
       if (ev.user_id === ME?.id) return;
-      this.multiplayerTypingBy = ev.user_id;
+      clearTimeout(this.multiplayerTypingBy.get(ev.user_id));
+      this.multiplayerTypingBy.set(ev.user_id, setTimeout(() => {
+        this.multiplayerTypingBy.delete(ev.user_id);
+        this.render();
+      }, 4000));
       this.render();
-      clearTimeout(this._typingClearTimer);
-      this._typingClearTimer = setTimeout(() => { this.multiplayerTypingBy = null; this.render(); }, 4000);
     } else if (ev.type === "done") {
       this.multiplayerLocked = false;
       this.multiplayerLockedBy = null;
@@ -950,7 +952,7 @@ class ChatView {
           ${this.partyChatUnread ? `<span style="position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--color-accent);color:var(--color-paper-base);font-family:var(--font-mono);font-size:10px;font-weight:600;display:grid;place-items:center;line-height:1">${this.partyChatUnread > 9 ? "9+" : this.partyChatUnread}</span>` : ""}
         </button>
       </div>
-      ${this.multiplayerTypingBy ? `
+      ${this.multiplayerTypingBy.size ? `
         <div style="flex:none;padding:6px 14px;border-bottom:1px solid var(--color-line)">
           <div class="chat-writing"><span class="chat-writing-dot"></span>${this._typingByLabel()}</div>
         </div>
@@ -959,9 +961,19 @@ class ChatView {
   }
 
   _typingByLabel() {
-    const p = this.multiplayer?.participants?.find((row) => row.user_id === this.multiplayerTypingBy);
-    const name = p?.name || t("chat_multiplayer_unknown_participant", "Someone");
-    return t("chat_multiplayer_typing_label", "{who} is typing…").replace("{who}", name);
+    const names = [...this.multiplayerTypingBy.keys()].map((uid) => {
+      const p = this.multiplayer?.participants?.find((row) => row.user_id === uid);
+      return p?.name || t("chat_multiplayer_unknown_participant", "Someone");
+    });
+    if (names.length === 1) {
+      return t("chat_multiplayer_typing_label", "{who} is typing…").replace("{who}", names[0]);
+    }
+    if (names.length === 2) {
+      return t("chat_multiplayer_typing_label_two", "{a} and {b} are typing…").replace("{a}", names[0]).replace("{b}", names[1]);
+    }
+    const last = names[names.length - 1];
+    const rest = names.slice(0, -1).join(", ");
+    return t("chat_multiplayer_typing_label_many", "{rest}, and {last} are typing…").replace("{rest}", rest).replace("{last}", last);
   }
 
   _isMultiplayerHost() {
