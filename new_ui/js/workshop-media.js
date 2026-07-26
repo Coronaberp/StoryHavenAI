@@ -1192,13 +1192,22 @@ class WorkshopMediaView {
 
   loraStrengthRowHtml(lora) {
     const valId = `forgeLoraStrength_${_esc(lora.name.replace(/[^a-zA-Z0-9]/g, "_"))}`;
+    const numId = `forgeLoraStrengthNum_${_esc(lora.name.replace(/[^a-zA-Z0-9]/g, "_"))}`;
+    const keywords = this.loraPreviews[lora.name]?.keywords || [];
     return `
-      <div style="display:flex;align-items:center;gap:10px">
-        ${this.loraThumbHtml(lora.name, 32)}
-        <span style="flex:1;font-size:12.5px;color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(this.loraPreviews[lora.name]?.display_name || lora.name)}</span>
-        <input type="range" min="-8" max="8" step="0.05" value="${lora.strength}" oninput="_activeForgeView.setLoraStrength(${_attr(JSON.stringify(lora.name))}, +this.value); _activeForgeView.main.querySelector('#${valId}').textContent = (+this.value).toFixed(2)" style="width:90px">
-        <span id="${valId}" style="font-family:var(--font-mono);font-size:11px;color:var(--color-accent);width:32px;text-align:right">${lora.strength.toFixed(2)}</span>
-        <button type="button" onclick="_activeForgeView.toggleLora(${_attr(JSON.stringify(lora.name))})" style="background:none;border:none;color:var(--color-muted);cursor:pointer;font-size:16px;line-height:1">&times;</button>
+      <div>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${this.loraThumbHtml(lora.name, 32)}
+          <span style="flex:1;font-size:12.5px;color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(this.loraPreviews[lora.name]?.display_name || lora.name)}</span>
+          <input type="range" id="${valId}" min="-8" max="8" step="0.05" value="${lora.strength}" oninput="_activeForgeView.setLoraStrength(${_attr(JSON.stringify(lora.name))}, +this.value); _activeForgeView.main.querySelector('#${numId}').value = (+this.value).toFixed(2)" style="width:80px">
+          <input type="text" id="${numId}" value="${lora.strength.toFixed(2)}" onchange="const v = Math.min(8, Math.max(-8, +this.value || 0)); this.value = v.toFixed(2); _activeForgeView.main.querySelector('#${valId}').value = v; _activeForgeView.setLoraStrength(${_attr(JSON.stringify(lora.name))}, v)" style="width:44px;background:var(--color-surface-2);border:1px solid var(--color-line-2);border-radius:6px;color:var(--color-accent);font-family:var(--font-mono);font-size:11px;text-align:center;padding:3px 4px">
+          <button type="button" onclick="_activeForgeView.toggleLora(${_attr(JSON.stringify(lora.name))})" style="background:none;border:none;color:var(--color-muted);cursor:pointer;font-size:16px;line-height:1">&times;</button>
+        </div>
+        ${keywords.length ? `
+          <div style="display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 0 42px">
+            ${keywords.map((k) => `<span onclick="_activeForgeView.positive = _activeForgeView.positive ? _activeForgeView.positive + ', ' + ${_attr(JSON.stringify(k))} : ${_attr(JSON.stringify(k))}; const el = _activeForgeView.main.querySelector('#forgePositive'); if (el) el.value = _activeForgeView.positive" style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:.04em;color:var(--color-accent);background:color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));border:1px solid var(--color-accent);border-radius:6px;padding:2px 7px;cursor:pointer">${_esc(k)}</span>`).join("")}
+          </div>
+        ` : ""}
       </div>
     `;
   }
@@ -1315,7 +1324,7 @@ class WorkshopMediaView {
   advancedHtml() {
     if (this.mode === "upscale") return "";
     return `
-      <div style="margin-bottom:16px;border:1px solid var(--color-line);border-radius:14px;overflow:hidden">
+      <div id="forgeAdvanced" style="margin-bottom:16px;border:1px solid var(--color-line);border-radius:14px;overflow:hidden">
         <button type="button" onclick="_activeForgeView.advancedOpen = !_activeForgeView.advancedOpen; _activeForgeView.render()" style="width:100%;display:flex;align-items:center;gap:9px;padding:13px 14px;background:var(--color-surface);border:none;cursor:pointer;color:var(--color-ink);text-align:left">
           <span style="flex:1">
             <span style="display:block;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-sec)">${t("forge_advanced_label")}</span>
@@ -2083,6 +2092,18 @@ class WorkshopMediaView {
     }
   }
 
+  liveSettingsSummaryHtml() {
+    if (this.mode === "upscale" || !this.checkpoint) return "";
+    const label = this.checkpointPreviews[this.checkpoint]?.display_name || this.checkpoint;
+    const parts = [label, this.sampler, this.scheduler, `${this.steps} steps`, `cfg ${this.cfg.toFixed(1)}`].filter(Boolean);
+    return `
+      <div class="forge-plate-slug" style="justify-content:center;margin-top:10px">
+        ${parts.map((p) => `<span>${_esc(p)}</span>`).join("")}
+      </div>
+      <button type="button" onclick="_activeForgeView.advancedOpen = true; _activeForgeView.render(); _activeForgeView.main.querySelector('#forgeAdvanced')?.scrollIntoView({behavior:'smooth', block:'center'})" style="display:block;margin:4px auto 0;font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;color:var(--color-accent);background:none;border:none;cursor:pointer;text-decoration:underline;text-underline-offset:2px">${t("forge_adjust_settings_link", "Adjust sampler, steps, CFG")}</button>
+    `;
+  }
+
   render() {
     window._activeForgeView = this;
     if (this.mode === "compile") {
@@ -2103,6 +2124,7 @@ class WorkshopMediaView {
       <div id="forgeCols" class="${this.mode === "upscale" ? "forge-no-options" : ""}">
         <div id="forgePreviewCol">
           ${this.previewBoxHtml()}
+          ${this.liveSettingsSummaryHtml()}
           ${this.maskBarHtml()}
           ${this.upscalePickerHtml()}
           ${this.generateBarHtml("inline")}
