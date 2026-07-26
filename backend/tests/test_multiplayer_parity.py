@@ -4,7 +4,7 @@ import pytest
 
 from backend import chat_service, memory_service
 from backend.memory_service import present_participants, _transcript
-from backend.repositories import chat_sessions, characters, memory_facts, personas, session_participants as sp
+from backend.repositories import chat_sessions, characters, memory_facts, personas, session_participants as sp, persona_claims
 
 pytestmark = pytest.mark.asyncio
 
@@ -53,8 +53,8 @@ async def test_run_tags_each_user_message_with_speaker_name_for_llm(db_conn, mon
     monkeypatch.setattr(chat_service.llm, "chat_stream", fake_chat_stream)
     char = await characters.create({"owner_id": "owner-1", "name": "Narrator", "mode": "rpg"})
     sid = await chat_sessions.create(char["id"], None, "Party", "Host", user_id="owner-1")
-    await sp.add(sid, "owner-1", None, "host")
-    await sp.add(sid, "friend-1", None, "member")
+    await sp.add(sid, "owner-1", "host")
+    await sp.add(sid, "friend-1", "member")
     await chat_sessions.add_message(sid, "user", "I look around.", user_name="Tanaki", sender_user_id="friend-1")
     await chat_sessions.add_message(sid, "assistant", "The room is quiet.")
     await chat_service._run(sid, user_content="I nod.", current_user={"id": "owner-1"})
@@ -75,8 +75,10 @@ async def test_run_bans_voicing_other_players_persona_in_system_prompt(db_conn, 
     sid = await chat_sessions.create(char["id"], None, "Party", "Host", user_id="owner-1")
     host_persona = await personas.create({"name": "Tarion Bluerose"}, user_id="owner-1")
     friend_persona = await personas.create({"name": "Tanaki Honezuki"}, user_id="friend-1")
-    await sp.add(sid, "owner-1", host_persona["id"], "host")
-    await sp.add(sid, "friend-1", friend_persona["id"], "member")
+    await sp.add(sid, "owner-1", "host")
+    await sp.add(sid, "friend-1", "member")
+    await persona_claims.claim(sid, host_persona["id"], "owner-1")
+    await persona_claims.claim(sid, friend_persona["id"], "friend-1")
     await chat_service._run(sid, user_content="I sigh and hand her a sealed envelope.",
                             current_user={"id": "owner-1"})
     await chat_service._active_gen[sid].task

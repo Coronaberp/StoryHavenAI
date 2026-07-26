@@ -8,6 +8,7 @@ from backend.repositories import characters
 from backend.repositories import personas
 from backend.repositories import chat_sessions
 from backend.repositories import session_participants
+from backend.repositories import persona_claims
 from backend.repositories import session_characters as session_char_repo
 from backend.repositories import groups as groups_repo
 from backend.repositories import notifications as notification_repo
@@ -293,14 +294,18 @@ async def set_session_persona(sid: str, body: PersonaSwitchIn,
         if not persona or not (owns_it or is_this_session):
             raise HTTPException(404, "persona not found")
         if is_this_session and not owns_it:
-            claimed_by = next((r["user_id"] for r in participant_rows
+            claimed_rows = await persona_claims.list_claimed(sid)
+            claimed_by = next((r["user_id"] for r in claimed_rows
                               if r["persona_id"] == body.persona_id and r["user_id"] != current_user["id"]), None)
             if claimed_by:
                 raise HTTPException(409, "Someone else in this session is already playing as that persona")
     user_name = persona["name"] if persona else "You"
     is_multiplayer = bool(participant_rows)
     if is_multiplayer:
-        await session_participants.set_persona(sid, current_user["id"], body.persona_id)
+        if body.persona_id:
+            await persona_claims.claim(sid, body.persona_id, current_user["id"])
+        else:
+            await persona_claims.vacate_by_user(sid, current_user["id"])
         live_broadcast.broadcast(sid, "participant_updated", {"user_id": current_user["id"]})
     else:
         await chat_sessions.set_persona(sid, body.persona_id, user_name)

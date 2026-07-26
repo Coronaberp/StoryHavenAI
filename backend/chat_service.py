@@ -138,11 +138,13 @@ def participant_display_name(persona: dict | None, user_row: dict | None) -> str
     return "You"
 
 async def _other_player_names(participant_rows: list[dict], sender_id: str | None) -> list[str]:
+    from backend.repositories import persona_claims
     names = []
     for row in participant_rows:
         if row["user_id"] == sender_id:
             continue
-        row_persona = await personas.get(row["persona_id"]) if row.get("persona_id") else None
+        claim = await persona_claims.get_claim_for_user(row["session_id"], row["user_id"])
+        row_persona = await personas.get(claim["persona_id"]) if claim else None
         user_row = await user_repo.get_user_by_id(row["user_id"])
         names.append(participant_display_name(row_persona, user_row))
     return names
@@ -151,28 +153,26 @@ async def _session_persona_names(s: dict, current_persona: dict | None) -> list[
     owner_id = s.get("user_id")
     if not owner_id:
         return []
-    sid = s["id"]
-    rows = await personas.list_selectable_for_session(owner_id, sid)
-    all_participant_rows = await session_participants.list_all_for_session(sid)
-    active_persona_ids = {r["persona_id"] for r in all_participant_rows
-                          if r.get("persona_id") and r.get("left_at") is None}
-    abandoned_persona_ids = {r["persona_id"] for r in all_participant_rows
-                             if r.get("persona_id") and r.get("left_at") is not None
-                             and r["persona_id"] not in active_persona_ids}
+    from backend.repositories import persona_claims
     current_id = current_persona.get("id") if current_persona else None
-    return [row["name"] for row in rows if row.get("name") and row["id"] != current_id
-           and row["id"] not in abandoned_persona_ids]
+    return await persona_claims.list_protected_names(s["id"], exclude_persona_id=current_id)
+
+async def _session_absent_names(s: dict) -> list[str]:
+    owner_id = s.get("user_id")
+    if not owner_id:
+        return []
+    from backend.repositories import persona_claims
+    return await persona_claims.list_absent_names(s["id"])
 
 async def _resolve_sender_persona(s: dict, current_user: dict | None) -> tuple[dict | None, str]:
     if current_user:
-        rows = await session_participants.list_for_session(s["id"])
-        if rows:
-            row = next((r for r in rows if r["user_id"] == current_user["id"]), None)
-            if row:
-                persona = await personas.get(row["persona_id"]) if row.get("persona_id") else None
-                if persona:
-                    return persona, persona["name"]
-                return None, participant_display_name(None, current_user)
+        if await session_participants.is_participant(s["id"], current_user["id"]):
+            from backend.repositories import persona_claims
+            claim = await persona_claims.get_claim_for_user(s["id"], current_user["id"])
+            persona = await personas.get(claim["persona_id"]) if claim else None
+            if persona:
+                return persona, persona["name"]
+            return None, participant_display_name(None, current_user)
     persona = await personas.get(s["persona_id"]) if s.get("persona_id") else None
     user_name = (persona["name"] if persona else None) or s.get("user_name") or "You"
     return persona, user_name

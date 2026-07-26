@@ -7,6 +7,7 @@ from backend.chat_service import _own_session, participant_display_name, active_
 from backend.repositories import chat_sessions, characters, session_participants, session_invites, notifications, party_chat
 from backend.repositories import emojis as custom_emoji_repo
 from backend.repositories import personas
+from backend.repositories import persona_claims
 from backend.routers.comments import _COMMENT_IMAGE_RE, _COMMENT_STICKER_RE
 from backend.schemas import MultiplayerJoinIn, MultiplayerAcceptIn, PartyChatIn
 from backend import live_broadcast
@@ -42,7 +43,9 @@ async def _ensure_owner_participant(session: dict, current_user: dict) -> None:
         return
     if await session_participants.is_participant(session["id"], current_user["id"]):
         return
-    await session_participants.add(session["id"], current_user["id"], session.get("persona_id"), "host")
+    await session_participants.add(session["id"], current_user["id"], "host")
+    if session.get("persona_id"):
+        await persona_claims.claim(session["id"], session["persona_id"], current_user["id"])
     log.info("multiplayer: owner rejoined session=%s", session["id"])
     live_broadcast.broadcast(session["id"], "participant_joined", {"user_id": current_user["id"]})
 
@@ -52,7 +55,9 @@ async def create_invite_link(sid: str, current_user: dict = Depends(get_experime
     await _require_rpg_mode(session)
     await _require_host(session, current_user)
     if not await session_participants.is_participant(sid, current_user["id"]):
-        await session_participants.add(sid, current_user["id"], session.get("persona_id"), "host")
+        await session_participants.add(sid, current_user["id"], "host")
+        if session.get("persona_id"):
+            await persona_claims.claim(sid, session["persona_id"], current_user["id"])
     token = await session_invites.create_link(sid, current_user["id"])
     log.info("multiplayer: invite link created session=%s by=%s", sid, current_user["id"])
     return {"token": token}
@@ -76,9 +81,13 @@ async def join_via_link(sid: str, body: MultiplayerJoinIn,
         raise HTTPException(404, "invite link not found or revoked")
     persona_id = await _validated_persona_id(body.persona_id, current_user)
     try:
-        await session_participants.add(sid, current_user["id"], persona_id, "member")
+        await session_participants.add(sid, current_user["id"], "member")
     except ValueError:
         raise HTTPException(409, "This session is full")
+    if persona_id:
+        await persona_claims.claim(sid, persona_id, current_user["id"])
+    else:
+        await persona_claims.restore_on_rejoin(sid, current_user["id"])
     log.info("multiplayer: user=%s joined session=%s via link", current_user["id"], sid)
     live_broadcast.broadcast(sid, "participant_joined", {"user_id": current_user["id"]})
     return {"ok": True}
@@ -114,9 +123,13 @@ async def accept_invite(sid: str, body: MultiplayerAcceptIn,
         raise HTTPException(403, "You were not invited to this session")
     persona_id = await _validated_persona_id(body.persona_id, current_user)
     try:
-        await session_participants.add(sid, current_user["id"], persona_id, "member")
+        await session_participants.add(sid, current_user["id"], "member")
     except ValueError:
         raise HTTPException(409, "This session is full")
+    if persona_id:
+        await persona_claims.claim(sid, persona_id, current_user["id"])
+    else:
+        await persona_claims.restore_on_rejoin(sid, current_user["id"])
     log.info("multiplayer: user=%s accepted invite to session=%s", current_user["id"], sid)
     live_broadcast.broadcast(sid, "participant_joined", {"user_id": current_user["id"]})
     return {"ok": True}
@@ -143,7 +156,8 @@ async def list_participants(sid: str, current_user: dict = Depends(get_current_u
     enriched = []
     for row in rows:
         user = await user_repo.get_user_by_id(row["user_id"])
-        persona = await personas.get(row["persona_id"]) if row["persona_id"] else None
+        claim = await persona_claims.get_claim_for_user(sid, row["user_id"])
+        persona = await personas.get(claim["persona_id"]) if claim else None
         enriched.append({
             **row,
             "username": user["username"] if user else None,
@@ -158,13 +172,12 @@ async def list_participants(sid: str, current_user: dict = Depends(get_current_u
 async def get_participant_persona(sid: str, user_id: str, current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     from backend.repositories import personas
-    row = await session_participants.list_for_session(sid)
-    participant = next((r for r in row if r["user_id"] == user_id), None)
-    if not participant:
+    if not await session_participants.is_participant(sid, user_id):
         raise HTTPException(404, "Participant not found")
-    if not participant.get("persona_id"):
+    claim = await persona_claims.get_claim_for_user(sid, user_id)
+    if not claim:
         raise HTTPException(404, "This participant has no persona selected")
-    persona = await personas.get(participant["persona_id"])
+    persona = await personas.get(claim["persona_id"])
     if not persona:
         raise HTTPException(404, "Persona not found")
     return persona
@@ -188,6 +201,7 @@ async def leave_session(sid: str, current_user: dict = Depends(get_current_user)
     if not await session_participants.is_participant(sid, current_user["id"]):
         raise HTTPException(404, "You are not a participant in this session")
     await session_participants.remove(sid, current_user["id"])
+    await persona_claims.vacate_by_user(sid, current_user["id"])
     log.info("multiplayer: user=%s left session=%s", current_user["id"], sid)
     live_broadcast.broadcast(sid, "participant_left", {"user_id": current_user["id"]})
     live_broadcast.disconnect_user(sid, current_user["id"])
@@ -243,9 +257,8 @@ async def _validated_party_chat_image(body: PartyChatIn, current_user: dict) -> 
 
 async def _party_chat_identity(sid: str, current_user: dict) -> tuple[str, str | None]:
     user_name = current_user.get("display_name") or current_user["username"]
-    participant = await session_participants.get(sid, current_user["id"])
-    persona_id = participant.get("persona_id") if participant else None
-    persona = await personas.get(persona_id) if persona_id else None
+    claim = await persona_claims.get_claim_for_user(sid, current_user["id"])
+    persona = await personas.get(claim["persona_id"]) if claim else None
     persona_name = persona.get("name") if persona else None
     sender_name = f"{user_name} · {persona_name}" if persona_name else user_name
     return sender_name, current_user.get("avatar")

@@ -11,7 +11,7 @@ from backend.ai_helpers import expand_persona_description
 from backend.ratelimit import SlidingWindow
 from backend.feature_flags import require_feature_enabled
 from backend.routers.characters import _decode_lore_image
-from backend.repositories import session_participants, chat_sessions
+from backend.repositories import session_participants, chat_sessions, persona_claims
 
 _EXPAND_LIMIT = SlidingWindow(
     10, 60, "Too many generations — please wait a moment and try again")
@@ -112,8 +112,8 @@ async def export_session_persona(pid: str, current_user: dict = Depends(get_curr
         raise HTTPException(404, "persona not found")
     if not p.get("session_id"):
         raise HTTPException(400, "This persona isn't tied to a session")
-    participant_rows = await session_participants.list_for_session(p["session_id"])
-    holds_claim = any(r["user_id"] == current_user["id"] and r["persona_id"] == pid for r in participant_rows)
+    claim = await persona_claims.get_claim_for_user(p["session_id"], current_user["id"])
+    holds_claim = bool(claim) and claim["persona_id"] == pid
     if not holds_claim:
         raise HTTPException(403, "You aren't currently playing as this persona")
     session = await chat_sessions.get(p["session_id"])

@@ -17,8 +17,8 @@ def _ensure_memory_facts_table():
 async def _make_rpg_session():
     char = await characters.create({"owner_id": "owner-1", "name": "Narrator", "mode": "rpg"})
     sid = await chat_sessions.create(char["id"], None, "Party", "Host", user_id="owner-1")
-    await sp.add(sid, "owner-1", None, "host")
-    await sp.add(sid, "friend-1", None, "member")
+    await sp.add(sid, "owner-1", "host")
+    await sp.add(sid, "friend-1", "member")
     return sid
 
 async def test_run_rejects_new_action_while_generation_active_for_multiplayer(db_conn):

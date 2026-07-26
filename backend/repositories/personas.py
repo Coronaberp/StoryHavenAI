@@ -8,7 +8,6 @@ from backend.db import (
     nid, _q, _q1, _w, _encrypt_secret, _decrypt_secret, engine,
 )
 from backend.repositories.characters import _char_row
-from backend.repositories import session_participants
 from backend.state import log
 
 def _persona_row(row) -> dict:
@@ -86,6 +85,7 @@ async def list_own_for_session(user_id: str, session_id: str) -> list[dict]:
     return await _attach_linked_char_info([_persona_row(r) for r in await _q(stmt)])
 
 async def list_selectable_for_session(user_id: str, session_id: str) -> list[dict]:
+    from backend.repositories import persona_claims
     stmt = (select(personas)
             .where(and_(
                 personas.c.is_draft == 0,
@@ -96,8 +96,8 @@ async def list_selectable_for_session(user_id: str, session_id: str) -> list[dic
             ))
             .order_by(personas.c.is_default.desc(), personas.c.created.desc()))
     rows = await _attach_linked_char_info([_persona_row(r) for r in await _q(stmt)])
-    claim_rows = await session_participants.list_for_session(session_id)
-    claimed_by_persona_id = {r["persona_id"]: r["user_id"] for r in claim_rows if r.get("persona_id")}
+    claimed_rows = await persona_claims.list_claimed(session_id)
+    claimed_by_persona_id = {r["persona_id"]: r["user_id"] for r in claimed_rows}
     for row in rows:
         row["claimed_by_user_id"] = claimed_by_persona_id.get(row["id"]) if row.get("session_id") else None
     return rows
