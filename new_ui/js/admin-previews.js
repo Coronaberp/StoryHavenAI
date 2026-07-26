@@ -36,8 +36,6 @@ const ADMIN_PREVIEW_NSFW_NEGATIVE_DROP = ["nsfw", "explicit", "nude", "nudity", 
 const ADMIN_PREVIEW_NSFW_POSITIVE_DROP = ["teenage girl", "teenage", "teenager", "teen", "young girl",
   "little girl", "child", "kid", "loli", "shota", "schoolgirl", "school girl", "underage", "petite child"];
 
-const ADMIN_PREVIEW_GEN_STEPS = 20;
-const ADMIN_PREVIEW_GEN_CFG = 7.0;
 const ADMIN_PREVIEW_GEN_SIZE = 1024;
 
 const ADMIN_MODEL_TYPE_OPTIONS = [
@@ -827,17 +825,26 @@ class AdminPreviewsView {
 
   _defaultCheckpointFor(architecture) {
     const names = this.data.checkpoint.names;
+    const key = architecture === "anima" ? "anima" : "sdxl";
+    const configured = this.imageGenDefaults[key].checkpoint;
+    if (configured && names.includes(configured)) return configured;
     if (architecture === "anima") return names.find((n) => this.animaNames.has(n)) || "";
     return names.find((n) => !this.animaNames.has(n)) || "";
   }
 
-  _defaultSampler() {
+  _defaultSampler(architecture) {
+    const key = architecture === "anima" ? "anima" : "sdxl";
+    const configured = this.imageGenDefaults[key].sampler;
     const s = this.data.sampler.names;
+    if (configured && s.includes(configured)) return configured;
     return s.includes("dpmpp_2m_sde_gpu") ? "dpmpp_2m_sde_gpu" : (s.includes("euler") ? "euler" : (s[0] || "euler"));
   }
 
-  _defaultScheduler() {
+  _defaultScheduler(architecture) {
+    const key = architecture === "anima" ? "anima" : "sdxl";
+    const configured = this.imageGenDefaults[key].scheduler;
     const s = this.data.scheduler.names;
+    if (configured && s.includes(configured)) return configured;
     return s.includes("karras") ? "karras" : (s.includes("normal") ? "normal" : (s[0] || "normal"));
   }
 
@@ -902,12 +909,12 @@ class AdminPreviewsView {
       checkpoint: baseCheckpoint,
       positive: basePositive,
       negative: baseNegative,
-      steps: editedSteps || baseMeta.default_steps || ADMIN_PREVIEW_GEN_STEPS,
-      cfg: editedCfg || baseMeta.default_cfg || (anima ? ANIMA_DEFAULT_CFG : ADMIN_PREVIEW_GEN_CFG),
+      steps: editedSteps || baseMeta.default_steps || this.imageGenDefaults[anima ? "anima" : "sdxl"].steps,
+      cfg: editedCfg || baseMeta.default_cfg || this.imageGenDefaults[anima ? "anima" : "sdxl"].cfg,
       sampler: (edited ? this._pvDefaultSampler : "") || baseMeta.default_sampler
-        || (anima ? ANIMA_DEFAULT_SAMPLER : this._defaultSampler()),
+        || this._defaultSampler(architecture),
       scheduler: (edited ? this._pvDefaultScheduler : "") || baseMeta.default_scheduler
-        || (anima ? ANIMA_DEFAULT_SCHEDULER : this._defaultScheduler()),
+        || this._defaultScheduler(architecture),
     };
   }
 
