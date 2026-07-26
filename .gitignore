@@ -33,6 +33,7 @@ installer/Output/
 fulfill_model_requests*.sh
 backup_before_encrypt_backfill.sql
 .superpowers/
+docs/superpowers/
 storyhavenai.gputemp*
 storyhavenai.gputemp*
 test.html
