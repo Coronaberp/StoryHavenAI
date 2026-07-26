@@ -24,13 +24,13 @@ def wired(monkeypatch):
 async def test_chat_whole_message_directive_wraps_everything(wired):
     body = ChatIn(content="are you there?", directive="ooc")
     await chat_router.chat("sid1", body, current_user={"id": "u1"})
-    assert wired["user_content"] == f"({DIRECTOR_SIGIL}:[ooc] are you there?)"
+    assert wired["user_content"] == f"({DIRECTOR_SIGIL}:[ooc]\nare you there?)"
 
 async def test_chat_no_directive_resolves_inline_tokens(wired):
     body = ChatIn(content="She walks past the door {scene: dusk falls} and looks back.")
     await chat_router.chat("sid1", body, current_user={"id": "u1"})
     assert wired["user_content"] == (
-        f"She walks past the door ({DIRECTOR_SIGIL}:[scene dusk falls]) and looks back."
+        f"She walks past the door ({DIRECTOR_SIGIL}:[scene] dusk falls) and looks back."
     )
 
 async def test_chat_no_directive_and_no_tokens_passes_through(wired):

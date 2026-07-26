@@ -91,14 +91,21 @@ async def index_lore(lid, char_id, content, name: str = "", category: str = ""):
             vec = await llm.embed(embed_text, CFG["embed_model"])
             await vectors.store_lore_vector(lid, char_id, vec, part_id=0)
             return
+        embedded = 0
         for part_id, chunk in enumerate(chunks):
             embed_text = f"{prefix}: {chunk}" if prefix else chunk
             try:
                 vec = await llm.embed(embed_text, CFG["embed_model"])
                 await vectors.store_lore_vector(lid, char_id, vec, part_id=part_id)
                 await lore_chunks_repo.insert_chunk(lid, part_id, chunk)
+                embedded += 1
             except Exception as e:
-                log.warning("lore chunk embedding failed for %s part=%s: %s", lid, part_id, e)
+                log.error("lore chunk embedding failed, chunk skipped: id=%s part=%s: %s",
+                          lid, part_id, e)
+        if embedded != len(chunks):
+            log.error("lore indexing incomplete: id=%s chunks=%d embedded=%d — the missing "
+                      "chunks are unreachable by semantic search until this entry is saved again",
+                      lid, len(chunks), embedded)
     except Exception as e:
         log.warning("lore embedding failed for %s: %s", lid, e)
 

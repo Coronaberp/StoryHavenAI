@@ -10,6 +10,7 @@ _dim = 768
 _meta = sa.MetaData()
 _mem_tbl = None
 _lore_tbl = None
+_secret_tbl = None
 
 def _engine():
     from backend import db
@@ -24,7 +25,7 @@ def _decrypt_secret(s: str) -> str:
     return db._decrypt_secret(s)
 
 def _build_tables(dim: int):
-    global _mem_tbl, _lore_tbl, _meta, _dim
+    global _mem_tbl, _lore_tbl, _secret_tbl, _meta, _dim
     from pgvector.sqlalchemy import Vector
     _dim = dim
     _meta = sa.MetaData()
@@ -41,6 +42,13 @@ def _build_tables(dim: int):
         "lore_vectors", _meta,
         sa.Column("lore_id", sa.Text, primary_key=True),
         sa.Column("part_id", sa.Integer, primary_key=True, server_default=sa.text("0")),
+        sa.Column("char_id", sa.Text),
+        sa.Column("embedding", Vector(dim)),
+    )
+    _secret_tbl = sa.Table(
+        "secret_vectors", _meta,
+        sa.Column("secret_id", sa.Text, primary_key=True),
+        sa.Column("lore_id", sa.Text, nullable=False),
         sa.Column("char_id", sa.Text),
         sa.Column("embedding", Vector(dim)),
     )
@@ -74,6 +82,9 @@ async def ensure_indexes(dim: int):
         await conn.execute(sa.text(
             "CREATE INDEX IF NOT EXISTS idx_lorevec_hnsw ON lore_vectors "
             "USING hnsw (embedding vector_cosine_ops)"))
+        await conn.execute(sa.text(
+            "CREATE INDEX IF NOT EXISTS idx_secretvec_hnsw ON secret_vectors "
+            "USING hnsw (embedding vector_cosine_ops)"))
     from backend.repositories import memory_facts
     await memory_facts.ensure_tables(dim)
 
@@ -81,6 +92,7 @@ async def reset_indexes(dim: int):
     async with _engine().begin() as conn:
         await conn.execute(sa.text("DROP TABLE IF EXISTS memory_vectors"))
         await conn.execute(sa.text("DROP TABLE IF EXISTS lore_vectors"))
+        await conn.execute(sa.text("DROP TABLE IF EXISTS secret_vectors"))
     from backend.repositories import memory_facts
     await memory_facts.drop_tables()
     await ensure_indexes(dim)
@@ -139,6 +151,12 @@ async def search_lore_chunks(char_id: str, vec, k: int, max_dist: float) -> list
         log.warning("lore chunk search failed (char=%s): %s: %s", char_id, type(e).__name__, e)
     return hits
 
+async def count_lore_vectors(lore_id: str) -> int:
+    async with _engine().begin() as conn:
+        result = await conn.execute(
+            sa.select(sa.func.count()).select_from(_lore_tbl).where(_lore_tbl.c.lore_id == lore_id))
+        return int(result.scalar() or 0)
+
 async def delete_lore_vector(lore_id: str):
     async with _engine().begin() as conn:
         await conn.execute(sa.delete(_lore_tbl).where(_lore_tbl.c.lore_id == lore_id))
@@ -150,12 +168,55 @@ async def delete_lore_vectors_by_char(char_id: str):
     except Exception as e:
         log.warning("delete_lore_vectors_by_char(%s) failed: %s", char_id, e)
 
+async def store_secret_vector(secret_id: str, lore_id: str, char_id: str | None, vec):
+    ins = pg_insert(_secret_tbl).values(
+        secret_id=secret_id, lore_id=lore_id, char_id=char_id, embedding=_to_list(vec))
+    ins = ins.on_conflict_do_update(index_elements=["secret_id"], set_={
+        "lore_id": ins.excluded.lore_id, "char_id": ins.excluded.char_id,
+        "embedding": ins.excluded.embedding})
+    async with _engine().begin() as conn:
+        await conn.execute(ins)
+
+async def search_secret_ids(char_id: str, vec, k: int, max_dist: float) -> list[dict]:
+    hits = []
+    try:
+        dist = _secret_tbl.c.embedding.cosine_distance(_to_list(vec))
+        stmt = (sa.select(_secret_tbl.c.secret_id, _secret_tbl.c.lore_id, dist.label("score"))
+                .where(sa.or_(_secret_tbl.c.char_id == char_id,
+                              _secret_tbl.c.char_id.is_(None)))
+                .order_by(sa.text("score")).limit(k))
+        async with _engine().connect() as conn:
+            for r in (await conn.execute(stmt)).fetchall():
+                score = float(r._mapping["score"])
+                if score <= max_dist:
+                    hits.append({"secret_id": r._mapping["secret_id"],
+                                "lore_id": r._mapping["lore_id"], "distance": score})
+    except Exception as e:
+        log.warning("secret search failed (char=%s): %s: %s", char_id, type(e).__name__, e)
+    return hits
+
+async def delete_secret_vector(secret_id: str):
+    async with _engine().begin() as conn:
+        await conn.execute(sa.delete(_secret_tbl).where(_secret_tbl.c.secret_id == secret_id))
+
+async def delete_secret_vectors_by_lore(lore_id: str):
+    async with _engine().begin() as conn:
+        await conn.execute(sa.delete(_secret_tbl).where(_secret_tbl.c.lore_id == lore_id))
+
+async def delete_secret_vectors_by_char(char_id: str):
+    try:
+        async with _engine().begin() as conn:
+            await conn.execute(sa.delete(_secret_tbl).where(_secret_tbl.c.char_id == char_id))
+    except Exception as e:
+        log.warning("delete_secret_vectors_by_char(%s) failed: %s", char_id, e)
+
 async def stats():
     try:
         async with _engine().connect() as conn:
             m = (await conn.execute(sa.select(sa.func.count()).select_from(_mem_tbl))).scalar()
             l = (await conn.execute(sa.select(sa.func.count()).select_from(_lore_tbl))).scalar()
-        return {"memories": int(m), "lore_vectors": int(l), "ok": True}
+            s = (await conn.execute(sa.select(sa.func.count()).select_from(_secret_tbl))).scalar()
+        return {"memories": int(m), "lore_vectors": int(l), "secret_vectors": int(s), "ok": True}
     except Exception as e:
         log.warning("vectors stats query failed: %s: %s", type(e).__name__, e)
         return {"ok": False, "error": str(e)}

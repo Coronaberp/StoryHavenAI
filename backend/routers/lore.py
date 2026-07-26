@@ -6,8 +6,9 @@ from fastapi import HTTPException, Depends, UploadFile, File
 from backend import db
 from backend import guest_quota
 from backend import vectors
-from backend.state import api, log, IMG_EXTS
-from backend.auth import get_current_user, get_current_user_optional
+from backend import lore_memory
+from backend.state import api, CFG, log, IMG_EXTS
+from backend.auth import get_current_user, get_current_user_optional, get_admin
 from backend.retrieval import index_lore, chunk_lore_content
 from backend.classify import classify_image_background, _data_url_to_bytes
 from backend.routers.characters import _decode_lore_image
@@ -112,6 +113,9 @@ async def _create_entry(char_id: str | None, owner_id: str | None, body: LoreIn,
                                       current_user["is_admin"], lambda: lore.set_explicit(lid),
                                       review_context="a lore entry image")
     await index_lore(lid, char_id, body.content, body.name, body.category)
+    if body.hidden:
+        await lore_memory.ensure_secrets_indexed(
+            {"id": lid, "char_id": char_id, "content": body.content}, CFG["chat_model"])
     return lid
 
 @api.post("/lore/media")
@@ -151,6 +155,12 @@ async def update_lore(lid: str, body: LoreIn, current_user: dict = Depends(get_c
                                   current_user["is_admin"], lambda: lore.set_explicit(lid),
                                   review_context="a lore entry image")
     await index_lore(lid, entry.get("char_id"), body.content, body.name, body.category)
+    if body.hidden:
+        await lore_memory.reindex_secrets(
+            {"id": lid, "char_id": entry.get("char_id"), "content": body.content}, CFG["chat_model"])
+    else:
+        await lore_secrets.delete_secrets(lid)
+        await vectors.delete_secret_vectors_by_lore(lid)
     log.info("lore: updated id=%s by=%s", lid, current_user["username"])
     return {"id": lid}
 
@@ -192,8 +202,21 @@ async def delete_lore(lid: str, current_user: dict = Depends(get_current_user)):
     await vectors.delete_lore_vector(lid)
     await lore_chunks_repo.delete_chunks(lid)
     await lore_secrets.delete_secrets(lid)
+    await vectors.delete_secret_vectors_by_lore(lid)
     log.info("lore: deleted id=%s by=%s", lid, current_user["username"])
     return {"deleted": True}
+
+@api.post("/admin/lore/{lid}/reindex")
+async def reindex_lore(lid: str, current_user: dict = Depends(get_admin)):
+    entry = await lore.get(lid)
+    if not entry:
+        raise HTTPException(404, "lore entry not found")
+    await index_lore(lid, entry.get("char_id"), entry["content"], entry.get("name"), entry.get("category"))
+    chunks = len(await lore_chunks_repo.chunks_for(lid))
+    vecs = await vectors.count_lore_vectors(lid)
+    log.info("lore: reindexed id=%s by=%s chunks=%d vectors=%d",
+             lid, current_user["username"], chunks, vecs)
+    return {"id": lid, "chunks": chunks, "vectors": vecs}
 
 @api.put("/lore/{lid}/links")
 async def set_lore_links(lid: str, body: LoreLinksIn, current_user: dict = Depends(get_current_user)):

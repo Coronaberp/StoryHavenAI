@@ -1,3 +1,4 @@
+from backend import ai_helpers
 from backend import db
 from backend import llm
 from backend import vectors
@@ -105,11 +106,25 @@ async def fetch_lore_candidates(char_id: str, session_id: str, keyword_entries: 
             for e in neighbor_entries:
                 if e.get("char_id") and e["char_id"] != char_id:
                     continue
-                candidates.append(lore_candidate(
-                    {**e, "content": overrides.get(e["id"], e["content"])},
-                    current_turn, link_label=neighbor_labels[e["id"]] or None))
+                candidates.extend(await _expand_entry_candidates(
+                    e, overrides, current_turn, pinned=False,
+                    link_label=neighbor_labels[e["id"]] or None))
                 seen_ids.add(e["id"])
-    return candidates
+    return _dedupe_candidates(candidates)
+
+def _dedupe_candidates(candidates: list[dict]) -> list[dict]:
+    unique: dict[str, dict] = {}
+    for candidate in candidates:
+        existing = unique.get(candidate["id"])
+        if existing is None:
+            unique[candidate["id"]] = candidate
+            continue
+        if candidate["pinned"] and not existing["pinned"]:
+            unique[candidate["id"]] = candidate
+    if len(unique) != len(candidates):
+        log.warning("lore candidates: dropped %d duplicate chunk(s) before packing",
+                    len(candidates) - len(unique))
+    return list(unique.values())
 
 async def apply_session_lore_override(session_id: str, char_id: str, lore_id: str, content: str) -> str:
     vec = await llm.embed(content, CFG["embed_model"])
@@ -154,6 +169,36 @@ async def detect_and_apply_lore_updates(session_id: str, char_id: str, drafts: l
                         session_id, decision.lore_id, type(e).__name__, e)
     return stats
 
+async def ensure_secrets_indexed(entry: dict, chat_model: str) -> list[dict]:
+    existing = await lore_secrets.secrets_for(entry["id"])
+    if existing:
+        return existing
+    try:
+        texts = await ai_helpers.extract_lore_secrets(entry["content"], chat_model)
+    except Exception as e:
+        log.warning("lore_memory: secret extraction failed lore=%s: %s: %s",
+                    entry["id"], type(e).__name__, e)
+        return []
+    if not texts:
+        return []
+    secrets = await lore_secrets.set_secrets(entry["id"], texts)
+    for s in secrets:
+        try:
+            vec = await llm.embed(s["text"], CFG["embed_model"])
+            await vectors.store_secret_vector(s["id"], entry["id"], entry.get("char_id"), vec)
+        except Exception as e:
+            log.warning("lore_memory: secret embedding failed lore=%s secret=%s: %s: %s",
+                        entry["id"], s["id"], type(e).__name__, e)
+    log.info("lore_memory: secrets indexed lore=%s count=%d", entry["id"], len(secrets))
+    return secrets
+
+async def reindex_secrets(entry: dict, chat_model: str) -> list[dict]:
+    old = await lore_secrets.secrets_for(entry["id"])
+    if old:
+        await lore_secrets.delete_secrets(entry["id"])
+        await vectors.delete_secret_vectors_by_lore(entry["id"])
+    return await ensure_secrets_indexed(entry, chat_model)
+
 async def apply_secret_reveal(session_id: str, char_id: str, secret_id: str, secret_text: str,
                               embed_base: str | None = None, embed_key: str | None = None) -> None:
     await lore_secrets.reveal(session_id, secret_id)
@@ -177,16 +222,14 @@ async def detect_and_reveal_secrets(session_id: str, char_id: str, drafts: list,
     for draft in drafts:
         try:
             vec = await llm.embed(draft.text, CFG["embed_model"], base_url=embed_base, api_key=embed_key)
-            lore_ids = await vectors.search_lore_ids(char_id, vec, NEIGHBOR_K, CFG["lore_max_dist"])
-            candidates = []
-            for lid in lore_ids:
-                secrets = await lore_secrets.secrets_for(lid)
-                if not secrets:
-                    continue
-                revealed = await lore_secrets.revealed_ids(session_id, [s["id"] for s in secrets])
-                candidates.extend({"id": s["id"], "text": s["text"]}
-                                  for s in secrets if s["id"] not in revealed)
-            secret_neighbors.append(candidates)
+            hits = await vectors.search_secret_ids(char_id, vec, NEIGHBOR_K, CFG["lore_max_dist"])
+            if not hits:
+                secret_neighbors.append([])
+                continue
+            revealed = await lore_secrets.revealed_ids(session_id, [h["secret_id"] for h in hits])
+            unrevealed_ids = [h["secret_id"] for h in hits if h["secret_id"] not in revealed]
+            secrets = await lore_secrets.by_ids(unrevealed_ids)
+            secret_neighbors.append([{"id": s["id"], "text": s["text"]} for s in secrets])
         except Exception as e:
             log.warning("secret-reveal neighbor search failed session=%s: %s: %s",
                         session_id, type(e).__name__, e)
