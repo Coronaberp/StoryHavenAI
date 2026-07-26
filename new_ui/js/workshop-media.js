@@ -402,6 +402,7 @@ class WorkshopMediaView {
     const parts = [modelLabel];
     if (this.mode !== "video") {
       if (this.sampler) parts.push(this.sampler);
+      if (this.scheduler) parts.push(this.scheduler);
       parts.push(`${this.steps} ${t("forge_slug_steps", "steps")}`);
       parts.push(`cfg ${this.cfg}`);
     } else {
@@ -409,7 +410,10 @@ class WorkshopMediaView {
       parts.push(`${this.fps} fps`);
     }
     parts.push(`${width}×${height}`);
-    return `<div class="forge-plate-slug">${parts.map((part) => `<span>${_esc(String(part))}</span>`).join("")}</div>`;
+    const adjustLink = this.mode !== "video" && this.checkpoint
+      ? `<button type="button" onclick="_activeForgeView.advancedOpen = true; _activeForgeView.render(); _activeForgeView.main.querySelector('#forgeAdvanced')?.scrollIntoView({behavior:'smooth', block:'center'})" style="display:block;margin:4px auto 0;font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;color:var(--color-accent);background:none;border:none;cursor:pointer;text-decoration:underline;text-underline-offset:2px">${t("forge_adjust_settings_link", "Adjust sampler, steps, CFG")}</button>`
+      : "";
+    return `<div class="forge-plate-slug">${parts.map((part) => `<span>${_esc(String(part))}</span>`).join("")}</div>${adjustLink}`;
   }
 
   upscaleFrameHtml(label, imgSrc, emptyText) {
@@ -2092,18 +2096,6 @@ class WorkshopMediaView {
     }
   }
 
-  liveSettingsSummaryHtml() {
-    if (this.mode === "upscale" || !this.checkpoint) return "";
-    const label = this.checkpointPreviews[this.checkpoint]?.display_name || this.checkpoint;
-    const parts = [label, this.sampler, this.scheduler, `${this.steps} steps`, `cfg ${this.cfg.toFixed(1)}`].filter(Boolean);
-    return `
-      <div class="forge-plate-slug" style="justify-content:center;margin-top:10px">
-        ${parts.map((p) => `<span>${_esc(p)}</span>`).join("")}
-      </div>
-      <button type="button" onclick="_activeForgeView.advancedOpen = true; _activeForgeView.render(); _activeForgeView.main.querySelector('#forgeAdvanced')?.scrollIntoView({behavior:'smooth', block:'center'})" style="display:block;margin:4px auto 0;font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;color:var(--color-accent);background:none;border:none;cursor:pointer;text-decoration:underline;text-underline-offset:2px">${t("forge_adjust_settings_link", "Adjust sampler, steps, CFG")}</button>
-    `;
-  }
-
   render() {
     window._activeForgeView = this;
     if (this.mode === "compile") {
@@ -2124,7 +2116,6 @@ class WorkshopMediaView {
       <div id="forgeCols" class="${this.mode === "upscale" ? "forge-no-options" : ""}">
         <div id="forgePreviewCol">
           ${this.previewBoxHtml()}
-          ${this.liveSettingsSummaryHtml()}
           ${this.maskBarHtml()}
           ${this.upscalePickerHtml()}
           ${this.generateBarHtml("inline")}
