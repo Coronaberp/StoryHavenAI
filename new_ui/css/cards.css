@@ -2163,25 +2163,7 @@ html.chrome-hidden .rail-tools {
   .forge-bubble { animation: none; opacity: .5; }
 }
 .forge-generate-sticky {
-  position: relative;
-  margin-left: -16px;
-  margin-right: -16px;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-  background: var(--color-paper);
-  border-top: 1px solid var(--color-line);
-}
-.forge-generate-sticky::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 100%;
-  height: 28px;
-  background: linear-gradient(to bottom, transparent, var(--color-paper) 85%);
-  pointer-events: none;
-}
-.forge-generate-sticky .forge-generate-btn {
-  box-shadow: 0 14px 28px -8px rgba(0, 0, 0, .55);
+  margin-top: 20px;
 }
 .forge-panel {
   border: 1px solid var(--color-line);

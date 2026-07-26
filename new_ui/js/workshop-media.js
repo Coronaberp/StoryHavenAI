@@ -1629,7 +1629,7 @@ class WorkshopMediaView {
 
   generateBarHtml(variant = "sticky") {
     const wrapClass = variant === "inline" ? "forge-generate-inline" : "forge-generate-sticky";
-    const wrapStyle = variant === "inline" ? "" : "position:sticky;bottom:calc(70px + 12px);z-index:5";
+    const wrapStyle = "";
     if (this.mode === "upscale") {
       if (!this.referenceImage || this.lastResult) return "";
       if (this.upscaling) {
@@ -2132,7 +2132,6 @@ class WorkshopMediaView {
         </div>
         <div id="forgeRecentCol">${this.recentColumnHtml()}</div>
       </div>
-      <div style="height:96px"></div>
       ${this.generateBarHtml("sticky")}
       </div>
     `;
