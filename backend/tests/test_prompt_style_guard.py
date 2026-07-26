@@ -69,6 +69,15 @@ def test_build_system_character_mode_ignores_multiplayer_flag():
     system = build_system(_char("character"), None, "Alice", mode="character", full=True, is_multiplayer=True)
     assert "second person" not in system.lower()
 
+@pytest.mark.parametrize("full", [True, False])
+def test_build_system_rpg_includes_undefined_name_guard(full):
+    system = build_system(_char("rpg"), None, "Alice", mode="rpg", full=full, is_multiplayer=False)
+    assert "named people without a defined profile" in system.lower()
+
+def test_build_system_character_mode_omits_undefined_name_guard():
+    system = build_system(_char("character"), None, "Alice", mode="character", full=True)
+    assert "named people without a defined profile" not in system.lower()
+
 def test_build_system_bans_moralizing_and_hedging():
     system = build_system(_char("character"), None, "Alice", mode="character", full=True)
     assert "moralizing" in system.lower()

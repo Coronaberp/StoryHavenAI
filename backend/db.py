@@ -305,6 +305,7 @@ session_participants = sa.Table(
     sa.Column("role", sa.Text, nullable=False, server_default=text("'member'")),
     sa.Column("joined_at", sa.Float, nullable=False),
     sa.Column("chat_proxy_override_id", sa.Text),
+    sa.Column("left_at", sa.Float),
 )
 
 session_invite_tokens = sa.Table(
@@ -794,6 +795,8 @@ async def init():
             "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS chat_proxy_override_id TEXT"))
         await conn.execute(text(
             "ALTER TABLE session_participants ADD COLUMN IF NOT EXISTS chat_proxy_override_id TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE session_participants ADD COLUMN IF NOT EXISTS left_at DOUBLE PRECISION"))
         await conn.execute(text(
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS char_id TEXT"))
         await conn.execute(text(

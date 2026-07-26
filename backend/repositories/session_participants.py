@@ -1,7 +1,7 @@
 from __future__ import annotations
 import time
 
-from sqlalchemy import select, insert, update as sa_update, delete as sa_delete, func
+from sqlalchemy import select, insert, update as sa_update, func
 
 from backend.db import session_participants, _q, _q1, _w, _scalar
 from backend.state import log
@@ -9,9 +9,30 @@ from backend.state import log
 MAX_PARTICIPANTS = 8
 
 async def add(session_id: str, user_id: str, persona_id: str | None, role: str) -> None:
+    existing = await _q1(
+        select(session_participants).where(
+            session_participants.c.session_id == session_id,
+            session_participants.c.user_id == user_id,
+        )
+    )
+    if existing is not None:
+        await _w(sa_update(session_participants).where(
+            session_participants.c.session_id == session_id,
+            session_participants.c.user_id == user_id,
+        ).values(
+            left_at=None,
+            role=role,
+            joined_at=time.time(),
+            persona_id=persona_id if persona_id is not None else existing["persona_id"],
+        ))
+        log.info("session_participants: rejoined user=%s session=%s role=%s", user_id, session_id, role)
+        return
     current_count = await _scalar(
         select(func.count()).select_from(session_participants)
-        .where(session_participants.c.session_id == session_id)
+        .where(
+            session_participants.c.session_id == session_id,
+            session_participants.c.left_at.is_(None),
+        )
     )
     if current_count >= MAX_PARTICIPANTS:
         raise ValueError("session full")
@@ -23,14 +44,17 @@ async def add(session_id: str, user_id: str, persona_id: str | None, role: str) 
 
 async def list_for_session(session_id: str) -> list[dict]:
     return await _q(
-        select(session_participants).where(session_participants.c.session_id == session_id)
+        select(session_participants).where(
+            session_participants.c.session_id == session_id,
+            session_participants.c.left_at.is_(None),
+        )
     )
 
 async def remove(session_id: str, user_id: str) -> None:
-    await _w(sa_delete(session_participants).where(
+    await _w(sa_update(session_participants).where(
         session_participants.c.session_id == session_id,
         session_participants.c.user_id == user_id,
-    ))
+    ).values(left_at=time.time()))
     log.info("session_participants: removed user=%s session=%s", user_id, session_id)
 
 async def list_session_ids_for_user(user_id: str) -> list[str]:
@@ -66,6 +90,7 @@ async def is_participant(session_id: str, user_id: str) -> bool:
         select(session_participants.c.user_id).where(
             session_participants.c.session_id == session_id,
             session_participants.c.user_id == user_id,
+            session_participants.c.left_at.is_(None),
         )
     )
     return row is not None

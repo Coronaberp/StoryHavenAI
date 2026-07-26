@@ -497,6 +497,17 @@ SELF_VOICED_CHARACTER_GUARD = (
     "the player's own message just spoke or acted as, directly."
 )
 
+UNDEFINED_NAME_GUARD = (
+    "# Named people without a defined profile\n"
+    "The story's real NPCs are the ones you have an actual profile for: the card's own main character, "
+    "any lore entry describing a person, and anyone listed in the cast of this scene. If a named person "
+    "comes up who has none of that (no card entry, no lore entry, no cast listing), do not assume they "
+    "are yours to run. Treat them as presumptively someone else's own character, and default to leaving "
+    "their next words or action undecided. You may still narrate the world around them, the defined "
+    "NPCs' actions, and the visible consequences of what just happened to them, but stop short of writing "
+    "what that undefined person themselves says, feels, or does next."
+)
+
 def build_system(char, persona, user_name, mode="character", language="English", full=True,
                  is_multiplayer=False, other_player_names=None):
     name = char["name"]
@@ -527,6 +538,7 @@ def build_system(char, persona, user_name, mode="character", language="English",
             parts.append(INJECTION_RESISTANCE_GUARD)
             parts.append(NPC_NAME_GUARD)
             parts.append(SELF_VOICED_CHARACTER_GUARD)
+            parts.append(UNDEFINED_NAME_GUARD)
             if is_multiplayer:
                 parts.append(_multiplayer_third_person_guard(other_player_names))
             if char.get("dialogue"):
@@ -536,6 +548,7 @@ def build_system(char, persona, user_name, mode="character", language="English",
             parts.append("No em dashes, no semicolons, no stock AI phrasing, no repeating your last "
                          "few replies' sentence structure — the full prose rules given earlier still apply.")
             parts.append(SELF_VOICED_CHARACTER_GUARD)
+            parts.append(UNDEFINED_NAME_GUARD)
             if is_multiplayer:
                 parts.append(_multiplayer_third_person_guard(other_player_names))
     else:
