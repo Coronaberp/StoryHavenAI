@@ -352,7 +352,7 @@ class AdminAnnouncePanel {
     }
     const duration = ADMIN_BANNER_DURATIONS.find((d) => d.key === this.bannerDuration);
     const ends_at = duration && duration.minutes ? (Date.now() / 1000) + duration.minutes * 60 : null;
-    if (!(await confirmDialog(t("admin_announce_banner_confirm", "Post this banner to every page, for every user, right now?")))) return;
+    if (!(await confirmDialog(t("admin_announce_banner_confirm", "Post this banner to every page, for every user, right now?"), { confirmLabel: t("admin_announce_banner_post", "Post"), danger: false }))) return;
     try {
       this.currentBanner = await api("/api/admin/site-banner", { method: "PUT", body: JSON.stringify({ message, banner_type: this.bannerType, ends_at }) });
       toast(t("admin_announce_banner_posted", "Banner posted."));
@@ -365,7 +365,7 @@ class AdminAnnouncePanel {
   }
 
   async clearBanner() {
-    if (!(await confirmDialog(t("admin_announce_banner_confirm_clear", "Take down the banner for everyone?")))) return;
+    if (!(await confirmDialog(t("admin_announce_banner_confirm_clear", "Take down the banner for everyone?"), { confirmLabel: t("admin_announce_banner_take_down", "Take down") }))) return;
     try {
       await api("/api/admin/site-banner", { method: "DELETE" });
       toast(t("admin_announce_banner_cleared", "Banner taken down."));
