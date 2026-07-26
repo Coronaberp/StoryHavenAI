@@ -28,6 +28,9 @@ files/
 .env.*
 docker-compose.yml
 installer/Output/
+
+# Ad-hoc admin scripts with embedded live tokens/API keys — never commit
+fulfill_model_requests*.sh
 backup_before_encrypt_backfill.sql
 .superpowers/
 storyhavenai.gputemp*

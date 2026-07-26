@@ -372,12 +372,51 @@ class AdminConfigView {
 
   mrHostRowHtml(row, i) {
     return `
-      <div class="flex gap-2 items-center mb-1.5" data-mr-row="${i}">
-        <input type="text" data-mr-host value="${_attr(row.host)}" placeholder="${t("admin_config_host_placeholder")}" class="flex-1 px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
-        <input type="password" autocomplete="new-password" data-mr-key placeholder="${row.has_api_key ? t("admin_config_key_set_placeholder") : t("admin_config_api_key_optional_placeholder")}" class="flex-1 px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
-        <button type="button" onclick="adminConfigView.removeMrHostRow(${i})" class="px-2 py-2 rounded-md border text-xs flex-none" style="border-color:var(--color-warn);color:var(--color-warn)">×</button>
+      <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-center mb-2 p-2 sm:p-0 rounded-md sm:rounded-none border sm:border-0 border-line" data-mr-row="${i}">
+        <div class="flex gap-2 items-center sm:flex-1">
+          <input type="text" data-mr-host value="${_attr(row.host)}" placeholder="${t("admin_config_host_placeholder")}" class="flex-1 px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm min-w-0">
+          <button type="button" onclick="adminConfigView.removeMrHostRow(${i})" class="sm:hidden px-2 py-2 rounded-md border text-xs flex-none" style="border-color:var(--color-warn);color:var(--color-warn)">×</button>
+        </div>
+        <div class="flex gap-2 items-center sm:flex-1">
+          <input type="password" autocomplete="new-password" data-mr-key placeholder="${row.has_api_key ? t("admin_config_key_set_placeholder") : t("admin_config_api_key_optional_placeholder")}" class="flex-1 px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm min-w-0">
+          <button type="button" onclick="adminConfigView.testMrHost(${i})" class="px-2.5 py-2 rounded-md border border-line text-xs text-ink flex-none">${t("admin_config_test_host", "Test")}</button>
+          <button type="button" onclick="adminConfigView.removeMrHostRow(${i})" class="hidden sm:block px-2 py-2 rounded-md border text-xs flex-none" style="border-color:var(--color-warn);color:var(--color-warn)">×</button>
+        </div>
+        <div data-mr-test-result="${i}" style="display:none;font-size:11px;line-height:1.4;flex-basis:100%"></div>
       </div>
     `;
+  }
+
+  async testMrHost(i) {
+    this.syncMrHostsFromDom();
+    const host = this.mrHosts[i]?.host;
+    const resultEl = document.querySelector(`[data-mr-test-result="${i}"]`);
+    if (!resultEl) return;
+    if (!host) {
+      resultEl.style.display = "";
+      resultEl.style.color = "var(--color-warn)";
+      resultEl.textContent = t("admin_config_test_host_empty", "Enter a host first.");
+      return;
+    }
+    resultEl.style.display = "";
+    resultEl.style.color = "var(--color-muted)";
+    resultEl.textContent = t("admin_config_testing_host", "Testing…");
+    try {
+      const r = await api("/api/admin/model-request-hosts/test", { method: "POST", body: JSON.stringify({ host }) });
+      if (!r.reachable) {
+        resultEl.style.color = "var(--color-warn)";
+        resultEl.textContent = r.detail;
+      } else if (r.bot_gated) {
+        resultEl.style.color = "var(--color-warn)";
+        resultEl.textContent = "⚠ " + r.detail;
+      } else {
+        resultEl.style.color = "var(--color-success)";
+        resultEl.textContent = "✓ " + r.detail + ` (HTTP ${r.status_code})`;
+      }
+    } catch (e) {
+      resultEl.style.color = "var(--color-warn)";
+      resultEl.textContent = e.message || t("admin_config_test_host_failed", "Test failed.");
+    }
   }
 
   syncMrHostsFromDom() {
@@ -396,10 +435,13 @@ class AdminConfigView {
     this.render();
   }
 
-  removeMrHostRow(i) {
+  async removeMrHostRow(i) {
     this.syncMrHostsFromDom();
+    const host = this.mrHosts[i]?.host || t("admin_config_host_placeholder");
+    if (!(await confirmDialog(t("admin_config_confirm_remove_host", "Remove {host} from the allowed hosts? Model requests pointing there will stop passing validation.").replace("{host}", host), { confirmLabel: t("admin_config_remove_host_confirm_label", "Remove") }))) return;
     this.mrHosts.splice(i, 1);
     this.render();
+    this.scheduleAutosave();
   }
 
   medallionHtml(fallbackSvg, originUrl) {
@@ -746,7 +788,7 @@ AdminConfigView.prototype.render = function () {
         </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(${isCollapsed ? "-90deg" : "0deg"});transition:transform .15s;flex:none;color:var(--color-muted);margin-top:2px"><path d="M6 9l6 6 6-6"/></svg>
       </button>
-      <div class="px-3.5 pb-3.5${isCollapsed ? " hidden" : ""}" data-dossier-card-content="${key}">
+      <div class="px-3.5 pb-3.5${isCollapsed ? " hidden" : ""}" data-dossier-card-content="${key}" data-section-content="${key}">
       <hr class="mb-3" style="border:none;border-top:1px dashed var(--color-line-2)">
   `;
   };

@@ -172,33 +172,52 @@ async def classify_image_explicit(image_data_url: str, model: str,
     return explicit, confidence, reply
 
 class ThinkSplitter:
-    OPEN, CLOSE = "<think>", "</think>"
+    OPEN_CLOSE_PAIRS = {"<think>": "</think>", "<thought>": "</thought>"}
+    OPEN_TAGS = list(OPEN_CLOSE_PAIRS)
 
     def __init__(self):
         self.in_think = False
         self.pending = ""
+        self.active_close = None
 
     def _channel(self):
         return "thinking" if self.in_think else "content"
 
     def _safe_keep(self):
-        tag = self.CLOSE if self.in_think else self.OPEN
-        for i in range(min(len(tag) - 1, len(self.pending)), 0, -1):
-            if tag.startswith(self.pending[-i:]):
-                return i
-        return 0
+        tags = [self.active_close] if self.in_think else self.OPEN_TAGS
+        best = 0
+        for tag in tags:
+            for i in range(min(len(tag) - 1, len(self.pending)), 0, -1):
+                if tag.startswith(self.pending[-i:]):
+                    best = max(best, i)
+                    break
+        return best
+
+    def _find_open(self):
+        best_idx, best_tag = -1, None
+        for tag in self.OPEN_TAGS:
+            idx = self.pending.find(tag)
+            if idx != -1 and (best_idx == -1 or idx < best_idx):
+                best_idx, best_tag = idx, tag
+        return best_idx, best_tag
 
     def feed(self, text):
         out = []
         self.pending += text
         while True:
-            tag = self.CLOSE if self.in_think else self.OPEN
-            idx = self.pending.find(tag)
+            if self.in_think:
+                idx, tag = self.pending.find(self.active_close), self.active_close
+            else:
+                idx, tag = self._find_open()
             if idx != -1:
                 before = self.pending[:idx]
                 if before:
                     out.append((self._channel(), before))
                 self.pending = self.pending[idx + len(tag):]
+                if self.in_think:
+                    self.active_close = None
+                else:
+                    self.active_close = self.OPEN_CLOSE_PAIRS[tag]
                 self.in_think = not self.in_think
                 continue
             keep = self._safe_keep()

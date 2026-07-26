@@ -245,6 +245,13 @@ def _start_gen(sid: str, coro_fn, *args, **kwargs):
     handle.task = asyncio.create_task(_wrap())
     return handle
 
+def abort_generation(sid: str) -> bool:
+    handle = _active_gen.get(sid)
+    if not handle or not handle.task or handle.task.done():
+        return False
+    handle.task.cancel()
+    return True
+
 def _glossary_note(glossary: dict | None) -> str:
     if not glossary:
         return ""
@@ -306,7 +313,7 @@ async def next_speaker(cast, user_text, last_speaker_id, recent, model, ep) -> l
     try:
         async for channel, txt in llm.chat_stream(
                 director_prompt, model, {"temperature": 0.3, "max_tokens": 80},
-                parse_think=False, base_url=ep["chat_base"], api_key=ep["chat_key"], pin_host=True):
+                parse_think=True, base_url=ep["chat_base"], api_key=ep["chat_key"], pin_host=True):
             if channel == "content":
                 out += txt
     except Exception as e:
@@ -429,11 +436,12 @@ async def _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep, 
     profiles = await _resolve_fallback_profiles(
         char, s, current_user, user_overrides, chat_model, ep["chat_base"], ep["chat_key"])
     try:
-        async for channel, text in llm.chat_stream_with_fallback(oai, profiles, params, parse_think=do_think,
+        async for channel, text in llm.chat_stream_with_fallback(oai, profiles, params, parse_think=True,
                 pin_host=True):
             if channel == "thinking":
-                thought.append(text)
-                yield "data: " + json.dumps({"type": "thinking", "content": text, "char_id": cid}) + "\n\n"
+                if do_think:
+                    thought.append(text)
+                    yield "data: " + json.dumps({"type": "thinking", "content": text, "char_id": cid}) + "\n\n"
             else:
                 ans.append(text)
     except Exception as e:
@@ -851,11 +859,12 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
             fallback_profiles = await _resolve_fallback_profiles(
                 char, s, current_user, user_overrides, chat_model, eff_chat_base, eff_api_key)
             async for channel, text in llm.chat_stream_with_fallback(
-                    oai_messages, fallback_profiles, params, parse_think=do_think, pin_host=True,
+                    oai_messages, fallback_profiles, params, parse_think=True, pin_host=True,
                     result=gen_result):
                 if channel == "thinking":
-                    thought.append(text)
-                    yield "data: " + json.dumps({"type": "thinking", "content": text}) + "\n\n"
+                    if do_think:
+                        thought.append(text)
+                        yield "data: " + json.dumps({"type": "thinking", "content": text}) + "\n\n"
                 else:
                     ans.append(text)
         except Exception as e:

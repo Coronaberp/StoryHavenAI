@@ -1,6 +1,7 @@
 import re
 import secrets
 
+import httpx
 from fastapi import HTTPException, Depends
 
 from backend import db
@@ -10,6 +11,7 @@ from backend import imagegen
 from backend.state import api, log, _log_buffer, CFG
 from backend.auth import get_admin, get_dev, normalize_username
 from backend.routers.imagegen import _match_model_request_host
+from backend.ssrf import _resolve_host_ip_issue
 from backend.repositories import flagged_endpoints as flagged_endpoint_repo
 from backend.repositories import invite_codes as invite_code_repo
 from backend.repositories import model_requests as model_request_repo
@@ -20,7 +22,8 @@ from backend.repositories import characters
 from backend.repositories import lore
 from backend.repositories import admin_notes as admin_note_repo
 from backend.schemas import (UserCreateIn, SuspendUserIn, AdminNoteIn, IdentityLabelIn,
-                     ImageReportResolveIn, ContentReportResolveIn, DevRoleIn, InviteCodeIn, UserTierIn)
+                     ImageReportResolveIn, ContentReportResolveIn, DevRoleIn, InviteCodeIn, UserTierIn,
+                     ModelRequestHostTestIn)
 
 _KNOWN_MODEL_EXTS = (".safetensors", ".ckpt", ".pt", ".pth")
 
@@ -102,6 +105,50 @@ async def admin_set_user_tier(uid: str, body: UserTierIn,
     return {"id": uid, "tier": body.tier}
 
 MODEL_REQUEST_HISTORY_LIMIT = 20
+
+_HOST_TEST_UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                 "(KHTML, like Gecko) Chrome/124.0 Safari/537.36")
+
+def _looks_bot_gated(status_code: int, headers, text_sample: str) -> bool:
+    if "cf-mitigated" in headers:
+        return True
+    lowered = text_sample.lower()
+    if "just a moment" in lowered and "cloudflare" in lowered:
+        return True
+    if status_code == 403 and ("cf-chl" in lowered or "cloudflare" in lowered):
+        return True
+    return False
+
+@api.post("/admin/model-request-hosts/test")
+async def admin_test_model_request_host(body: ModelRequestHostTestIn, current_user: dict = Depends(get_admin)):
+    host = (body.host or "").strip().lower()
+    if not host:
+        raise HTTPException(400, "host is required")
+    url = f"https://{host}/"
+    issue = await _resolve_host_ip_issue(url, is_admin=False)
+    if issue:
+        raise HTTPException(400, issue)
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+            resp = await client.get(url, headers={"User-Agent": _HOST_TEST_UA})
+    except Exception as e:
+        log.warning("admin: model request host test failed host=%s by=%s: %s",
+                    host, current_user["username"], e)
+        return {"reachable": False, "bot_gated": False,
+                "detail": f"Couldn't connect: {e}"}
+    text_sample = resp.text[:4000] if resp.headers.get("content-type", "").startswith("text/html") else ""
+    bot_gated = _looks_bot_gated(resp.status_code, resp.headers, text_sample)
+    log.info("admin: tested model request host=%s status=%s bot_gated=%s by=%s",
+             host, resp.status_code, bot_gated, current_user["username"])
+    return {
+        "reachable": True,
+        "status_code": resp.status_code,
+        "bot_gated": bot_gated,
+        "detail": ("This host's front page looks bot-protected (e.g. Cloudflare) — this only tested "
+                   "the homepage, not an actual download link, so it doesn't necessarily mean real "
+                   "download URLs will fail (some sites gate browsing pages but leave direct file "
+                   "links open). If a download from this host fails in practice, that's the real signal.") if bot_gated else "Looks reachable.",
+    }
 
 @api.get("/admin/model-requests")
 async def admin_list_model_requests(current_user: dict = Depends(get_admin)):
