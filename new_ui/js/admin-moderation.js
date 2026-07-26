@@ -2,6 +2,9 @@
 
 function adminQueueSectionHtml(title, count, rows) {
   const empty = !rows.length;
+  const key = `admin-queue-${paginateKeyFor(title)}`;
+  const state = paginateSlice(key, rows);
+  onPaginate(key, () => adminModerationView?.render());
   return `
     <div class="mb-5">
       <div class="flex items-center gap-2 mb-2.5">
@@ -9,12 +12,13 @@ function adminQueueSectionHtml(title, count, rows) {
         ${count > 0 ? `<span class="font-mono text-[10px] px-1.5 py-0.5 rounded-full" style="background:var(--color-warn);color:var(--color-paper)">${count}</span>` : ""}
       </div>
       ${empty ? `<p class="text-sm text-muted py-1">${t("admin_moderation_nothing_pending")}</p>` : `
-        <div class="lg:hidden">${rows.map((r) => r.card).join("")}</div>
+        <div class="lg:hidden">${state.rows.map((r) => r.card).join("")}</div>
         <div class="hidden lg:block overflow-x-auto">
           <table class="w-full text-left border-collapse">
-            <tbody>${rows.map((r) => r.tr).join("")}</tbody>
+            <tbody>${state.rows.map((r) => r.tr).join("")}</tbody>
           </table>
         </div>
+        ${paginationHtml(key, state)}
       `}
     </div>
   `;

@@ -66,7 +66,8 @@ async def _reply_counts(ids):
     return {r["target_id"]: r["n"] for r in rows}
 
 async def list_all(hidden_ids: set, sort: str = "new", category: str = "",
-                   limit: int = 50, offset: int = 0, viewer_id: str | None = None) -> list[dict]:
+                   limit: int = 50, offset: int = 0, viewer_id: str | None = None,
+                   paged: bool = False):
     j = forum_threads.join(users, users.c.id == forum_threads.c.author_id)
     conds = []
     if category:
@@ -83,6 +84,8 @@ async def list_all(hidden_ids: set, sort: str = "new", category: str = "",
         shaped.sort(key=lambda t: (t["pinned"], t["score"], t["created"]), reverse=True)
     else:
         shaped.sort(key=lambda t: (t["pinned"], t["created"]), reverse=True)
+    if paged:
+        return {"threads": shaped[offset:offset + limit], "total": len(shaped)}
     return shaped[offset:offset + limit]
 
 async def get(tid: str, viewer_id: str | None = None) -> dict | None:

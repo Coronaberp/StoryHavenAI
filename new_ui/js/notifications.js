@@ -16,6 +16,14 @@ function notifResolveLink(link) {
   return link;
 }
 
+function notifMd(text) {
+  try {
+    return DOMPurify.sanitize(marked.parse(String(text || ""), { gfm: true, breaks: true }));
+  } catch {
+    return _esc(text);
+  }
+}
+
 class NotificationsBell {
   constructor() {
     this.items = [];
@@ -172,7 +180,9 @@ class NotificationsBell {
       list.innerHTML = `<div class="notif-empty">${t("notif_no_notifications_yet")}</div>`;
       return;
     }
-    list.innerHTML = this.items.map((n) => `
+    const state = paginateSlice("notifications", this.items, 12);
+    onPaginate("notifications", () => this._paintList());
+    list.innerHTML = state.rows.map((n) => `
       <button type="button" class="notif-item${n.read ? "" : " unread"}" data-id="${_attr(n.id)}" data-link="${_attr(notifResolveLink(n.link))}" data-type="${_attr(n.type || "")}" data-related-id="${_attr(n.related_id || "")}" data-title="${_attr(n.title || "")}" data-body="${_attr(n.body || "")}">
         <span class="notif-dot"></span>
         <span class="notif-body">
@@ -181,7 +191,7 @@ class NotificationsBell {
           <span class="notif-item-time">${_esc(timeAgo(n.created))}</span>
         </span>
       </button>
-    `).join("");
+    `).join("") + paginationHtml("notifications", state);
     list.querySelectorAll(".notif-item").forEach((item) => {
       item.onclick = async () => {
         const id = item.dataset.id;
@@ -209,9 +219,23 @@ class NotificationsBell {
           });
           return;
         }
-        if (link) navigate(link);
+        this._openNotificationModal(item.dataset.title, item.dataset.body, link);
       };
     });
+  }
+
+  _openNotificationModal(title, body, link) {
+    if (!body) {
+      if (link) navigate(link);
+      return;
+    }
+    openModal(`
+      <h3>${_esc(title || t("notif_default_title", "Notification"))}</h3>
+      <div class="sym-body" style="line-height:1.5;color:var(--color-sec);margin:0 0 16px">${notifMd(body)}</div>
+      ${link ? `<button type="button" id="notifModalGo" class="w-full py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark">${t("notif_go_to_link", "Go")}</button>` : ""}
+    `);
+    const goBtn = document.getElementById("notifModalGo");
+    if (goBtn) goBtn.onclick = () => { closeTopModal(); navigate(link); };
   }
 }
 

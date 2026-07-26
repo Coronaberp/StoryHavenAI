@@ -44,6 +44,21 @@ async def interrupt(base_url: str):
         r = await client.post(f"{root}/interrupt")
         r.raise_for_status()
 
+class GenerationInterrupted(Exception):
+    pass
+
+def _raise_generation_failure(status: dict):
+    messages = status.get("messages") or []
+    if any(entry and entry[0] == "execution_interrupted" for entry in messages):
+        raise GenerationInterrupted("Generation stopped")
+    raise RuntimeError(f"ComfyUI generation failed: {status}")
+
+async def cancel_queued_prompt(base_url: str, prompt_id: str):
+    root = (base_url or "").rstrip("/")
+    async with httpx.AsyncClient(timeout=15) as client:
+        r = await client.post(f"{root}/queue", json={"delete": [prompt_id]})
+        r.raise_for_status()
+
 async def upload_reference_image(base_url: str, image_bytes: bytes, filename: str = "reference.png") -> str:
     root = (base_url or "").rstrip("/")
     unique_filename = f"{uuid.uuid4().hex[:12]}_{filename}"
@@ -109,7 +124,7 @@ async def generate_image(positive: str, negative: str, base_url: str, checkpoint
 
         status = history.get("status", {})
         if status.get("status_str") == "error":
-            raise RuntimeError(f"ComfyUI generation failed: {status}")
+            _raise_generation_failure(status)
 
         outputs = history.get("outputs", {})
         image_info = None
@@ -176,7 +191,7 @@ async def upscale_image(image_bytes: bytes, base_url: str, upscaler_name: str, t
         return vr.content
 
 async def upscale_image_stream(image_bytes: bytes, base_url: str, upscaler_name: str,
-                               timeout_s: float = 120.0):
+                               timeout_s: float = 120.0, on_prompt=None):
     try:
         import websockets
     except ImportError:
@@ -192,6 +207,8 @@ async def upscale_image_stream(image_bytes: bytes, base_url: str, upscaler_name:
     async with websockets.connect(f"{ws_scheme_root}/ws?clientId={client_id}", max_size=None) as ws:
         async with httpx.AsyncClient(timeout=30) as client:
             prompt_id = await _submit_prompt(client, root, workflow, client_id)
+            if on_prompt:
+                on_prompt(prompt_id)
 
             finished = False
             async for raw in ws:
@@ -247,7 +264,7 @@ async def generate_image_stream(positive: str, negative: str, base_url: str, che
                                 width: int = 1024, height: int = 1024,
                                 sampler: str = "euler", scheduler: str = "normal",
                                 steps: int = 20, cfg: float = 7.0, architecture: str = "sdxl",
-                                timeout_s: float = 120.0):
+                                timeout_s: float = 120.0, on_prompt=None):
     root = (base_url or "").rstrip("/")
     ws_scheme_root = root.replace("http://", "ws://").replace("https://", "wss://")
     if architecture == "anima":
@@ -269,6 +286,8 @@ async def generate_image_stream(positive: str, negative: str, base_url: str, che
     async with websockets.connect(f"{ws_scheme_root}/ws?clientId={client_id}", max_size=None) as ws:
         async with httpx.AsyncClient(timeout=30) as client:
             prompt_id = await _submit_prompt(client, root, workflow, client_id)
+            if on_prompt:
+                on_prompt(prompt_id)
 
             finished = False
             async for raw in ws:
@@ -299,7 +318,7 @@ async def generate_image_stream(positive: str, negative: str, base_url: str, che
             history = hr.json().get(prompt_id, {})
             status = history.get("status", {})
             if status.get("status_str") == "error":
-                raise RuntimeError(f"ComfyUI generation failed: {status}")
+                _raise_generation_failure(status)
             outputs = history.get("outputs", {})
             image_info = None
             for node_out in outputs.values():
@@ -320,7 +339,7 @@ async def generate_image_stream(positive: str, negative: str, base_url: str, che
 async def generate_inpaint_image_stream(positive: str, negative: str, base_url: str, checkpoint: str,
                                         image_bytes: bytes, mask_bytes: bytes, denoise: float = 1.0,
                                         sampler: str = "euler", scheduler: str = "normal",
-                                        steps: int = 20, cfg: float = 7.0, architecture: str = "sdxl"):
+                                        steps: int = 20, cfg: float = 7.0, architecture: str = "sdxl", on_prompt=None):
     root = (base_url or "").rstrip("/")
     ws_scheme_root = root.replace("http://", "ws://").replace("https://", "wss://")
     image_name = await upload_reference_image(root, image_bytes, filename="inpaint_source.png")
@@ -339,6 +358,8 @@ async def generate_inpaint_image_stream(positive: str, negative: str, base_url: 
     async with websockets.connect(f"{ws_scheme_root}/ws?clientId={client_id}", max_size=None) as ws:
         async with httpx.AsyncClient(timeout=30) as client:
             prompt_id = await _submit_prompt(client, root, workflow, client_id)
+            if on_prompt:
+                on_prompt(prompt_id)
 
             finished = False
             async for raw in ws:
@@ -369,7 +390,7 @@ async def generate_inpaint_image_stream(positive: str, negative: str, base_url: 
             history = hr.json().get(prompt_id, {})
             status = history.get("status", {})
             if status.get("status_str") == "error":
-                raise RuntimeError(f"ComfyUI generation failed: {status}")
+                _raise_generation_failure(status)
             outputs = history.get("outputs", {})
             image_info = None
             for node_out in outputs.values():
@@ -390,7 +411,7 @@ async def generate_inpaint_image_stream(positive: str, negative: str, base_url: 
 async def generate_video_stream(positive: str, negative: str, base_url: str,
                                 unet_name: str, clip_name: str, vae_name: str,
                                 fps: int = 16, num_frames: int = 33, width: int = 832, height: int = 480,
-                                steps: int = 20, cfg: float = 6.0):
+                                steps: int = 20, cfg: float = 6.0, on_prompt=None):
     root = (base_url or "").rstrip("/")
     ws_scheme_root = root.replace("http://", "ws://").replace("https://", "wss://")
     workflow = _build_wan_video_workflow(positive, negative, unet_name, clip_name, vae_name,
@@ -403,6 +424,8 @@ async def generate_video_stream(positive: str, negative: str, base_url: str,
     async with websockets.connect(f"{ws_scheme_root}/ws?clientId={client_id}", max_size=None) as ws:
         async with httpx.AsyncClient(timeout=30) as client:
             prompt_id = await _submit_prompt(client, root, workflow, client_id)
+            if on_prompt:
+                on_prompt(prompt_id)
 
             finished = False
             last_step_logged = -1

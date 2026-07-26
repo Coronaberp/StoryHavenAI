@@ -227,7 +227,10 @@ class AdminUsersView {
   }
 
   render() {
-    const visible = this.users.filter((u) => this.matchesFilter(u));
+    const all = this.users.filter((u) => this.matchesFilter(u));
+    const pageState = paginateSlice("admin-users", all, 15);
+    onPaginate("admin-users", () => this.render());
+    const visible = pageState.rows;
     const rows = `<div class="lg:hidden">${visible.map((u) => u.tier === "guest" ? this.guestMobileRowHtml(u) : adminRowHtml({
       id: u.id,
       title: u.display_name || u.username,
@@ -302,10 +305,10 @@ class AdminUsersView {
       ${backLinkHtml("Admin")}
       ${pageHeaderHtml("My Dossier", "Admin", t("ph_admin_users_title"), `${this.users.length} ${t("admin_users_users_count_suffix")}`)}
       ${adminScreenSwitcherHtml("admin-users", window._adminSwitcherBadges || {})}
-      <button type="button" onclick="adminUsersView.createUser()" class="w-full mb-4 py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark lg:w-auto">
+      <button type="button" onclick="adminUsersView.createUser()" class="w-full mb-4 px-5 py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark lg:w-auto">
         ${t("admin_users_new_user")}
       </button>
-      ${this.filterChipsHtml(visible.length)}
+      ${this.filterChipsHtml(all.length)}
       ${rows}
       <div class="hidden lg:block overflow-x-auto">
         <table class="w-full text-left border-collapse">
@@ -320,6 +323,7 @@ class AdminUsersView {
           <tbody>${tableRows}</tbody>
         </table>
       </div>
+      ${paginationHtml("admin-users", pageState)}
       </div>
     `;
     adminAttachScreenSwitcher(this.main);
@@ -331,19 +335,58 @@ class AdminUsersView {
     });
   }
 
-  async createUser() {
-    const username = (prompt(t("admin_users_prompt_username")) || "").trim().replace(/\s+/g, "-").replace(/[^A-Za-z0-9_-]/g, "");
-    if (!username) return;
-    const password = prompt(t("admin_users_prompt_password")) || "";
-    if (password.length < 8) { errorToast(t("admin_users_password_min_length")); return; }
-    const isAdmin = await confirmDialog(t("admin_users_confirm_grant_admin_on_creation"), { confirmLabel: t("admin_users_grant"), danger: false });
-    try {
-      await api("/api/admin/users", { method: "POST", body: JSON.stringify({ username, password, is_admin: isAdmin }) });
-      toast(t("admin_users_user_created"));
-      await this.load();
-    } catch (e) {
-      errorToast(e.message || t("admin_users_couldnt_create_user"));
-    }
+  createUser() {
+    openModal(`
+      <h3>${t("admin_users_new_user")}</h3>
+      <div class="mb-3">
+        <label class="block text-xs text-sec mb-1">${t("admin_users_field_username", "Username")}</label>
+        <input type="text" id="new_user_username" autocomplete="off" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm" placeholder="${_attr(t("admin_users_username_placeholder", "e.g. newmember"))}">
+      </div>
+      <div class="mb-3">
+        <label class="block text-xs text-sec mb-1">${t("admin_users_field_password", "Password")}</label>
+        <input type="password" id="new_user_password" autocomplete="new-password" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm" placeholder="${_attr(t("admin_users_password_min_length_hint", "At least 8 characters"))}">
+      </div>
+      <label class="flex items-center gap-2.5 text-sm text-ink mb-4">
+        <input type="checkbox" id="new_user_is_admin">
+        ${t("admin_users_grant_admin_checkbox", "Grant admin on creation")}
+      </label>
+      <div id="new_user_err" style="display:none;font-size:12px;color:var(--color-warn);margin-bottom:12px"></div>
+      <button type="button" id="new_user_submit" class="w-full py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_users_new_user")}</button>
+    `);
+    const usernameInp = document.getElementById("new_user_username");
+    const passwordInp = document.getElementById("new_user_password");
+    const isAdminInp = document.getElementById("new_user_is_admin");
+    const errEl = document.getElementById("new_user_err");
+    const submitBtn = document.getElementById("new_user_submit");
+    usernameInp.focus();
+    submitBtn.onclick = async () => {
+      const username = usernameInp.value.trim().replace(/\s+/g, "-").replace(/[^A-Za-z0-9_-]/g, "");
+      const password = passwordInp.value;
+      errEl.style.display = "none";
+      if (!username) {
+        errEl.style.display = "";
+        errEl.textContent = t("admin_users_username_required", "A username is required.");
+        return;
+      }
+      if (password.length < 8) {
+        errEl.style.display = "";
+        errEl.textContent = t("admin_users_password_min_length");
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = t("admin_users_creating", "Creating…");
+      try {
+        await api("/api/admin/users", { method: "POST", body: JSON.stringify({ username, password, is_admin: isAdminInp.checked }) });
+        toast(t("admin_users_user_created"));
+        closeTopModal();
+        await this.load();
+      } catch (e) {
+        errEl.style.display = "";
+        errEl.textContent = e.message || t("admin_users_couldnt_create_user");
+        submitBtn.disabled = false;
+        submitBtn.textContent = t("admin_users_new_user");
+      }
+    };
   }
 
   async deleteUser(uid) {

@@ -338,12 +338,15 @@ async def _resolve_target_owner(target_type: str, target_id: str) -> str | None:
     return u["id"]
 
 @api.get("/comments")
-async def get_comments(target_type: str, target_id: str,
+async def get_comments(target_type: str, target_id: str, limit: int = 0, offset: int = 0,
                        current_user: dict | None = Depends(get_current_user_optional)):
     if target_type not in ALLOWED_TARGETS:
         raise HTTPException(400, "invalid target_type")
     viewer_id = current_user["id"] if current_user else None
-    return await comment_repo.list_for_target(target_type, target_id, viewer_id)
+    if not limit:
+        return await comment_repo.list_for_target(target_type, target_id, viewer_id)
+    return await comment_repo.list_for_target(target_type, target_id, viewer_id,
+                                              limit=min(max(limit, 1), 100), offset=max(offset, 0))
 
 _COMMENT_IMAGE_RE = re.compile(r"^/media/cmt_[0-9a-f]{12}\.(png|jpe?g|gif|webp)$")
 _COMMENT_VIDEO_RE = re.compile(r"^/media/cmt_[0-9a-f]{12}\.(mp4|webm|mov)$")

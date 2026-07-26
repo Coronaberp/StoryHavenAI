@@ -7,17 +7,20 @@ from backend.db import party_chat_messages, nid, _q, _w, _encrypt_secret, _decry
 from backend.state import log
 
 async def add(session_id: str, sender_user_id: str, content: str,
-              image: str | None = None, attachment_kind: str | None = None) -> dict:
+              image: str | None = None, attachment_kind: str | None = None,
+              sender_name: str | None = None, sender_avatar: str | None = None) -> dict:
     mid = nid("pc")
     now = time.time()
     await _w(insert(party_chat_messages).values(
         id=mid, session_id=session_id, sender_user_id=sender_user_id,
+        sender_name=sender_name, sender_avatar=sender_avatar,
         content=_encrypt_secret(content or ""), image=image,
         attachment_kind=attachment_kind, created=now,
     ))
     log.info("party_chat: message added session=%s sender=%s attachment=%s",
               session_id, sender_user_id, attachment_kind)
     return {"id": mid, "session_id": session_id, "sender_user_id": sender_user_id,
+            "sender_name": sender_name, "sender_avatar": sender_avatar,
             "content": content, "image": image, "attachment_kind": attachment_kind, "created": now}
 
 async def list_recent(session_id: str, limit: int = 50) -> list[dict]:

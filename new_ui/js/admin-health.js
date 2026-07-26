@@ -247,17 +247,20 @@ Object.assign(AdminHealthView.prototype, {
       const { logs } = await api(`/api/admin/logs?level=${this.logLevel || "INFO"}&limit=300`);
       if (!box) return;
       if (!logs.length) { box.innerHTML = `<p class="text-sm text-muted">${t("admin_health_no_log_entries")}</p>`; return; }
-      box.innerHTML = logs.slice().reverse().map((l) => {
+      const state = paginateSlice("admin-logs", logs.slice().reverse(), 40);
+      onPaginate("admin-logs", () => this.loadLogs());
+      box.innerHTML = state.rows.map((l) => {
         const dt = new Date(l.ts * 1000).toLocaleString();
         const color = (l.level === "ERROR" || l.level === "CRITICAL") ? "var(--color-warn)" : (l.level === "WARNING" ? "var(--color-accent)" : "var(--color-sec)");
         return `<div class="py-0.5 overflow-x-auto"><div class="text-xs whitespace-pre-wrap break-words"><span class="text-muted">${_esc(dt)}</span> <span style="color:${color};font-weight:600">${_esc(l.level)}</span> <span class="text-muted">${_esc(l.logger)}:</span> ${_esc(l.message)}</div></div>`;
-      }).join("");
+      }).join("") + paginationHtml("admin-logs", state);
     } catch (e) {
       if (box) box.innerHTML = `<p class="text-sm" style="color:var(--color-warn)">${t("admin_health_couldnt_load_logs")}: ${_esc(e.message)}</p>`;
     }
   },
 
   setLogLevel(level) {
+    resetPagination("admin-logs");
     this.logLevel = level;
     this.updateLogChipState();
     this.loadLogs();

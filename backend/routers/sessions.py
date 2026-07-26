@@ -186,10 +186,15 @@ async def swap_greeting(sid: str, direction: str, current_user: dict = Depends(g
     live_broadcast.broadcast(sid, "session_updated", {})
     return {"greeting_index": new_idx, "greeting_count": len(greetings)}
 
+SESSION_LIST_SCAN_CAP = 500
+
 @api.get("/sessions")
-async def list_sessions(limit: int = 40, char_id: str | None = None,
-                        current_user: dict = Depends(get_current_user)):
-    owned = await chat_sessions.list_all(limit, user_id=current_user["id"], char_id=char_id)
+async def list_sessions(limit: int = 40, offset: int = 0, char_id: str | None = None,
+                        paged: int = 0, current_user: dict = Depends(get_current_user)):
+    limit = min(max(limit, 1), 100)
+    offset = max(offset, 0)
+    fetch_limit = max(offset + limit, SESSION_LIST_SCAN_CAP) if paged else limit
+    owned = await chat_sessions.list_all(fetch_limit, user_id=current_user["id"], char_id=char_id)
     owned_ids = {s["id"] for s in owned}
     participant_ids = await session_participants.list_session_ids_for_user(current_user["id"])
     joined = []
@@ -199,7 +204,9 @@ async def list_sessions(limit: int = 40, char_id: str | None = None,
         s = await chat_sessions.get(sid)
         if s and (not char_id or s.get("char_id") == char_id):
             joined.append(s)
-    sessions = sorted(owned + joined, key=lambda s: s.get("updated") or 0, reverse=True)[:limit]
+    merged = sorted(owned + joined, key=lambda s: s.get("updated") or 0, reverse=True)
+    total = len(merged)
+    sessions = merged[offset:offset + limit]
     for s in sessions:
         participants = await session_participants.list_for_session(s["id"])
         s["is_multiplayer"] = len(participants) > 0
@@ -217,6 +224,8 @@ async def list_sessions(limit: int = 40, char_id: str | None = None,
             if len(cast_avatars) >= 4:
                 break
         s["cast_avatars"] = cast_avatars
+    if paged:
+        return {"sessions": sessions, "total": total}
     return sessions
 
 @api.get("/sessions/{sid}")

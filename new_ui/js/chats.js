@@ -1,5 +1,7 @@
 "use strict";
 
+const CHATS_PAGE_SIZE = 20;
+
 function _parlanceAgo(ts) {
   const diff = Math.max(0, Date.now() / 1000 - ts);
   if (diff < 60) return t("parlance_time_just_now");
@@ -17,6 +19,8 @@ const PARLANCE_SELECT_ICON = `<svg viewBox="0 0 24 24" fill="none" stroke="curre
 class ChatsView {
   constructor() {
     this.sessions = null;
+    this.total = 0;
+    this.page = 1;
     this.chars = {};
     this.error = "";
     this.q = "";
@@ -160,9 +164,17 @@ class ChatsView {
     this.selected.clear();
     document.body.classList.remove("parlance-select-mode");
     window._activeParlanceView = this;
+    onPaginate("chats", () => { this.page = paginatePage("chats"); this.load(); });
     this.render();
+    await this.load();
+  }
+
+  async load() {
+    this.error = "";
     try {
-      this.sessions = await api("/api/sessions");
+      const page = await api(`/api/sessions?paged=1&limit=${CHATS_PAGE_SIZE}&offset=${(this.page - 1) * CHATS_PAGE_SIZE}`);
+      this.sessions = page.sessions;
+      this.total = page.total;
     } catch (err) {
       this.error = err.message || t("parlance_load_error");
       this.sessions = [];
@@ -317,6 +329,7 @@ class ChatsView {
       ` : ""}
       ${this.toolbarHtml()}
       ${this.bodyHtml()}
+      ${paginationHtml("chats", { rows: this.sessions || [], page: this.page, pages: Math.max(1, Math.ceil((this.total || 0) / CHATS_PAGE_SIZE)), total: this.total || 0, start: (this.page - 1) * CHATS_PAGE_SIZE, pageSize: CHATS_PAGE_SIZE })}
     `;
     this.main.querySelectorAll("[data-remove-char]").forEach((x) => {
       x.onclick = (e) => { e.stopPropagation(); this.removeCharFilter(x.dataset.removeChar); };

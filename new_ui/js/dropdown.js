@@ -138,14 +138,70 @@ function wireRefImagePicker(id, onChange, initialDataUrl) {
 
 const _pickerData = {};
 
-function _pickerTileHtml(name, meta, selected) {
+function mergePromptPreset(current, preset) {
+  const text = (current || "").trim();
+  if (!preset) return text;
+  if (!text) return preset;
+  if (text.includes(preset)) return text;
+  return `${preset}, ${text}`;
+}
+
+function applyCheckpointPromptDefaults(meta, positiveEl, negativeEl) {
+  if (!meta) return;
+  if (meta.default_positive && positiveEl) {
+    positiveEl.value = mergePromptPreset(positiveEl.value, meta.default_positive);
+    positiveEl.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  if (meta.default_negative && negativeEl) {
+    negativeEl.value = mergePromptPreset(negativeEl.value, meta.default_negative);
+    negativeEl.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+}
+
+function modelPreviewInnerHtml(meta, label, allowSwap = true) {
+  const sfw = meta?.image || "";
+  const nsfw = (typeof ME !== "undefined" && ME?.nsfw_allowed) ? (meta?.image_nsfw || "") : "";
+  if (!sfw && !nsfw) return _esc(((label || "")[0] || "?").toUpperCase());
+  const both = sfw && nsfw;
+  const img = `<img src="${_attr(sfw || nsfw)}" alt="" data-sfw-src="${_attr(sfw)}" data-nsfw-src="${_attr(nsfw)}" style="width:100%;height:100%;object-fit:cover">`;
+  if (!both || !allowSwap) return img;
+  return `${img}<span role="button" tabindex="0" class="nsfw-swap" data-nsfw-toggle="sfw" title="${_attr(t("dropdown_swap_preview", "Swap preview"))}">SFW</span>`;
+}
+
+function _swapNsfwPreview(toggle) {
+  const img = toggle.parentElement?.querySelector("img[data-sfw-src]");
+  if (!img) return;
+  const showingNsfw = toggle.dataset.nsfwToggle === "nsfw";
+  img.src = showingNsfw ? img.dataset.sfwSrc : img.dataset.nsfwSrc;
+  toggle.dataset.nsfwToggle = showingNsfw ? "sfw" : "nsfw";
+  toggle.textContent = showingNsfw ? "SFW" : "NSFW";
+}
+
+document.addEventListener("click", (e) => {
+  const toggle = e.target.closest?.("[data-nsfw-toggle]");
+  if (!toggle) return;
+  e.preventDefault();
+  e.stopPropagation();
+  _swapNsfwPreview(toggle);
+}, true);
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const toggle = e.target.closest?.("[data-nsfw-toggle]");
+  if (!toggle) return;
+  e.preventDefault();
+  e.stopPropagation();
+  _swapNsfwPreview(toggle);
+}, true);
+
+function _gridTileHtml(name, meta, selected) {
   const label = meta?.display_name || name;
   const initial = _esc((label[0] || "?").toUpperCase());
   return `
     <button type="button" data-grid-tile="${_attr(name)}" title="${_attr(label)}"
       style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:5px;border-radius:11px;border:2px solid ${selected ? "var(--color-accent)" : "transparent"};background:var(--color-surface);cursor:pointer;min-width:0">
       <span style="position:relative;width:100%;aspect-ratio:1;border-radius:8px;overflow:hidden;background:var(--color-surface-2);display:grid;place-items:center;font-size:15px;color:var(--color-muted)">
-        ${meta?.image ? `<img src="${_attr(meta.image)}" alt="" style="width:100%;height:100%;object-fit:cover">` : initial}
+        ${modelPreviewInnerHtml(meta, label)}
         ${selected ? `<span style="position:absolute;top:3px;right:3px;width:16px;height:16px;border-radius:50%;background:var(--color-accent);color:#000;display:grid;place-items:center;font-size:10px;line-height:1">✓</span>` : ""}
       </span>
       <span style="font-size:10.5px;color:var(--color-ink);text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%">${_esc(label)}</span>
@@ -177,7 +233,7 @@ function _wireGridPanel(panelId, { isSelected, onPick, closeOnPick }) {
       ? names.filter((n) => (previews[n]?.display_name || n).toLowerCase().includes(q))
       : names;
     tilesEl.innerHTML = shown.length
-      ? shown.map((n) => _pickerTileHtml(n, previews[n], isSelected(n))).join("")
+      ? shown.map((n) => _gridTileHtml(n, previews[n], isSelected(n))).join("")
       : `<p style="grid-column:1/-1;font-size:12px;color:var(--color-muted);text-align:center;padding:10px 0">${_esc(t("dropdown_no_matches"))}</p>`;
     tilesEl.querySelectorAll("[data-grid-tile]").forEach((btn) => {
       btn.onclick = () => {
@@ -208,8 +264,8 @@ function checkpointPickerHtml(id, names, previews, selected) {
     <div id="${_attr(id)}" data-checkpoint-picker style="position:relative">
       <button type="button" data-checkpoint-trigger
         style="width:100%;display:flex;align-items:center;gap:10px;padding:7px;border-radius:11px;border:1px solid var(--color-line);background:var(--color-surface-2);cursor:pointer;text-align:left;min-height:52px">
-        <span style="width:38px;height:38px;flex:none;border-radius:9px;overflow:hidden;background:var(--color-surface);display:grid;place-items:center;font-size:14px;color:var(--color-muted)">
-          ${meta.image ? `<img src="${_attr(meta.image)}" alt="" style="width:100%;height:100%;object-fit:cover">` : _esc((label[0] || "?").toUpperCase())}
+        <span style="position:relative;width:44px;height:44px;flex:none;border-radius:9px;overflow:hidden;background:var(--color-surface);display:grid;place-items:center;font-size:14px;color:var(--color-muted)">
+          ${modelPreviewInnerHtml(meta, label)}
         </span>
         <span style="flex:1;min-width:0">
           <span data-checkpoint-label style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px;color:var(--color-ink)">${_esc(label)}</span>
@@ -242,9 +298,7 @@ function wireCheckpointPicker(id, onChange) {
       labelEl.textContent = label;
       if (meta.description) { descEl.textContent = meta.description; descEl.style.display = "block"; }
       else { descEl.style.display = "none"; }
-      thumbEl.innerHTML = meta.image
-        ? `<img src="${_attr(meta.image)}" alt="" style="width:100%;height:100%;object-fit:cover">`
-        : _esc((label[0] || "?").toUpperCase());
+      thumbEl.innerHTML = modelPreviewInnerHtml(meta, label);
       onChange(name);
     },
   });
@@ -284,7 +338,7 @@ function _loraPickerRowsHtml(id) {
     <div data-lora-row="${_attr(name)}" style="margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:8px">
         <span style="width:28px;height:28px;flex:none;border-radius:7px;overflow:hidden;background:var(--color-surface-2);display:grid;place-items:center;font-size:11px;color:var(--color-muted)">
-          ${meta.image ? `<img src="${_attr(meta.image)}" alt="" style="width:100%;height:100%;object-fit:cover">` : _esc(((meta.display_name || name)[0] || "?").toUpperCase())}
+          ${modelPreviewInnerHtml(meta, meta.display_name || name, false)}
         </span>
         <span style="flex:1;min-width:0">
           <span style="display:block;font-size:12.5px;color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(meta.display_name || name)}</span>

@@ -60,7 +60,7 @@ async def get_imagegen_vaes(current_user: dict = Depends(get_current_user)):
 
 @api.get("/imagegen/checkpoint-previews")
 async def get_checkpoint_previews(current_user: dict | None = Depends(get_current_user_optional)):
-    return await checkpoints.list_previews()
+    return _strip_nsfw_previews(await checkpoints.list_previews(), current_user)
 
 def _preview_basename(prefix: str, name: str) -> str:
     return f"{prefix}_" + hashlib.sha1(name.encode("utf-8")).hexdigest()[:16]
@@ -81,19 +81,49 @@ async def _set_preview_image(name: str, file: UploadFile, prefix: str,
     await set_new(name, url)
     return url
 
+def _nsfw_getter(repo):
+    async def getter(name: str):
+        return await repo.get_preview(name, nsfw=True)
+    return getter
+
+def _nsfw_setter(repo):
+    async def setter(name: str, image: str):
+        await repo.set_preview(name, image, nsfw=True)
+    return setter
+
+def _strip_nsfw_previews(previews: dict, current_user: dict | None) -> dict:
+    if current_user and (current_user.get("nsfw_allowed") or current_user.get("is_admin")):
+        return previews
+    for meta in previews.values():
+        meta.pop("image_nsfw", None)
+    return previews
+
 MODEL_CATEGORIES = ("flux_v2", "anima", "sdxl", "il", "pony")
+
+MODEL_TYPE_CATEGORY = {"pony": "pony", "il": "il", "illustrious": "il",
+                       "sdxl": "sdxl", "anima": "anima", "flux_v2": "flux_v2"}
+
+def _categories_for_type(model_type: str | None) -> list[str]:
+    if not model_type:
+        return []
+    category = MODEL_TYPE_CATEGORY.get(model_type.strip().lower())
+    return [category] if category else []
 
 @api.put("/admin/checkpoint-previews/{name:path}/meta")
 async def set_checkpoint_meta_route(name: str, body: ModelMetaIn,
                                     current_user: dict = Depends(get_admin)):
 
+    categories = _categories_for_type(body.model_type)
     await checkpoints.set_meta(name, body.display_name, body.description, body.model_type,
                                    body.default_steps, body.anima_clip_name, body.anima_vae_name,
                                    body.default_sampler, body.default_scheduler, body.default_cfg,
-                                   body.default_positive, body.default_negative)
-    log.info("admin: checkpoint meta set by=%s checkpoint=%s", current_user["username"], name)
+                                   body.default_positive, body.default_negative,
+                                   model_category=categories)
+    log.info("admin: checkpoint meta set by=%s checkpoint=%s type=%s categories=%s",
+             current_user["username"], name, body.model_type, ",".join(categories) or "-")
     return {"checkpoint_name": name, "display_name": body.display_name,
             "description": body.description, "model_type": body.model_type,
+            "model_category": categories,
             "anima_clip_name": body.anima_clip_name, "anima_vae_name": body.anima_vae_name,
             "default_sampler": body.default_sampler, "default_scheduler": body.default_scheduler,
             "default_cfg": body.default_cfg, "default_positive": body.default_positive,
@@ -118,6 +148,23 @@ async def set_checkpoint_preview_video(name: str, file: UploadFile = File(...),
     await checkpoints.set_preview(name, url)
     log.info("admin: checkpoint video preview set by=%s checkpoint=%s", current_user["username"], name)
     return {"checkpoint_name": name, "image": url}
+
+@api.put("/admin/checkpoint-previews/{name:path}/nsfw")
+async def set_checkpoint_preview_nsfw(name: str, file: UploadFile = File(...),
+                                      current_user: dict = Depends(get_admin)):
+    url = await _set_preview_image(name, file, "ckptprevnsfw",
+                                   _nsfw_getter(checkpoints), _nsfw_setter(checkpoints))
+    log.info("admin: checkpoint nsfw preview set by=%s checkpoint=%s", current_user["username"], name)
+    return {"checkpoint_name": name, "image_nsfw": url}
+
+@api.delete("/admin/checkpoint-previews/{name:path}/nsfw")
+async def clear_checkpoint_preview_nsfw(name: str, current_user: dict = Depends(get_admin)):
+    old = await checkpoints.get_preview(name, nsfw=True)
+    if old:
+        _delete_media_file(old.split("?")[0])
+    await checkpoints.delete_preview(name, nsfw=True)
+    log.info("admin: checkpoint nsfw preview cleared by=%s checkpoint=%s", current_user["username"], name)
+    return {"cleared": True}
 
 @api.put("/admin/checkpoint-previews/{name:path}")
 async def set_checkpoint_preview(name: str, file: UploadFile = File(...),
@@ -159,7 +206,7 @@ async def get_imagegen_samplers(current_user: dict = Depends(get_current_user)):
 
 @api.get("/imagegen/lora-previews")
 async def get_lora_previews(current_user: dict = Depends(get_current_user)):
-    out = await loras.list_previews()
+    out = _strip_nsfw_previews(await loras.list_previews(), current_user)
     if not current_user.get("is_admin"):
         hidden = await loras.list_unpublished_names()
         return {name: meta for name, meta in out.items() if name not in hidden}
@@ -186,6 +233,23 @@ async def publish_lora_route(name: str, body: LoraPublishIn, current_user: dict 
     log.info("admin: lora %s by=%s lora=%s", "published" if body.published else "unpublished",
              current_user["username"], name)
     return {"lora_name": name, "is_published": body.published}
+
+@api.put("/admin/lora-previews/{name:path}/nsfw")
+async def set_lora_preview_nsfw(name: str, file: UploadFile = File(...),
+                                current_user: dict = Depends(get_admin)):
+    url = await _set_preview_image(name, file, "lorapreviewnsfw",
+                                   _nsfw_getter(loras), _nsfw_setter(loras))
+    log.info("admin: lora nsfw preview set by=%s lora=%s", current_user["username"], name)
+    return {"lora_name": name, "image_nsfw": url}
+
+@api.delete("/admin/lora-previews/{name:path}/nsfw")
+async def clear_lora_preview_nsfw(name: str, current_user: dict = Depends(get_admin)):
+    old = await loras.get_preview(name, nsfw=True)
+    if old:
+        _delete_media_file(old.split("?")[0])
+    await loras.delete_preview(name, nsfw=True)
+    log.info("admin: lora nsfw preview cleared by=%s lora=%s", current_user["username"], name)
+    return {"cleared": True}
 
 @api.put("/admin/lora-previews/{name:path}")
 async def set_lora_preview(name: str, file: UploadFile = File(...),

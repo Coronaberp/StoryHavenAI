@@ -5,7 +5,7 @@ from backend import llm
 from backend.repositories import memory_facts
 from backend.state import api, CFG, log
 from backend.auth import get_current_user
-from backend.chat_service import _own_session, _endpoints, _run, run_group_speak
+from backend.chat_service import _own_session, _endpoints, _run, run_group_speak, abort_generation
 from backend.dice import roll_dice, format_roll, resolve_inline_rolls
 from backend import guest_quota
 from backend import prompt_guard
@@ -106,3 +106,11 @@ async def continue_chat(sid: str, body: ChatIn | None = None,
     direction = strip_sigil(body.content) if (body and body.content and body.content.strip()) else None
     return await _run(sid, continue_mode=True, direction=direction,
                       think=(body.think if body else None), current_user=current_user)
+
+@api.post("/sessions/{sid}/chat/abort")
+async def abort_chat(sid: str, current_user: dict = Depends(get_current_user)):
+    await _own_session(sid, current_user)
+    stopped = abort_generation(sid)
+    log.info("chat: generation abort requested session=%s by=%s stopped=%s",
+             sid, current_user["username"], stopped)
+    return {"stopped": stopped}

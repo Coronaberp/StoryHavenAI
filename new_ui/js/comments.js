@@ -1,5 +1,7 @@
 "use strict";
 
+const COMMENTS_PAGE_SIZE = 10;
+
 function _floatingPopupHost() {
   return document.querySelector(".modal-layer:last-child") || document.body;
 }
@@ -148,11 +150,16 @@ class CommentsPanel {
   }
 
   async load() {
-    const [comments] = await Promise.all([
-      api(`/api/comments?target_type=${this.targetType}&target_id=${encodeURIComponent(this.targetId)}`),
+    const key = `comments-${this.uid}`;
+    onPaginate(key, () => { this.page = paginatePage(key); this.load(); });
+    this.page = this.page || 1;
+    const offset = (this.page - 1) * COMMENTS_PAGE_SIZE;
+    const [page] = await Promise.all([
+      api(`/api/comments?target_type=${this.targetType}&target_id=${encodeURIComponent(this.targetId)}&limit=${COMMENTS_PAGE_SIZE}&offset=${offset}`),
       loadCustomEmojis(),
     ]);
-    this.comments = comments;
+    this.comments = page.comments;
+    this.totalRoots = page.total;
     this.renderList();
     return this;
   }
@@ -164,8 +171,12 @@ class CommentsPanel {
   renderList() {
     const list = this.container?.querySelector(`#${this.uid}_list`);
     if (!list) return;
+    const key = `comments-${this.uid}`;
+    const pages = Math.max(1, Math.ceil((this.totalRoots || 0) / COMMENTS_PAGE_SIZE));
+    const state = { rows: this.comments, page: this.page || 1, pages, total: this.totalRoots || 0,
+                    start: ((this.page || 1) - 1) * COMMENTS_PAGE_SIZE, pageSize: COMMENTS_PAGE_SIZE };
     list.innerHTML = this.comments.length
-      ? this.comments.map((root) => this.threadHtml(root)).join("")
+      ? this.comments.map((root) => this.threadHtml(root)).join("") + paginationHtml(key, state)
       : `<p style="color:var(--color-sec);font-size:13px;padding:12px 0">${t("comments_no_comments_yet")}</p>`;
     this.wireRows();
     document.querySelectorAll(`[data-comment-count="${this.uid}"]`).forEach((el) => {

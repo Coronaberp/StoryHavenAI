@@ -13,10 +13,15 @@ _THREAD_LIMIT = SlidingWindow(
 
 @api.get("/forum/threads")
 async def list_forum_threads(sort: str = "new", category: str = "",
+                             limit: int = 50, offset: int = 0, paged: int = 0,
                              current_user: dict | None = Depends(get_current_user_optional)):
     viewer_id = current_user["id"] if current_user else None
     hidden = await db.hidden_user_ids(viewer_id) if viewer_id else set()
-    return await forum_thread_repo.list_all(hidden, sort=sort, category=category, viewer_id=viewer_id)
+    limit = min(max(limit, 1), 100)
+    offset = max(offset, 0)
+    return await forum_thread_repo.list_all(hidden, sort=sort, category=category,
+                                            limit=limit, offset=offset, viewer_id=viewer_id,
+                                            paged=bool(paged))
 
 @api.post("/forum/threads")
 async def create_forum_thread(body: ForumThreadIn, current_user: dict = Depends(get_current_user),

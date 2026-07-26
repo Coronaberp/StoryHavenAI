@@ -61,9 +61,12 @@ def apply_inline_directives(content: str) -> str:
         word = m.group(1).lower()
         if word not in DIRECTIVE_COMMANDS or word == "roll":
             return m.group(0)
-        arg = strip_sigil(m.group(2)).strip()
-        tag = f"[{word} {arg}]" if arg else f"[{word}]"
-        return f"({DIRECTOR_SIGIL}:{tag})"
+        body = strip_sigil(m.group(2)).strip()
+        if word == "as":
+            name, _, rest = body.partition(" ")
+            tag = f"[as {name}]" if name else "[as]"
+            return f"({DIRECTOR_SIGIL}:{tag} {rest.strip()})" if rest.strip() else f"({DIRECTOR_SIGIL}:{tag})"
+        return f"({DIRECTOR_SIGIL}:[{word}] {body})" if body else f"({DIRECTOR_SIGIL}:[{word}])"
 
     return INLINE_DIRECTIVE_RE.sub(repl, clean)
 

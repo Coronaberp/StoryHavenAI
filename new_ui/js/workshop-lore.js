@@ -71,15 +71,16 @@ function _grimoireCharacterPickerModal(chars, onPick) {
 }
 
 async function _grimoireImageGenModal(onGenerated) {
-  let checkpoints, animaUnets, loras, loraPreviews, checkpointPreviews, samplerData;
+  let checkpoints, animaUnets, loras, loraPreviews, checkpointPreviews, samplerData, settings;
   try {
-    [checkpoints, animaUnets, loras, loraPreviews, checkpointPreviews, samplerData] = await Promise.all([
+    [checkpoints, animaUnets, loras, loraPreviews, checkpointPreviews, samplerData, settings] = await Promise.all([
       api("/api/imagegen/checkpoints"),
       api("/api/imagegen/anima-unets").catch(() => []),
       api("/api/imagegen/loras"),
       api("/api/imagegen/lora-previews").catch(() => ({})),
       api("/api/imagegen/checkpoint-previews").catch(() => ({})),
       api("/api/imagegen/samplers").catch(() => ({ samplers: [], schedulers: [] })),
+      api("/api/settings").catch(() => ({})),
     ]);
   } catch (err) {
     errorToast(err.message || t("grimoire_couldnt_load_imagegen_options"));
@@ -90,10 +91,23 @@ async function _grimoireImageGenModal(onGenerated) {
   let advanced = false;
   let modalLayer = null;
   let selectedCheckpoint = null;
-  let selectedSampler = null;
-  let selectedScheduler = null;
-  let selectedSteps = 20;
-  let selectedCfg = 7.0;
+  const igDefaultsFor = (arch) => arch === "anima" ? {
+    checkpoint: settings.image_gen_default_checkpoint_anima || "",
+    sampler: settings.image_gen_default_sampler_anima || "er_sde",
+    scheduler: settings.image_gen_default_scheduler_anima || "simple",
+    steps: settings.image_gen_default_steps_anima || 20,
+    cfg: settings.image_gen_default_cfg_anima || 4.0,
+  } : {
+    checkpoint: settings.image_gen_default_checkpoint_sdxl || "",
+    sampler: settings.image_gen_default_sampler_sdxl || "dpmpp_2m_sde_gpu",
+    scheduler: settings.image_gen_default_scheduler_sdxl || "karras",
+    steps: settings.image_gen_default_steps_sdxl || 20,
+    cfg: settings.image_gen_default_cfg_sdxl || 7.0,
+  };
+  let selectedSampler = igDefaultsFor(architecture).sampler;
+  let selectedScheduler = igDefaultsFor(architecture).scheduler;
+  let selectedSteps = igDefaultsFor(architecture).steps;
+  let selectedCfg = igDefaultsFor(architecture).cfg;
   let selectedDenoise = 0.6;
   let refDataUrl = null;
   let positiveText = "";
@@ -103,7 +117,11 @@ async function _grimoireImageGenModal(onGenerated) {
   let genToken = 0;
   let busy = false;
   const modelsFor = () => architecture === "anima" ? animaUnets : checkpoints;
-  const defaultCheckpointFor = (models) => models.find((m) => m.toLowerCase().includes("realskin")) || models[0] || null;
+  const defaultCheckpointFor = (models) => {
+    const configured = igDefaultsFor(architecture).checkpoint;
+    if (configured && models.includes(configured)) return configured;
+    return models.find((m) => m.toLowerCase().includes("realskin")) || models[0] || null;
+  };
 
   const renderModal = () => {
   const html = `
@@ -158,12 +176,12 @@ async function _grimoireImageGenModal(onGenerated) {
           <div>
             <label style="font-size:11.5px;color:var(--color-muted);display:block;margin-bottom:4px">${t("grimoire_sampler_label")}</label>
             <p style="margin:0 0 4px;color:var(--color-muted);font-size:11px;line-height:1.4">${t("grimoire_sampler_hint")}</p>
-            ${customSelectHtml("lgSampler", samplerData.samplers, samplerData.samplers[0])}
+            ${customSelectHtml("lgSampler", samplerData.samplers, selectedSampler || samplerData.samplers[0])}
           </div>
           <div>
             <label style="font-size:11.5px;color:var(--color-muted);display:block;margin-bottom:4px">${t("grimoire_scheduler_label")}</label>
             <p style="margin:0 0 4px;color:var(--color-muted);font-size:11px;line-height:1.4">${t("grimoire_scheduler_hint")}</p>
-            ${customSelectHtml("lgScheduler", samplerData.schedulers, samplerData.schedulers[0])}
+            ${customSelectHtml("lgScheduler", samplerData.schedulers, selectedScheduler || samplerData.schedulers[0])}
           </div>
         </div>
         <div>
@@ -220,7 +238,16 @@ async function _grimoireImageGenModal(onGenerated) {
   posEl.addEventListener("input", () => { positiveText = posEl.value; });
   negEl.addEventListener("input", () => { negativeText = negEl.value; });
   selectedCheckpoint = selectedCheckpoint && modelsFor().includes(selectedCheckpoint) ? selectedCheckpoint : defaultCheckpointFor(modelsFor());
-  wireCheckpointPicker("lgCheckpoint", (v) => { selectedCheckpoint = v; });
+  const applyLoreCheckpointDefaults = (name) => {
+    const preset = checkpointPreviews[name] || {};
+    if (preset.default_sampler) selectedSampler = preset.default_sampler;
+    if (preset.default_scheduler) selectedScheduler = preset.default_scheduler;
+    if (preset.default_steps) selectedSteps = preset.default_steps;
+    if (preset.default_cfg) selectedCfg = preset.default_cfg;
+    applyCheckpointPromptDefaults(preset, posEl, negEl);
+  };
+  wireCheckpointPicker("lgCheckpoint", (v) => { selectedCheckpoint = v; applyLoreCheckpointDefaults(v); });
+  applyLoreCheckpointDefaults(selectedCheckpoint);
   if (loras.length) wireLoraPicker("lgLoras", { onKeywordClick: (kw) => {
     positiveText = positiveText.trim() ? `${positiveText.trim()}, ${kw}` : kw;
     posEl.value = positiveText;
@@ -230,8 +257,13 @@ async function _grimoireImageGenModal(onGenerated) {
       architecture = arch;
       const models = modelsFor();
       selectedCheckpoint = defaultCheckpointFor(models);
+      const igd = igDefaultsFor(architecture);
+      selectedSampler = igd.sampler;
+      selectedScheduler = igd.scheduler;
+      selectedSteps = igd.steps;
+      selectedCfg = igd.cfg;
       layer.querySelector("#lgCheckpointWrap").innerHTML = checkpointPickerHtml("lgCheckpoint", models, checkpointPreviews, selectedCheckpoint);
-      wireCheckpointPicker("lgCheckpoint", (v) => { selectedCheckpoint = v; });
+      wireCheckpointPicker("lgCheckpoint", (v) => { selectedCheckpoint = v; applyLoreCheckpointDefaults(v); });
     });
   }
   if (advanced) {

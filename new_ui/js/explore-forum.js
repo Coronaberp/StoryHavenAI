@@ -1,5 +1,7 @@
 "use strict";
 
+const FORUM_PAGE_SIZE = 20;
+
 function symposiumMd(text) {
   try {
     const div = document.createElement("div");
@@ -33,6 +35,8 @@ class ExploreForumView {
     this.pollId = null;
     this.q = "";
     this.authorFilters = [];
+    this.page = 1;
+    this.totalThreads = 0;
   }
 
   allAuthors() {
@@ -86,13 +90,18 @@ class ExploreForumView {
   }
 
   async load() {
+    onPaginate("forum-threads", () => { this.page = paginatePage("forum-threads"); this.load(); });
     this.loading = true;
     this.error = "";
     this.render();
     try {
-      const params = new URLSearchParams({ sort: this.sort });
+      const params = new URLSearchParams({ sort: this.sort, paged: "1",
+                                          limit: String(FORUM_PAGE_SIZE),
+                                          offset: String((this.page - 1) * FORUM_PAGE_SIZE) });
       if (this.category) params.set("category", this.category);
-      this.threads = await api(`/api/forum/threads?${params}`);
+      const page = await api(`/api/forum/threads?${params}`);
+      this.threads = page.threads;
+      this.totalThreads = page.total;
       if (!this.category) {
         this.categories = [...new Set(this.threads.map((t) => t.category).filter(Boolean))];
       }
@@ -245,17 +254,22 @@ class ExploreForumView {
         ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${_esc(this.error)}</p>` : ""}
         ${!this.loading && !this.error && !visible.length ? `<p style="color:var(--color-sec);font-size:13px">${this.threads.length ? t("symposium_no_search_matches") : t("symposium_no_threads_yet")}</p>` : ""}
         <div style="display:flex;flex-direction:column;gap:10px">${visible.map((th) => this.rowHtml(th)).join("")}</div>
+        ${paginationHtml("forum-threads", { rows: visible, page: this.page, pages: Math.max(1, Math.ceil(this.totalThreads / FORUM_PAGE_SIZE)), total: this.totalThreads, start: (this.page - 1) * FORUM_PAGE_SIZE, pageSize: FORUM_PAGE_SIZE })}
       </div>
     `;
     this.main.querySelectorAll("[data-sort]").forEach((btn) => {
       btn.onclick = () => {
         this.sort = btn.dataset.sort;
+        this.page = 1;
+        resetPagination("forum-threads");
         this.load();
       };
     });
     this.main.querySelectorAll("[data-category]").forEach((btn) => {
       btn.onclick = () => {
         this.category = btn.dataset.category;
+        this.page = 1;
+        resetPagination("forum-threads");
         this.load();
       };
     });

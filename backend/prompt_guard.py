@@ -63,6 +63,7 @@ _NON_WORD_RE = re.compile(r"[^a-zA-Z0-9]+")
 _FAKE_DIRECTIVE_RE = re.compile(r"[\[(]\s*(ooc|scene|note|time|as|roll)\s*:", re.I)
 _REAL_DIRECTIVE_ROUTE_RE = re.compile(r"^\s*(/(ooc|scene|note|time|as|roll)\b|\{\s*(ooc|scene|note|time|as|roll)\s*:)", re.I)
 _BARE_OOC_WORD_RE = re.compile(r"\booc\b", re.I)
+_INLINE_REAL_DIRECTIVE_RE = re.compile(r"\{\s*(ooc|scene|note|time|as|roll)\s*:[^}]*\}", re.I)
 
 def looks_like_prompt_injection(text: str) -> bool:
     raw = text or ""
@@ -71,9 +72,10 @@ def looks_like_prompt_injection(text: str) -> bool:
         return True
     if _REAL_DIRECTIVE_ROUTE_RE.match(raw):
         return False
-    if _FAKE_DIRECTIVE_RE.search(raw):
+    without_directives = _INLINE_REAL_DIRECTIVE_RE.sub(" ", raw)
+    if _FAKE_DIRECTIVE_RE.search(without_directives):
         return True
-    if _BARE_OOC_WORD_RE.search(raw):
+    if _BARE_OOC_WORD_RE.search(without_directives):
         return True
     if not normalized:
         return False

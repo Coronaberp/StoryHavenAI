@@ -14,17 +14,23 @@ from backend.state import log
 async def list_previews() -> dict:
     return await _list_model_previews(lora_previews, lora_previews.c.lora_name)
 
-async def get_preview(name: str) -> str | None:
-    r = await _q1(select(lora_previews.c.image).where(lora_previews.c.lora_name == name))
-    return r["image"] if r else None
+def _image_column(nsfw: bool):
+    return lora_previews.c.image_nsfw if nsfw else lora_previews.c.image
 
-async def set_preview(name: str, image: str):
-    await _set_model_preview_image(lora_previews, lora_previews.c.lora_name, name, image)
-    log.info("loras: preview set name=%s", name)
+async def get_preview(name: str, nsfw: bool = False) -> str | None:
+    column = _image_column(nsfw)
+    r = await _q1(select(column).where(lora_previews.c.lora_name == name))
+    return r[column.name] if r else None
 
-async def delete_preview(name: str):
-    await _clear_model_preview_image(lora_previews, lora_previews.c.lora_name, name)
-    log.info("loras: preview cleared name=%s", name)
+async def set_preview(name: str, image: str, nsfw: bool = False):
+    await _set_model_preview_image(lora_previews, lora_previews.c.lora_name,
+                                   name, image, column=_image_column(nsfw).name)
+    log.info("loras: preview set name=%s nsfw=%s", name, nsfw)
+
+async def delete_preview(name: str, nsfw: bool = False):
+    await _clear_model_preview_image(lora_previews, lora_previews.c.lora_name,
+                                     name, column=_image_column(nsfw).name)
+    log.info("loras: preview cleared name=%s nsfw=%s", name, nsfw)
 
 async def set_meta(name: str, display_name: str | None, description: str | None,
                     model_category: list[str] | None = None, keywords: list[str] | None = None):

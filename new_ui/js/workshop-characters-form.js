@@ -126,7 +126,14 @@ async function _createQuickGenModal(width, height, onUse) {
   let selectedSampler = samplers.includes("dpmpp_2m_sde_gpu") ? "dpmpp_2m_sde_gpu" : (samplers[0] || null);
   let selectedScheduler = schedulers.includes("karras") ? "karras" : (schedulers[0] || null);
   let selectedUpscaler = upscalers[0] || null;
-  wireCheckpointPicker("cqgCheckpoint", (v) => { selectedCheckpoint = v; });
+  const applyCreateCheckpointDefaults = (name) => {
+    const preset = checkpointPreviews[name] || {};
+    if (preset.default_sampler) selectedSampler = preset.default_sampler;
+    if (preset.default_scheduler) selectedScheduler = preset.default_scheduler;
+    applyCheckpointPromptDefaults(preset, layer.querySelector("#cqgPrompt"), layer.querySelector("#cqgNegative"));
+  };
+  wireCheckpointPicker("cqgCheckpoint", (v) => { selectedCheckpoint = v; applyCreateCheckpointDefaults(v); });
+  applyCreateCheckpointDefaults(selectedCheckpoint);
   if (loras.length) wireLoraPicker("cqgLoras", { onKeywordClick: (kw) => {
     const target = layer.querySelector(mode === "advanced" ? "#cqgPrompt" : "#cqgSimpleDescription");
     if (target) target.value = target.value.trim() ? `${target.value.trim()}, ${kw}` : kw;
@@ -140,7 +147,7 @@ async function _createQuickGenModal(width, height, onUse) {
       const models = modelsFor();
       selectedCheckpoint = defaultCheckpointFor(models);
       layer.querySelector("#cqgCheckpointWrap").innerHTML = checkpointPickerHtml("cqgCheckpoint", models, checkpointPreviews, selectedCheckpoint);
-      wireCheckpointPicker("cqgCheckpoint", (v) => { selectedCheckpoint = v; });
+      wireCheckpointPicker("cqgCheckpoint", (v) => { selectedCheckpoint = v; applyCreateCheckpointDefaults(v); });
     });
   }
   let mode = "simple";

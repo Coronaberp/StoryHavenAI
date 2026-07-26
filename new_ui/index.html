@@ -31,7 +31,7 @@
 </head>
 <body class="min-h-screen bg-paper text-ink font-sans">
   <div id="siteBanner" class="hidden"></div>
-  <div class="flex min-h-screen flex-col md:flex-row">
+  <div class="flex flex-col md:flex-row" style="height:calc(100vh - var(--site-banner-h, 0px))">
     <aside id="sidebar" class="hidden lg:flex flex-col w-60 border-r border-line p-4">
       <a href="/explore" onclick="event.preventDefault();navigate('/explore')" class="flex items-center gap-2 text-primary">
         <svg viewBox="0 0 500 500" class="h-9 w-9 shrink-0"><g>
@@ -330,6 +330,7 @@
   <script src="/js/tooltip.js" defer></script>
   <script src="/js/modal.js" defer></script>
   <script src="/js/color-picker.js" defer></script>
+  <script src="/js/paginate.js" defer></script>
   <script src="/js/dropdown.js" defer></script>
   <script src="/js/cropper.js" defer></script>
   <script src="/js/explore-characters.js" defer></script>

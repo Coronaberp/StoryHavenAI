@@ -11,30 +11,37 @@ from backend.state import log
 async def list_previews() -> dict:
     return await _list_model_previews(checkpoint_previews, checkpoint_previews.c.checkpoint_name)
 
-async def get_preview(name: str) -> str | None:
-    r = await _q1(select(checkpoint_previews.c.image)
-                  .where(checkpoint_previews.c.checkpoint_name == name))
-    return r["image"] if r else None
+def _image_column(nsfw: bool):
+    return checkpoint_previews.c.image_nsfw if nsfw else checkpoint_previews.c.image
 
-async def set_preview(name: str, image: str):
-    await _set_model_preview_image(checkpoint_previews, checkpoint_previews.c.checkpoint_name, name, image)
-    log.info("checkpoints: preview set name=%s", name)
+async def get_preview(name: str, nsfw: bool = False) -> str | None:
+    column = _image_column(nsfw)
+    r = await _q1(select(column).where(checkpoint_previews.c.checkpoint_name == name))
+    return r[column.name] if r else None
 
-async def delete_preview(name: str):
-    await _clear_model_preview_image(checkpoint_previews, checkpoint_previews.c.checkpoint_name, name)
-    log.info("checkpoints: preview cleared name=%s", name)
+async def set_preview(name: str, image: str, nsfw: bool = False):
+    await _set_model_preview_image(checkpoint_previews, checkpoint_previews.c.checkpoint_name,
+                                   name, image, column=_image_column(nsfw).name)
+    log.info("checkpoints: preview set name=%s nsfw=%s", name, nsfw)
+
+async def delete_preview(name: str, nsfw: bool = False):
+    await _clear_model_preview_image(checkpoint_previews, checkpoint_previews.c.checkpoint_name,
+                                     name, column=_image_column(nsfw).name)
+    log.info("checkpoints: preview cleared name=%s nsfw=%s", name, nsfw)
 
 async def set_meta(name: str, display_name: str | None, description: str | None,
                     model_type: str | None = None, default_steps: int | None = None,
                     anima_clip_name: str | None = None, anima_vae_name: str | None = None,
                     default_sampler: str | None = None, default_scheduler: str | None = None,
                     default_cfg: float | None = None, default_positive: str | None = None,
-                    default_negative: str | None = None):
+                    default_negative: str | None = None,
+                    model_category: list[str] | None = None):
 
     await _set_model_meta(checkpoint_previews, checkpoint_previews.c.checkpoint_name, name,
                           display_name, description, model_type, default_steps,
                           default_sampler, default_scheduler, default_cfg,
-                          default_positive, default_negative)
+                          default_positive, default_negative,
+                          model_category=model_category)
     stmt = pg_insert(checkpoint_previews).values(
         checkpoint_name=name, anima_clip_name=anima_clip_name, anima_vae_name=anima_vae_name)
     stmt = stmt.on_conflict_do_update(

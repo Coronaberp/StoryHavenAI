@@ -321,6 +321,8 @@ party_chat_messages = sa.Table(
     sa.Column("id", sa.Text, primary_key=True),
     sa.Column("session_id", sa.Text, nullable=False),
     sa.Column("sender_user_id", sa.Text, nullable=False),
+    sa.Column("sender_name", sa.Text),
+    sa.Column("sender_avatar", sa.Text),
     sa.Column("content", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("image", sa.Text),
     sa.Column("attachment_kind", sa.Text),
@@ -424,6 +426,7 @@ checkpoint_previews = sa.Table(
     sa.Column("checkpoint_name", sa.Text, primary_key=True),
     sa.Column("model_type", sa.Text, nullable=True),
     sa.Column("image", sa.Text, nullable=True),
+    sa.Column("image_nsfw", sa.Text, nullable=True),
     sa.Column("display_name", sa.Text, nullable=True),
     sa.Column("description", sa.Text, nullable=True),
 
@@ -444,6 +447,7 @@ lora_previews = sa.Table(
     "lora_previews", _meta,
     sa.Column("lora_name", sa.Text, primary_key=True),
     sa.Column("image", sa.Text, nullable=True),
+    sa.Column("image_nsfw", sa.Text, nullable=True),
     sa.Column("display_name", sa.Text, nullable=True),
     sa.Column("description", sa.Text, nullable=True),
 
@@ -827,6 +831,10 @@ async def init():
         await conn.execute(text(
             "ALTER TABLE party_chat_messages ADD COLUMN IF NOT EXISTS attachment_kind TEXT"))
         await conn.execute(text(
+            "ALTER TABLE party_chat_messages ADD COLUMN IF NOT EXISTS sender_name TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE party_chat_messages ADD COLUMN IF NOT EXISTS sender_avatar TEXT"))
+        await conn.execute(text(
             "ALTER TABLE standalone_images ADD COLUMN IF NOT EXISTS is_public "
             "INTEGER NOT NULL DEFAULT 0"))
         await conn.execute(text(
@@ -879,6 +887,10 @@ async def init():
             "ALTER TABLE lora_previews ADD COLUMN IF NOT EXISTS model_category TEXT"))
         await conn.execute(text(
             "ALTER TABLE lora_previews ADD COLUMN IF NOT EXISTS keywords TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE checkpoint_previews ADD COLUMN IF NOT EXISTS image_nsfw TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE lora_previews ADD COLUMN IF NOT EXISTS image_nsfw TEXT"))
         await conn.execute(text(
             "ALTER TABLE model_requests ADD COLUMN IF NOT EXISTS request_type "
             "TEXT NOT NULL DEFAULT 'checkpoint'"))
@@ -1462,6 +1474,8 @@ def _parse_model_categories(raw) -> list[str]:
 def _model_meta_row(r: dict) -> dict:
     row = {"image": r.get("image"), "display_name": r.get("display_name"),
            "description": r.get("description")}
+    if "image_nsfw" in r:
+        row["image_nsfw"] = r.get("image_nsfw")
     if "model_type" in r:
         row["model_type"] = r.get("model_type")
     if "default_steps" in r:
@@ -1510,19 +1524,21 @@ async def _list_model_previews(table, name_col) -> dict:
         cols.append(table.c.anima_vae_name)
     if "keywords" in table.c:
         cols.append(table.c.keywords)
+    if "image_nsfw" in table.c:
+        cols.append(table.c.image_nsfw)
     rows = await _q(select(*cols))
     return {r[name_col.name]: _model_meta_row(r) for r in rows}
 
-async def _set_model_preview_image(table, name_col, name: str, image: str):
-    stmt = pg_insert(table).values(**{name_col.name: name}, image=image)
+async def _set_model_preview_image(table, name_col, name: str, image: str, column: str = "image"):
+    stmt = pg_insert(table).values(**{name_col.name: name, column: image})
     stmt = stmt.on_conflict_do_update(
-        index_elements=[name_col.name], set_={"image": stmt.excluded.image})
+        index_elements=[name_col.name], set_={column: stmt.excluded[column]})
     await _w(stmt)
 
-async def _clear_model_preview_image(table, name_col, name: str):
-    stmt = pg_insert(table).values(**{name_col.name: name}, image=None)
+async def _clear_model_preview_image(table, name_col, name: str, column: str = "image"):
+    stmt = pg_insert(table).values(**{name_col.name: name, column: None})
     stmt = stmt.on_conflict_do_update(
-        index_elements=[name_col.name], set_={"image": None})
+        index_elements=[name_col.name], set_={column: None})
     await _w(stmt)
 
 _UNSET = object()

@@ -100,7 +100,8 @@ async def _reaction_maps(ids, viewer_id):
     return counts, mine, supers
 
 async def list_for_target(target_type: str, target_id: str,
-                          viewer_id: str | None = None, blocked: set | None = None) -> list[dict]:
+                          viewer_id: str | None = None, blocked: set | None = None,
+                          limit: int | None = None, offset: int = 0):
     blocked = blocked or set()
     j = comments.join(users, users.c.id == comments.c.author_id)
     stmt = (select(comments, users.c.username, users.c.display_name, users.c.avatar)
@@ -133,7 +134,9 @@ async def list_for_target(target_type: str, target_id: str,
     for s in shaped.values():
         s["reply_count"] = len(s["replies"])
     top.reverse()
-    return top
+    if limit is None:
+        return top
+    return {"comments": top[offset:offset + limit], "total": len(top)}
 
 async def get_view(cid: str, viewer_id: str | None = None) -> dict | None:
     j = comments.join(users, users.c.id == comments.c.author_id)

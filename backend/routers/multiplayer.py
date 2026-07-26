@@ -6,6 +6,7 @@ from backend.auth import get_experimental_user, get_current_user
 from backend.chat_service import _own_session, participant_display_name
 from backend.repositories import chat_sessions, characters, session_participants, session_invites, notifications, party_chat
 from backend.repositories import emojis as custom_emoji_repo
+from backend.repositories import personas
 from backend.routers.comments import _COMMENT_IMAGE_RE, _COMMENT_STICKER_RE
 from backend.schemas import MultiplayerJoinIn, MultiplayerAcceptIn, PartyChatIn
 from backend import live_broadcast
@@ -232,6 +233,15 @@ async def _validated_party_chat_image(body: PartyChatIn, current_user: dict) -> 
     log.warning("multiplayer: party chat attachment rejected user=%s", current_user["id"])
     raise HTTPException(400, "invalid attachment reference")
 
+async def _party_chat_identity(sid: str, current_user: dict) -> tuple[str, str | None]:
+    user_name = current_user.get("display_name") or current_user["username"]
+    participant = await session_participants.get(sid, current_user["id"])
+    persona_id = participant.get("persona_id") if participant else None
+    persona = await personas.get(persona_id) if persona_id else None
+    persona_name = persona.get("name") if persona else None
+    sender_name = f"{user_name} · {persona_name}" if persona_name else user_name
+    return sender_name, current_user.get("avatar")
+
 @api.post("/sessions/{sid}/multiplayer/party-chat")
 async def post_party_chat(sid: str, body: PartyChatIn,
                           current_user: dict = Depends(get_current_user)):
@@ -240,7 +250,9 @@ async def post_party_chat(sid: str, body: PartyChatIn,
     image = await _validated_party_chat_image(body, current_user)
     if not content and not image:
         raise HTTPException(400, "Message cannot be empty")
+    sender_name, sender_avatar = await _party_chat_identity(sid, current_user)
     message = await party_chat.add(sid, current_user["id"], content,
-                                   image=image, attachment_kind="image" if image else None)
+                                   image=image, attachment_kind="image" if image else None,
+                                   sender_name=sender_name, sender_avatar=sender_avatar)
     live_broadcast.broadcast(sid, "party_chat", message)
     return message

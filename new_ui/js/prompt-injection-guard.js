@@ -32,14 +32,16 @@ const WEAK_PATTERN_MIN_MATCHES = 2;
 const FAKE_DIRECTIVE_RE = /[\[(]\s*(ooc|scene|note|time|as|roll)\s*:/i;
 const REAL_DIRECTIVE_ROUTE_RE = /^\s*(\/(ooc|scene|note|time|as|roll)\b|\{\s*(ooc|scene|note|time|as|roll)\s*:)/i;
 const BARE_OOC_WORD_RE = /\booc\b/i;
+const INLINE_REAL_DIRECTIVE_RE = /\{\s*(ooc|scene|note|time|as|roll)\s*:[^}]*\}/gi;
 
 function looksLikePromptInjection(text) {
   const raw = text || "";
   const normalized = raw.replace(/[^a-zA-Z0-9]+/g, " ").trim();
   if (normalized && SYSTEM_PROMPT_RETRIEVAL_PATTERNS.some((pattern) => pattern.test(normalized))) return true;
   if (REAL_DIRECTIVE_ROUTE_RE.test(raw)) return false;
-  if (FAKE_DIRECTIVE_RE.test(raw)) return true;
-  if (BARE_OOC_WORD_RE.test(raw)) return true;
+  const withoutDirectives = raw.replace(INLINE_REAL_DIRECTIVE_RE, " ");
+  if (FAKE_DIRECTIVE_RE.test(withoutDirectives)) return true;
+  if (BARE_OOC_WORD_RE.test(withoutDirectives)) return true;
   if (!normalized) return false;
   if (STRONG_INJECTION_PATTERNS.some((pattern) => pattern.test(normalized))) return true;
   const weakMatches = WEAK_INJECTION_PATTERNS.filter((pattern) => pattern.test(normalized)).length;
