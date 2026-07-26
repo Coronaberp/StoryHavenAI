@@ -1915,7 +1915,7 @@ class ChatView {
             <div class="chat-thread-inner">
               ${this.threadHtml()}
               ${this.session.is_group && !this.streaming ? this.groupVoicesHtml() : ""}
-              ${this.streaming && !this.session.is_group ? `<div class="chat-writing"><span class="chat-writing-dot"></span>${_esc(this.char.name)} ${t("chat_is_writing_suffix")}</div>` : ""}
+              ${(this.streaming || this.multiplayerLocked) && !this.session.is_group ? `<div class="chat-writing"><span class="chat-writing-dot"></span>${_esc(this.char.name)} ${t("chat_is_writing_suffix")}</div>` : ""}
             </div>
           </div>
           <button type="button" id="chatScrollFab" aria-label="${t("chat_scroll_to_latest")}" data-tooltip="${t("chat_scroll_to_latest")}" style="display:none;position:absolute;right:14px;bottom:14px;width:38px;height:38px;border-radius:999px;border:1px solid var(--color-line-2);background:var(--color-surface-2);color:var(--color-ink);align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25)">
