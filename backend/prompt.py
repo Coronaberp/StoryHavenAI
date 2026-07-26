@@ -510,8 +510,24 @@ def _known_persona_guard(persona_names):
         "but stop short of writing what that persona themselves says, feels, or does next."
     )
 
+def _absent_persona_guard(persona_names):
+    if not persona_names:
+        return None
+    names = ", ".join(persona_names)
+    return (
+        "# A player has stepped away\n"
+        f"{names} — a real player's own persona — is not currently present in this scene; that "
+        "player has left the session for now. If their departure hasn't already been narrated, "
+        "give them a brief, graceful in-story exit this turn (they step out, excuse themselves, "
+        "head elsewhere — whatever fits). After that, treat them as not present: do not write "
+        "their dialogue, thoughts, or actions, and do not have other characters address them or "
+        "wait on them as if they're still here. If that player rejoins later, they may return to "
+        "the scene normally."
+    )
+
 def build_system(char, persona, user_name, mode="character", language="English", full=True,
-                 is_multiplayer=False, other_player_names=None, session_persona_names=None):
+                 is_multiplayer=False, other_player_names=None, session_persona_names=None,
+                 absent_persona_names=None):
     name = char["name"]
     sub = lambda s: macro(s, name, user_name)
     pname = persona["name"] if persona else user_name
@@ -543,6 +559,9 @@ def build_system(char, persona, user_name, mode="character", language="English",
             known_persona_guard = _known_persona_guard(session_persona_names)
             if known_persona_guard:
                 parts.append(known_persona_guard)
+            absent_guard = _absent_persona_guard(absent_persona_names)
+            if absent_guard:
+                parts.append(absent_guard)
             if is_multiplayer:
                 parts.append(_multiplayer_third_person_guard(other_player_names))
             if char.get("dialogue"):
@@ -555,6 +574,9 @@ def build_system(char, persona, user_name, mode="character", language="English",
             known_persona_guard = _known_persona_guard(session_persona_names)
             if known_persona_guard:
                 parts.append(known_persona_guard)
+            absent_guard = _absent_persona_guard(absent_persona_names)
+            if absent_guard:
+                parts.append(absent_guard)
             if is_multiplayer:
                 parts.append(_multiplayer_third_person_guard(other_player_names))
     else:
@@ -642,6 +664,11 @@ def build_system(char, persona, user_name, mode="character", language="English",
                 "testament, beacon, nuanced, boundaries, etc.), no repeating your last few replies' "
                 "sentence structure or length. Follow all of the above without restating it."
             )
+
+    if mode != "rpg":
+        absent_guard = _absent_persona_guard(absent_persona_names)
+        if absent_guard:
+            parts.append(absent_guard)
 
     in_fiction_role = "the DM" if mode == "rpg" else f"only {name}"
     if full:
