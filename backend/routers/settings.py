@@ -199,14 +199,26 @@ async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)
                 "gif_provider", "giphy_api_key", "tenor_api_key", "klipy_api_key", "klipy_customer_id",
                 "image_provider", "image_provider_url", "image_provider_key", "image_provider_model",
                 "video_provider", "video_provider_url", "video_provider_key", "video_provider_model",
-                "tts_base_url", "tts_api_key", "tts_narrator_voice"}
+                "tts_base_url", "tts_api_key", "tts_narrator_voice",
+                "preview_gen_default_positive", "preview_gen_default_negative",
+                "image_gen_default_checkpoint_sdxl", "image_gen_default_sampler_sdxl",
+                "image_gen_default_scheduler_sdxl", "image_gen_default_checkpoint_anima",
+                "image_gen_default_sampler_anima", "image_gen_default_scheduler_anima"}
     if "model_request_hosts" in data:
-        existing_by_host = {e.get("host"): e.get("api_key", "")
+        existing_by_host = {(e.get("host") or "").strip().lower(): e.get("api_key", "")
                             for e in CFG.get("model_request_hosts", [])}
-        data["model_request_hosts"] = [
-            {"host": h["host"], "api_key": h.get("api_key") or existing_by_host.get(h["host"], "")}
-            for h in data["model_request_hosts"]
-        ]
+        deduped_hosts: dict[str, dict] = {}
+        for h in data["model_request_hosts"]:
+            host = (h.get("host") or "").strip()
+            if not host:
+                continue
+            key_norm = host.lower()
+            if key_norm in deduped_hosts:
+                if h.get("api_key"):
+                    deduped_hosts[key_norm]["api_key"] = h["api_key"]
+                continue
+            deduped_hosts[key_norm] = {"host": host, "api_key": h.get("api_key") or existing_by_host.get(key_norm, "")}
+        data["model_request_hosts"] = list(deduped_hosts.values())
     for proxy_key, base_field, key_field, model_field, by_priority in (
         ("chat_proxies", "base_url", "api_key", "chat_model", True),
         ("embed_proxies", "embed_base_url", "embed_api_key", "embed_model", False),

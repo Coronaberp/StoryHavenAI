@@ -36,9 +36,40 @@ async def test_put_my_experimental_features_returns_updated_state(db_conn):
 async def test_get_and_put_settings_return_same_has_key_fields(db_conn):
     admin_user = {"id": "admin-a", "username": "admin-a", "is_admin": True}
 
-    get_result = await get_settings(_=admin_user)
+    get_result = await get_settings(current_user=admin_user)
     put_result = await put_settings(SettingsIn(), current_user=admin_user)
 
     has_key_fields = {k for k in get_result if k.startswith("has_")}
     for field in has_key_fields:
         assert field in put_result, f"{field} present in GET /settings but missing from PUT /settings"
+
+async def test_image_gen_defaults_round_trip_through_settings(db_conn):
+    admin_user = {"id": "admin-b", "username": "admin-b", "is_admin": True}
+
+    put_result = await put_settings(SettingsIn(
+        image_gen_default_checkpoint_sdxl="wai_illustrious_sdxl.safetensors",
+        image_gen_default_sampler_sdxl="euler",
+        image_gen_default_scheduler_sdxl="normal",
+        image_gen_default_steps_sdxl=25,
+        image_gen_default_cfg_sdxl=6.5,
+        image_gen_default_checkpoint_anima="animagine_xl_4.0.safetensors",
+        image_gen_default_sampler_anima="res_multistep",
+        image_gen_default_scheduler_anima="beta",
+        image_gen_default_steps_anima=18,
+        image_gen_default_cfg_anima=3.5,
+    ), current_user=admin_user)
+
+    assert put_result["image_gen_default_checkpoint_sdxl"] == "wai_illustrious_sdxl.safetensors"
+    assert put_result["image_gen_default_sampler_sdxl"] == "euler"
+    assert put_result["image_gen_default_scheduler_sdxl"] == "normal"
+    assert put_result["image_gen_default_steps_sdxl"] == 25
+    assert put_result["image_gen_default_cfg_sdxl"] == 6.5
+    assert put_result["image_gen_default_checkpoint_anima"] == "animagine_xl_4.0.safetensors"
+    assert put_result["image_gen_default_sampler_anima"] == "res_multistep"
+    assert put_result["image_gen_default_scheduler_anima"] == "beta"
+    assert put_result["image_gen_default_steps_anima"] == 18
+    assert put_result["image_gen_default_cfg_anima"] == 3.5
+
+    get_result = await get_settings(current_user=admin_user)
+    assert get_result["image_gen_default_checkpoint_sdxl"] == "wai_illustrious_sdxl.safetensors"
+    assert get_result["image_gen_default_cfg_anima"] == 3.5

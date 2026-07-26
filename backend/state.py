@@ -175,6 +175,32 @@ CFG = {
     "tts_base_url": os.getenv("TTS_BASE_URL", ""),
     "tts_api_key": os.getenv("TTS_API_KEY", ""),
     "tts_narrator_voice": os.getenv("TTS_NARRATOR_VOICE", "af_heart"),
+
+    "preview_gen_default_positive": "masterpiece, best quality, 1girl, standing, detailed background",
+    "preview_gen_default_negative": "",
+    "preview_gen_nsfw_positive": "masterpiece, best quality, amazing quality, absurdres, highres, ultra-detailed, "
+                                 "nsfw, explicit, uncensored, 1girl, solo, adult woman, mature adult, "
+                                 "seductive pose, sultry expression, bedroom eyes, looking at viewer, "
+                                 "detailed face, detailed eyes, hands visible, detailed hands, five fingers, "
+                                 "small breasts, translucent clothing, unbuttoned shirt, bare shoulders, thighs, "
+                                 "glistening skin, detailed skin texture, sensual lighting, upper body, "
+                                 "detailed background, cinematic lighting, anime coloring",
+    "preview_gen_nsfw_negative": "(bad hands:1.3), (bad anatomy:1.3), (extra fingers:1.3), missing fingers, "
+                                 "mutated hands, malformed limbs, extra limbs, deformed, disfigured, "
+                                 "bad proportions, worst quality, low quality, lowres, jpeg artifacts, blurry, "
+                                 "watermark, signature, text, censored, mosaic censoring, bar censor, "
+                                 "cropped head, out of frame, multiple girls",
+
+    "image_gen_default_checkpoint_sdxl": "",
+    "image_gen_default_sampler_sdxl": "dpmpp_2m_sde_gpu",
+    "image_gen_default_scheduler_sdxl": "karras",
+    "image_gen_default_steps_sdxl": 20,
+    "image_gen_default_cfg_sdxl": 7.0,
+    "image_gen_default_checkpoint_anima": "",
+    "image_gen_default_sampler_anima": "er_sde",
+    "image_gen_default_scheduler_anima": "simple",
+    "image_gen_default_steps_anima": 20,
+    "image_gen_default_cfg_anima": 4.0,
 }
 
 COMFYUI_MODELS_DIR = os.environ.get("COMFYUI_MODELS_DIR", "/app/comfyui_models")
@@ -219,6 +245,12 @@ PUBLIC_CFG_KEYS = [
     "modal_download_output_url",
     "wan_unet_name", "wan_clip_name", "wan_vae_name",
     "tts_base_url", "tts_narrator_voice",
+    "preview_gen_default_positive", "preview_gen_default_negative",
+    "preview_gen_nsfw_positive", "preview_gen_nsfw_negative",
+    "image_gen_default_checkpoint_sdxl", "image_gen_default_sampler_sdxl",
+    "image_gen_default_scheduler_sdxl", "image_gen_default_steps_sdxl", "image_gen_default_cfg_sdxl",
+    "image_gen_default_checkpoint_anima", "image_gen_default_sampler_anima",
+    "image_gen_default_scheduler_anima", "image_gen_default_steps_anima", "image_gen_default_cfg_anima",
 
 ]
 

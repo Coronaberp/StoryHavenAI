@@ -224,6 +224,20 @@ class SettingsIn(BaseModel):
     tts_base_url: str | None = None
     tts_api_key: str | None = None
     tts_narrator_voice: str | None = None
+    preview_gen_default_positive: str | None = None
+    preview_gen_default_negative: str | None = None
+    preview_gen_nsfw_positive: str | None = None
+    preview_gen_nsfw_negative: str | None = None
+    image_gen_default_checkpoint_sdxl: str | None = None
+    image_gen_default_sampler_sdxl: str | None = None
+    image_gen_default_scheduler_sdxl: str | None = None
+    image_gen_default_steps_sdxl: int | None = None
+    image_gen_default_cfg_sdxl: float | None = None
+    image_gen_default_checkpoint_anima: str | None = None
+    image_gen_default_sampler_anima: str | None = None
+    image_gen_default_scheduler_anima: str | None = None
+    image_gen_default_steps_anima: int | None = None
+    image_gen_default_cfg_anima: float | None = None
 
 class UserSettingsIn(BaseModel):
     base_url: str | None = None
@@ -432,6 +446,19 @@ class ModelRequestIn(BaseModel):
     request_type: str = "checkpoint"
     vae_url: str | None = None
     text_encoder_url: str | None = None
+
+class ModelRequestHostTestIn(BaseModel):
+    host: str
+
+class AdminToneGenerateIn(BaseModel):
+    context: str
+    tone: str = ""
+
+class AdminTargetedNotifyIn(BaseModel):
+    usernames: list[str]
+    title: str = "A message from the admins"
+    text: str
+    link: str = ""
 
 class LoraTrainingJobIn(BaseModel):
     name: str
