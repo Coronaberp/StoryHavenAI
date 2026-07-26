@@ -60,8 +60,8 @@ function _pickerDetailFooterHtml(item) {
       c.cfg ? `<span>cfg <b style="color:var(--color-accent);font-weight:400">${_esc(String(c.cfg))}</b></span>` : "",
     ].filter(Boolean).join("");
     if (slugParts) parts.push(`<div style="display:flex;flex-wrap:wrap;gap:0 10px;margin:10px 0 0;padding-top:10px;border-top:1px solid var(--color-line);font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-muted)">${slugParts}</div>`);
-    if (c.positiveAdd) parts.push(`<div style="font-size:11px;color:var(--color-muted);margin-top:8px;line-height:1.5"><b style="color:var(--color-sec);font-weight:600">Adds to your prompt:</b> "${_esc(c.positiveAdd)}"</div>`);
-    if (c.negativeAdd) parts.push(`<div style="font-size:11px;color:var(--color-muted);margin-top:6px;line-height:1.5"><b style="color:var(--color-sec);font-weight:600">Adds to negative:</b> "${_esc(c.negativeAdd)}"</div>`);
+    if (c.positiveAdd) parts.push(`<div style="font-size:11px;color:var(--color-muted);margin-top:8px;line-height:1.5"><b style="color:var(--color-sec);font-weight:600">${t("admin_picker_adds_to_prompt", "Adds to your prompt:")}</b> "${_esc(c.positiveAdd)}"</div>`);
+    if (c.negativeAdd) parts.push(`<div style="font-size:11px;color:var(--color-muted);margin-top:6px;line-height:1.5"><b style="color:var(--color-sec);font-weight:600">${t("admin_picker_adds_to_negative", "Adds to negative:")}</b> "${_esc(c.negativeAdd)}"</div>`);
   }
   if (!parts.length) return "";
   return `<div style="padding:0 4px 4px">${parts.join("")}</div>`;
