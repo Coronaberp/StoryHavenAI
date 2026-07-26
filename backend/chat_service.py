@@ -404,7 +404,7 @@ def _assemble_system(char, s, persona, user_name, mode, language, do_think, eff,
 
 async def _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep, chat_model,
                               persona, user_name, language, do_think, turn_group, query, viewer_id,
-                              current_user, user_overrides, chat_mode=False):
+                              current_user, user_overrides, chat_mode=False, direction=None):
     sid = s["id"]
     char = chars_by_id.get(cid)
     if not char:
@@ -463,10 +463,37 @@ async def _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep, 
     if author_note:
         oai.append({"role": "system", "content":
                     f"# Author's Note — pinned reminder\n{macro(author_note, char['name'], user_name)}"})
+    if direction and direction.strip():
+        oai.append({"role": "system", "content":
+            "The previous reply was discarded and is being rewritten. "
+            f"The author directs this new reply: {direction.strip()}"})
     moods = character_moods(char)
     params = build_sampling_params(eff)
     if length_preset["max_tokens"] is not None:
         params["max_tokens"] = length_preset["max_tokens"]
+    prompt_texts = [m["content"] for m in oai]
+    reserved_tokens = (guest_quota.estimate_tokens(*prompt_texts)
+                       + int(params.get("max_tokens") or 0)) if current_user else 0
+    if current_user:
+        await guest_quota.reserve(current_user, "tokens", reserved_tokens)
+    settlement = {"text": ""}
+    try:
+        async for ev in _generate_group_reply(sid, cid, char, chat_mode, oai, params, do_think,
+                                               moods, meta_lore_lines, meta_memory_lines, turn_group,
+                                               language, working, s, current_user, user_overrides,
+                                               chat_model, ep, settlement):
+            yield ev
+    finally:
+        if current_user:
+            try:
+                await _settle_token_quota(current_user, prompt_texts, reserved_tokens, settlement["text"])
+            except Exception as e:
+                log.warning("guest token quota settle failed session=%s char=%s: %s: %s",
+                           sid, cid, type(e).__name__, e)
+
+async def _generate_group_reply(sid, cid, char, chat_mode, oai, params, do_think, moods,
+                                meta_lore_lines, meta_memory_lines, turn_group, language, working,
+                                s, current_user, user_overrides, chat_model, ep, settlement):
     yield "data: " + json.dumps({"type": "status", "phase": "generating", "char_id": cid}) + "\n\n"
     ans, thought = [], []
     profiles = await _resolve_fallback_profiles(
@@ -497,6 +524,7 @@ async def _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep, 
         return
     thinking_disp = "".join(thought).strip()
     stored = (f"<think>{thinking_disp}</think>\n\n{reply}" if thinking_disp else reply)
+    settlement["text"] = stored
     amsg = await chat_sessions.add_message(sid, "assistant", stored, lang=language,
                                            mood=mood or None, char_id=cid, turn_group=turn_group)
     amsg["char_name"] = char["name"]
@@ -515,7 +543,8 @@ async def _load_group_cast(sid):
             chars_by_id[row["char_id"]] = c
     return cast_rows, chars_by_id
 
-async def _group_single(s, eff, ep, chat_model, cid, current_user, think, user_overrides, replace_mid=None):
+async def _group_single(s, eff, ep, chat_model, cid, current_user, think, user_overrides,
+                        replace_mid=None, direction=None):
     sid = s["id"]
     cast_rows, chars_by_id = await _load_group_cast(sid)
     if cid not in chars_by_id:
@@ -559,7 +588,7 @@ async def _group_single(s, eff, ep, chat_model, cid, current_user, think, user_o
         async for ev in _group_reply_events(s, cid, chars_by_id, cast_rows, working, eff, ep, chat_model,
                                             persona, user_name, language, do_think, turn_group, query, viewer_id,
                                             current_user, user_overrides,
-                                            chat_mode=(s.get("group_mode") == "chat")):
+                                            chat_mode=(s.get("group_mode") == "chat"), direction=direction):
             yield ev
         yield "data: " + json.dumps({"type": "done", "turn_group": turn_group, "replaced": replace_mid}) + "\n\n"
 
@@ -695,13 +724,13 @@ async def _run_group(s, eff, ep, chat_model, user_content, current_user, think, 
     handle = _start_gen(sid, gen)
     return StreamingResponse(handle.stream(), media_type="text/event-stream")
 
-async def _regenerate_group(s, eff, ep, chat_model, current_user, think, user_overrides):
+async def _regenerate_group(s, eff, ep, chat_model, current_user, think, user_overrides, direction=None):
     msgs = await chat_sessions.list_messages(s["id"])
     target = next((m for m in reversed(msgs) if m["role"] == "assistant" and m.get("char_id")), None)
     if not target:
         raise HTTPException(400, "nothing to regenerate")
     return await _group_single(s, eff, ep, chat_model, target["char_id"], current_user, think,
-                               user_overrides, replace_mid=target["id"])
+                               user_overrides, replace_mid=target["id"], direction=direction)
 
 async def _run(sid, user_content=None, regenerate=False, continue_mode=False,
                direction=None, think=None, current_user=None):
@@ -753,7 +782,8 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
         if continue_mode:
             raise HTTPException(400, "continue is not supported in group chats")
         if regenerate:
-            return await _regenerate_group(s, eff, ep, chat_model, current_user, think, user_overrides)
+            return await _regenerate_group(s, eff, ep, chat_model, current_user, think, user_overrides,
+                                           direction=direction)
         return await _run_group(s, eff, ep, chat_model, user_content, current_user, think, user_overrides)
     char = await characters.get(s["char_id"])
     if not char:
