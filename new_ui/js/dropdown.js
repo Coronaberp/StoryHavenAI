@@ -76,7 +76,7 @@ function wireCustomSelect(id, onChange) {
 
 function refImagePickerHtml(id) {
   return `
-    <div id="${_attr(id)}" data-ref-picker>
+    <div id="${_attr(id)}" data-ref-picker tabindex="0" style="outline:none">
       <input type="file" accept="image/*" data-ref-file hidden>
       <div data-ref-filled style="display:none;position:relative;width:100%;aspect-ratio:1;border-radius:12px;overflow:hidden;border:1px solid var(--color-line);background:var(--color-surface-2)">
         <img data-ref-thumb-img style="width:100%;height:100%;object-fit:cover;display:block" alt="">
@@ -92,7 +92,7 @@ function refImagePickerHtml(id) {
       <button type="button" data-ref-empty style="width:100%;display:flex;flex-direction:column;align-items:center;gap:7px;padding:22px;background:var(--color-surface);border:1.5px dashed var(--color-line-2);border-radius:12px;color:var(--color-sec);cursor:pointer">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
         <span>${_esc(t("dropdown_add_reference_image"))}</span>
-        <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;color:var(--color-muted)">${_esc(t("dropdown_drop_or_browse"))}</span>
+        <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;color:var(--color-muted)">${_esc(t("dropdown_drop_paste_or_browse", "click to browse, or paste an image"))}</span>
       </button>
     </div>
   `;
@@ -114,8 +114,7 @@ function wireRefImagePicker(id, onChange, initialDataUrl) {
   const openPicker = () => fileInput.click();
   emptyBtn.onclick = openPicker;
   root.querySelector("[data-ref-replace]").onclick = (e) => { e.stopPropagation(); openPicker(); };
-  fileInput.addEventListener("change", () => {
-    const file = fileInput.files[0];
+  const applyFile = (file) => {
     if (!file) return;
     maybeCropUpload(file, "1/1", 1024, 1024, (dataUrl) => {
       thumbImg.src = dataUrl;
@@ -124,7 +123,21 @@ function wireRefImagePicker(id, onChange, initialDataUrl) {
       emptyBtn.style.display = "none";
       onChange(dataUrl);
     });
+  };
+  fileInput.addEventListener("change", () => {
+    applyFile(fileInput.files[0]);
     fileInput.value = "";
+  });
+  root.addEventListener("paste", (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        applyFile(item.getAsFile());
+        return;
+      }
+    }
   });
   root.querySelector("[data-ref-remove]").onclick = () => {
     fileInput.value = "";
