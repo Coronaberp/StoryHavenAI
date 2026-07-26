@@ -1154,6 +1154,11 @@ async def _w(stmt):
     async with _require_engine().begin() as conn:
         await conn.execute(stmt)
 
+async def _w_count(stmt) -> int:
+    async with _require_engine().begin() as conn:
+        res = await conn.execute(stmt)
+        return res.rowcount or 0
+
 def _loads(v, default):
     try:
         return json.loads(v) if v else default

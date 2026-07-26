@@ -240,6 +240,15 @@ def _extract_memory_in_background(sid: str, coro) -> None:
             log.warning("memory extraction failed in background: session=%s error=%s", sid, e)
     asyncio.create_task(_run())
 
+async def _settle_token_quota(current_user, prompt_texts, reserved: int, final_text: str) -> None:
+    if not current_user or reserved <= 0:
+        return
+    used = guest_quota.estimate_tokens(*prompt_texts, final_text)
+    if used > reserved:
+        await guest_quota.record(current_user, "tokens", used - reserved)
+        return
+    await guest_quota.refund(current_user, "tokens", reserved - used)
+
 def _start_gen(sid: str, coro_fn, *args, **kwargs):
     old = _active_gen.pop(sid, None)
     if old and old.task and not old.task.done():
@@ -872,6 +881,13 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
     if retrieve_err:
         log.warning("retrieval degraded for session=%s: %s", sid, retrieve_err)
 
+    prompt_texts = [m["content"] for m in oai_messages]
+    reserved_tokens = (guest_quota.estimate_tokens(*prompt_texts)
+                       + int(params.get("max_tokens") or 0)) if current_user else 0
+    if current_user:
+        await guest_quota.reserve(current_user, "tokens", reserved_tokens)
+    settlement = {"text": ""}
+
     async def gen():
         meta = {"type": "meta", "lore": meta_lore_lines, "memory": meta_memory_lines,
                 "user_mid": user_mid, "think": do_think, "retrieve_error": retrieve_err}
@@ -956,12 +972,7 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
         else:
             amsg = await chat_sessions.add_message(sid, "assistant", stored, lang=language, mood=mood or None,
                                                    generated_by=generated_by)
-        if current_user:
-            try:
-                await guest_quota.record(current_user, "tokens", guest_quota.estimate_tokens(
-                    *[m["content"] for m in oai_messages], stored))
-            except Exception as e:
-                log.warning("guest quota record failed session=%s: %s: %s", sid, type(e).__name__, e)
+        settlement["text"] = stored
         log.info("chat turn done: session=%s reply_chars=%d", sid, len(reply))
         yield "data: " + json.dumps({"type": "done", "message": amsg, "mood": mood}) + "\n\n"
         _extract_memory_in_background(sid, memory_service.maybe_extract(
@@ -969,5 +980,17 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
             chat_base=eff_chat_base, chat_key=eff_api_key,
             embed_base=ep["embed_base"], embed_key=ep["embed_key"]))
 
-    handle = _start_gen(sid, gen)
+    async def gen_settling_quota():
+        try:
+            async for event in gen():
+                yield event
+        finally:
+            try:
+                await _settle_token_quota(current_user, prompt_texts, reserved_tokens,
+                                          settlement["text"])
+            except Exception as e:
+                log.warning("guest token quota settle failed session=%s: %s: %s",
+                            sid, type(e).__name__, e)
+
+    handle = _start_gen(sid, gen_settling_quota)
     return StreamingResponse(handle.stream(), media_type="text/event-stream")
