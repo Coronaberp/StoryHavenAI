@@ -181,6 +181,7 @@ async def delete_character(cid: str, current_user: dict = Depends(get_current_us
     await characters.delete(cid)
     await memory_facts.purge_char(cid)
     await vectors.delete_lore_vectors_by_char(cid)
+    await vectors.delete_secret_vectors_by_char(cid)
     log.info("character deleted: id=%s by=%s", cid, current_user["id"])
     return {"deleted": True}
 

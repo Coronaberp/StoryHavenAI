@@ -14,6 +14,12 @@ async def secrets_for(lore_id: str) -> list[dict]:
                     .order_by(lore_secrets.c.position))
     return [_row(r) for r in rows]
 
+async def by_ids(secret_ids: list[str]) -> list[dict]:
+    if not secret_ids:
+        return []
+    rows = await _q(select(lore_secrets).where(lore_secrets.c.id.in_(secret_ids)))
+    return [_row(r) for r in rows]
+
 async def set_secrets(lore_id: str, texts: list[str]) -> list[dict]:
     await delete_secrets(lore_id)
     created = time.time()

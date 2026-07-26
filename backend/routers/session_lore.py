@@ -10,7 +10,6 @@ from backend.repositories import lore_secrets as ls
 from backend.repositories import session_lore_state as sls
 from backend.repositories import memory_facts
 from backend import lore_memory
-from backend import ai_helpers
 from backend.schemas import SessionLoreOverrideIn
 
 async def _translate_for_session(text: str, session: dict, current_user: dict) -> str:
@@ -42,18 +41,7 @@ async def _session_scoped_entry(session: dict, lid: str, current_user: dict) -> 
     return entry
 
 async def _ensure_secrets(entry: dict) -> list[dict]:
-    existing = await ls.secrets_for(entry["id"])
-    if existing:
-        return existing
-    try:
-        texts = await ai_helpers.extract_lore_secrets(entry["content"], CFG["chat_model"])
-    except Exception as e:
-        log.warning("session_lore: secret extraction failed lore=%s: %s: %s",
-                    entry["id"], type(e).__name__, e)
-        return []
-    if not texts:
-        return []
-    return await ls.set_secrets(entry["id"], texts)
+    return await lore_memory.ensure_secrets_indexed(entry, CFG["chat_model"])
 
 async def _revealed_content(sid: str, entry: dict) -> str | None:
     secrets = await _ensure_secrets(entry)
