@@ -186,6 +186,54 @@ async def list_live(session_id: str, k: int = 50) -> list[dict]:
         rows = (await conn.execute(stmt)).fetchall()
     return [_row(r._mapping) for r in rows]
 
+MAX_LINEAGE_DEPTH = 20
+
+async def lineage(session_id: str, fact_ids: list[str]) -> dict[str, list[dict]]:
+    if not fact_ids:
+        return {}
+    stmt = sa.select(_tbl.c.id, _tbl.c.text, _tbl.c.superseded_by,
+                     _tbl.c.valid_until_turn, _tbl.c.valid_from_turn).where(
+        _tbl.c.session_id == session_id, _tbl.c.superseded_by.isnot(None))
+    async with _engine().connect() as conn:
+        rows = (await conn.execute(stmt)).fetchall()
+    predecessors: dict[str, list[dict]] = {}
+    for row in rows:
+        mapping = row._mapping
+        predecessors.setdefault(mapping["superseded_by"], []).append({
+            "id": mapping["id"],
+            "text": _decrypt_secret(mapping["text"] or ""),
+            "replaced_at_turn": mapping["valid_until_turn"],
+            "from_turn": mapping["valid_from_turn"],
+        })
+    out = {}
+    for fact_id in fact_ids:
+        chain = _walk_lineage(predecessors, fact_id)
+        if chain:
+            out[fact_id] = chain
+    log.info("memory lineage resolved: session=%s facts=%d with_lineage=%d",
+             session_id, len(fact_ids), len(out))
+    return out
+
+def _walk_lineage(predecessors: dict[str, list[dict]], fact_id: str) -> list[dict]:
+    chain = []
+    frontier = [fact_id]
+    seen = {fact_id}
+    depth = 0
+    while frontier and depth < MAX_LINEAGE_DEPTH:
+        next_frontier = []
+        for current in frontier:
+            for ancestor in predecessors.get(current, []):
+                if ancestor["id"] in seen:
+                    continue
+                seen.add(ancestor["id"])
+                chain.append(ancestor)
+                next_frontier.append(ancestor["id"])
+        frontier = next_frontier
+        depth += 1
+    chain.sort(key=lambda entry: entry["from_turn"])
+    return [{"id": entry["id"], "text": entry["text"],
+             "replaced_at_turn": entry["replaced_at_turn"]} for entry in chain]
+
 async def count_live(session_id: str) -> int:
     stmt = sa.select(sa.func.count()).select_from(_tbl).where(
         _tbl.c.session_id == session_id, _tbl.c.expired_ts.is_(None))

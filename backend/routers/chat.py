@@ -33,11 +33,24 @@ async def get_memory(sid: str, q: str | None = None, k: int = 30,
         vec = await llm.embed(q, CFG["embed_model"],
                               base_url=ep["embed_base"], api_key=ep["embed_key"])
         candidates = await memory_facts.similar_live(sid, vec, k)
-        total = len(candidates)
-        return {"items": [{"id": c["id"], "text": c["text"]} for c in candidates], "total": total}
+        return {"items": await _memory_items(sid, candidates), "total": len(candidates)}
     total = await memory_facts.count_live(sid)
     live = await memory_facts.list_live(sid, MEMORY_LIST_MAX)
-    return {"items": [{"id": f["id"], "text": f["text"]} for f in live], "total": total}
+    return {"items": await _memory_items(sid, live), "total": total}
+
+async def _memory_items(sid: str, facts: list[dict]) -> list[dict]:
+    lineage = await memory_facts.lineage(sid, [f["id"] for f in facts])
+    return [_memory_item(f, lineage.get(f["id"], [])) for f in facts]
+
+def _memory_item(fact: dict, superseded: list[dict]) -> dict:
+    return {
+        "id": fact["id"],
+        "text": fact["text"],
+        "reinforcements": int(fact.get("reinforcements") or 0),
+        "last_turn": fact.get("last_turn"),
+        "superseded_count": len(superseded),
+        "superseded": superseded,
+    }
 
 @api.delete("/sessions/{sid}/memory")
 async def clear_memory(sid: str, current_user: dict = Depends(get_current_user)):
