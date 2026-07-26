@@ -86,6 +86,20 @@ def test_parse_lore_updates_rejects_unknown_lore_id():
     with pytest.raises(ValueError):
         parse_lore_updates(raw, fact_count=1, valid_lore_ids={"l-abc"})
 
+def test_build_extract_prompt_guards_against_hearsay_as_confirmed_fact():
+    prompt = build_extract_prompt("Player: hi\nChar: hello", "Char", "Player", "English")
+    assert "hedged" in prompt
+    assert "apparently" in prompt
+    assert "not confirmed information" in prompt
+
+def test_build_lore_update_prompt_guards_core_identity_against_hearsay():
+    draft = FactDraft(text="Heard Faye is apparently a bit weird", fact_type="profile",
+                      participants=["Faye"], importance=2, valence=0)
+    prompt = build_lore_update_prompt(
+        [draft], [[{"id": "l-faye", "text": "Faye is a Professor of Alchemy."}]])
+    assert "core identity" in prompt
+    assert "witnessed event" in prompt or "direct statement" in prompt
+
 def test_build_lore_update_prompt_allows_no_update_answer():
     draft = FactDraft(text="the player overthrew the government", fact_type="event",
                       participants=[], importance=5, valence=1)
