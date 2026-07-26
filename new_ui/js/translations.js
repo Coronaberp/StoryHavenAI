@@ -957,6 +957,7 @@ const UI_STRINGS = {
   chat_regenerate: "Regenerate",
   chat_regenerate_confirm: "Regenerate this reply? The current reply and its memory of this turn will be replaced.",
   chat_regenerate_image: "Regenerate image",
+  chat_regenerate_input_placeholder: "Rewrite plainly, or steer it…",
   chat_reinitializing_chat: "Reinitializing chat in your desired language…",
   chat_remembered_fact_plural: "remembered facts",
   chat_remembered_fact_singular: "remembered fact",

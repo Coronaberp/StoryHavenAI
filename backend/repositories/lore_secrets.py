@@ -35,15 +35,29 @@ async def delete_secrets(lore_id: str) -> None:
     await _w(sa_delete(lore_secrets).where(lore_secrets.c.lore_id == lore_id))
     log.info("lore_secrets: deleted lore=%s", lore_id)
 
-async def reveal(session_id: str, secret_id: str) -> None:
+async def reveal(session_id: str, secret_id: str, batch_id: str | None = None) -> None:
     existing = await _q(select(session_secret_reveals).where(
         and_(session_secret_reveals.c.session_id == session_id,
              session_secret_reveals.c.secret_id == secret_id)))
     if existing:
         return
     await _w(insert(session_secret_reveals).values(
-        id=nid("ssr"), session_id=session_id, secret_id=secret_id, revealed=time.time()))
-    log.info("lore_secrets: revealed session=%s secret=%s", session_id, secret_id)
+        id=nid("ssr"), session_id=session_id, secret_id=secret_id, revealed=time.time(),
+        batch_id=batch_id))
+    log.info("lore_secrets: revealed session=%s secret=%s batch=%s", session_id, secret_id, batch_id)
+
+async def delete_reveals_for_batches(session_id: str, batch_ids: list[str]) -> int:
+    if not batch_ids:
+        return 0
+    rows = await _q(select(session_secret_reveals.c.id).where(
+        and_(session_secret_reveals.c.session_id == session_id,
+             session_secret_reveals.c.batch_id.in_(batch_ids))))
+    if not rows:
+        return 0
+    await _w(sa_delete(session_secret_reveals).where(
+        session_secret_reveals.c.id.in_([r["id"] for r in rows])))
+    log.info("lore_secrets: reveals rolled back session=%s count=%d", session_id, len(rows))
+    return len(rows)
 
 async def revealed_ids(session_id: str, secret_ids: list[str]) -> set[str]:
     if not secret_ids:

@@ -244,6 +244,7 @@ session_secret_reveals = sa.Table(
     sa.Column("session_id", sa.Text, nullable=False),
     sa.Column("secret_id", sa.Text, nullable=False),
     sa.Column("revealed", sa.Float, nullable=False),
+    sa.Column("batch_id", sa.Text),
     sa.UniqueConstraint("session_id", "secret_id", name="uq_session_secret_pair"),
 )
 
@@ -254,6 +255,9 @@ session_lore_state = sa.Table(
     sa.Column("lore_id", sa.Text, nullable=False),
     sa.Column("override_content", sa.Text),
     sa.Column("override_fact_id", sa.Text),
+    sa.Column("batch_id", sa.Text),
+    sa.Column("prior_override_content", sa.Text),
+    sa.Column("prior_override_fact_id", sa.Text),
     sa.Column("updated", sa.Float, nullable=False),
     sa.UniqueConstraint("session_id", "lore_id", name="uq_session_lore_pair"),
 )
@@ -814,6 +818,14 @@ async def init():
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS sender_user_id TEXT"))
         await conn.execute(text(
             "ALTER TABLE messages ADD COLUMN IF NOT EXISTS generated_by TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE session_secret_reveals ADD COLUMN IF NOT EXISTS batch_id TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE session_lore_state ADD COLUMN IF NOT EXISTS batch_id TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE session_lore_state ADD COLUMN IF NOT EXISTS prior_override_content TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE session_lore_state ADD COLUMN IF NOT EXISTS prior_override_fact_id TEXT"))
         await conn.execute(text(
             "ALTER TABLE lore ADD COLUMN IF NOT EXISTS owner_id TEXT"))
         await conn.execute(text(
