@@ -313,11 +313,11 @@ class ExploreMediaView {
           ${this.tagsRowHtml(img.positive, "pos")}
           ${this.tagsRowHtml(img.negative, "neg")}
           ${this.placardHtml(img)}
-          <div style="display:flex;flex-direction:column;gap:12px;padding-top:6px;border-top:1px solid var(--color-line)">
-            <div class="font-mono" style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-muted)">${t("pinacotheca_comments_label")} ${commentCountSpanHtml(this._commentsUidFor(img))}</div>
-            <div id="pinCommentMount_${_attr(this._commentsUidFor(img))}"></div>
-          </div>
         </div>
+      </div>
+      <div class="ig-comments-full">
+        <div class="font-mono" style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-muted)">${t("pinacotheca_comments_label")} ${commentCountSpanHtml(this._commentsUidFor(img))}</div>
+        <div id="pinCommentMount_${_attr(this._commentsUidFor(img))}"></div>
       </div>
     `;
   }
