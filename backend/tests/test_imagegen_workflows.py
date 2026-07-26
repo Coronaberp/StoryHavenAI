@@ -1,6 +1,7 @@
 import pytest
 
-from backend.imagegen_workflows import _build_inpaint_workflow, _build_anima_inpaint_workflow
+from backend.imagegen_workflows import (_build_inpaint_workflow, _build_anima_inpaint_workflow,
+                                        _build_workflow)
 
 def test_build_inpaint_workflow_wires_mask_and_image():
     wf = _build_inpaint_workflow(
@@ -27,11 +28,10 @@ def test_build_inpaint_workflow_wires_mask_and_image():
     save = next(n for n in wf.values() if n["class_type"] == "SaveImage")
     assert save is not None
 
-def test_build_inpaint_workflow_rejects_blacklisted_checkpoint():
+def test_build_workflow_rejects_blacklisted_lora():
     with pytest.raises(ValueError):
-        _build_inpaint_workflow(
-            "a cat", "blurry", "prefect_illustrous_sdxl.safetensors",
-            "photo.png", "mask.png")
+        _build_workflow("a cat", "blurry", "model.safetensors", None,
+                        [{"name": "anima_style.safetensors", "strength": 0.8}])
 
 def test_build_anima_inpaint_workflow_uses_unet_loader_not_checkpoint():
     wf = _build_anima_inpaint_workflow(

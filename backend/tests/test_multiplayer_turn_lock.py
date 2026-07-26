@@ -36,17 +36,22 @@ async def test_run_allows_action_when_no_active_generation(db_conn):
     sid = await _make_rpg_session()
     assert sid not in chat_service._active_gen
 
-async def test_run_allows_action_after_generation_marked_done(db_conn):
+async def test_run_allows_action_after_generation_marked_done(db_conn, monkeypatch):
     sid = await _make_rpg_session()
     handle = chat_service.GenHandle(sid)
     handle.done = True
     chat_service._active_gen[sid] = handle
+    reached_turn = {}
+
+    async def fake_run_turn(session, participant_rows, is_multiplayer, *args, **kwargs):
+        reached_turn["multiplayer"] = is_multiplayer
+        return "streamed"
+
+    monkeypatch.setattr(chat_service, "_run_turn", fake_run_turn)
     try:
-        try:
-            await chat_service._run(sid, user_content="I act.", current_user={"id": "friend-1"})
-        except HTTPException as exc:
-            assert exc.status_code != 409 or "currently acting" not in str(exc.detail)
-        except Exception:
-            pass
+        result = await chat_service._run(sid, user_content="I act.", current_user={"id": "friend-1"})
+        assert result == "streamed"
+        assert reached_turn["multiplayer"] is True
+        assert chat_service._active_gen[sid] is not handle
     finally:
         chat_service._active_gen.pop(sid, None)
