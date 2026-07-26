@@ -126,7 +126,8 @@ def _dedupe_candidates(candidates: list[dict]) -> list[dict]:
                     len(candidates) - len(unique))
     return list(unique.values())
 
-async def apply_session_lore_override(session_id: str, char_id: str, lore_id: str, content: str) -> str:
+async def apply_session_lore_override(session_id: str, char_id: str, lore_id: str, content: str,
+                                      batch_id: str | None = None) -> str:
     vec = await llm.embed(content, CFG["embed_model"])
     existing = await session_lore_state.get_state(session_id, lore_id)
     if existing and existing.get("override_fact_id"):
@@ -136,13 +137,43 @@ async def apply_session_lore_override(session_id: str, char_id: str, lore_id: st
         fact_id = await memory_facts.insert({
             "session_id": session_id, "char_id": char_id, "text": content,
             "fact_type": "state", "participants": [], "importance": 5, "valence": 0, "turn": 0,
+            "batch_id": batch_id,
         }, vec, pinned=True)
-    await session_lore_state.set_override(session_id, lore_id, content, fact_id)
+    await session_lore_state.set_override(session_id, lore_id, content, fact_id, batch_id=batch_id)
     return fact_id
+
+async def rollback_session_lore(session_id: str, batch_ids: list[str]) -> dict:
+    stats = {"overrides_reverted": 0, "overrides_restored": 0, "reveals_deleted": 0}
+    if not batch_ids:
+        return stats
+    for state in await session_lore_state.states_for_batches(session_id, batch_ids):
+        if state["prior_override_content"] is None:
+            await session_lore_state.delete_state(session_id, state["lore_id"])
+            stats["overrides_reverted"] += 1
+            continue
+        await _restore_prior_override(session_id, state)
+        stats["overrides_restored"] += 1
+    stats["reveals_deleted"] = await lore_secrets.delete_reveals_for_batches(session_id, batch_ids)
+    log.info("lore_memory: session lore rolled back session=%s batches=%d reverted=%d restored=%d "
+             "reveals_deleted=%d", session_id, len(batch_ids), stats["overrides_reverted"],
+             stats["overrides_restored"], stats["reveals_deleted"])
+    return stats
+
+async def _restore_prior_override(session_id: str, state: dict) -> None:
+    prior_fact_id = state["prior_override_fact_id"]
+    if prior_fact_id:
+        try:
+            vec = await llm.embed(state["prior_override_content"], CFG["embed_model"])
+            await memory_facts.update_text(prior_fact_id, state["prior_override_content"], vec)
+        except Exception as e:
+            log.warning("lore_memory: prior override re-embed failed session=%s lore=%s: %s: %s",
+                        session_id, state["lore_id"], type(e).__name__, e)
+    await session_lore_state.restore_prior(session_id, state["lore_id"])
 
 async def detect_and_apply_lore_updates(session_id: str, char_id: str, drafts: list,
                                         model: str, chat_base: str | None, chat_key: str | None,
-                                        embed_base: str | None, embed_key: str | None) -> dict:
+                                        embed_base: str | None, embed_key: str | None,
+                                        batch_id: str | None = None) -> dict:
     stats = {"checked": len(drafts), "applied": 0}
     if not drafts:
         return stats
@@ -160,7 +191,8 @@ async def detect_and_apply_lore_updates(session_id: str, char_id: str, drafts: l
     decisions = await run_lore_update_detection(drafts, lore_neighbors, model, chat_base, chat_key)
     for decision in decisions:
         try:
-            await apply_session_lore_override(session_id, char_id, decision.lore_id, decision.new_content)
+            await apply_session_lore_override(session_id, char_id, decision.lore_id,
+                                              decision.new_content, batch_id=batch_id)
             stats["applied"] += 1
             log.info("lore_memory: session-scoped override applied session=%s lore=%s",
                      session_id, decision.lore_id)
@@ -200,13 +232,15 @@ async def reindex_secrets(entry: dict, chat_model: str) -> list[dict]:
     return await ensure_secrets_indexed(entry, chat_model)
 
 async def apply_secret_reveal(session_id: str, char_id: str, secret_id: str, secret_text: str,
-                              embed_base: str | None = None, embed_key: str | None = None) -> None:
-    await lore_secrets.reveal(session_id, secret_id)
+                              embed_base: str | None = None, embed_key: str | None = None,
+                              batch_id: str | None = None) -> None:
+    await lore_secrets.reveal(session_id, secret_id, batch_id=batch_id)
     try:
         vec = await llm.embed(secret_text, CFG["embed_model"], base_url=embed_base, api_key=embed_key)
         await memory_facts.insert({
             "session_id": session_id, "char_id": char_id, "text": secret_text,
             "fact_type": "event", "participants": [], "importance": 4, "valence": 0, "turn": 0,
+            "batch_id": batch_id,
         }, vec)
     except Exception as e:
         log.warning("lore_memory: secret-reveal memory enrichment failed session=%s secret=%s: %s: %s",
@@ -214,7 +248,8 @@ async def apply_secret_reveal(session_id: str, char_id: str, secret_id: str, sec
 
 async def detect_and_reveal_secrets(session_id: str, char_id: str, drafts: list,
                                     model: str, chat_base: str | None, chat_key: str | None,
-                                    embed_base: str | None, embed_key: str | None) -> dict:
+                                    embed_base: str | None, embed_key: str | None,
+                                    batch_id: str | None = None) -> dict:
     stats = {"checked": len(drafts), "revealed": 0}
     if not drafts:
         return stats
@@ -239,7 +274,8 @@ async def detect_and_reveal_secrets(session_id: str, char_id: str, drafts: list,
     for decision in decisions:
         try:
             await apply_secret_reveal(session_id, char_id, decision.secret_id,
-                                      id_to_text[decision.secret_id], embed_base, embed_key)
+                                      id_to_text[decision.secret_id], embed_base, embed_key,
+                                      batch_id=batch_id)
             stats["revealed"] += 1
             log.info("lore_memory: secret revealed session=%s secret=%s",
                      session_id, decision.secret_id)

@@ -480,7 +480,7 @@ class ChatView {
     this.error = "";
     this.streaming = false;
     this.abortController = null;
-    this.continuePromptOpen = false;
+    this.directionPromptMode = null;
     this.moreMenuOpen = false;
     this.toolsMenuOpen = false;
     this.personalBgOk = false;
@@ -1929,9 +1929,9 @@ class ChatView {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><polyline points="6 9 12 15 18 9"/></svg>
           </button>
         </div>
-        ${this.continuePromptOpen ? `
+        ${this.directionPromptMode ? `
           <div style="flex:none;display:flex;gap:8px;align-items:center;padding:9px 14px;border-top:1px solid var(--color-line);background:var(--color-surface-2)">
-            <input type="text" id="chatContinueInput" placeholder="${t("chat_continue_input_placeholder")}" style="flex:1;min-width:0;padding:9px 11px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface);color:var(--color-ink);font-size:13.5px">
+            <input type="text" id="chatContinueInput" placeholder="${this.directionPromptMode === "regenerate" ? t("chat_regenerate_input_placeholder") : t("chat_continue_input_placeholder")}" style="flex:1;min-width:0;padding:9px 11px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface);color:var(--color-ink);font-size:13.5px">
             <button type="button" id="chatContinueCancel" class="chat-composer-btn" aria-label="${t("chat_cancel")}" data-tooltip="${t("chat_cancel")}" style="width:36px;height:36px">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
@@ -2036,7 +2036,7 @@ class ChatView {
     }
     this.wireComposer();
     this.wireTurnActions();
-    this.wireContinuePrompt();
+    this.wireDirectionPrompt();
     this.wireScrollFab();
     this.wireMoreMenu();
     this.wireToolsMenu();
@@ -3184,11 +3184,11 @@ class ChatView {
         else if (act === "image") this.openImageGenModal(msg);
         else if (act === "regenerate") {
           if (this.streaming) { toast(t("chat_still_generating_wait")); return; }
-          if (await confirmDialog(t("chat_regenerate_confirm"), { confirmLabel: t("chat_regenerate"), danger: false })) this.sendTurn("regenerate", {});
+          if (await confirmDialog(t("chat_regenerate_confirm"), { confirmLabel: t("chat_regenerate"), danger: false })) this.openDirectionPrompt("regenerate");
         }
         else if (act === "continue") {
           if (this.streaming) { toast(t("chat_still_generating_wait")); return; }
-          this.openContinuePrompt();
+          this.openDirectionPrompt("continue");
         }
         else if (act === "greeting-prev") this.swapGreeting("prev");
         else if (act === "greeting-next") this.swapGreeting("next");
@@ -3303,33 +3303,34 @@ class ChatView {
     });
   }
 
-  openContinuePrompt() {
-    this.continuePromptOpen = true;
+  openDirectionPrompt(mode) {
+    this.directionPromptMode = mode;
     this.render();
     const input = document.getElementById("chatContinueInput");
     input?.focus();
   }
 
-  closeContinuePrompt() {
-    this.continuePromptOpen = false;
+  closeDirectionPrompt() {
+    this.directionPromptMode = null;
     this.render();
   }
 
-  submitContinuePrompt() {
+  submitDirectionPrompt() {
     const input = document.getElementById("chatContinueInput");
     const direction = input ? input.value.trim() : "";
-    this.continuePromptOpen = false;
-    this.sendTurn("continue", direction ? { content: direction } : {});
+    const mode = this.directionPromptMode;
+    this.directionPromptMode = null;
+    this.sendTurn(mode, direction ? { content: direction } : {});
   }
 
-  wireContinuePrompt() {
+  wireDirectionPrompt() {
     const input = document.getElementById("chatContinueInput");
     if (!input) return;
     input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); this.submitContinuePrompt(); }
-      else if (e.key === "Escape") { e.preventDefault(); this.closeContinuePrompt(); }
+      if (e.key === "Enter") { e.preventDefault(); this.submitDirectionPrompt(); }
+      else if (e.key === "Escape") { e.preventDefault(); this.closeDirectionPrompt(); }
     });
-    document.getElementById("chatContinueCancel").onclick = () => this.closeContinuePrompt();
+    document.getElementById("chatContinueCancel").onclick = () => this.closeDirectionPrompt();
   }
 
   async branchFrom(msg) {

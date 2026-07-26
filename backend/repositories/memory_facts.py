@@ -221,7 +221,8 @@ async def rollback_from_pair_index(session_id: str, pair_index: int) -> dict:
                 _batch_tbl.c.session_id == session_id,
                 _batch_tbl.c.pair_end > pair_index))).fetchall()
         if not batch_rows:
-            return {"batches_rolled_back": 0, "facts_deleted": 0, "rewound_cursor": None}
+            return {"batches_rolled_back": 0, "facts_deleted": 0, "rewound_cursor": None,
+                    "batch_ids": []}
         batch_ids = [r._mapping["id"] for r in batch_rows]
         rewound_cursor = min(r._mapping["pair_start"] for r in batch_rows)
         fact_rows = (await conn.execute(
@@ -249,7 +250,8 @@ async def rollback_from_pair_index(session_id: str, pair_index: int) -> dict:
              session_id, pair_index, len(batch_ids), len(deleted_ids),
              reinforced_restored, rewound_cursor)
     return {"batches_rolled_back": len(batch_ids), "facts_deleted": len(deleted_ids),
-            "reinforcements_restored": reinforced_restored, "rewound_cursor": rewound_cursor}
+            "reinforcements_restored": reinforced_restored, "rewound_cursor": rewound_cursor,
+            "batch_ids": batch_ids}
 
 async def _restore_reinforcements(conn, session_id: str, batch_ids: list[str]) -> int:
     log_rows = (await conn.execute(

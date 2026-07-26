@@ -84,7 +84,10 @@ async def regenerate(sid: str, body: ChatIn | None = None,
                      current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     guest_quota.check(current_user, "tokens")
-    return await _run(sid, regenerate=True,
+    direction = strip_sigil(body.content) if (body and body.content and body.content.strip()) else None
+    if direction:
+        log.info("chat: regenerate with direction session=%s by=%s", sid, current_user["username"])
+    return await _run(sid, regenerate=True, direction=direction,
                       think=(body.think if body else None), current_user=current_user)
 
 @api.post("/sessions/{sid}/roll")

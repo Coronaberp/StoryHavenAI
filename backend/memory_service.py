@@ -120,10 +120,10 @@ async def extract_batch(sid: str, char_id: str, char_name: str, user_name: str,
             await memory_facts.supersede(decision.target_id, fact, vec, turn)
             stats["superseded"] += 1
     lore_stats = await lore_memory.detect_and_apply_lore_updates(
-        sid, char_id, drafts, model, chat_base, chat_key, embed_base, embed_key)
+        sid, char_id, drafts, model, chat_base, chat_key, embed_base, embed_key, batch_id=batch_id)
     stats["lore_updates_applied"] = lore_stats["applied"]
     reveal_stats = await lore_memory.detect_and_reveal_secrets(
-        sid, char_id, drafts, model, chat_base, chat_key, embed_base, embed_key)
+        sid, char_id, drafts, model, chat_base, chat_key, embed_base, embed_key, batch_id=batch_id)
     stats["secrets_revealed"] = reveal_stats["revealed"]
     log.info("memory extract done: session=%s turn=%s facts=%d added=%d reinforced=%d superseded=%d "
              "lore_updates=%d secrets_revealed=%d",
@@ -191,6 +191,8 @@ async def rollback_discarded_turn(session_id: str, msgs: list[dict], message_id:
     if pair_index is None:
         return None
     result = await memory_facts.rollback_from_pair_index(session_id, pair_index)
+    result["session_lore"] = await lore_memory.rollback_session_lore(
+        session_id, result.get("batch_ids") or [])
     if result["batches_rolled_back"]:
         log.info("memory rollback triggered: session=%s message=%s batches=%d facts_deleted=%d "
                  "rewound_cursor=%s", session_id, message_id, result["batches_rolled_back"],

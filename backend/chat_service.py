@@ -862,6 +862,11 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
             cont_instr += f" The author directs the continuation: {direction.strip()}"
         oai_messages.append({"role": "system", "content": cont_instr})
 
+    if regenerate and direction and direction.strip():
+        oai_messages.append({"role": "system", "content":
+            "The previous reply was discarded and is being rewritten. "
+            f"The author directs this new reply: {direction.strip()}"})
+
     moods = character_moods(char)
     params = build_sampling_params(eff)
     if length_preset["max_tokens"] is not None:
