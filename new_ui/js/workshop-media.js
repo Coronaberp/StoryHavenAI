@@ -388,10 +388,28 @@ class WorkshopMediaView {
       `;
     }
     return `
-      <div id="forgePreviewBox" style="position:relative;width:100%;aspect-ratio:${ratio};border-radius:16px;overflow:hidden;border:1px solid var(--color-line);background:var(--color-surface);margin-bottom:14px;display:grid;place-items:center">
+      <div id="forgePreviewBox" style="position:relative;width:100%;aspect-ratio:${ratio};border-radius:16px;overflow:hidden;border:1px solid var(--color-line);background:var(--color-surface);display:grid;place-items:center">
         ${inner}
       </div>
+      ${this.plateSlugHtml(w, h)}
     `;
+  }
+
+  plateSlugHtml(width, height) {
+    if (this.mode === "upscale") return "";
+    const preview = this.checkpointPreviews?.[this.checkpoint];
+    const modelLabel = preview?.display_name || (this.checkpoint || "").replace(/\.safetensors$/i, "") || t("forge_no_model_word", "no model");
+    const parts = [modelLabel];
+    if (this.mode !== "video") {
+      if (this.sampler) parts.push(this.sampler);
+      parts.push(`${this.steps} ${t("forge_slug_steps", "steps")}`);
+      parts.push(`cfg ${this.cfg}`);
+    } else {
+      parts.push(this.duration);
+      parts.push(`${this.fps} fps`);
+    }
+    parts.push(`${width}×${height}`);
+    return `<div class="forge-plate-slug">${parts.map((part) => `<span>${_esc(String(part))}</span>`).join("")}</div>`;
   }
 
   upscaleFrameHtml(label, imgSrc, emptyText) {
@@ -759,7 +777,7 @@ class WorkshopMediaView {
 
   async loadModels() {
     const checkpointEndpoint = this.architecture === "anima" ? "/api/imagegen/anima-unets" : "/api/imagegen/checkpoints";
-    const [checkpoints, previews, loraOptions, loraPreviews, samplerData, samplerPreviews, schedulerPreviews] = await Promise.all([
+    const [checkpoints, previews, loraOptions, loraPreviews, samplerData, samplerPreviews, schedulerPreviews, settings] = await Promise.all([
       api(checkpointEndpoint).catch(() => []),
       api("/api/imagegen/checkpoint-previews").catch(() => ({})),
       api("/api/imagegen/loras").catch(() => []),
@@ -767,6 +785,7 @@ class WorkshopMediaView {
       api("/api/imagegen/samplers").catch(() => ({ samplers: [], schedulers: [] })),
       api("/api/imagegen/sampler-previews").catch(() => ({})),
       api("/api/imagegen/scheduler-previews").catch(() => ({})),
+      api("/api/settings").catch(() => ({})),
     ]);
     this.checkpoints = checkpoints;
     this.checkpointPreviews = previews;
@@ -776,16 +795,40 @@ class WorkshopMediaView {
     this.schedulers = samplerData.schedulers || [];
     this.samplerPreviews = samplerPreviews;
     this.schedulerPreviews = schedulerPreviews;
+    this.imageGenDefaults = {
+      sdxl: {
+        checkpoint: settings.image_gen_default_checkpoint_sdxl || "",
+        sampler: settings.image_gen_default_sampler_sdxl || "dpmpp_2m_sde_gpu",
+        scheduler: settings.image_gen_default_scheduler_sdxl || "karras",
+        steps: settings.image_gen_default_steps_sdxl || 20,
+        cfg: settings.image_gen_default_cfg_sdxl || 7.0,
+      },
+      anima: {
+        checkpoint: settings.image_gen_default_checkpoint_anima || "",
+        sampler: settings.image_gen_default_sampler_anima || "er_sde",
+        scheduler: settings.image_gen_default_scheduler_anima || "simple",
+        steps: settings.image_gen_default_steps_anima || 20,
+        cfg: settings.image_gen_default_cfg_anima || 4.0,
+      },
+    };
+    const archDefaults = this.imageGenDefaults[this.architecture === "anima" ? "anima" : "sdxl"];
     if (!this.checkpoint && checkpoints.length) {
-      this.checkpoint = checkpoints.find((m) => m.toLowerCase().includes("realskin")) || checkpoints[0];
+      this.checkpoint = (archDefaults.checkpoint && checkpoints.includes(archDefaults.checkpoint))
+        ? archDefaults.checkpoint
+        : (checkpoints.find((m) => m.toLowerCase().includes("realskin")) || checkpoints[0]);
+      this.applyCheckpointPreset(this.checkpoint);
     }
     if (!this.sampler && this.samplers.length) {
-      this.sampler = this.samplers.includes("dpmpp_2m_sde_gpu") ? "dpmpp_2m_sde_gpu"
-        : this.samplers.includes("euler") ? "euler" : this.samplers[0];
+      this.sampler = (archDefaults.sampler && this.samplers.includes(archDefaults.sampler))
+        ? archDefaults.sampler
+        : (this.samplers.includes("dpmpp_2m_sde_gpu") ? "dpmpp_2m_sde_gpu"
+          : this.samplers.includes("euler") ? "euler" : this.samplers[0]);
     }
     if (!this.scheduler && this.schedulers.length) {
-      this.scheduler = this.schedulers.includes("karras") ? "karras"
-        : this.schedulers.includes("normal") ? "normal" : this.schedulers[0];
+      this.scheduler = (archDefaults.scheduler && this.schedulers.includes(archDefaults.scheduler))
+        ? archDefaults.scheduler
+        : (this.schedulers.includes("karras") ? "karras"
+          : this.schedulers.includes("normal") ? "normal" : this.schedulers[0]);
     }
     this.render();
   }
@@ -794,8 +837,9 @@ class WorkshopMediaView {
     const img = p?.image;
     const label = p?.display_name || name || "?";
     const style = `width:${size}px;height:${size}px;border-radius:${Math.round(size / 6)}px;flex:none;overflow:hidden;display:grid;place-items:center;background:var(--color-surface-2);border:1px solid var(--color-line)`;
-    return img
-      ? `<span style="${style}"><img src="${_attr(img)}" alt="" style="width:100%;height:100%;object-fit:cover"></span>`
+    const hasNsfw = ME?.nsfw_allowed && p?.image_nsfw;
+    return (img || hasNsfw)
+      ? `<span style="${style};position:relative">${modelPreviewInnerHtml(p, label, size >= 44)}</span>`
       : `<span style="${style};font-family:var(--font-mono);font-size:${Math.round(size / 2.6)}px;color:var(--color-muted)">${_esc(label[0].toUpperCase())}</span>`;
   }
 
@@ -900,7 +944,7 @@ class WorkshopMediaView {
     const label = p?.display_name || name || "";
     detail.innerHTML = name ? `
       <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--color-surface);border:1px solid var(--color-line);border-radius:14px;margin-bottom:12px">
-        ${this.modelThumbHtml(name, p, 56)}
+        <span id="mpDetailThumb" style="cursor:zoom-in;display:inline-flex;flex:none" title="${_attr(t("forge_zoom_preview", "Zoom preview"))}">${this.modelThumbHtml(name, p, 56)}</span>
         <span style="flex:1;min-width:0">
           <span style="display:block;font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--color-ink)">${_esc(label)}</span>
           ${p?.description ? `<span style="display:block;font-size:11.5px;color:var(--color-muted);margin-top:2px">${_esc(p.description)}</span>` : ""}
@@ -910,6 +954,42 @@ class WorkshopMediaView {
     ` : "";
     const useBtn = document.getElementById("mpUse");
     if (useBtn) useBtn.onclick = () => { this.setCheckpoint(name); closeTopModal(); };
+    const thumb = document.getElementById("mpDetailThumb");
+    const thumbImg = thumb?.querySelector("img");
+    if (thumbImg) thumb.onclick = () => this.openPreviewZoom(thumbImg.src, label);
+  }
+
+  openPreviewZoom(url, label) {
+    const layer = openModal(`
+      <h3 style="margin:0 0 10px">${_esc(label || t("forge_preview_word", "Preview"))}</h3>
+      <div id="mpZoomBox" style="position:relative;width:100%;aspect-ratio:1;border-radius:14px;overflow:hidden;background:var(--color-surface-2);border:1px solid var(--color-line)">
+        <img id="mpZoomImg" src="${_attr(url)}" alt="" style="width:100%;height:100%;object-fit:contain;display:block">
+      </div>
+      <p style="margin:8px 2px 12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-muted)">${t("forge_zoom_hint", "Click to zoom, drag to pan, slider for up to 10x")}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" id="mpZoomRef" class="pe-gen-btn" style="flex:1;min-width:160px">${t("forge_use_as_reference_button", "Use as reference image")}</button>
+        <button type="button" id="mpZoomDownload" class="pe-gen-btn" style="flex:1;min-width:120px">${t("forge_download_word", "Download")}</button>
+      </div>
+    `, { wide: true });
+    _wireZoomPan(layer.querySelector("#mpZoomImg"));
+    layer.querySelector("#mpZoomRef").onclick = () => this.setReferenceFromUrl(url, layer);
+    layer.querySelector("#mpZoomDownload").onclick = () => this.downloadPreview(url, label);
+  }
+
+  async downloadPreview(url, label) {
+    try {
+      const blob = await (await fetch(url, { credentials: "include" })).blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `${(label || "preview").replace(/[^\w.-]+/g, "_")}.${(blob.type.split("/")[1] || "png").replace("jpeg", "jpg")}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+    } catch (err) {
+      errorToast(err.message || t("forge_couldnt_download_image", "Couldn't download the image"));
+    }
   }
 
   async loadModelRequestHosts() {
@@ -1002,12 +1082,15 @@ class WorkshopMediaView {
     const freshBox = document.getElementById(boxId);
     if (!freshBox) return;
     if (!rows.length) { freshBox.innerHTML = `<p style="font-size:12px;color:var(--color-muted)">${t("forge_request_history_empty", "No requests yet.")}</p>`; return; }
-    freshBox.innerHTML = rows.map((r) => `
+    const paginateKey = `mr_history_${boxId}`;
+    const state = paginateSlice(paginateKey, rows, 8);
+    freshBox.innerHTML = state.rows.map((r) => `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--color-line);border-radius:10px;background:var(--color-surface)">
         <span style="font-size:12.5px;color:var(--color-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(r.model_name)}</span>
         <span style="font-size:10.5px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.04em;flex:none;color:${r.status === "approved" ? "var(--color-success)" : r.status === "rejected" ? "var(--color-warn)" : "var(--color-muted)"}">${_esc(r.status || "pending")}</span>
       </div>
-    `).join("");
+    `).join("") + paginationHtml(paginateKey, state);
+    onPaginate(paginateKey, () => this.renderModelRequestHistory(filterTypes, boxId));
   }
 
   modelRequestTabHtml() {
@@ -1024,6 +1107,7 @@ class WorkshopMediaView {
       <div style="margin-bottom:10px">
         <label class="grimoire-field-label">${t("forge_request_name_label", "Name")}</label>
         <input type="text" id="mrName" placeholder="${t("forge_request_name_placeholder", "e.g. Nova Anime XL")}" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink)">
+        <div id="mrTypeWarn" style="display:none;font-size:11px;margin-top:5px;line-height:1.4;color:var(--color-warn)"></div>
       </div>
       <div style="margin-bottom:10px">
         <label class="grimoire-field-label">${t("forge_request_url_label", "Download URL")}</label>
@@ -1058,11 +1142,32 @@ class WorkshopMediaView {
     this.wireModelRequestTab();
   }
 
+  checkMrTypeMismatch() {
+    const nameInput = document.getElementById("mrName");
+    const warn = document.getElementById("mrTypeWarn");
+    if (!nameInput || !warn) return;
+    const name = nameInput.value.toLowerCase();
+    const looksClassic = /\b(sdxl|illustrious|pony)\b/.test(name);
+    const looksAnima = /\b(anima|dit)\b/.test(name);
+    const type = this._mrType || "checkpoint";
+    let message = "";
+    if (type === "anima" && looksClassic && !looksAnima) {
+      message = t("forge_request_type_warn_should_be_classic", "This name mentions SDXL/Illustrious/Pony — those are usually \"Classic (UNet)\", not \"Newer (DiT · Anima)\". Double-check the type before submitting.");
+    } else if (type === "checkpoint" && looksAnima && !looksClassic) {
+      message = t("forge_request_type_warn_should_be_anima", "This name mentions Anima/DiT — that's usually \"Newer (DiT · Anima)\", not \"Classic (UNet)\". Double-check the type before submitting.");
+    }
+    warn.style.display = message ? "" : "none";
+    warn.textContent = message;
+  }
+
   wireModelRequestTab() {
     const submitBtn = document.getElementById("mrSubmit");
     if (submitBtn) submitBtn.onclick = () => this.submitModelRequest();
     const urlInp = document.getElementById("mrUrl");
     if (urlInp) urlInp.oninput = () => this.validateRequestUrl("mrUrl", "mrUrlErr");
+    const nameInp = document.getElementById("mrName");
+    if (nameInp) nameInp.oninput = () => this.checkMrTypeMismatch();
+    this.checkMrTypeMismatch();
     this.renderModelRequestHistory(["checkpoint", "anima"], "mrHistory");
     if (this._modelRequestHosts === null) {
       this.loadModelRequestHosts().then(() => {
@@ -1301,7 +1406,7 @@ class WorkshopMediaView {
     const active = !!this.loras.find((l) => l.name === name);
     detail.innerHTML = name ? `
       <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--color-surface);border:1px solid var(--color-line);border-radius:14px;margin-bottom:12px">
-        ${this.modelThumbHtml(name, p, 56)}
+        <span id="lpDetailThumb" style="cursor:zoom-in;display:inline-flex;flex:none" title="${_attr(t("forge_zoom_preview", "Zoom preview"))}">${this.modelThumbHtml(name, p, 56)}</span>
         <span style="flex:1;min-width:0">
           <span style="display:block;font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--color-ink)">${_esc(label)}</span>
           ${p?.description ? `<span style="display:block;font-size:11.5px;color:var(--color-muted);margin-top:2px">${_esc(p.description)}</span>` : ""}
@@ -1310,6 +1415,9 @@ class WorkshopMediaView {
       </div>
       <button type="button" id="lpToggle" style="width:100%;padding:12px;border-radius:12px;font-weight:600;font-size:14px;cursor:pointer;${active ? "color:var(--color-warn);background:var(--color-surface);border:1px solid var(--color-warn)" : "color:var(--color-paper);background:linear-gradient(150deg, var(--color-accent), var(--color-accent-deep));border:none"}">${active ? t("forge_remove_button") : t("forge_add_this_lora_button")}</button>
     ` : "";
+    const loraThumb = document.getElementById("lpDetailThumb");
+    const loraThumbImg = loraThumb?.querySelector("img");
+    if (loraThumbImg) loraThumb.onclick = () => this.openPreviewZoom(loraThumbImg.src, label);
     const toggleBtn = document.getElementById("lpToggle");
     if (toggleBtn) toggleBtn.onclick = () => {
       this.toggleLora(name);
@@ -1437,17 +1545,20 @@ class WorkshopMediaView {
     return `${preset}, ${text}`;
   }
 
+  applyCheckpointPreset(name) {
+    const preset = this.checkpointPreviews[name];
+    if (!preset) return;
+    if (preset.default_sampler) this.sampler = preset.default_sampler;
+    if (preset.default_scheduler) this.scheduler = preset.default_scheduler;
+    if (preset.default_steps) this.steps = preset.default_steps;
+    if (preset.default_cfg) this.cfg = preset.default_cfg;
+    if (preset.default_positive) this.positive = this._prependPreset(this.positive, preset.default_positive);
+    if (preset.default_negative) this.negative = this._prependPreset(this.negative, preset.default_negative);
+  }
+
   setCheckpoint(name) {
     this.checkpoint = name;
-    const preset = this.checkpointPreviews[name];
-    if (preset) {
-      if (preset.default_sampler) this.sampler = preset.default_sampler;
-      if (preset.default_scheduler) this.scheduler = preset.default_scheduler;
-      if (preset.default_steps) this.steps = preset.default_steps;
-      if (preset.default_cfg) this.cfg = preset.default_cfg;
-      if (preset.default_positive) this.positive = this._prependPreset(this.positive, preset.default_positive);
-      if (preset.default_negative) this.negative = this._prependPreset(this.negative, preset.default_negative);
-    }
+    this.applyCheckpointPreset(name);
     this.render();
   }
 
@@ -1520,16 +1631,19 @@ class WorkshopMediaView {
     this.lastResult = null;
     this.render();
     const endpoint = this.mode === "inpaint" ? "/api/imagegen/inpaint" : "/api/imagegen/standalone/stream";
+    this._genAbort = new AbortController();
     try {
       const res = await fetch(`${API}${endpoint}`, {
         method: "POST",
         credentials: "include",
+        signal: this._genAbort.signal,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
       await sseEvents(res, (ev) => {
         if (genToken !== this._genToken) return;
+        if (ev.type === "cancelled") { this.busy = false; this.queueWait = null; this.stopQueueTicker(); this.render(); return; }
         if (ev.type === "status") {
           this.queueWait = { message: ev.message };
           this.startQueueTicker(genToken);
@@ -1590,6 +1704,7 @@ class WorkshopMediaView {
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
       await sseEvents(res, (ev) => {
         if (genToken !== this._genToken) return;
+        if (ev.type === "cancelled") { this.busy = false; this.queueWait = null; this.stopQueueTicker(); this.render(); return; }
         if (ev.type === "status") {
           this.genStatus = ev.message;
           const el = this.main.querySelector("#forgeVideoStatus");
@@ -1623,9 +1738,12 @@ class WorkshopMediaView {
   async cancelGenerate() {
     this._genToken = (this._genToken || 0) + 1;
     this.busy = false;
+    this.queueWait = null;
+    this.stopQueueTicker();
     this.render();
     try {
       await api("/api/imagegen/standalone/stream/stop", { method: "POST" });
+      this._genAbort?.abort();
     } catch (err) {
       errorToast(err.message || t("forge_couldnt_stop_generation"));
     }
@@ -1952,6 +2070,13 @@ class WorkshopMediaView {
   setArchitecture(arch) {
     this.architecture = arch;
     this.checkpoint = "";
+    this.sampler = "";
+    this.scheduler = "";
+    if (this.imageGenDefaults) {
+      const archDefaults = this.imageGenDefaults[arch === "anima" ? "anima" : "sdxl"];
+      this.steps = archDefaults.steps;
+      this.cfg = archDefaults.cfg;
+    }
     if (this.loras.length > 0) toast(t("forge_lora_selections_cleared"));
     this.loras = [];
     this.render();
