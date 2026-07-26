@@ -2248,14 +2248,14 @@ class WorkshopMediaView {
           ${this.generateBarHtml("inline")}
           <div id="forgeRecentInDesktop">${this.recentColumnHtml()}</div>
         </div>
-        <div id="forgeOptionsCol">
-          ${this.promptBlockHtml()}
-          ${this.referenceImageSectionHtml()}
-          ${this.durationFpsHtml()}
-          ${this.aspectRowHtml()}
-          ${this.modelPickerHtml()}
-          ${this.loraSectionHtml()}
-          ${this.advancedHtml()}
+        <div id="forgeOptionsCol" class="forge-panel">
+          <div class="forge-panel-section">${this.promptBlockHtml()}</div>
+          <div class="forge-panel-section">${this.referenceImageSectionHtml()}</div>
+          <div class="forge-panel-section">${this.durationFpsHtml()}</div>
+          <div class="forge-panel-section">${this.aspectRowHtml()}</div>
+          <div class="forge-panel-section">${this.modelPickerHtml()}</div>
+          <div class="forge-panel-section">${this.loraSectionHtml()}</div>
+          <div class="forge-panel-section">${this.advancedHtml()}</div>
         </div>
         <div id="forgeRecentCol">${this.recentColumnHtml()}</div>
       </div>

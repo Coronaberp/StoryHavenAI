@@ -2162,6 +2162,34 @@ html.chrome-hidden .rail-tools {
   .forge-crucible { animation: none; }
   .forge-bubble { animation: none; opacity: .5; }
 }
+.forge-generate-sticky {
+  position: relative;
+}
+.forge-generate-sticky::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  right: -12px;
+  bottom: 100%;
+  height: 28px;
+  background: linear-gradient(to bottom, transparent, var(--color-paper) 85%);
+  pointer-events: none;
+}
+.forge-generate-sticky .forge-generate-btn {
+  box-shadow: 0 14px 28px -8px rgba(0, 0, 0, .55);
+}
+.forge-panel {
+  border: 1px solid var(--color-line);
+  border-radius: 4px 16px 16px 16px;
+  overflow: hidden;
+}
+.forge-panel-section {
+  padding: 16px 16px;
+  border-bottom: 1px solid var(--color-line);
+}
+.forge-panel-section:last-child {
+  border-bottom: none;
+}
 
 .comment-explicit-img { filter: blur(16px); }
 html[data-nsfw="1"][data-censor="0"] .comment-explicit-img { filter: none; }
@@ -3896,20 +3924,23 @@ body { background-color: var(--color-paper) !important; }
 }
 .nsfw-swap {
   position: absolute;
-  left: 4px;
+  right: 4px;
   bottom: 4px;
-  padding: 1px 5px;
-  border-radius: 6px;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
   cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 8.5px;
-  letter-spacing: .06em;
-  line-height: 1.5;
   color: #fff;
   background: rgba(10, 10, 12, .55);
   backdrop-filter: blur(3px);
   opacity: 0;
-  transition: opacity .12s ease;
+  transition: opacity .12s ease, color .12s ease;
+}
+.nsfw-swap svg {
+  width: 11px;
+  height: 11px;
 }
 .nsfw-swap[data-nsfw-toggle="nsfw"],
 .nsfw-swap:focus-visible {

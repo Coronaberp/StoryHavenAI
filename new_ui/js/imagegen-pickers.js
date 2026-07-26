@@ -178,7 +178,9 @@ function modelPreviewInnerHtml(meta, label, allowSwap = true) {
   const both = sfw && nsfw;
   const img = `<img src="${_attr(sfw || nsfw)}" alt="" data-sfw-src="${_attr(sfw)}" data-nsfw-src="${_attr(nsfw)}" style="width:100%;height:100%;object-fit:cover">`;
   if (!both || !allowSwap) return img;
-  return `${img}<span role="button" tabindex="0" class="nsfw-swap" data-nsfw-toggle="sfw" title="${_attr(t("dropdown_swap_preview", "Swap preview"))}">SFW</span>`;
+  const eyeIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  const eyeOffIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/><path d="M6.61 6.61A18.5 18.5 0 0 0 1 12s4 8 11 8a9.26 9.26 0 0 0 5.39-1.61"/></svg>`;
+  return `${img}<span role="button" tabindex="0" class="nsfw-swap" data-nsfw-toggle="sfw" data-sfw-icon="${_attr(eyeIcon)}" data-nsfw-icon="${_attr(eyeOffIcon)}" title="${_attr(t("dropdown_swap_preview", "Swap preview"))}">${eyeOffIcon}</span>`;
 }
 
 function _swapNsfwPreview(toggle) {
@@ -187,7 +189,7 @@ function _swapNsfwPreview(toggle) {
   const showingNsfw = toggle.dataset.nsfwToggle === "nsfw";
   img.src = showingNsfw ? img.dataset.sfwSrc : img.dataset.nsfwSrc;
   toggle.dataset.nsfwToggle = showingNsfw ? "sfw" : "nsfw";
-  toggle.textContent = showingNsfw ? "SFW" : "NSFW";
+  toggle.innerHTML = showingNsfw ? toggle.dataset.sfwIcon : toggle.dataset.nsfwIcon;
 }
 
 document.addEventListener("click", (e) => {
