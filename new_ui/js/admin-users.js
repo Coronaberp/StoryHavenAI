@@ -405,7 +405,7 @@ Object.assign(AdminUsersView.prototype, {
   async resetPassword(uid) {
     const username = this.users.find((u) => u.id === uid)?.username;
     if (!username) { errorToast(t("admin_users_couldnt_find_user")); return; }
-    const password = prompt(t("admin_users_prompt_new_password")) || "";
+    const password = (await promptDialog(t("admin_users_prompt_new_password"), { inputType: "password" })) || "";
     if (password.length < 8) { errorToast(t("admin_users_password_min_length")); return; }
     try {
       await api(`/api/admin/users/${encodeURIComponent(uid)}/password`, { method: "PUT", body: JSON.stringify({ username, password }) });
@@ -450,7 +450,7 @@ Object.assign(AdminUsersView.prototype, {
   },
 
   async suspend(uid) {
-    const reason = prompt(t("admin_users_prompt_suspension_reason")) || "";
+    const reason = (await promptDialog(t("admin_users_prompt_suspension_reason"))) || "";
     if (!(await confirmDialog(t("admin_users_confirm_suspend"), { confirmLabel: t("admin_users_suspend") }))) return;
     try {
       await api(`/api/admin/users/${encodeURIComponent(uid)}/suspend`, { method: "POST", body: JSON.stringify({ reason: reason || null }) });
@@ -543,7 +543,7 @@ Object.assign(AdminUsersView.prototype, {
   },
 
   async setIdentityLabel(uid, currentLabel) {
-    const label = prompt(t("admin_users_prompt_identity_label"), currentLabel || "");
+    const label = await promptDialog(t("admin_users_prompt_identity_label"), { defaultValue: currentLabel || "" });
     if (label === null) return;
     try {
       await api(`/api/admin/users/${encodeURIComponent(uid)}/identity`, { method: "PUT", body: JSON.stringify({ label: label.trim() || null }) });
