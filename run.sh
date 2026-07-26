@@ -31,4 +31,12 @@ cd /app/ai-frontend || exec echo "FATAL: /app/ai-frontend not mounted"
 # this, editing one mid-deploy triggers a full uvicorn worker reload that
 # kills whatever `modal deploy` subprocess that same request just spawned,
 # aborting the deploy with Modal's own "Stopping app - unknown reason".
-exec /app/ai-frontend/venv/bin/uvicorn server:app --host 0.0.0.0 --port 3000 --reload --reload-exclude 'modal_app/*' --proxy-headers --forwarded-allow-ips='*'
+# --timeout-graceful-shutdown 3: on --reload, uvicorn waits indefinitely for
+# in-flight connections to close before restarting the worker. The
+# multiplayer /live endpoint holds a long-lived SSE stream open for as long
+# as anyone has a chat tab open, so it never closes on its own — a single
+# active multiplayer viewer was enough to hang every single .py edit's
+# reload forever, requiring a manual `podman restart story-game` each time.
+# This caps the wait at 3 seconds before uvicorn force-closes stragglers and
+# restarts anyway.
+exec /app/ai-frontend/venv/bin/uvicorn server:app --host 0.0.0.0 --port 3000 --reload --reload-exclude 'modal_app/*' --proxy-headers --forwarded-allow-ips='*' --timeout-graceful-shutdown 3
