@@ -599,24 +599,29 @@ class ChatView {
     }
     if (!participants || !participants.length) return;
     this.multiplayer = { participants };
+    await this._restoreActiveGeneration();
     this.loadPersonaAvatar();
     this.render();
     this._openMultiplayerLive();
-    this._registerLeaveOnUnload();
   }
 
-  _registerLeaveOnUnload() {
-    if (this._leaveOnUnloadHandler) return;
-    this._leaveOnUnloadHandler = () => {
-      navigator.sendBeacon(`/api/sessions/${encodeURIComponent(this.sid)}/multiplayer/leave`);
-    };
-    window.addEventListener("pagehide", this._leaveOnUnloadHandler);
-  }
-
-  _unregisterLeaveOnUnload() {
-    if (!this._leaveOnUnloadHandler) return;
-    window.removeEventListener("pagehide", this._leaveOnUnloadHandler);
-    this._leaveOnUnloadHandler = null;
+  async _restoreActiveGeneration() {
+    let status;
+    try {
+      status = await api(`/api/sessions/${encodeURIComponent(this.sid)}/multiplayer/generating-status`);
+    } catch {
+      return;
+    }
+    if (!status?.active) return;
+    this.multiplayerLocked = true;
+    this.multiplayerLockedBy = status.sender_user_id || null;
+    if (status.content && status.sender_user_id !== ME?.id && !this.session.messages.some((m) => m.id === `pending-remote-${status.sender_user_id}`)) {
+      this.session.messages.push({
+        id: `pending-remote-${status.sender_user_id}`, role: "user", content: status.content,
+        user_name: status.user_name || null, persona_avatar: status.persona_avatar || null,
+        sender_user_id: status.sender_user_id || null,
+      });
+    }
   }
 
   _watchLiveUnmount() {
@@ -626,7 +631,6 @@ class ChatView {
       if (document.contains(this.main)) return;
       this._liveObserver.disconnect();
       this._liveAbort?.abort();
-      this._unregisterLeaveOnUnload();
     });
     this._liveObserver.observe(parent, { childList: true });
   }
@@ -648,7 +652,6 @@ class ChatView {
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
     this._liveObserver?.disconnect();
-    this._unregisterLeaveOnUnload();
   }
 
   _announceParticipantChange(kind, userId, beforeList, afterList, kicked) {
@@ -690,9 +693,9 @@ class ChatView {
       clearTimeout(this.multiplayerTypingBy.get(ev.user_id));
       this.multiplayerTypingBy.set(ev.user_id, setTimeout(() => {
         this.multiplayerTypingBy.delete(ev.user_id);
-        this.render();
+        this._renderTypingIndicator();
       }, 4000));
-      this.render();
+      this._renderTypingIndicator();
     } else if (ev.type === "done") {
       this.multiplayerLocked = false;
       this.multiplayerLockedBy = null;
@@ -952,11 +955,6 @@ class ChatView {
           ${this.partyChatUnread ? `<span style="position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;border-radius:999px;background:var(--color-accent);color:var(--color-paper-base);font-family:var(--font-mono);font-size:10px;font-weight:600;display:grid;place-items:center;line-height:1">${this.partyChatUnread > 9 ? "9+" : this.partyChatUnread}</span>` : ""}
         </button>
       </div>
-      ${this.multiplayerTypingBy.size ? `
-        <div style="flex:none;padding:6px 14px;border-bottom:1px solid var(--color-line)">
-          <div class="chat-writing"><span class="chat-writing-dot"></span>${this._typingByLabel()}</div>
-        </div>
-      ` : ""}
     `;
   }
 
@@ -974,6 +972,17 @@ class ChatView {
     const last = names[names.length - 1];
     const rest = names.slice(0, -1).join(", ");
     return t("chat_multiplayer_typing_label_many", "{rest}, and {last} are typing…").replace("{rest}", rest).replace("{last}", last);
+  }
+
+  _renderTypingIndicator() {
+    const el = document.getElementById("chatTypingIndicator");
+    if (!el) return;
+    if (this.multiplayerTypingBy.size) {
+      el.style.display = "";
+      el.querySelector("#chatTypingIndicatorLabel").textContent = this._typingByLabel();
+    } else {
+      el.style.display = "none";
+    }
   }
 
   _isMultiplayerHost() {
@@ -1913,6 +1922,7 @@ class ChatView {
               ${this.threadHtml()}
               ${this.session.is_group && !this.streaming ? this.groupVoicesHtml() : ""}
               ${(this.streaming || this.multiplayerLocked) && !this.session.is_group ? `<div class="chat-writing"><span class="chat-writing-dot"></span>${_esc(this.char.name)} ${t("chat_is_writing_suffix")}</div>` : ""}
+              <div id="chatTypingIndicator" class="chat-writing" style="display:${this.multiplayerTypingBy.size ? "" : "none"}"><span class="chat-writing-dot"></span><span id="chatTypingIndicatorLabel">${this.multiplayerTypingBy.size ? this._typingByLabel() : ""}</span></div>
             </div>
           </div>
           <button type="button" id="chatScrollFab" aria-label="${t("chat_scroll_to_latest")}" data-tooltip="${t("chat_scroll_to_latest")}" style="display:none;position:absolute;right:14px;bottom:14px;width:38px;height:38px;border-radius:999px;border:1px solid var(--color-line-2);background:var(--color-surface-2);color:var(--color-ink);align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,.25)">

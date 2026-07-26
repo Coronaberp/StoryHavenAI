@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 
 from backend.state import api, log
 from backend.auth import get_experimental_user, get_current_user
-from backend.chat_service import _own_session, participant_display_name
+from backend.chat_service import _own_session, participant_display_name, active_generation
 from backend.repositories import chat_sessions, characters, session_participants, session_invites, notifications, party_chat
 from backend.repositories import emojis as custom_emoji_repo
 from backend.repositories import personas
@@ -198,6 +198,14 @@ async def typing_ping(sid: str, current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     live_broadcast.broadcast(sid, "typing", {"user_id": current_user["id"]})
     return {"ok": True}
+
+@api.get("/sessions/{sid}/multiplayer/generating-status")
+async def generating_status(sid: str, current_user: dict = Depends(get_current_user)):
+    await _own_session(sid, current_user)
+    payload = active_generation(sid)
+    if payload is None:
+        return {"active": False}
+    return {"active": True, **payload}
 
 @api.get("/sessions/{sid}/multiplayer/live")
 async def live(sid: str, current_user: dict = Depends(get_current_user)):

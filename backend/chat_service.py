@@ -203,6 +203,7 @@ class GenHandle:
             q.put_nowait(None)
         if _active_gen.get(self.sid) is self:
             _active_gen.pop(self.sid, None)
+        _active_gen_payload.pop(self.sid, None)
         live_broadcast.broadcast(self.sid, "done", {})
 
     async def stream(self):
@@ -229,6 +230,7 @@ class GenHandle:
                 pass
 
 _active_gen: dict[str, GenHandle] = {}
+_active_gen_payload: dict[str, dict] = {}
 
 def _extract_memory_in_background(sid: str, coro) -> None:
     async def _run():
@@ -260,6 +262,12 @@ def _start_gen(sid: str, coro_fn, *args, **kwargs):
 
     handle.task = asyncio.create_task(_wrap())
     return handle
+
+def active_generation(sid: str) -> dict | None:
+    handle = _active_gen.get(sid)
+    if not handle or handle.done:
+        return None
+    return _active_gen_payload.get(sid, {})
 
 def abort_generation(sid: str) -> bool:
     handle = _active_gen.get(sid)
@@ -728,6 +736,7 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
         generating_payload["content"] = user_content
         generating_payload["user_name"] = user_name
         generating_payload["persona_avatar"] = (persona or {}).get("avatar") or None
+    _active_gen_payload[sid] = generating_payload
     live_broadcast.broadcast(sid, "generating", generating_payload)
     if s.get("is_group"):
         if continue_mode:
