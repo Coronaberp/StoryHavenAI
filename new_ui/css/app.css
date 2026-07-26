@@ -3884,11 +3884,6 @@
       padding-left: calc(var(--spacing) * 14);
     }
   }
-  .sm\:col-span-4 {
-    @media (width >= 40rem) {
-      grid-column: span 4 / span 4;
-    }
-  }
   .sm\:block {
     @media (width >= 40rem) {
       display: block;
@@ -6496,6 +6491,19 @@ html[data-censor="1"] [data-explicit="1"] {
     padding: 4px 0 4px 20px;
   }
 }
+.ig-comments-full {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 20px;
+  margin-top: 20px;
+  border-top: 1px solid var(--color-line);
+}
+@media (min-width: 1024px) {
+  .ig-comments-full {
+    max-width: 760px;
+  }
+}
 .ig-detail-eyebrow {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -8418,12 +8426,15 @@ html[data-nsfw="1"][data-censor="0"] .comment-explicit-img {
 .comment-list {
   display: flex;
   flex-direction: column;
+  gap: 10px;
 }
 .comment-row {
   display: flex;
   gap: 12px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--color-line);
+  padding: 12px 14px;
+  border-radius: 4px 14px 14px 14px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-line);
 }
 .comment-block {
   position: relative;
@@ -8479,12 +8490,13 @@ html[data-nsfw="1"][data-censor="0"] .comment-explicit-img {
   max-width: 320px;
 }
 .comment-avatar {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
   flex: none;
   overflow: hidden;
-  background: var(--color-surface-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line-2);
   display: grid;
   place-items: center;
 }
@@ -8840,13 +8852,13 @@ html[data-nsfw="1"][data-censor="0"] .comment-explicit-img {
 }
 @keyframes comment-row-flash-anim {
   0% {
-    background: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent);
     @supports (color: color-mix(in lab, red, red)) {
-      background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 45%, transparent);
     }
   }
   100% {
-    background: transparent;
+    box-shadow: 0 0 0 0 transparent;
   }
 }
 .comment-picker-grid {
