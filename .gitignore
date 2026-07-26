@@ -39,3 +39,6 @@ storyhavenai.gputemp*
 test.html
 bin/tailwindcss
 installer/models.manifest.tsv
+
+# Local research and audit write-ups, not part of the app
+report.md
