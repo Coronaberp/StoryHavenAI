@@ -8,7 +8,7 @@ from backend.state import log
 
 MAX_PARTICIPANTS = 8
 
-async def add(session_id: str, user_id: str, persona_id: str | None, role: str) -> None:
+async def add(session_id: str, user_id: str, role: str) -> None:
     existing = await _q1(
         select(session_participants).where(
             session_participants.c.session_id == session_id,
@@ -19,12 +19,7 @@ async def add(session_id: str, user_id: str, persona_id: str | None, role: str) 
         await _w(sa_update(session_participants).where(
             session_participants.c.session_id == session_id,
             session_participants.c.user_id == user_id,
-        ).values(
-            left_at=None,
-            role=role,
-            joined_at=time.time(),
-            persona_id=persona_id if persona_id is not None else existing["persona_id"],
-        ))
+        ).values(left_at=None, role=role, joined_at=time.time()))
         log.info("session_participants: rejoined user=%s session=%s role=%s", user_id, session_id, role)
         return
     current_count = await _scalar(
@@ -37,8 +32,7 @@ async def add(session_id: str, user_id: str, persona_id: str | None, role: str) 
     if current_count >= MAX_PARTICIPANTS:
         raise ValueError("session full")
     await _w(insert(session_participants).values(
-        session_id=session_id, user_id=user_id, persona_id=persona_id,
-        role=role, joined_at=time.time(),
+        session_id=session_id, user_id=user_id, role=role, joined_at=time.time(),
     ))
     log.info("session_participants: added user=%s session=%s role=%s", user_id, session_id, role)
 
@@ -67,13 +61,6 @@ async def list_session_ids_for_user(user_id: str) -> list[str]:
         select(session_participants.c.session_id).where(session_participants.c.user_id == user_id)
     )
     return [r["session_id"] for r in rows]
-
-async def set_persona(session_id: str, user_id: str, persona_id: str | None) -> None:
-    await _w(sa_update(session_participants).where(
-        session_participants.c.session_id == session_id,
-        session_participants.c.user_id == user_id,
-    ).values(persona_id=persona_id))
-    log.info("session_participants: persona set user=%s session=%s persona=%s", user_id, session_id, persona_id)
 
 async def set_chat_proxy_override(session_id: str, user_id: str, proxy_id: str | None) -> None:
     await _w(sa_update(session_participants).where(

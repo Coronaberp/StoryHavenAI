@@ -301,7 +301,6 @@ session_participants = sa.Table(
     "session_participants", _meta,
     sa.Column("session_id", sa.Text, primary_key=True),
     sa.Column("user_id", sa.Text, primary_key=True),
-    sa.Column("persona_id", sa.Text),
     sa.Column("role", sa.Text, nullable=False, server_default=text("'member'")),
     sa.Column("joined_at", sa.Float, nullable=False),
     sa.Column("chat_proxy_override_id", sa.Text),
