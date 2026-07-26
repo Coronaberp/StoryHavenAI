@@ -40,7 +40,7 @@ function renderCommentMarkdown(text) {
   const emojiMap = _EMOJI_CACHE?.map || {};
   const withMentions = String(text || "").replace(COMMENT_MENTION_RE, (whole, uname) => {
     const href = `/u/${encodeURIComponent(uname.toLowerCase() === "dev" ? "zukaarimoto" : uname)}`;
-    return `<a href="${_attr(href)}" onclick="event.preventDefault();navigate('${_attr(href)}')">@${_esc(uname)}</a>`;
+    return `<a class="comment-mention" href="${_attr(href)}" onclick="event.preventDefault();navigate('${_attr(href)}')">@${_esc(uname)}</a>`;
   }).replace(COMMENT_SHORTCODE_RE, (whole, code) => {
     const img = emojiMap[code];
     if (!img) return whole;
