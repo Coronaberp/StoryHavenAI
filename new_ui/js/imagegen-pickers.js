@@ -445,3 +445,31 @@ document.addEventListener("click", (e) => {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeAllDropdowns();
 });
+
+function openPreviewZoom(url, label, opts = {}) {
+  const hasToggle = !!opts.nsfwUrl;
+  const layer = openModal(`
+    <h3 style="margin:0 0 10px">${_esc(label || t("forge_preview_word", "Preview"))}</h3>
+    <div id="pzBox" style="position:relative;width:100%;aspect-ratio:1;border-radius:14px;overflow:hidden;background:var(--color-surface-2);border:1px solid var(--color-line)">
+      <img id="pzImg" src="${_attr(url)}" alt="" style="width:100%;height:100%;object-fit:contain;display:block">
+      <div style="position:absolute;top:8px;inset-inline-end:8px;display:flex;gap:6px;z-index:1">
+        ${hasToggle ? `<button type="button" id="pzToggle" class="ig-icon-btn" data-tooltip="${_attr(t("forge_show_nsfw_preview", "Show NSFW preview"))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>` : ""}
+        ${opts.onUseReference ? `<button type="button" id="pzRef" class="ig-icon-btn" data-tooltip="${_attr(t("forge_use_as_reference_button", "Use as reference image"))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M15 9l-9.5 9.5a1.5 1.5 0 0 1-2.1-2.1L13 6.9M17.8 6.2L19 5"/></svg></button>` : ""}
+        ${opts.onDownload ? `<button type="button" id="pzDownload" class="ig-icon-btn" data-tooltip="${_attr(t("forge_download_word", "Download"))}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>` : ""}
+      </div>
+    </div>
+    <p style="margin:8px 2px 12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-muted)">${t("forge_zoom_hint", "Click to zoom, drag to pan, slider for up to 10x")}</p>
+  `, { wide: true });
+  _wireZoomPan(layer.querySelector("#pzImg"));
+  let showingNsfw = false;
+  const toggleBtn = layer.querySelector("#pzToggle");
+  if (toggleBtn) toggleBtn.onclick = () => {
+    showingNsfw = !showingNsfw;
+    layer.querySelector("#pzImg").src = showingNsfw ? opts.nsfwUrl : url;
+    toggleBtn.dataset.tooltip = showingNsfw ? t("forge_show_sfw_preview", "Show SFW preview") : t("forge_show_nsfw_preview", "Show NSFW preview");
+  };
+  const refBtn = layer.querySelector("#pzRef");
+  if (refBtn) refBtn.onclick = () => opts.onUseReference(showingNsfw ? opts.nsfwUrl : url, layer);
+  const downloadBtn = layer.querySelector("#pzDownload");
+  if (downloadBtn) downloadBtn.onclick = () => opts.onDownload(showingNsfw ? opts.nsfwUrl : url, label);
+}

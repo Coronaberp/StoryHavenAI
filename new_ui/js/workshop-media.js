@@ -956,24 +956,15 @@ class WorkshopMediaView {
     if (useBtn) useBtn.onclick = () => { this.setCheckpoint(name); closeTopModal(); };
     const thumb = document.getElementById("mpDetailThumb");
     const thumbImg = thumb?.querySelector("img");
-    if (thumbImg) thumb.onclick = () => this.openPreviewZoom(thumbImg.src, label);
+    if (thumbImg) thumb.onclick = () => this.openPreviewZoom(thumbImg.dataset.sfwSrc || thumbImg.src, label, thumbImg.dataset.nsfwSrc || null);
   }
 
-  openPreviewZoom(url, label) {
-    const layer = openModal(`
-      <h3 style="margin:0 0 10px">${_esc(label || t("forge_preview_word", "Preview"))}</h3>
-      <div id="mpZoomBox" style="position:relative;width:100%;aspect-ratio:1;border-radius:14px;overflow:hidden;background:var(--color-surface-2);border:1px solid var(--color-line)">
-        <img id="mpZoomImg" src="${_attr(url)}" alt="" style="width:100%;height:100%;object-fit:contain;display:block">
-      </div>
-      <p style="margin:8px 2px 12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-muted)">${t("forge_zoom_hint", "Click to zoom, drag to pan, slider for up to 10x")}</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button type="button" id="mpZoomRef" class="pe-gen-btn" style="flex:1;min-width:160px">${t("forge_use_as_reference_button", "Use as reference image")}</button>
-        <button type="button" id="mpZoomDownload" class="pe-gen-btn" style="flex:1;min-width:120px">${t("forge_download_word", "Download")}</button>
-      </div>
-    `, { wide: true });
-    _wireZoomPan(layer.querySelector("#mpZoomImg"));
-    layer.querySelector("#mpZoomRef").onclick = () => this.setReferenceFromUrl(url, layer);
-    layer.querySelector("#mpZoomDownload").onclick = () => this.downloadPreview(url, label);
+  openPreviewZoom(url, label, nsfwUrl) {
+    openPreviewZoom(url, label, {
+      nsfwUrl,
+      onUseReference: (u, layer) => this.setReferenceFromUrl(u, layer),
+      onDownload: (u, l) => this.downloadPreview(u, l),
+    });
   }
 
   async downloadPreview(url, label) {
@@ -1417,7 +1408,7 @@ class WorkshopMediaView {
     ` : "";
     const loraThumb = document.getElementById("lpDetailThumb");
     const loraThumbImg = loraThumb?.querySelector("img");
-    if (loraThumbImg) loraThumb.onclick = () => this.openPreviewZoom(loraThumbImg.src, label);
+    if (loraThumbImg) loraThumb.onclick = () => this.openPreviewZoom(loraThumbImg.dataset.sfwSrc || loraThumbImg.src, label, loraThumbImg.dataset.nsfwSrc || null);
     const toggleBtn = document.getElementById("lpToggle");
     if (toggleBtn) toggleBtn.onclick = () => {
       this.toggleLora(name);
