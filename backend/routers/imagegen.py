@@ -98,6 +98,13 @@ async def preview_message_image_prompt(sid: str, mid: str,
     _, _, _, positive, negative = await _build_image_prompt_for_message(sid, mid, current_user)
     return {"positive": positive, "negative": negative}
 
+async def _refund_quota(user: dict, kind: str) -> None:
+    try:
+        await guest_quota.refund(user, kind, 1)
+    except Exception as e:
+        log.warning("imagegen: quota refund failed user=%s kind=%s: %s: %s",
+                    user.get("username"), kind, type(e).__name__, e)
+
 def _image_gen_defaults(architecture: str | None) -> dict:
     suffix = "anima" if architecture == "anima" else "sdxl"
     return {
@@ -124,6 +131,7 @@ async def generate_message_image(sid: str, mid: str, body: ImageGenIn,
     reference_image = _decode_reference_image(body.reference_image)
     log.info("imagegen: message image start user=%s session=%s mid=%s provider=%s checkpoint=%s architecture=%s",
              current_user["username"], sid, mid, CFG.get("image_provider", "comfyui"), checkpoint, body.architecture)
+    await guest_quota.reserve(current_user, "images")
     _IMAGEGEN_INFLIGHT.acquire(current_user["id"])
     if not provider_active:
         await gpu_queue.acquire(current_user)
@@ -144,13 +152,13 @@ async def generate_message_image(sid: str, mid: str, body: ImageGenIn,
     except Exception as e:
         log.warning("imagegen: message image failed user=%s session=%s mid=%s: %s",
                     current_user["username"], sid, mid, e)
+        await _refund_quota(current_user, "images")
         raise HTTPException(502, f"Image generation failed: {e}")
     finally:
         if not provider_active:
             gpu_queue.release()
         _IMAGEGEN_INFLIGHT.release(current_user["id"])
 
-    await guest_quota.record(current_user, "images")
     _delete_media_file(msg.get("image"))
 
     fname = f"img_{uuid.uuid4().hex[:10]}.png"
@@ -224,7 +232,6 @@ async def stream_standalone_image(body: ImageGenStandaloneIn,
                                   current_user: dict = Depends(get_current_user)):
 
     guest_quota.check(current_user, "images")
-    await guest_quota.record(current_user, "images")
     provider_active = _provider_active()
     checkpoint = None
     defaults = _image_gen_defaults(body.architecture)
@@ -241,6 +248,7 @@ async def stream_standalone_image(body: ImageGenStandaloneIn,
              current_user["username"], CFG.get("image_provider", "comfyui"), checkpoint,
              body.architecture, width, height)
 
+    await guest_quota.reserve(current_user, "images")
     _IMAGEGEN_INFLIGHT.acquire(current_user["id"])
 
     async def gen_provider():
@@ -256,9 +264,11 @@ async def stream_standalone_image(body: ImageGenStandaloneIn,
         except imagegen.GenerationInterrupted:
             log.info("imagegen: standalone stopped by user=%s", current_user["username"])
             yield "data: " + json.dumps({"type": "cancelled"}) + "\n\n"
+            await _refund_quota(current_user, "images")
         except Exception as e:
             log.warning("imagegen: standalone failed user=%s: %s", current_user["username"], e)
             yield "data: " + json.dumps({"type": "error", "message": str(e)}) + "\n\n"
+            await _refund_quota(current_user, "images")
         finally:
             _IMAGEGEN_INFLIGHT.release(current_user["id"])
 
@@ -290,9 +300,11 @@ async def stream_standalone_image(body: ImageGenStandaloneIn,
         except imagegen.GenerationInterrupted:
             log.info("imagegen: standalone stopped by user=%s", current_user["username"])
             yield "data: " + json.dumps({"type": "cancelled"}) + "\n\n"
+            await _refund_quota(current_user, "images")
         except Exception as e:
             log.warning("imagegen: standalone failed user=%s: %s", current_user["username"], e)
             yield "data: " + json.dumps({"type": "error", "message": str(e)}) + "\n\n"
+            await _refund_quota(current_user, "images")
         finally:
             _ACTIVE_PROMPTS.pop(current_user["id"], None)
             gpu_queue.release()
@@ -325,7 +337,6 @@ async def stop_standalone_image(current_user: dict = Depends(get_current_user)):
 async def stream_inpaint_image(body: ImageGenInpaintIn, current_user: dict = Depends(get_current_user)):
     _require_comfyui_backend()
     guest_quota.check(current_user, "images")
-    await guest_quota.record(current_user, "images")
     image_bytes = _decode_reference_image(body.image)
     if not image_bytes:
         raise HTTPException(400, "image is required")
@@ -340,6 +351,7 @@ async def stream_inpaint_image(body: ImageGenInpaintIn, current_user: dict = Dep
         raise HTTPException(400, "checkpoint is required for Anima inpainting")
     log.info("imagegen: inpaint start user=%s checkpoint=%s architecture=%s",
              current_user["username"], checkpoint, body.architecture)
+    await guest_quota.reserve(current_user, "images")
     _IMAGEGEN_INFLIGHT.acquire(current_user["id"])
 
     async def gen():
@@ -363,9 +375,11 @@ async def stream_inpaint_image(body: ImageGenInpaintIn, current_user: dict = Dep
         except imagegen.GenerationInterrupted:
             log.info("imagegen: inpaint stopped by user=%s", current_user["username"])
             yield "data: " + json.dumps({"type": "cancelled"}) + "\n\n"
+            await _refund_quota(current_user, "images")
         except Exception as e:
             log.warning("imagegen: inpaint failed user=%s: %s", current_user["username"], e)
             yield "data: " + json.dumps({"type": "error", "message": str(e)}) + "\n\n"
+            await _refund_quota(current_user, "images")
         finally:
             _ACTIVE_PROMPTS.pop(current_user["id"], None)
             gpu_queue.release()
@@ -416,7 +430,6 @@ async def stream_video(body: ImageGenVideoIn, current_user: dict = Depends(get_c
     if body.image:
         raise HTTPException(400, "image-to-video input is not available yet")
     guest_quota.check(current_user, "videos")
-    await guest_quota.record(current_user, "videos")
     if body.fps < 1:
         raise HTTPException(400, "fps must be at least 1")
 
@@ -451,6 +464,7 @@ async def stream_video(body: ImageGenVideoIn, current_user: dict = Depends(get_c
 
     log.info("imagegen: video start user=%s frames=%s fps=%s",
              current_user["username"], body.num_frames, body.fps)
+    await guest_quota.reserve(current_user, "videos")
     _IMAGEGEN_INFLIGHT.acquire(current_user["id"])
 
     async def gen():
@@ -492,9 +506,11 @@ async def stream_video(body: ImageGenVideoIn, current_user: dict = Depends(get_c
         except imagegen.GenerationInterrupted:
             log.info("imagegen: video stopped by user=%s", current_user["username"])
             yield "data: " + json.dumps({"type": "cancelled"}) + "\n\n"
+            await _refund_quota(current_user, "videos")
         except Exception as e:
             log.warning("imagegen: video failed user=%s: %s", current_user["username"], e)
             yield "data: " + json.dumps({"type": "error", "message": str(e)}) + "\n\n"
+            await _refund_quota(current_user, "videos")
         finally:
             _ACTIVE_PROMPTS.pop(current_user["id"], None)
             gpu_queue.release()

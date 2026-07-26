@@ -10,7 +10,7 @@ from backend import db
 from backend.db import (
     users, auth_sessions, user_settings, admin_notes, characters, sessions,
     jwt_access_tokens, jwt_refresh_tokens,
-    nid, _q, _q1, _w, _scalar,
+    nid, _q, _q1, _w, _w_count, _scalar,
     _user_row, _char_row, _owner_username,
     _encrypt_secret, _decrypt_secret,
     hash_password, verify_password,
@@ -132,6 +132,26 @@ async def set_tier(uid: str, tier: str):
 async def add_guest_usage(uid: str, field: str, amount: int):
     column = users.c[field]
     await _w(update(users).where(users.c.id == uid).values({field: column + amount}))
+
+async def reserve_guest_usage(uid: str, field: str, amount: int, limit: int) -> bool:
+    if amount <= 0:
+        return True
+    used = func.coalesce(users.c[field], 0)
+    updated = await _w_count(update(users)
+        .where(and_(users.c.id == uid, used + amount <= limit))
+        .values({field: used + amount}))
+    if not updated:
+        log.info("users: guest usage reserve denied uid=%s field=%s amount=%s limit=%s",
+                 uid, field, amount, limit)
+    return updated > 0
+
+async def refund_guest_usage(uid: str, field: str, amount: int):
+    if amount <= 0:
+        return
+    used = func.coalesce(users.c[field], 0)
+    await _w(update(users).where(users.c.id == uid)
+        .values({field: func.greatest(used - amount, 0)}))
+    log.info("users: guest usage refunded uid=%s field=%s amount=%s", uid, field, amount)
 
 async def set_passkey_required(uid: str, required: bool):
     await _w(update(users).where(users.c.id == uid).values(passkey_required=int(required)))

@@ -30,6 +30,23 @@ def check(user: dict, kind: str) -> None:
         log.info("guest quota exhausted: user=%s kind=%s", user.get("username"), kind)
         raise HTTPException(403, message)
 
+async def reserve(user: dict, kind: str, amount: int = 1) -> None:
+    if not is_guest(user) or amount <= 0:
+        return
+    limit, field, message = _LIMITS[kind]
+    granted = await user_repo.reserve_guest_usage(user["id"], field, amount, limit)
+    if not granted:
+        log.info("guest quota exhausted: user=%s kind=%s amount=%s", user.get("username"), kind, amount)
+        raise HTTPException(403, message)
+    user[field] = int(user.get(field) or 0) + amount
+
+async def refund(user: dict, kind: str, amount: int) -> None:
+    if not is_guest(user) or amount <= 0:
+        return
+    _, field, _ = _LIMITS[kind]
+    await user_repo.refund_guest_usage(user["id"], field, amount)
+    user[field] = max(int(user.get(field) or 0) - amount, 0)
+
 async def record(user: dict, kind: str, amount: int = 1) -> None:
     if not is_guest(user) or amount <= 0:
         return
