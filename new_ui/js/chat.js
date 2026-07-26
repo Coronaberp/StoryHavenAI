@@ -2311,7 +2311,7 @@ class ChatView {
       <p style="font-size:12px;color:var(--color-muted);margin:0 0 10px">${countLabel}</p>
       ${pageItems.map((m) => `
         <div data-mid="${_esc(m.id)}" style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--color-line)">
-          <div style="flex:1;font-size:13px;color:var(--color-ink)">${_esc(m.text)}</div>
+          <div style="flex:1;font-size:13px;color:var(--color-ink)">${_esc(m.text)}${this.memoryLineageHtml(m)}</div>
           <button type="button" class="ig-icon-btn danger" data-mem-del style="position:static;width:22px;height:22px" aria-label="${t("chat_delete")}" data-tooltip="${t("chat_delete")}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
@@ -2330,6 +2330,38 @@ class ChatView {
     `;
   }
 
+  memoryLineageHtml(mem) {
+    const superseded = mem.superseded || [];
+    const reinforcements = mem.reinforcements || 0;
+    if (!superseded.length && !reinforcements) return "";
+    const badges = [];
+    if (superseded.length) {
+      const label = superseded.length === 1
+        ? t("chat_memory_replaced_note_singular", "replaced 1 earlier note")
+        : t("chat_memory_replaced_note_plural", "replaced {n} earlier notes").replace("{n}", superseded.length);
+      badges.push(`<button type="button" class="mem-lineage-btn" data-mem-lineage>${_esc(label)}</button>`);
+    }
+    if (reinforcements) {
+      const confirmLabel = reinforcements === 1
+        ? t("chat_memory_confirmed_once", "confirmed once more")
+        : t("chat_memory_confirmed_times", "confirmed {n} more times").replace("{n}", reinforcements);
+      const turnLabel = mem.last_turn === null || mem.last_turn === undefined ? ""
+        : `, ${t("chat_memory_last_confirmed_turn", "last confirmed on turn {n}").replace("{n}", mem.last_turn)}`;
+      badges.push(`<span class="mem-lineage-badge">${_esc(confirmLabel + turnLabel)}</span>`);
+    }
+    const items = superseded.map((old) => {
+      const turn = old.replaced_at_turn === null || old.replaced_at_turn === undefined ? ""
+        : `<span class="mem-lineage-turn">${_esc(t("chat_memory_replaced_at_turn", "replaced on turn {n}").replace("{n}", old.replaced_at_turn))}</span>`;
+      return `<li class="mem-lineage-item">${_esc(old.text)}${turn}</li>`;
+    }).join("");
+    return `
+      <div class="mem-lineage">
+        <div class="mem-lineage-row">${badges.join("")}</div>
+        ${superseded.length ? `<ul class="mem-lineage-list" data-mem-lineage-list hidden>${items}</ul>` : ""}
+      </div>
+    `;
+  }
+
   renderSessionLoreWeb(body, entries) {
     const view = new SessionLoreWebView(entries, (entry) => {
       this.openSessionLoreEditor(body, entries, entry.id);
@@ -2338,6 +2370,14 @@ class ChatView {
   }
 
   wireMemoryBody(body, render, invalidate) {
+    body.querySelectorAll("[data-mem-lineage]").forEach((toggle) => {
+      toggle.onclick = () => {
+        const list = toggle.closest(".mem-lineage").querySelector("[data-mem-lineage-list]");
+        if (!list) return;
+        list.hidden = !list.hidden;
+        toggle.classList.toggle("on", !list.hidden);
+      };
+    });
     body.querySelectorAll("[data-mem-del]").forEach((delBtn) => {
       delBtn.onclick = async () => {
         const mid = delBtn.closest("[data-mid]").dataset.mid;
