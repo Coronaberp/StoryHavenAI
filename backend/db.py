@@ -308,6 +308,16 @@ session_participants = sa.Table(
     sa.Column("left_at", sa.Float),
 )
 
+session_persona_claims = sa.Table(
+    "session_persona_claims", _meta,
+    sa.Column("session_id", sa.Text, primary_key=True),
+    sa.Column("persona_id", sa.Text, primary_key=True),
+    sa.Column("user_id", sa.Text, nullable=False),
+    sa.Column("status", sa.Text, nullable=False),
+    sa.Column("claimed_at", sa.Float, nullable=False),
+    sa.Column("vacated_at", sa.Float),
+)
+
 session_invite_tokens = sa.Table(
     "session_invite_tokens", _meta,
     sa.Column("token", sa.Text, primary_key=True),
