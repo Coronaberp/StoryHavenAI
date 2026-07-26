@@ -483,6 +483,20 @@ def _multiplayer_third_person_guard(other_player_names):
         )
     return guard
 
+SELF_VOICED_CHARACTER_GUARD = (
+    "# The player may self-voice more than one character\n"
+    "The human player sometimes writes dialogue or a first-person action directly attributed to a "
+    "specific named character inside their own message, even a character who is not the card's usual "
+    "player character (e.g. their message reads \"'Hmm, brother, coming?' *I headed toward the tower, "
+    "looking back at Alexander*\" — the player is voicing Andrea directly). Whenever the player's own "
+    "message does this, treat that character's stated words and action as already decided by the player "
+    "for this turn. Do not re-decide, override, or continue that same character's next move on your own "
+    "initiative anywhere in your reply. React to what they said or did, narrate the world and any actual "
+    "NPCs' responses to it, then stop and leave that character's next action to the player. This does not "
+    "apply to the card's own NPCs, who you still fully control as always — it applies only to a character "
+    "the player's own message just spoke or acted as, directly."
+)
+
 def build_system(char, persona, user_name, mode="character", language="English", full=True,
                  is_multiplayer=False, other_player_names=None):
     name = char["name"]
@@ -512,6 +526,7 @@ def build_system(char, persona, user_name, mode="character", language="English",
             parts.append(PROSE_STYLE_GUARD)
             parts.append(INJECTION_RESISTANCE_GUARD)
             parts.append(NPC_NAME_GUARD)
+            parts.append(SELF_VOICED_CHARACTER_GUARD)
             if is_multiplayer:
                 parts.append(_multiplayer_third_person_guard(other_player_names))
             if char.get("dialogue"):
@@ -520,6 +535,7 @@ def build_system(char, persona, user_name, mode="character", language="English",
             parts.append(sub(RPG_IMMERSION_REMINDER))
             parts.append("No em dashes, no semicolons, no stock AI phrasing, no repeating your last "
                          "few replies' sentence structure — the full prose rules given earlier still apply.")
+            parts.append(SELF_VOICED_CHARACTER_GUARD)
             if is_multiplayer:
                 parts.append(_multiplayer_third_person_guard(other_player_names))
     else:

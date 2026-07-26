@@ -50,6 +50,21 @@ def test_build_system_rpg_multiplayer_without_other_players_omits_voicing_clause
                           is_multiplayer=True, other_player_names=[])
     assert "NEVER write their dialogue" not in system
 
+@pytest.mark.parametrize("full", [True, False])
+def test_build_system_rpg_solo_includes_self_voiced_character_guard(full):
+    system = build_system(_char("rpg"), None, "Alice", mode="rpg", full=full, is_multiplayer=False)
+    assert "self-voice more than one character" in system.lower()
+
+@pytest.mark.parametrize("full", [True, False])
+def test_build_system_rpg_multiplayer_still_includes_self_voiced_character_guard(full):
+    system = build_system(_char("rpg"), None, "Alice", mode="rpg", full=full,
+                          is_multiplayer=True, other_player_names=["Tarion Bluerose"])
+    assert "self-voice more than one character" in system.lower()
+
+def test_build_system_character_mode_omits_self_voiced_character_guard():
+    system = build_system(_char("character"), None, "Alice", mode="character", full=True)
+    assert "self-voice more than one character" not in system.lower()
+
 def test_build_system_character_mode_ignores_multiplayer_flag():
     system = build_system(_char("character"), None, "Alice", mode="character", full=True, is_multiplayer=True)
     assert "second person" not in system.lower()
