@@ -1090,16 +1090,19 @@ def _compose_shared_chat_card(title, cast, player_count, message_count, last_act
     draw.rounded_rectangle([live_x, 32, live_x + live_w, 68], radius=18, fill=(46, 196, 113))
     _og_icon(draw, "bolt", live_x + 12, 38, 22, (255, 255, 255))
     draw.text((live_x + 40, 40), live_label, font=live_font, fill=(255, 255, 255))
-    name_font = _og_font(_FONT_DISPLAY, 50, 600)
-    name_y = height - gradient_h + 28
-    draw.text((48, name_y), (title or "")[:38], font=name_font, fill=(255, 255, 255))
-    scene_y = name_y + 62
+    bottom_margin = 48
+    stats_block_h = 98
+    stats_y = height - bottom_margin - stats_block_h
+    scene_y = stats_y - 30 - (34 if location_text else 0)
+    name_y = scene_y - 62
+    name_max_w = width - 96
+    name_text = (title or "")
+    name_font = _og_fit_font(draw, name_text, _FONT_DISPLAY, 50, 30, 600, name_max_w)
+    draw.text((48, name_y), name_text, font=name_font, fill=(255, 255, 255))
     if location_text:
         location_font = _og_font(_FONT_BODY, 24, 500)
         _og_icon(draw, "pin", 48, scene_y, 22, _OG_MUTED)
         draw.text((48 + 30, scene_y + 2), location_text[:60], font=location_font, fill=_OG_MUTED)
-        scene_y += 34
-    stats_y = scene_y + 30
     _og_stat_row(draw, 48, stats_y,
                 [("people", player_count, "Players"), ("message", message_count, "Messages"),
                  ("clock", _og_relative_time(last_active_ts).replace("Active ", "").capitalize(), "Last active")],
@@ -1191,7 +1194,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "32"
+_OG_IMG_VERSION = "33"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
@@ -1305,8 +1308,8 @@ async def chat_share_card(sid: str, request: Request):
                 if cast and all(member.get("is_public") for member in cast):
                     players = len(await session_participants.list_for_session(sid))
                     title = session.get("title") or brand_name
-                    names = ", ".join(member.get("name") or "?" for member in cast[:4])
-                    desc = _og_excerpt(f"Join this multiplayer adventure with {names}.") or brand_tagline
+                    names = _og_join_names(member.get("name") or "?" for member in cast[:4])
+                    desc = _og_excerpt(f"Join the chat with {names}.") or brand_tagline
                     message_count = len(session.get("messages") or [])
                     img = _og_shared_chat_url(request, title, cast, players, message_count,
                                               session.get("updated"), session.get("char_location"),
