@@ -45,3 +45,28 @@ async def test_non_author_allowed_with_capability(db_conn):
                                      author_id=author["id"], parent_id=None, content="hi")
     result = await delete_comment(cid, current_user={"id": moderator["id"], "role": "member", "is_admin": False, "username": "moderator1"})
     assert result == {"deleted": True}
+
+
+async def test_comments_delete_any_registered_at_import_time():
+    import backend.routers.comments  # noqa: F401
+    from backend.auth import CAPABILITY_REGISTRY
+    assert "comments.delete_any" in CAPABILITY_REGISTRY
+
+
+async def test_admin_can_delete_stranger_comment_via_seeded_defaults(db_conn):
+    from backend.repositories import comments as comment_repo
+    from backend.repositories import users as user_repo
+    from backend.repositories import roles as roles_repo
+    from backend.repositories import role_capabilities as role_capabilities_repo
+    from backend.routers.comments import delete_comment
+    await roles_repo.seed_builtins()
+    await role_capabilities_repo.seed_defaults()
+    await user_repo.create_user("author4", "password123")
+    await user_repo.create_user("admin1", "password123")
+    author = await user_repo.get_user_by_username("author4")
+    admin = await user_repo.get_user_by_username("admin1")
+    await user_repo.set_role(admin["id"], "admin")
+    cid = await comment_repo.create(target_type="character", target_id="char4",
+                                     author_id=author["id"], parent_id=None, content="hi")
+    result = await delete_comment(cid, current_user={"id": admin["id"], "role": "admin", "is_admin": True, "username": "admin1"})
+    assert result == {"deleted": True}

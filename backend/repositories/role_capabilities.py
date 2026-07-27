@@ -33,7 +33,9 @@ async def set_all(role: str, capabilities: list[str]) -> None:
 async def seed_defaults() -> None:
     from backend.auth import CAPABILITY_REGISTRY
     for role in ("guest", "member"):
-        await grant(role, "test_site.toggle_own")
-    for key in CAPABILITY_REGISTRY:
-        await grant("admin", key)
+        if not await list_for_role(role):
+            await grant(role, "test_site.toggle_own")
+    if not await list_for_role("admin"):
+        for key in CAPABILITY_REGISTRY:
+            await grant("admin", key)
     log.info("role_capabilities: defaults seeded (%d admin capabilities)", len(CAPABILITY_REGISTRY))

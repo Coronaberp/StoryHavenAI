@@ -26,7 +26,9 @@ async def test_test_site_toggle_denied_without_capability(db_conn):
 
 
 async def test_test_site_toggle_allowed_with_capability(db_conn):
+    from backend.repositories import roles as roles_repo
     from backend.repositories import role_capabilities as rc
+    await roles_repo.create("banned", "Banned")
     await rc.grant("banned", "test_site.toggle_own")
     dep = _test_site_toggle_dependency()
     result = await dep(current_user={"role": "banned"})

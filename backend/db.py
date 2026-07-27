@@ -73,7 +73,7 @@ roles = sa.Table(
 
 role_capabilities = sa.Table(
     "role_capabilities", _meta,
-    sa.Column("role", sa.Text, primary_key=True),
+    sa.Column("role", sa.Text, sa.ForeignKey("roles.name", ondelete="CASCADE"), primary_key=True),
     sa.Column("capability", sa.Text, primary_key=True),
 )
 
@@ -1093,6 +1093,20 @@ async def init():
         await conn.execute(text(
             "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS voice_overrides "
             "TEXT NOT NULL DEFAULT '{}'"))
+
+        await conn.execute(text(
+            "DO $$ BEGIN "
+            "IF NOT EXISTS ("
+            "SELECT 1 FROM pg_constraint "
+            "WHERE conrelid = 'role_capabilities'::regclass "
+            "AND confrelid = 'roles'::regclass "
+            "AND contype = 'f'"
+            ") THEN "
+            "ALTER TABLE role_capabilities "
+            "ADD CONSTRAINT role_capabilities_role_fkey "
+            "FOREIGN KEY (role) REFERENCES roles(name) ON DELETE CASCADE; "
+            "END IF; "
+            "END $$;"))
 
         await conn.execute(text(
             "UPDATE users SET role='admin' WHERE is_admin=1 AND role='user'"))

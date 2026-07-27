@@ -59,6 +59,14 @@ async def test_delete_removes_unused_custom_role(db_conn):
     await roles_repo.delete("moderator")
     assert await roles_repo.get("moderator") is None
 
+async def test_delete_cascades_to_role_capabilities(db_conn):
+    from backend.repositories import role_capabilities as role_capabilities_repo
+    await roles_repo.create("moderator", "Moderator")
+    await role_capabilities_repo.grant("moderator", "users.view")
+    await roles_repo.delete("moderator")
+    assert await role_capabilities_repo.list_for_role("moderator") == []
+
+
 async def test_list_all_reports_user_count(db_conn):
     from backend.repositories import users as user_repo
     await roles_repo.seed_builtins()

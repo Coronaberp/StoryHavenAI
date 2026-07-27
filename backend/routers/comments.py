@@ -13,8 +13,14 @@ from backend.repositories import emojis as custom_emoji_repo
 from backend.repositories import forum as forum_thread_repo
 from backend.repositories import notifications as notification_repo
 from backend.state import api, log, IMG_EXTS, MEDIA_DIR, CFG
-from backend.auth import get_current_user, get_current_user_optional, has_capability
+from backend.auth import get_current_user, get_current_user_optional, has_capability, CAPABILITY_REGISTRY
 from backend.feature_flags import require_feature_enabled
+
+# Registered eagerly at import time (not just inside delete_comment's body) so
+# seed_defaults() sees this capability when granting admin's default set at
+# startup — has_capability() alone only registers on first call, which for an
+# ownership-check capability may never happen before the first seed runs.
+CAPABILITY_REGISTRY["comments.delete_any"] = "Delete any user's comment, not just your own."
 from backend.schemas import CommentIn, CommentEditIn, CommentReactIn, GiphySendIn
 from backend.ratelimit import SlidingWindow
 from backend.media import _save_uploaded_image, _write_file, _check_upload_size
