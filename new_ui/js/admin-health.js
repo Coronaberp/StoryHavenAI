@@ -6,6 +6,7 @@ const ADMIN_HEALTH_SERVICE_LABELS = {
 };
 
 const ADMIN_HEALTH_MODEL_COLORS = ["#e3bd6c", "#4d6bfe", "#4caf50", "#e05c5c", "#9b6bd1", "#3aa3c9"];
+const ADMIN_MODEL_CHART_MAX_POINTS = 15;
 
 function adminExtractSvgDominantColor(svgMarkup) {
   if (!svgMarkup) return null;
@@ -328,10 +329,11 @@ class AdminHealthView {
     store = store || this.charts;
     const canvas = document.getElementById(canvasId);
     if (!canvas || typeof Chart === "undefined") return null;
-    const maxLen = providers.reduce((max, p) => Math.max(max, (p.latency_history || []).length), 0);
+    const histories = providers.map((p) => (p.latency_history || []).slice(-ADMIN_MODEL_CHART_MAX_POINTS));
+    const maxLen = histories.reduce((max, h) => Math.max(max, h.length), 0);
     const labels = Array.from({ length: maxLen }, (_, i) => i);
     const datasets = providers.map((p, i) => {
-      const hist = p.latency_history || [];
+      const hist = histories[i];
       const offset = maxLen - hist.length;
       return {
         label: p.name,
