@@ -58,6 +58,20 @@ const NSFW_CONFIRM_STEPS = [
   () => t("settings_nsfw_confirm_step_4"),
 ];
 
+const TEST_SITE_CONFIRM_STEPS = [
+  () => t("settings_test_site_confirm_step_1", "This is a real, live development server, not a sandbox."),
+  () => t("settings_test_site_confirm_step_2", "It can go down at any time, without notice, mid-session."),
+  () => t("settings_test_site_confirm_step_3", "Its data is a separate database. Nothing here is your main account's data, and nothing you do here reaches your main account."),
+  () => t("settings_test_site_confirm_step_4", "Features here are unfinished and unstable. They may break, behave incorrectly, or lose data."),
+  () => t("settings_test_site_confirm_step_5", "This is where the newest features land first, before they're proven stable enough for the main site."),
+  () => t("settings_test_site_confirm_step_6", "There is no support for problems encountered here. It's genuinely a development environment."),
+  () => t("settings_test_site_confirm_step_7", "Your account here may not exist yet, or may need to be created separately."),
+  () => t("settings_test_site_confirm_step_8", "Are you sure you want to continue?"),
+  () => t("settings_test_site_confirm_step_9", "Really sure? This isn't the polished experience the main site is."),
+  () => t("settings_test_site_confirm_step_10", "Last chance to back out. Cancel now if you're not sure."),
+  () => t("settings_test_site_confirm_step_11", "I understand and accept the risks."),
+];
+
 class SettingsView {
   async mount(main) {
     this.main = main;
@@ -118,6 +132,8 @@ class SettingsView {
       ${sEyebrowHtml(t("settings_section_experimental", "Experimental"))}
       ${settingsRowHtml({ icon: svgIcon("beaker"), label: t("settings_row_experimental_features", "Enable multiplayer chat (experimental)"), sublabel: t("settings_row_experimental_features_sub", "Unlocks Multiplayer below — share a chat session with up to 8 people"), right: toggleSwitchHtml("settingsView.toggleExperimentalFeatures()", experimentalOn) })}
       ${experimentalOn ? settingsRowHtml({ icon: svgIcon("masks"), label: t("settings_row_multiplayer", "Multiplayer"), sublabel: t("settings_row_multiplayer_sub", "Invite links, party chat, and who's in your sessions"), onclick: "navigate('/multiplayer')" }) : ""}
+      ${settingsRowHtml({ icon: svgIcon("beaker"), label: t("settings_row_test_site", "Dev test server (early access, unstable)"), sublabel: t("settings_row_test_site_sub", "Try the newest features before they're stable. Separate account, can go down anytime."), right: toggleSwitchHtml("settingsView.toggleTestSiteAccess()", !!ME?.test_site_warning_acknowledged) })}
+      ${ME?.test_site_warning_acknowledged ? settingsRowHtml({ icon: svgIcon("shield"), label: t("settings_row_test_site_link", "Open test server"), sublabel: t("settings_row_test_site_link_sub", "Opens in a new tab, prefills your username"), onclick: `window.open('https://[REDACTED]/login?username=' + encodeURIComponent(ME?.username || ''), '_blank', 'noopener,noreferrer')` }) : ""}
       <button type="button" onclick="confirmSignOut()"
         class="w-full flex items-center justify-center gap-2 mt-5 py-3.5 rounded-[13px] font-medium text-[14.5px]"
         style="border:1px solid var(--color-warn);background:color-mix(in srgb, var(--color-warn) 12%, transparent);color:var(--color-warn)">
@@ -150,6 +166,33 @@ class SettingsView {
       await api("/api/me/nsfw", { method: "PUT", body: JSON.stringify({ allowed: true }) });
       ME.nsfw_allowed = true;
       toast(t("settings_mature_content_enabled"));
+    } catch (e) { errorToast(e.message); }
+    this.render();
+  }
+
+  async confirmTestSiteEnable() {
+    for (const message of TEST_SITE_CONFIRM_STEPS) {
+      if (!await confirmDialog(message(), { confirmLabel: t("settings_continue"), danger: false })) return false;
+    }
+    return true;
+  }
+
+  async toggleTestSiteAccess() {
+    if (ME?.test_site_warning_acknowledged) {
+      try {
+        await api("/api/me/test-site-access", { method: "PUT", body: JSON.stringify({ acknowledged: false }) });
+        ME.test_site_warning_acknowledged = false;
+        toast(t("settings_test_site_hidden", "Test site link hidden."));
+      } catch (e) { errorToast(e.message); }
+      this.render();
+      return;
+    }
+    const confirmed = await this.confirmTestSiteEnable();
+    if (!confirmed) return;
+    try {
+      await api("/api/me/test-site-access", { method: "PUT", body: JSON.stringify({ acknowledged: true }) });
+      ME.test_site_warning_acknowledged = true;
+      toast(t("settings_test_site_enabled", "Test site link unlocked below."));
     } catch (e) { errorToast(e.message); }
     this.render();
   }
