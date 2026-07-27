@@ -16,6 +16,7 @@ from backend.repositories import memory_facts
 from backend.repositories import groups as groups_repo
 from backend.repositories import users as users_repo
 from backend.repositories import content_likes as content_like_repo
+from backend import explore_ranking
 from backend import vectors
 from backend.state import api, MEDIA_DIR, IMG_EXTS, CFG, log
 from backend.auth import get_current_user, get_current_user_optional
@@ -43,12 +44,16 @@ async def _group_feed_item(g: dict) -> dict:
         creator = {"username": owner.get("username"), "display_name": owner.get("display_name")}
     return {"id": g["id"], "kind": "group", "name": g["name"],
             "group_mode": g["group_mode"], "genre": g.get("genre"),
+            "owner_id": g.get("owner_id"), "created": g.get("created"),
             "cast_preview": preview, "creator": creator}
 
 @api.get("/characters")
 async def list_characters(q: str | None = None, scope: str | None = None,
                           tags: str | None = None, creator: str | None = None,
+                          rank: str | None = None,
                           current_user: dict | None = Depends(get_current_user_optional)):
+    if rank is not None and rank not in ("for_you", "featured"):
+        raise HTTPException(400, "rank must be 'for_you' or 'featured'")
     tag_list = [t for t in (tags or "").split(",") if t.strip()] or None
     if not current_user:
         if scope != "community":
@@ -68,6 +73,13 @@ async def list_characters(q: str | None = None, scope: str | None = None,
             if g["owner_id"] in hidden:
                 continue
             rows.append(await _group_feed_item(g))
+    if rank == "featured":
+        return {"items": await explore_ranking.rank_featured(rows), "personalized": False}
+    if rank == "for_you":
+        if not current_user:
+            return {"items": rows, "personalized": False}
+        ranked, personalized = await explore_ranking.rank_for_you(rows, current_user["id"])
+        return {"items": ranked, "personalized": personalized}
     return rows
 
 @api.get("/characters/{cid}/groups")
