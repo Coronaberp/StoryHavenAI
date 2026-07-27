@@ -1066,11 +1066,15 @@ def _og_group_url(request: Request, group_name, cast, character_count, like_coun
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
 
 def _compose_shared_chat_card(title, cast, player_count, message_count, last_active_ts,
-                              location_text, cache_key):
+                              location_text, cache_key, creator_name=None, creator_avatar_rel=None,
+                              creator_accent_hex=None, creator_banner_hex=None, creator_username=None,
+                              creator_tag_text=None):
     from PIL import ImageDraw
     signature = "|".join(f"{c.get('name') or ''}:{c.get('avatar') or ''}" for c in cast)
     digest = hashlib.md5(
-        f"{cache_key}|{title}|{signature}|{player_count}|{message_count}|{last_active_ts}|{location_text}".encode()
+        f"{cache_key}|{title}|{signature}|{player_count}|{message_count}|{last_active_ts}|{location_text}"
+        f"|{creator_name}|{creator_avatar_rel}|{creator_accent_hex}|{creator_banner_hex}"
+        f"|{creator_username}|{creator_tag_text}".encode()
     ).hexdigest()[:12]
     cache_name = f"ogchat_{digest}_v{_OG_IMG_VERSION}.png"
     cache_fs = os.path.join(MEDIA_DIR, cache_name)
@@ -1107,6 +1111,39 @@ def _compose_shared_chat_card(title, cast, player_count, message_count, last_act
                 [("people", player_count, "Players"), ("message", message_count, "Messages"),
                  ("clock", _og_relative_time(last_active_ts).replace("Active ", "").capitalize(), "Last active")],
                 icon_color=(255, 255, 255))
+    if creator_name:
+        creator_size = 52
+        name_font = _og_font(_FONT_BODY, 20, 600)
+        handle_font = _og_font(_FONT_BODY, 15, 500)
+        tag_font = _og_font(_FONT_BODY, 13, 600)
+        handle_text = f"@{creator_username}" if creator_username else ""
+        name_w = draw.textlength(creator_name, font=name_font)
+        handle_w = draw.textlength(handle_text, font=handle_font) if handle_text else 0
+        tag_pad = 18
+        tag_w = (draw.textlength(creator_tag_text, font=tag_font) + tag_pad) if creator_tag_text else 0
+        line2_gap = 10 if (handle_text and creator_tag_text) else 0
+        line2_w = handle_w + line2_gap + tag_w
+        text_w = max(name_w, line2_w)
+        pad_x, pad_y, gap = 16, 10, 12
+        row_w = creator_size + gap + text_w
+        row_x1 = width - 48
+        row_x0 = row_x1 - row_w
+        row_y0 = (height - bottom_margin) - pad_y - creator_size
+        pill_box = (row_x0 - pad_x, row_y0 - pad_y, row_x1 + pad_x, row_y0 + creator_size + pad_y)
+        _og_frosted_pill(canvas, pill_box, radius=(pill_box[3] - pill_box[1]) // 2)
+        _og_paste_ringed_avatar(canvas, draw, creator_avatar_rel, round(row_x0), round(row_y0), creator_size,
+                               creator_name, creator_accent_hex, creator_banner_hex, ring=2)
+        text_x = row_x0 + creator_size + gap
+        draw.text((text_x, row_y0 + 2), creator_name, font=name_font, fill=_OG_GOLD)
+        cx, line2_cy = text_x, row_y0 + creator_size - 16
+        if handle_text:
+            draw.text((cx, line2_cy), handle_text, font=handle_font, fill=_OG_MUTED, anchor="lm")
+            cx += handle_w + line2_gap
+        if creator_tag_text:
+            tag_h = 22
+            draw.rounded_rectangle([cx, line2_cy - tag_h / 2, cx + tag_w, line2_cy + tag_h / 2],
+                                   radius=tag_h / 2, fill=_OG_GOLD)
+            draw.text((cx + tag_pad / 2, line2_cy), creator_tag_text, font=tag_font, fill=_OG_PAPER, anchor="lm")
     try:
         canvas.save(cache_fs, "PNG")
     except Exception as e:
@@ -1115,10 +1152,14 @@ def _compose_shared_chat_card(title, cast, player_count, message_count, last_act
     return f"/media/{cache_name}"
 
 def _og_shared_chat_url(request: Request, title, cast, player_count, message_count,
-                        last_active_ts, location_text, cache_key) -> str:
+                        last_active_ts, location_text, cache_key, creator_name=None,
+                        creator_avatar_rel=None, creator_accent_hex=None, creator_banner_hex=None,
+                        creator_username=None, creator_tag_text=None) -> str:
     origin = str(request.base_url).rstrip("/")
     card = _compose_shared_chat_card(title, cast, player_count, message_count,
-                                     last_active_ts, location_text, cache_key)
+                                     last_active_ts, location_text, cache_key, creator_name,
+                                     creator_avatar_rel, creator_accent_hex, creator_banner_hex,
+                                     creator_username, creator_tag_text)
     if card:
         return f"{origin}{card}"
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
@@ -1194,7 +1235,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "33"
+_OG_IMG_VERSION = "34"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
@@ -1311,9 +1352,21 @@ async def chat_share_card(sid: str, request: Request):
                     names = _og_join_names(member.get("name") or "?" for member in cast[:4])
                     desc = _og_excerpt(f"Join the chat with {names}.") or brand_tagline
                     message_count = len(session.get("messages") or [])
+                    creator = (await user_repo.get_user_by_id(session.get("user_id"))
+                              if session.get("user_id") else None)
+                    creator_name = (creator or {}).get("display_name") or (creator or {}).get("username")
+                    if creator and creator.get("title_status") == "approved" and creator.get("title"):
+                        creator_tag_text = creator.get("title")
+                    elif creator and creator.get("is_admin"):
+                        creator_tag_text = "Dev" if creator.get("role") == "dev" else "Admin"
+                    else:
+                        creator_tag_text = None
                     img = _og_shared_chat_url(request, title, cast, players, message_count,
                                               session.get("updated"), session.get("char_location"),
-                                              f"chat{sid}")
+                                              f"chat{sid}", creator_name, (creator or {}).get("avatar"),
+                                              (creator or {}).get("accent_color"),
+                                              (creator or {}).get("banner_color"),
+                                              (creator or {}).get("username"), creator_tag_text)
                     return _share_shell(title, desc, img, "website", f"{origin}/chats/{sid}?token={token}")
     generic = f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
     return _share_shell(brand_name, brand_tagline, generic, "website", f"{origin}/chats/{sid}")
