@@ -109,6 +109,11 @@ const routes = {
     window.adminAnnouncePanel = new AdminAnnouncePanel();
     window.adminAnnouncePanel.mount(main);
   },
+  "admin-rbac": (main) => {
+    if (!ME || ME.role !== "dev") { navigate("/admin"); return; }
+    window.adminRbacView = new AdminRbacView();
+    window.adminRbacView.mount(main);
+  },
   "admin-dev": (main) => {
     if (!ME || ME.role !== "dev") { navigate("/admin"); return; }
     window.adminDevView = new AdminDevView();
@@ -194,6 +199,7 @@ const ROOT_FOR_ROUTE = {
   "admin-health": "dossier",
   "admin-features": "dossier",
   "admin-announce": "dossier",
+  "admin-rbac": "dossier",
   "admin-dev": "dossier",
 };
 

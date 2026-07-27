@@ -11,6 +11,7 @@ const ADMIN_SCREENS = [
   { route: "admin-health", labelKey: "admin_switch_health", fallback: "Health and logs" },
   { route: "admin-features", labelKey: "admin_switch_features", fallback: "Feature flags" },
   { route: "admin-announce", labelKey: "admin_switch_announce", fallback: "Announcements" },
+  { route: "admin-rbac", labelKey: "admin_switch_rbac", fallback: "Roles" },
   { route: "admin-dev", labelKey: "admin_switch_dev", fallback: "Dev" },
 ];
 
