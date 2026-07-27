@@ -167,18 +167,6 @@ class AdminConfigView {
     else el.textContent = "";
   }
 
-  async resyncUiTranslations() {
-    const btn = document.getElementById("cfg_resync_ui_translations");
-    if (btn) { btn.disabled = true; btn.textContent = t("admin_config_resync_ui_translations_starting"); }
-    try {
-      const r = await api("/api/admin/resync-ui-translations", { method: "POST", body: JSON.stringify({ strings: UI_STRINGS }) });
-      toast(`${t("admin_config_resync_ui_translations_started_prefix")} ${r.keys} ${t("admin_config_resync_ui_translations_started_middle")} ${r.languages} ${t("admin_config_resync_ui_translations_started_suffix")}`);
-    } catch (e) {
-      errorToast(e.message || t("admin_config_resync_ui_translations_failed"));
-    }
-    if (btn) { btn.disabled = false; btn.textContent = t("admin_config_resync_ui_translations_button"); }
-  }
-
   async loadWanOptions() {
     let unets, clips, vaes;
     try {
@@ -762,9 +750,6 @@ AdminConfigView.prototype.render = function () {
   const languageContent = `
     <label class="block text-xs text-sec mb-1">${t("admin_config_default_interface_language")}</label>
     <input type="text" id="cfg_deflang" value="${_attr(st.default_language || "English")}" class="w-full mb-3 px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
-    <div class="font-display font-semibold text-sm text-ink mb-1">${t("admin_config_resync_ui_translations_title")}</div>
-    <p class="text-xs text-muted mb-3">${t("admin_config_resync_ui_translations_description")}</p>
-    <button type="button" id="cfg_resync_ui_translations" onclick="adminConfigView.resyncUiTranslations()" class="px-3 py-2 rounded-md border border-line text-xs text-ink">${t("admin_config_resync_ui_translations_button")}</button>
   `;
 
   const dossierIcons = {
