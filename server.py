@@ -767,7 +767,10 @@ def _og_paste_ringed_avatar(canvas, draw, avatar_rel, x, y, size, name, accent_h
     ImageDraw.Draw(avatar_mask).ellipse([0, 0, size - 1, size - 1], fill=255)
     avatar_img = _og_open_media(avatar_rel)
     if avatar_img is not None:
-        canvas.paste(_og_cover(avatar_img, size, size), (x, y), avatar_mask)
+        fitted = _og_contain(avatar_img, size, size)
+        tile = Image.new("RGB", (size, size), accent_rgb)
+        tile.paste(fitted, ((size - fitted.width) // 2, (size - fitted.height) // 2))
+        canvas.paste(tile, (x, y), avatar_mask)
     else:
         canvas.paste(Image.new("RGB", (size, size), accent_rgb), (x, y), avatar_mask)
         initial = (name or "?")[0].upper()
@@ -786,8 +789,16 @@ def _compose_profile_card(name, avatar_rel, banner_rel, characters_count, follow
     cache_fs = os.path.join(MEDIA_DIR, cache_name)
     if os.path.exists(cache_fs):
         return f"/media/{cache_name}"
-    width, banner_h, avatar_size, overlap = 1200, 260, 160, 70
-    wrapper_h = banner_h + overlap
+    width, height, avatar_size, overlap = 1200, 630, 160, 70
+    bottom_margin = 48
+    stats_block_h = 98
+    stats_y = height - bottom_margin - stats_block_h
+    content_bottom = stats_y - 56
+    avatar_y = content_bottom - avatar_size
+    name_y = avatar_y + avatar_size / 2 - 32
+    banner_h = avatar_y + overlap
+    avatar_ring = 6
+    wrapper_h = avatar_y + avatar_size + avatar_ring + 4
     wrapper = Image.new("RGB", (width, wrapper_h), _OG_PAPER)
     accent_rgb = _og_hex_rgb(accent_hex, _OG_GOLD)
     banner_rgb = _og_hex_rgb(banner_hex, accent_rgb)
@@ -798,17 +809,18 @@ def _compose_profile_card(name, avatar_rel, banner_rel, characters_count, follow
         wrapper.paste(_og_diagonal_gradient(max(width, banner_h), accent_rgb, banner_rgb)
                      .resize((width, banner_h)), (0, 0))
     wrapper_draw = ImageDraw.Draw(wrapper)
-    avatar_x, avatar_y = 48, banner_h - overlap
+    avatar_x = 48
     _og_paste_ringed_avatar(wrapper, wrapper_draw, avatar_rel, avatar_x, avatar_y, avatar_size,
                            name, accent_hex, banner_hex)
-    canvas = Image.new("RGB", (width, 630), _OG_PAPER)
+    canvas = Image.new("RGB", (width, height), _OG_PAPER)
     canvas.paste(wrapper, (0, 0))
     draw = ImageDraw.Draw(canvas)
     _og_brand_mark(canvas, draw)
     text_x = avatar_x + avatar_size + 34
-    name_y = banner_h + 30
-    draw.text((text_x, name_y), (name or "")[:38], font=_og_font(_FONT_DISPLAY, 50, 600), fill=_OG_GOLD)
-    stats_y = name_y + 74
+    name_text = name or ""
+    name_max_w = width - 48 - text_x
+    name_font = _og_fit_font(draw, name_text, _FONT_DISPLAY, 50, 26, 600, name_max_w)
+    draw.text((text_x, name_y), name_text, font=name_font, fill=_OG_GOLD)
     _og_stat_row(draw, text_x, stats_y,
                 [("person", characters_count, "Characters"), ("people", followers_count, "Followers")])
     try:
@@ -1019,7 +1031,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "17"
+_OG_IMG_VERSION = "18"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
