@@ -793,9 +793,8 @@ def _compose_profile_card(name, avatar_rel, banner_rel, characters_count, follow
     bottom_margin = 48
     stats_block_h = 98
     stats_y = height - bottom_margin - stats_block_h
-    content_bottom = stats_y - 56
-    avatar_y = content_bottom - avatar_size
-    name_y = avatar_y + avatar_size / 2 - 32
+    avatar_y = stats_y - overlap - 104
+    name_y = avatar_y + overlap + 30
     banner_h = avatar_y + overlap
     avatar_ring = 6
     wrapper_h = avatar_y + avatar_size + avatar_ring + 4
@@ -1031,7 +1030,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "18"
+_OG_IMG_VERSION = "19"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
