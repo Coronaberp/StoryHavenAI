@@ -49,4 +49,7 @@ async def seed_defaults() -> None:
         await _seed_row_if_absent("admin", key, True, True, True)
     for resource in ADMIN_RESOURCES:
         await _seed_row_if_absent("admin", resource, True, True, True)
+    await _seed_row_if_absent("guest", "test_site_access", True, True, False)
+    await _seed_row_if_absent("member", "test_site_access", True, True, False)
+    await _seed_row_if_absent("admin", "test_site_access", True, True, True)
     log.info("role_permissions: default matrix seeded")

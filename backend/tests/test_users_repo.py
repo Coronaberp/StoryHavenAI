@@ -321,3 +321,14 @@ async def test_set_user_experimental_features_enabled(db_conn):
     assert updated["experimental_features_enabled"] is True
     reverted = await user_repo.set_user_experimental_features_enabled(user["id"], False)
     assert reverted["experimental_features_enabled"] is False
+
+async def test_set_test_site_warning_acknowledged(db_conn):
+    uid = (await user_repo.create_user("testsiteuser1", "s3cret-password"))["id"]
+    user = await user_repo.set_test_site_warning_acknowledged(uid, True)
+    assert user["test_site_warning_acknowledged"] == 1
+
+async def test_set_test_site_warning_acknowledged_can_revoke(db_conn):
+    uid = (await user_repo.create_user("testsiteuser2", "s3cret-password"))["id"]
+    await user_repo.set_test_site_warning_acknowledged(uid, True)
+    user = await user_repo.set_test_site_warning_acknowledged(uid, False)
+    assert user["test_site_warning_acknowledged"] == 0
