@@ -591,6 +591,9 @@ _FONT_BODY = os.path.join(STATIC_DIR, "fonts", "Inter.ttf")
 _OG_GOLD = (227, 189, 108)
 _OG_MUTED = (183, 176, 160)
 _OG_PAPER = (12, 12, 14)
+_OG_CHAT_BLUE = (108, 178, 227)
+_OG_CHAT_BLUE_HEX = "6cb2e3"
+_OG_CHAT_BG = (16, 21, 32)
 
 def _og_hex_rgb(value, fallback):
     text = (value or "").strip().lstrip("#")
@@ -912,35 +915,81 @@ def _og_split_cast_background(canvas, width, height, cast):
             canvas.paste(_og_cover(source, width, height), (0, 0))
     return Image.blend(canvas, Image.new("RGB", (width, height), (0, 0, 0)), 0.35)
 
-def _compose_group_card(group_name, cast, character_count, like_count, creator_name, genre, cache_key):
+def _og_avatar_bubble_stack(canvas, draw, cast, cy):
+    width = canvas.width
+    shown = cast[:4]
+    overflow = len(cast) - len(shown)
+    size, ring, overlap = 130, 4, 46
+    step = size - overlap
+    slot_count = len(shown) + (1 if overflow > 0 else 0)
+    if slot_count == 0:
+        return
+    total_w = size + step * (slot_count - 1)
+    start_x = (width - total_w) // 2
+    for i, member in enumerate(shown):
+        _og_paste_ringed_avatar(canvas, draw, member.get("avatar"), start_x + i * step, cy - size // 2,
+                               size, member.get("name"), _OG_CHAT_BLUE_HEX, None, ring=ring)
+    if overflow > 0:
+        from PIL import ImageDraw as _ImageDraw
+        x, y = start_x + len(shown) * step, cy - size // 2
+        outer = size + ring * 2
+        outer_mask = Image.new("L", (outer, outer), 0)
+        _ImageDraw.Draw(outer_mask).ellipse([0, 0, outer - 1, outer - 1], fill=255)
+        canvas.paste(Image.new("RGB", (outer, outer), _OG_CHAT_BLUE), (x - ring, y - ring), outer_mask)
+        inner_mask = Image.new("L", (size, size), 0)
+        _ImageDraw.Draw(inner_mask).ellipse([0, 0, size - 1, size - 1], fill=255)
+        canvas.paste(Image.new("RGB", (size, size), _OG_CHAT_BG), (x, y), inner_mask)
+        overflow_text = f"+{overflow}"
+        overflow_font = _og_font(_FONT_DISPLAY, round(size * 0.36), 600)
+        draw.text((x + size / 2, y + size / 2), overflow_text, font=overflow_font,
+                  fill=_OG_CHAT_BLUE, anchor="mm")
+
+def _compose_group_card(group_name, cast, character_count, like_count, creator_name, genre, cache_key,
+                        group_mode="roleplay"):
     from PIL import ImageDraw
     signature = "|".join(f"{c.get('name') or ''}:{c.get('avatar') or ''}" for c in cast)
     digest = hashlib.md5(
-        f"{cache_key}|{group_name}|{signature}|{character_count}|{like_count}|{creator_name}|{genre}".encode()
+        f"{cache_key}|{group_name}|{signature}|{character_count}|{like_count}|{creator_name}"
+        f"|{genre}|{group_mode}".encode()
     ).hexdigest()[:12]
     cache_name = f"ogg_{digest}_v{_OG_IMG_VERSION}.png"
     cache_fs = os.path.join(MEDIA_DIR, cache_name)
     if os.path.exists(cache_fs):
         return f"/media/{cache_name}"
     width, height = 1200, 630
-    canvas = Image.new("RGB", (width, height), _OG_PAPER)
-    canvas = _og_split_cast_background(canvas, width, height, cast)
+    is_chat = group_mode == "chat"
+    accent_rgb = _OG_CHAT_BLUE if is_chat else _OG_GOLD
     gradient_h = 340
-    _og_apply_bottom_gradient(canvas, width, height, gradient_h)
+    canvas = Image.new("RGB", (width, height), _OG_CHAT_BG if is_chat else _OG_PAPER)
+    if not is_chat:
+        canvas = _og_split_cast_background(canvas, width, height, cast)
+        _og_apply_bottom_gradient(canvas, width, height, gradient_h)
     draw = ImageDraw.Draw(canvas)
+    if is_chat:
+        _og_avatar_bubble_stack(canvas, draw, cast, height - gradient_h - 10)
     _og_brand_mark(canvas, draw)
+    mode_label = "Chat" if is_chat else "Roleplay"
+    mode_font = _og_font(_FONT_BODY, 22, 600)
+    mode_pill_w = draw.textlength(mode_label, font=mode_font) + 26
+    mode_x1 = width - 48
+    mode_x0 = mode_x1 - mode_pill_w
+    draw.rounded_rectangle([mode_x0, 32, mode_x1, 68], radius=18, fill=accent_rgb)
+    draw.text((mode_x0 + 13, 38), mode_label, font=mode_font, fill=_OG_PAPER)
+    badge_x, badge_y = 48, 88
     if genre:
         genre_font = _og_font(_FONT_BODY, 22, 600)
         pill_w = draw.textlength(genre, font=genre_font) + 26
-        draw.rounded_rectangle([48, 32, 48 + pill_w, 68], radius=18, fill=_OG_GOLD)
-        draw.text((48 + 13, 38), genre, font=genre_font, fill=_OG_PAPER)
+        draw.rounded_rectangle([badge_x, badge_y, badge_x + pill_w, badge_y + 36], radius=18,
+                               outline=accent_rgb, width=2)
+        draw.text((badge_x + 13, badge_y + 6), genre, font=genre_font, fill=accent_rgb)
     name_font = _og_font(_FONT_DISPLAY, 50, 600)
     name_y = height - gradient_h + 28
     draw.text((48, name_y), (group_name or "")[:38], font=name_font, fill=(255, 255, 255))
     stats_y = name_y + 78
+    character_icon = "message" if is_chat else "people"
     _og_stat_row(draw, 48, stats_y,
-                [("people", character_count, "Characters"), ("heart", like_count, "Likes")],
-                icon_color=(255, 255, 255))
+                [(character_icon, character_count, "Characters"), ("heart", like_count, "Likes")],
+                icon_color=accent_rgb if is_chat else (255, 255, 255))
     if creator_name:
         creator_font = _og_font(_FONT_BODY, 22, 500)
         creator_text = f"by {creator_name}"
@@ -954,10 +1003,10 @@ def _compose_group_card(group_name, cast, character_count, like_count, creator_n
     return f"/media/{cache_name}"
 
 def _og_group_url(request: Request, group_name, cast, character_count, like_count,
-                  creator_name, genre, cache_key) -> str:
+                  creator_name, genre, cache_key, group_mode="roleplay") -> str:
     origin = str(request.base_url).rstrip("/")
     card = _compose_group_card(group_name, cast, character_count, like_count,
-                               creator_name, genre, cache_key)
+                               creator_name, genre, cache_key, group_mode)
     if card:
         return f"{origin}{card}"
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
@@ -1088,7 +1137,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "25"
+_OG_IMG_VERSION = "27"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
@@ -1162,7 +1211,8 @@ async def group_share_card(gid: str, request: Request):
             creator = await user_repo.get_user_by_id(g.get("owner_id")) if g.get("owner_id") else None
             creator_name = (creator or {}).get("display_name") or (creator or {}).get("username")
             img = _og_group_url(request, g.get("name") or brand_name, cast, len(cast),
-                                like_count, creator_name, g.get("genre"), f"g{gid}")
+                                like_count, creator_name, g.get("genre"), f"g{gid}",
+                                g.get("group_mode") or "roleplay")
             return _share_shell(title, desc, img, "website", canonical)
     fallback = f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
     return _share_shell(brand_name, brand_tagline, fallback, "website", canonical)
