@@ -41,7 +41,8 @@ async def _group_feed_item(g: dict) -> dict:
     if owner:
         creator = {"username": owner.get("username"), "display_name": owner.get("display_name")}
     return {"id": g["id"], "kind": "group", "name": g["name"],
-            "group_mode": g["group_mode"], "cast_preview": preview, "creator": creator}
+            "group_mode": g["group_mode"], "genre": g.get("genre"),
+            "cast_preview": preview, "creator": creator}
 
 @api.get("/characters")
 async def list_characters(q: str | None = None, scope: str | None = None,

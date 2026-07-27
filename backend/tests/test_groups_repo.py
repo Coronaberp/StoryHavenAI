@@ -54,3 +54,30 @@ async def test_list_public_search_matches_decrypted_name(db_conn):
     await gr.create("o", "Unrelated", "o", "chat", 1, ["a"])
     found = await gr.list_public("moonlit", None)
     assert [g["id"] for g in found] == [gid]
+
+async def test_create_with_valid_genre(db_conn):
+    gid = await gr.create("o", "Genred", "o", "roleplay", 1, ["a", "b"], genre="Horror")
+    g = await gr.get(gid)
+    assert g["genre"] == "Horror"
+
+async def test_create_with_invalid_genre_is_ignored(db_conn):
+    gid = await gr.create("o", "BadGenre", "o", "roleplay", 1, ["a", "b"], genre="Not Real")
+    g = await gr.get(gid)
+    assert g["genre"] is None
+
+async def test_create_with_no_genre_defaults_to_none(db_conn):
+    gid = await gr.create("o", "NoGenre", "o", "roleplay", 1, ["a", "b"])
+    g = await gr.get(gid)
+    assert g["genre"] is None
+
+async def test_update_genre(db_conn):
+    gid = await gr.create("o", "X", "o", "chat", 0, ["a", "b"], genre="Comedy")
+    await gr.update(gid, "Y", "o2", "roleplay", ["c", "d"], genre="Drama")
+    g = await gr.get(gid)
+    assert g["genre"] == "Drama"
+
+async def test_update_with_invalid_genre_clears_it(db_conn):
+    gid = await gr.create("o", "X", "o", "chat", 0, ["a", "b"], genre="Comedy")
+    await gr.update(gid, "Y", "o2", "roleplay", ["c", "d"], genre="Not Real")
+    g = await gr.get(gid)
+    assert g["genre"] is None

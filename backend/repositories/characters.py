@@ -10,13 +10,14 @@ from backend.db import (
     _encrypt_secret, _decrypt_secret, _encrypt_json_list, _decrypt_json_list, _loads,
     engine,
 )
-from backend.state import log
+from backend.state import log, GENRE_OPTIONS
 
 def _char_row(row) -> dict:
     d = dict(row)
     d["name"] = _decrypt_secret(d.get("name") or "")
     d["creator"] = _decrypt_secret(d.get("creator") or "")
     d["tags"] = _decrypt_json_list(d.get("tags"))
+    d["genre"] = d.get("genre") or None
     d["persona"] = _decrypt_secret(d.get("persona") or "")
     d["scenario"] = _decrypt_secret(d.get("scenario") or "")
     d["greeting"] = _decrypt_secret(d.get("greeting") or "")
@@ -41,6 +42,9 @@ async def create(data: dict) -> dict:
     mode = data.get("mode", "character")
     if mode not in ("character", "rpg"):
         mode = "character"
+    genre = data.get("genre")
+    if genre not in GENRE_OPTIONS:
+        genre = None
     await _w(insert(characters).values(
         id=cid,
         name=_encrypt_secret(data.get("name") or "Unnamed"),
@@ -50,6 +54,7 @@ async def create(data: dict) -> dict:
         dialogue=_encrypt_secret(data.get("dialogue") or ""),
         system_prompt=_encrypt_secret(data.get("system_prompt") or ""),
         tags=_encrypt_json_list(data.get("tags") or []),
+        genre=genre,
         creator=_encrypt_secret(data.get("creator") or "you"),
         avatar=data.get("avatar") or "",
         alt_greetings=_encrypt_json_list(data.get("alt_greetings") or []),
@@ -185,6 +190,9 @@ async def update(cid: str, data: dict) -> dict | None:
     mode = data.get("mode", c["mode"])
     if mode not in ("character", "rpg"):
         mode = "character"
+    genre = data.get("genre", c.get("genre"))
+    if genre not in GENRE_OPTIONS:
+        genre = None
 
     owner_id = c.get("owner_id")
     is_public = int(bool(data.get("is_public", c.get("is_public", False))))
@@ -196,6 +204,7 @@ async def update(cid: str, data: dict) -> dict | None:
         dialogue=_encrypt_secret(data.get("dialogue", c["dialogue"]) or ""),
         system_prompt=_encrypt_secret(data.get("system_prompt", c.get("system_prompt", "")) or ""),
         tags=_encrypt_json_list(data.get("tags", c["tags"])),
+        genre=genre,
         creator=_encrypt_secret(data.get("creator", c["creator"])),
         avatar=data.get("avatar", c["avatar"]),
         alt_greetings=_encrypt_json_list(data.get("alt_greetings", c["alt_greetings"])),

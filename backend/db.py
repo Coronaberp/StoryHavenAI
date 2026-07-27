@@ -166,6 +166,7 @@ characters = sa.Table(
     sa.Column("dialogue", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("system_prompt", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("tags", sa.Text, nullable=False, server_default=text("'[]'")),
+    sa.Column("genre", sa.Text),
     sa.Column("creator", sa.Text, nullable=False, server_default=text("'you'")),
     sa.Column("avatar", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("alt_greetings", sa.Text, nullable=False, server_default=text("'[]'")),
@@ -366,6 +367,7 @@ groups = sa.Table(
     sa.Column("name", sa.Text, nullable=False),
     sa.Column("opening", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("group_mode", sa.Text, nullable=False, server_default=text("'roleplay'")),
+    sa.Column("genre", sa.Text),
     sa.Column("is_public", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("created", sa.Float, nullable=False),
     sa.Column("updated", sa.Float, nullable=False),
@@ -1094,6 +1096,10 @@ async def init():
         await conn.execute(text(
             "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS voice_overrides "
             "TEXT NOT NULL DEFAULT '{}'"))
+        await conn.execute(text(
+            "ALTER TABLE characters ADD COLUMN IF NOT EXISTS genre TEXT"))
+        await conn.execute(text(
+            "ALTER TABLE groups ADD COLUMN IF NOT EXISTS genre TEXT"))
 
         await conn.execute(text(
             "ALTER TABLE roles ADD COLUMN IF NOT EXISTS capabilities_seeded "

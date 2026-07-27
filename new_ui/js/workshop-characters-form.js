@@ -1,5 +1,11 @@
 "use strict";
 
+const GENRE_OPTIONS = [
+  "Fantasy", "Sci-Fi", "Romance", "Horror", "Mystery", "Comedy",
+  "Slice of Life", "Historical", "Modern/Realistic", "Adventure",
+  "Drama", "Other",
+];
+
 async function _createQuickGenModal(width, height, onUse) {
   let checkpoints, animaUnets, loras, loraPreviews, checkpointPreviews, samplerData, upscalers;
   try {
@@ -326,6 +332,7 @@ class WorkshopCharactersFormView {
     this.dialogue = "";
     this.systemPrompt = "";
     this.tags = [];
+    this.genre = null;
     this.creator = "you";
     this.altGreetings = [];
     this.isPublic = false;
@@ -405,6 +412,7 @@ class WorkshopCharactersFormView {
     this.dialogue = c.dialogue || "";
     this.systemPrompt = c.system_prompt || "";
     this.tags = c.tags || [];
+    this.genre = c.genre || null;
     this.creator = c.creator || "you";
     this.altGreetings = c.alt_greetings || [];
     this.mode = c.mode || "character";
@@ -448,6 +456,7 @@ class WorkshopCharactersFormView {
     this.dialogue = draft.dialogue || "";
     this.systemPrompt = draft.system_prompt || "";
     this.tags = draft.tags || [];
+    this.genre = draft.genre || null;
     this.creator = draft.creator || "you";
     this.altGreetings = draft.alt_greetings || [];
     this.mode = draft.mode || "character";
@@ -621,6 +630,18 @@ class WorkshopCharactersFormView {
     `;
   }
 
+  genreHtml() {
+    return `
+      <div style="margin-bottom:20px">
+        ${this.fieldLabel(t("create_genre_label", "Genre"), t("create_genre_hint", "Optional. Helps others find this character."))}
+        <select id="cf_genre" class="grimoire-field-input">
+          <option value="">${t("create_genre_none", "No genre")}</option>
+          ${GENRE_OPTIONS.map((g) => `<option value="${_attr(g)}"${this.genre === g ? " selected" : ""}>${_esc(g)}</option>`).join("")}
+        </select>
+      </div>
+    `;
+  }
+
   altGreetingsHtml() {
     return `
       <div style="margin-bottom:20px">
@@ -750,6 +771,7 @@ class WorkshopCharactersFormView {
         <div style="margin-bottom:16px">${this.fieldLabel(t("create_description_label"), t("create_description_hint"))}<textarea id="cf_description" class="grimoire-field-textarea" rows="2">${_esc(this.description)}</textarea></div>
         ${this.appearanceTagsHtml()}
         ${this.tagsHtml()}
+        ${this.genreHtml()}
         <div style="margin-bottom:0">${this.fieldLabel(t("create_creator_label"), t("create_creator_hint"))}<input type="text" id="cf_creator" class="grimoire-field-input" value="${_esc(this.creator)}"></div>
       </div>
       <div class="mf-personality">
@@ -928,6 +950,7 @@ class WorkshopCharactersFormView {
       dialogue: this.dialogue.trim(),
       system_prompt: this.systemPrompt.trim(),
       tags: this.tags,
+      genre: this.genre || null,
       creator: this.creator.trim() || "you",
       alt_greetings: this.altGreetings.filter((g) => g.trim()),
       mode: this.mode,
@@ -1222,6 +1245,9 @@ class WorkshopCharactersFormView {
     m.querySelectorAll("[data-remove-ctag]").forEach((x) => {
       x.onclick = () => { this.tags = this.tags.filter((t) => t !== x.dataset.removeCtag); this.render(); };
     });
+
+    const genreSelect = m.querySelector("#cf_genre");
+    if (genreSelect) genreSelect.onchange = () => { this.genre = genreSelect.value || null; };
 
     m.querySelectorAll("[data-alt-idx]").forEach((el) => {
       el.oninput = () => { this.altGreetings[+el.dataset.altIdx] = el.value; };

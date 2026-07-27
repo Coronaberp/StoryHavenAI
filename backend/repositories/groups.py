@@ -4,13 +4,17 @@ import time
 from sqlalchemy import select, insert, update as sa_update, delete as sa_delete, and_
 
 from backend.db import groups, group_characters, nid, _q, _q1, _w, _encrypt_secret, _decrypt_secret
-from backend.state import log
+from backend.state import log, GENRE_OPTIONS
 
 def _row(row: dict) -> dict:
     d = dict(row)
     d["name"] = _decrypt_secret(d.get("name") or "")
     d["opening"] = _decrypt_secret(d.get("opening") or "")
+    d["genre"] = d.get("genre") or None
     return d
+
+def _clean_genre(genre: str | None) -> str | None:
+    return genre if genre in GENRE_OPTIONS else None
 
 async def _write_cast(gid: str, char_ids: list[str]) -> None:
     await _w(sa_delete(group_characters).where(group_characters.c.group_id == gid))
@@ -19,12 +23,13 @@ async def _write_cast(gid: str, char_ids: list[str]) -> None:
             id=nid("gc"), group_id=gid, char_id=char_id, position=position))
 
 async def create(owner_id: str, name: str, opening: str, group_mode: str,
-                 is_public: int, char_ids: list[str]) -> str:
+                 is_public: int, char_ids: list[str], genre: str | None = None) -> str:
     gid = nid("g")
     now = time.time()
     await _w(insert(groups).values(
         id=gid, owner_id=owner_id, name=_encrypt_secret(name), opening=_encrypt_secret(opening),
-        group_mode=group_mode, is_public=1 if is_public else 0, created=now, updated=now))
+        group_mode=group_mode, genre=_clean_genre(genre),
+        is_public=1 if is_public else 0, created=now, updated=now))
     await _write_cast(gid, char_ids)
     log.info("group template created: id=%s owner=%s cast=%d public=%s",
              gid, owner_id, len(char_ids), bool(is_public))
@@ -34,9 +39,11 @@ async def get(gid: str) -> dict | None:
     row = await _q1(select(groups).where(groups.c.id == gid))
     return _row(row) if row else None
 
-async def update(gid: str, name: str, opening: str, group_mode: str, char_ids: list[str]) -> None:
+async def update(gid: str, name: str, opening: str, group_mode: str, char_ids: list[str],
+                 genre: str | None = None) -> None:
     await _w(sa_update(groups).where(groups.c.id == gid).values(
-        name=_encrypt_secret(name), opening=_encrypt_secret(opening), group_mode=group_mode, updated=time.time()))
+        name=_encrypt_secret(name), opening=_encrypt_secret(opening), group_mode=group_mode,
+        genre=_clean_genre(genre), updated=time.time()))
     await _write_cast(gid, char_ids)
     log.info("group template updated: id=%s cast=%d", gid, len(char_ids))
 

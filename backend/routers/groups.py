@@ -78,7 +78,7 @@ async def get_group(gid: str, current_user: dict | None = Depends(get_current_us
         raise HTTPException(404, "group not found")
     owner = await users_repo.get_user_by_id(g["owner_id"])
     return {"id": g["id"], "name": g["name"], "opening": g["opening"],
-            "group_mode": g["group_mode"], "is_public": bool(g["is_public"]),
+            "group_mode": g["group_mode"], "genre": g.get("genre"), "is_public": bool(g["is_public"]),
             "is_owner": is_owner,
             "owner": {"username": (owner or {}).get("username"),
                       "display_name": (owner or {}).get("display_name"),
@@ -117,7 +117,8 @@ async def edit_group(gid: str, body: GroupEditIn, current_user: dict = Depends(g
         raise HTTPException(400, "a group needs a name")
     mode = "chat" if body.mode == "chat" else "roleplay"
     char_ids = await _validate_cast(body.char_ids or [], current_user["id"])
-    await groups_repo.update(gid, body.name.strip(), (body.opening or "").strip(), mode, char_ids)
+    await groups_repo.update(gid, body.name.strip(), (body.opening or "").strip(), mode, char_ids,
+                             genre=body.genre)
     log.info("group edited: id=%s owner=%s", gid, current_user["id"])
     return {"ok": True}
 

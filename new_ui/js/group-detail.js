@@ -68,6 +68,7 @@ class GroupDetailView {
     modal.presetName = this.group.name;
     modal.presetOpening = this.group.opening;
     modal.mode = this.group.group_mode;
+    modal.genre = this.group.genre || null;
     modal.presetSelected = new Set((this.group.cast || []).map((m) => m.char_id));
     await modal.open();
   }
