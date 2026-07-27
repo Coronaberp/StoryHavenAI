@@ -457,9 +457,9 @@ def _og_bottom_gradient(width, gradient_h, peak=225, power=1.3):
         column.putpixel((0, i), int(peak * (i / gradient_h) ** power))
     return column.resize((width, gradient_h))
 
-def _og_apply_bottom_gradient(canvas, width, height, gradient_h):
+def _og_apply_bottom_gradient(canvas, width, height, gradient_h, tint=(0, 0, 0)):
     mask = _og_bottom_gradient(width, gradient_h)
-    canvas.paste(Image.new("RGB", (width, gradient_h), (0, 0, 0)), (0, height - gradient_h), mask)
+    canvas.paste(Image.new("RGB", (width, gradient_h), tint), (0, height - gradient_h), mask)
 
 def _og_relative_time(timestamp) -> str:
     if not timestamp:
@@ -899,7 +899,7 @@ def _og_profile_url(request: Request, name, avatar_rel, banner_rel, characters_c
         return f"{origin}{card}"
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
 
-def _og_split_cast_background(canvas, width, height, cast):
+def _og_split_cast_background(canvas, width, height, cast, tint=(0, 0, 0)):
     members = cast[:2]
     if len(members) == 2:
         half = width // 2
@@ -913,36 +913,7 @@ def _og_split_cast_background(canvas, width, height, cast):
         source = _og_open_media(members[0].get("avatar"))
         if source is not None:
             canvas.paste(_og_cover(source, width, height), (0, 0))
-    return Image.blend(canvas, Image.new("RGB", (width, height), (0, 0, 0)), 0.35)
-
-def _og_avatar_bubble_stack(canvas, draw, cast, cy):
-    width = canvas.width
-    shown = cast[:4]
-    overflow = len(cast) - len(shown)
-    size, ring, overlap = 130, 4, 46
-    step = size - overlap
-    slot_count = len(shown) + (1 if overflow > 0 else 0)
-    if slot_count == 0:
-        return
-    total_w = size + step * (slot_count - 1)
-    start_x = (width - total_w) // 2
-    for i, member in enumerate(shown):
-        _og_paste_ringed_avatar(canvas, draw, member.get("avatar"), start_x + i * step, cy - size // 2,
-                               size, member.get("name"), _OG_CHAT_BLUE_HEX, None, ring=ring)
-    if overflow > 0:
-        from PIL import ImageDraw as _ImageDraw
-        x, y = start_x + len(shown) * step, cy - size // 2
-        outer = size + ring * 2
-        outer_mask = Image.new("L", (outer, outer), 0)
-        _ImageDraw.Draw(outer_mask).ellipse([0, 0, outer - 1, outer - 1], fill=255)
-        canvas.paste(Image.new("RGB", (outer, outer), _OG_CHAT_BLUE), (x - ring, y - ring), outer_mask)
-        inner_mask = Image.new("L", (size, size), 0)
-        _ImageDraw.Draw(inner_mask).ellipse([0, 0, size - 1, size - 1], fill=255)
-        canvas.paste(Image.new("RGB", (size, size), _OG_CHAT_BG), (x, y), inner_mask)
-        overflow_text = f"+{overflow}"
-        overflow_font = _og_font(_FONT_DISPLAY, round(size * 0.36), 600)
-        draw.text((x + size / 2, y + size / 2), overflow_text, font=overflow_font,
-                  fill=_OG_CHAT_BLUE, anchor="mm")
+    return Image.blend(canvas, Image.new("RGB", (width, height), tint), 0.35)
 
 def _compose_group_card(group_name, cast, character_count, like_count, creator_name, genre, cache_key,
                         group_mode="roleplay"):
@@ -961,12 +932,10 @@ def _compose_group_card(group_name, cast, character_count, like_count, creator_n
     accent_rgb = _OG_CHAT_BLUE if is_chat else _OG_GOLD
     gradient_h = 340
     canvas = Image.new("RGB", (width, height), _OG_CHAT_BG if is_chat else _OG_PAPER)
-    if not is_chat:
-        canvas = _og_split_cast_background(canvas, width, height, cast)
-        _og_apply_bottom_gradient(canvas, width, height, gradient_h)
+    tint = (10, 16, 28) if is_chat else (0, 0, 0)
+    canvas = _og_split_cast_background(canvas, width, height, cast, tint)
+    _og_apply_bottom_gradient(canvas, width, height, gradient_h, tint)
     draw = ImageDraw.Draw(canvas)
-    if is_chat:
-        _og_avatar_bubble_stack(canvas, draw, cast, height - gradient_h - 10)
     _og_brand_mark(canvas, draw)
     mode_label = "Chat" if is_chat else "Roleplay"
     mode_font = _og_font(_FONT_BODY, 22, 600)
@@ -1137,7 +1106,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "27"
+_OG_IMG_VERSION = "28"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
