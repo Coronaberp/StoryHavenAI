@@ -9,7 +9,7 @@ from backend.repositories import standalone_images as standalone_image_repo
 from backend.repositories import image_rating_reports as image_rating_report_repo
 from backend import imagegen
 from backend.state import api, log, _log_buffer, CFG
-from backend.auth import get_admin, get_dev, normalize_username
+from backend.auth import get_admin, get_dev, normalize_username, require_permission
 from backend.routers.imagegen import _match_model_request_host
 from backend.ssrf import _resolve_host_ip_issue
 from backend.repositories import flagged_endpoints as flagged_endpoint_repo
@@ -60,11 +60,11 @@ async def _fulfilled_model_slugs(request_type: str) -> set[str]:
     return slugs
 
 @api.get("/admin/users")
-async def admin_list_users(_: dict = Depends(get_admin)):
+async def admin_list_users(_: dict = Depends(require_permission("user_management", "read"))):
     return await user_repo.list_users()
 
 @api.get("/admin/invite-codes")
-async def admin_list_invite_codes(current_user: dict = Depends(get_admin)):
+async def admin_list_invite_codes(current_user: dict = Depends(require_permission("invite_codes", "read"))):
     codes = await invite_code_repo.list_all()
     for c in codes:
         c["redeemed_by"] = await invite_code_repo.redeemer_usernames(c["id"])
@@ -72,7 +72,7 @@ async def admin_list_invite_codes(current_user: dict = Depends(get_admin)):
 
 @api.post("/admin/invite-codes")
 async def admin_create_invite_code(body: InviteCodeIn,
-                                   current_user: dict = Depends(get_admin)):
+                                   current_user: dict = Depends(require_permission("invite_codes", "write"))):
     code = await invite_code_repo.create(current_user["id"], max_uses=body.max_uses,
                                          expires_days=body.expires_days, note=body.note or "",
                                          tier=body.tier)
@@ -80,21 +80,21 @@ async def admin_create_invite_code(body: InviteCodeIn,
     return code
 
 @api.post("/admin/invite-codes/{cid}/disable")
-async def admin_disable_invite_code(cid: str, current_user: dict = Depends(get_admin)):
+async def admin_disable_invite_code(cid: str, current_user: dict = Depends(require_permission("invite_codes", "write"))):
     if not await invite_code_repo.disable(cid):
         raise HTTPException(404, "invite code not found")
     log.info("admin: invite code disabled id=%s by=%s", cid, current_user["username"])
     return {"disabled": True}
 
 @api.delete("/admin/invite-codes/{cid}")
-async def admin_delete_invite_code(cid: str, current_user: dict = Depends(get_admin)):
+async def admin_delete_invite_code(cid: str, current_user: dict = Depends(require_permission("invite_codes", "write"))):
     await invite_code_repo.delete(cid)
     log.info("admin: invite code deleted id=%s by=%s", cid, current_user["username"])
     return {"deleted": True}
 
 @api.put("/admin/users/{uid}/tier")
 async def admin_set_user_tier(uid: str, body: UserTierIn,
-                              current_user: dict = Depends(get_admin)):
+                              current_user: dict = Depends(require_permission("user_management", "write"))):
     target = await user_repo.get_user_by_id(uid)
     if not target:
         raise HTTPException(404, "user not found")
@@ -120,7 +120,7 @@ def _looks_bot_gated(status_code: int, headers, text_sample: str) -> bool:
     return False
 
 @api.post("/admin/model-request-hosts/test")
-async def admin_test_model_request_host(body: ModelRequestHostTestIn, current_user: dict = Depends(get_admin)):
+async def admin_test_model_request_host(body: ModelRequestHostTestIn, current_user: dict = Depends(require_permission("model_request_approval", "read"))):
     host = (body.host or "").strip().lower()
     if not host:
         raise HTTPException(400, "host is required")
@@ -151,7 +151,7 @@ async def admin_test_model_request_host(body: ModelRequestHostTestIn, current_us
     }
 
 @api.get("/admin/model-requests")
-async def admin_list_model_requests(current_user: dict = Depends(get_admin)):
+async def admin_list_model_requests(current_user: dict = Depends(require_permission("model_request_approval", "read"))):
     all_rows = await model_request_repo.list(pending_only=False)
     active_rows = [r for r in all_rows if r["status"] in ("pending", "approved")]
     history_rows = [r for r in all_rows if r["status"] in ("implemented", "rejected")][:MODEL_REQUEST_HISTORY_LIMIT]
@@ -179,7 +179,7 @@ async def admin_list_model_requests(current_user: dict = Depends(get_admin)):
     return rows
 
 @api.post("/admin/model-requests/{rid}/approve")
-async def admin_approve_model_request(rid: str, current_user: dict = Depends(get_admin)):
+async def admin_approve_model_request(rid: str, current_user: dict = Depends(require_permission("model_request_approval", "execute"))):
     r = await model_request_repo.get(rid)
     if not r:
         raise HTTPException(404, "not found")
@@ -191,7 +191,7 @@ async def admin_approve_model_request(rid: str, current_user: dict = Depends(get
     return {"status": "approved"}
 
 @api.post("/admin/model-requests/{rid}/reject")
-async def admin_reject_model_request(rid: str, current_user: dict = Depends(get_admin)):
+async def admin_reject_model_request(rid: str, current_user: dict = Depends(require_permission("model_request_approval", "execute"))):
     r = await model_request_repo.get(rid)
     if not r:
         raise HTTPException(404, "not found")
@@ -201,7 +201,7 @@ async def admin_reject_model_request(rid: str, current_user: dict = Depends(get_
     return {"status": "rejected"}
 
 @api.post("/admin/model-requests/{rid}/reopen")
-async def admin_reopen_model_request(rid: str, current_user: dict = Depends(get_admin)):
+async def admin_reopen_model_request(rid: str, current_user: dict = Depends(require_permission("model_request_approval", "execute"))):
     r = await model_request_repo.get(rid)
     if not r:
         raise HTTPException(404, "not found")
@@ -213,7 +213,7 @@ async def admin_reopen_model_request(rid: str, current_user: dict = Depends(get_
     return {"status": "approved"}
 
 @api.post("/admin/model-requests/{rid}/complete")
-async def admin_complete_model_request(rid: str, current_user: dict = Depends(get_admin)):
+async def admin_complete_model_request(rid: str, current_user: dict = Depends(require_permission("model_request_approval", "execute"))):
     r = await model_request_repo.get(rid)
     if not r:
         raise HTTPException(404, "not found")
@@ -223,12 +223,12 @@ async def admin_complete_model_request(rid: str, current_user: dict = Depends(ge
     return {"status": "implemented"}
 
 @api.get("/admin/image-reports")
-async def admin_list_image_reports(_: dict = Depends(get_admin)):
+async def admin_list_image_reports(_: dict = Depends(require_permission("moderation_queue", "read"))):
     return await image_rating_report_repo.list(pending_only=True)
 
 @api.post("/admin/image-reports/{report_id}/resolve")
 async def admin_resolve_image_report(report_id: str, body: ImageReportResolveIn,
-                                     current_user: dict = Depends(get_admin)):
+                                     current_user: dict = Depends(require_permission("moderation_queue", "execute"))):
     rep = await image_rating_report_repo.get(report_id)
     if not rep:
         raise HTTPException(404, "not found")
@@ -245,12 +245,12 @@ _CONTENT_REPORT_SETTERS = {
 }
 
 @api.get("/admin/content-reports")
-async def admin_list_content_reports(_: dict = Depends(get_admin)):
+async def admin_list_content_reports(_: dict = Depends(require_permission("moderation_queue", "read"))):
     return await content_report_repo.list(pending_only=True)
 
 @api.post("/admin/content-reports/{report_id}/resolve")
 async def admin_resolve_content_report(report_id: str, body: ContentReportResolveIn,
-                                       current_user: dict = Depends(get_admin)):
+                                       current_user: dict = Depends(require_permission("moderation_queue", "execute"))):
     rep = await content_report_repo.get(report_id)
     if not rep:
         raise HTTPException(404, "not found")
@@ -263,7 +263,7 @@ async def admin_resolve_content_report(report_id: str, body: ContentReportResolv
     return {"status": "resolved", "is_explicit": body.is_explicit}
 
 @api.post("/admin/users")
-async def admin_create_user(body: UserCreateIn, current_user: dict = Depends(get_admin)):
+async def admin_create_user(body: UserCreateIn, current_user: dict = Depends(require_permission("user_management", "write"))):
     username = normalize_username(body.username)
     existing = await user_repo.get_user_by_username(username)
     if existing:
@@ -275,7 +275,7 @@ async def admin_create_user(body: UserCreateIn, current_user: dict = Depends(get
     return created
 
 @api.delete("/admin/users/{uid}")
-async def admin_delete_user(uid: str, current_user: dict = Depends(get_admin)):
+async def admin_delete_user(uid: str, current_user: dict = Depends(require_permission("user_management", "execute"))):
     if uid == current_user["id"]:
         raise HTTPException(400, "Cannot delete your own account")
     target = await user_repo.get_user_by_id(uid)
@@ -288,7 +288,7 @@ async def admin_delete_user(uid: str, current_user: dict = Depends(get_admin)):
     return {"deleted": True}
 
 @api.put("/admin/users/{uid}/password")
-async def admin_reset_password(uid: str, body: UserCreateIn, current_user: dict = Depends(get_admin)):
+async def admin_reset_password(uid: str, body: UserCreateIn, current_user: dict = Depends(require_permission("user_management", "execute"))):
     target = await user_repo.get_user_by_id(uid)
     if not target:
         raise HTTPException(404, "User not found")
@@ -300,7 +300,7 @@ async def admin_reset_password(uid: str, body: UserCreateIn, current_user: dict 
     return {"ok": True}
 
 @api.put("/admin/users/{uid}/role")
-async def admin_update_role(uid: str, body: UserCreateIn, current_user: dict = Depends(get_admin)):
+async def admin_update_role(uid: str, body: UserCreateIn, current_user: dict = Depends(require_permission("user_management", "execute"))):
     if uid == current_user["id"]:
         raise HTTPException(400, "Cannot change your own role")
     target = await user_repo.get_user_by_id(uid)
@@ -328,7 +328,7 @@ async def admin_update_dev_role(uid: str, body: DevRoleIn, current_user: dict = 
     return await user_repo.get_user_by_id(uid)
 
 @api.post("/admin/users/{uid}/approve")
-async def admin_approve_user(uid: str, current_user: dict = Depends(get_admin)):
+async def admin_approve_user(uid: str, current_user: dict = Depends(require_permission("user_management", "execute"))):
     target = await user_repo.get_user_by_id(uid)
     if not target:
         raise HTTPException(404, "User not found")
@@ -337,7 +337,7 @@ async def admin_approve_user(uid: str, current_user: dict = Depends(get_admin)):
     return await user_repo.get_user_by_id(uid)
 
 @api.post("/admin/users/{uid}/deny")
-async def admin_deny_user(uid: str, current_user: dict = Depends(get_admin)):
+async def admin_deny_user(uid: str, current_user: dict = Depends(require_permission("user_management", "execute"))):
     target = await user_repo.get_user_by_id(uid)
     if not target:
         raise HTTPException(404, "User not found")
@@ -348,7 +348,7 @@ async def admin_deny_user(uid: str, current_user: dict = Depends(get_admin)):
     return {"denied": True}
 
 @api.post("/admin/users/{uid}/suspend")
-async def admin_suspend_user(uid: str, body: SuspendUserIn, current_user: dict = Depends(get_admin)):
+async def admin_suspend_user(uid: str, body: SuspendUserIn, current_user: dict = Depends(require_permission("user_management", "execute"))):
     if uid == current_user["id"]:
         raise HTTPException(400, "Cannot suspend your own account")
     target = await user_repo.get_user_by_id(uid)
@@ -362,7 +362,7 @@ async def admin_suspend_user(uid: str, body: SuspendUserIn, current_user: dict =
     return await user_repo.get_user_by_id(uid)
 
 @api.post("/admin/users/{uid}/unsuspend")
-async def admin_unsuspend_user(uid: str, current_user: dict = Depends(get_admin)):
+async def admin_unsuspend_user(uid: str, current_user: dict = Depends(require_permission("user_management", "execute"))):
     target = await user_repo.get_user_by_id(uid)
     if not target:
         raise HTTPException(404, "User not found")
@@ -371,7 +371,7 @@ async def admin_unsuspend_user(uid: str, current_user: dict = Depends(get_admin)
     return await user_repo.get_user_by_id(uid)
 
 @api.post("/admin/users/{uid}/totp/clear")
-async def admin_clear_user_totp(uid: str, current_user: dict = Depends(get_admin)):
+async def admin_clear_user_totp(uid: str, current_user: dict = Depends(require_permission("user_management", "execute"))):
     target = await user_repo.get_user_by_id(uid)
     if not target:
         raise HTTPException(404, "User not found")
@@ -381,14 +381,14 @@ async def admin_clear_user_totp(uid: str, current_user: dict = Depends(get_admin
     return await user_repo.get_user_by_id(uid)
 
 @api.get("/admin/users/{uid}/notes")
-async def admin_list_user_notes(uid: str, _: dict = Depends(get_admin)):
+async def admin_list_user_notes(uid: str, _: dict = Depends(require_permission("user_management", "read"))):
     target = await user_repo.get_user_by_id(uid)
     if not target:
         raise HTTPException(404, "User not found")
     return await admin_note_repo.list_for_user(uid)
 
 @api.post("/admin/users/{uid}/notes")
-async def admin_add_user_note(uid: str, body: AdminNoteIn, current_user: dict = Depends(get_admin)):
+async def admin_add_user_note(uid: str, body: AdminNoteIn, current_user: dict = Depends(require_permission("user_management", "write"))):
     target = await user_repo.get_user_by_id(uid)
     if not target:
         raise HTTPException(404, "User not found")
@@ -401,13 +401,13 @@ async def admin_add_user_note(uid: str, body: AdminNoteIn, current_user: dict = 
     return created
 
 @api.delete("/admin/notes/{note_id}")
-async def admin_delete_user_note(note_id: str, current_user: dict = Depends(get_admin)):
+async def admin_delete_user_note(note_id: str, current_user: dict = Depends(require_permission("user_management", "write"))):
     await admin_note_repo.delete(note_id)
     log.info("admin: note deleted by=%s note=%s", current_user["username"], note_id)
     return {"deleted": True}
 
 @api.put("/admin/users/{uid}/identity")
-async def admin_set_identity_label(uid: str, body: IdentityLabelIn, current_user: dict = Depends(get_admin)):
+async def admin_set_identity_label(uid: str, body: IdentityLabelIn, current_user: dict = Depends(require_permission("user_management", "write"))):
     target = await user_repo.get_user_by_id(uid)
     if not target:
         raise HTTPException(404, "User not found")
@@ -417,11 +417,11 @@ async def admin_set_identity_label(uid: str, body: IdentityLabelIn, current_user
     return {"identity_label": label}
 
 @api.get("/admin/flagged-endpoints")
-async def admin_list_flagged_endpoints(_: dict = Depends(get_admin)):
+async def admin_list_flagged_endpoints(_: dict = Depends(require_permission("moderation_queue", "read"))):
     return await flagged_endpoint_repo.list(pending_only=True)
 
 @api.post("/admin/flagged-endpoints/{fid}/block")
-async def admin_block_flagged_endpoint(fid: str, current_user: dict = Depends(get_admin)):
+async def admin_block_flagged_endpoint(fid: str, current_user: dict = Depends(require_permission("moderation_queue", "execute"))):
     entry = await flagged_endpoint_repo.get(fid)
     if not entry:
         raise HTTPException(404, "not found")
@@ -431,7 +431,7 @@ async def admin_block_flagged_endpoint(fid: str, current_user: dict = Depends(ge
     return {"status": "blocked"}
 
 @api.post("/admin/flagged-endpoints/{fid}/allow")
-async def admin_allow_flagged_endpoint(fid: str, current_user: dict = Depends(get_admin)):
+async def admin_allow_flagged_endpoint(fid: str, current_user: dict = Depends(require_permission("moderation_queue", "execute"))):
     entry = await flagged_endpoint_repo.get(fid)
     if not entry:
         raise HTTPException(404, "not found")
@@ -445,11 +445,11 @@ async def admin_allow_flagged_endpoint(fid: str, current_user: dict = Depends(ge
     return {"status": "allowed"}
 
 @api.get("/admin/password-reset-requests")
-async def admin_list_password_reset_requests(_: dict = Depends(get_admin)):
+async def admin_list_password_reset_requests(_: dict = Depends(require_permission("moderation_queue", "read"))):
     return await password_reset_request_repo.list(pending_only=True)
 
 @api.post("/admin/password-reset-requests/{rid}/approve")
-async def admin_approve_password_reset(rid: str, current_user: dict = Depends(get_admin)):
+async def admin_approve_password_reset(rid: str, current_user: dict = Depends(require_permission("moderation_queue", "execute"))):
     req = await password_reset_request_repo.get(rid)
     if not req:
         raise HTTPException(404, "not found")
@@ -468,7 +468,7 @@ async def admin_approve_password_reset(rid: str, current_user: dict = Depends(ge
     return {"ok": True, "username": target["username"], "password": new_password}
 
 @api.post("/admin/password-reset-requests/{rid}/deny")
-async def admin_deny_password_reset(rid: str, current_user: dict = Depends(get_admin)):
+async def admin_deny_password_reset(rid: str, current_user: dict = Depends(require_permission("moderation_queue", "execute"))):
     req = await password_reset_request_repo.get(rid)
     if not req:
         raise HTTPException(404, "not found")
@@ -478,11 +478,11 @@ async def admin_deny_password_reset(rid: str, current_user: dict = Depends(get_a
     return {"ok": True}
 
 @api.get("/admin/title-requests")
-async def admin_list_title_requests(_: dict = Depends(get_admin)):
+async def admin_list_title_requests(_: dict = Depends(require_permission("moderation_queue", "read"))):
     return await content_report_repo.list_title_requests()
 
 @api.post("/admin/title-requests/{uid}/approve")
-async def admin_approve_title_request(uid: str, current_user: dict = Depends(get_admin)):
+async def admin_approve_title_request(uid: str, current_user: dict = Depends(require_permission("moderation_queue", "execute"))):
     target = await user_repo.get_user_by_id(uid)
     if not target:
         raise HTTPException(404, "User not found")
@@ -494,7 +494,7 @@ async def admin_approve_title_request(uid: str, current_user: dict = Depends(get
     return {"status": "approved"}
 
 @api.post("/admin/title-requests/{uid}/reject")
-async def admin_reject_title_request(uid: str, current_user: dict = Depends(get_admin)):
+async def admin_reject_title_request(uid: str, current_user: dict = Depends(require_permission("moderation_queue", "execute"))):
     target = await user_repo.get_user_by_id(uid)
     if not target:
         raise HTTPException(404, "User not found")
@@ -508,7 +508,7 @@ async def admin_reject_title_request(uid: str, current_user: dict = Depends(get_
 _LOG_LEVELS = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40, "CRITICAL": 50}
 
 @api.get("/admin/logs")
-async def admin_logs(level: str = "INFO", limit: int = 200, _: dict = Depends(get_admin)):
+async def admin_logs(level: str = "INFO", limit: int = 200, _: dict = Depends(require_permission("server_logs", "read"))):
     floor = _LOG_LEVELS.get(level.upper(), 20)
     entries = [e for e in _log_buffer.buffer if _LOG_LEVELS.get(e["level"], 20) >= floor]
     return {"logs": entries[-max(1, min(limit, 500)):]}
