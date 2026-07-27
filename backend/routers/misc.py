@@ -9,7 +9,7 @@ from backend.repositories import notifications as notification_repo
 from backend import vectors
 from backend import llm
 from backend.state import api, CFG, log
-from backend.auth import get_current_user, get_admin
+from backend.auth import get_current_user, require_permission
 from backend.chat_service import (_eff_cfg, _endpoints, _ui_language, _chat_language,
                           _localize_texts, _own_session, _glossary_note, _src_hash)
 from backend.repositories import content_reports as content_report_repo
@@ -100,7 +100,7 @@ async def _run_ui_translation_resync(strings: dict, admin_username: str):
                  admin_username, len(work_items), total_translated)
 
 @api.post("/admin/resync-ui-translations")
-async def admin_resync_ui_translations(body: ResyncUiTranslationsIn, current_user: dict = Depends(get_admin)):
+async def admin_resync_ui_translations(body: ResyncUiTranslationsIn, current_user: dict = Depends(require_permission("system_settings", "execute"))):
     global _ui_resync_running
     if not body.strings:
         raise HTTPException(400, "no strings provided")

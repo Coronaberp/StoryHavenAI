@@ -7,7 +7,7 @@ from backend.repositories import notifications as notification_repo
 from backend import vectors
 from backend import llm
 from backend.state import api, CFG, PUBLIC_CFG_KEYS, USER_CFG_KEYS, apply_llm_config, log
-from backend.auth import get_current_user, get_admin, require_permission
+from backend.auth import get_current_user, require_permission
 from backend.ssrf import _validate_chat_endpoint, _resolve_host_ip_issue
 from backend.repositories import flagged_endpoints as flagged_endpoint_repo
 from backend.repositories import users as user_repo
@@ -193,7 +193,7 @@ async def get_settings(current_user: dict = Depends(get_current_user)):
     return out
 
 @api.put("/settings")
-async def put_settings(body: SettingsIn, current_user: dict = Depends(get_admin)):
+async def put_settings(body: SettingsIn, current_user: dict = Depends(require_permission("system_settings", "execute"))):
     data = body.model_dump(exclude_none=True)
     if "image_provider" in data and data["image_provider"] not in ("comfyui", "openai", "stability", "novelai", "a1111"):
         raise HTTPException(400, "image_provider must be one of comfyui, openai, stability, novelai, a1111")

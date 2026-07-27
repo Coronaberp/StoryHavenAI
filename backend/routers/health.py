@@ -11,7 +11,7 @@ from backend import modal_provision
 from backend.repositories import health as health_repo
 from backend.repositories import lora_training as lora_training_repo
 from backend.state import api, CFG, VISION_CLASSIFY, log, PROCESS_START_TIME
-from backend.auth import get_admin, get_current_user
+from backend.auth import get_current_user, require_permission
 
 SERVICES = ("database", "chat_llm", "embed_llm", "comfyui", "image_classify_llm", "modal")
 
@@ -129,7 +129,7 @@ async def media_gen_status(_: dict = Depends(get_current_user)):
     return {"available": available}
 
 @api.post("/admin/service-health/refresh")
-async def admin_service_health_refresh(_: dict = Depends(get_admin)):
+async def admin_service_health_refresh(_: dict = Depends(require_permission("service_health", "execute"))):
     results = await run_all_checks_and_record()
     services = [{"name": name, "ok": results[name][0],
                  "latency_ms": results[name][1], "error": results[name][2]}
@@ -138,7 +138,7 @@ async def admin_service_health_refresh(_: dict = Depends(get_admin)):
     return {"services": services}
 
 @api.get("/admin/service-health")
-async def admin_service_health(hours: float = 24, _: dict = Depends(get_admin)):
+async def admin_service_health(hours: float = 24, _: dict = Depends(require_permission("service_health", "read"))):
 
     limit = min(int(hours * 60 / 5) + 5, 3000)
     since = time.time() - hours * 3600

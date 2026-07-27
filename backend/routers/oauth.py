@@ -8,7 +8,7 @@ from fastapi import HTTPException, Depends, Request
 from fastapi.responses import RedirectResponse
 
 from backend.state import api, auth_router, log
-from backend.auth import get_admin, get_current_user, _free_guest_username, _issue_tokens, _set_auth_cookies
+from backend.auth import get_current_user, require_permission, _free_guest_username, _issue_tokens, _set_auth_cookies
 from backend.oauth_registry import PROVIDER_REGISTRY, extract_user_id
 from backend.repositories import oauth_providers as provider_repo
 from backend.repositories import oauth_identities as identity_repo
@@ -18,7 +18,7 @@ from backend.repositories import webauthn_credentials as webauthn_credential_rep
 from backend.schemas import OauthProvidersPutIn
 
 @api.get("/admin/oauth-providers")
-async def admin_list_oauth_providers(current_user: dict = Depends(get_admin)):
+async def admin_list_oauth_providers(current_user: dict = Depends(require_permission("system_settings", "read"))):
     configured = {row["provider"]: row for row in await provider_repo.list_all()}
     out = []
     for name, entry in PROVIDER_REGISTRY.items():
@@ -35,7 +35,7 @@ async def admin_list_oauth_providers(current_user: dict = Depends(get_admin)):
 
 @api.put("/admin/oauth-providers")
 async def admin_put_oauth_providers(body: OauthProvidersPutIn,
-                                    current_user: dict = Depends(get_admin)):
+                                    current_user: dict = Depends(require_permission("system_settings", "write"))):
     unknown = set(body.providers) - set(PROVIDER_REGISTRY)
     if unknown:
         raise HTTPException(400, f"Unknown provider(s): {', '.join(sorted(unknown))}")
