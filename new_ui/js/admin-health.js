@@ -24,6 +24,17 @@ function adminModelColor(provider, index) {
   return extracted || ADMIN_HEALTH_MODEL_COLORS[index % ADMIN_HEALTH_MODEL_COLORS.length];
 }
 
+function adminModelStatusColor(latencyMs) {
+  if (latencyMs == null) return "var(--color-muted)";
+  if (latencyMs >= 60000) return "var(--color-warn)";
+  if (latencyMs >= 50000) return "var(--color-accent)";
+  return "var(--color-success)";
+}
+
+function adminModelStatusDotHtml(latencyMs) {
+  return `<span class="w-2 h-2 rounded-full flex-none" style="background:${adminModelStatusColor(latencyMs)}"></span>`;
+}
+
 function adminFmtLatency(ms) {
   if (ms == null) return "-";
   if (ms < 1000) return `${Math.round(ms)}ms`;
@@ -144,6 +155,7 @@ class AdminHealthView {
       const icon = p.icon_type && typeof proxyIconHtml === "function" ? proxyIconHtml(p, 18) : "";
       return `
         <div class="flex items-center gap-2 py-2">
+          ${adminModelStatusDotHtml(p.latency_ms)}
           ${icon}
           <span class="font-display font-semibold text-sm text-ink flex-1 truncate">${_esc(p.name)}</span>
           <span class="text-xs text-muted flex-none">${adminFmtLatency(p.latency_ms)}</span>
@@ -276,17 +288,13 @@ class AdminHealthView {
   }
 
   modelLatencyCardHtml(providers) {
-    const legendRows = providers.map((p, i) => {
-      const icon = p.icon_type && typeof proxyIconHtml === "function" ? proxyIconHtml(p, 16) : "";
-      const color = adminModelColor(p, i);
-      return `
+    const legendRows = providers.map((p) => `
         <div class="flex items-center gap-2 py-0.5">
-          <span class="w-2 h-2 rounded-full flex-none" style="background:${color}"></span>
-          ${icon}
+          ${adminModelStatusDotHtml(p.latency_ms)}
+          ${p.icon_type && typeof proxyIconHtml === "function" ? proxyIconHtml(p, 16) : ""}
           <span class="text-xs text-ink flex-1 truncate">${_esc(p.name)}</span>
           <span class="text-xs text-muted flex-none">${_esc(adminFmtLatency(p.latency_ms))}</span>
-        </div>`;
-    }).join("");
+        </div>`).join("");
     return `
       <div class="rounded-[13px] border border-line p-3.5" id="health_card_model_latency">
         <div class="flex items-center gap-2 mb-2">
@@ -303,17 +311,13 @@ class AdminHealthView {
     if (card) {
       const legendBox = card.querySelector(".flex.flex-col");
       if (legendBox) {
-        legendBox.innerHTML = providers.map((p, i) => {
-          const icon = p.icon_type && typeof proxyIconHtml === "function" ? proxyIconHtml(p, 16) : "";
-          const color = adminModelColor(p, i);
-          return `
+        legendBox.innerHTML = providers.map((p) => `
             <div class="flex items-center gap-2 py-0.5">
-              <span class="w-2 h-2 rounded-full flex-none" style="background:${color}"></span>
-              ${icon}
+              ${adminModelStatusDotHtml(p.latency_ms)}
+              ${p.icon_type && typeof proxyIconHtml === "function" ? proxyIconHtml(p, 16) : ""}
               <span class="text-xs text-ink flex-1 truncate">${_esc(p.name)}</span>
               <span class="text-xs text-muted flex-none">${_esc(adminFmtLatency(p.latency_ms))}</span>
-            </div>`;
-        }).join("");
+            </div>`).join("");
       }
     }
     this.renderMultiChart(providers);
