@@ -24,26 +24,6 @@ function adminModelColor(provider, index) {
   return extracted || ADMIN_HEALTH_MODEL_COLORS[index % ADMIN_HEALTH_MODEL_COLORS.length];
 }
 
-function adminRenderMultiSparkline(canvasId, providers) {
-  const el = document.getElementById(canvasId);
-  if (!el || typeof Chart === "undefined") return null;
-  const datasets = providers.map((p, i) => ({
-    data: (p.latency_history || []).slice(-20).map((pt) => (pt.ok ? pt.ms : null)),
-    borderColor: adminModelColor(p, i),
-    borderWidth: 1.5,
-    pointRadius: 0,
-    tension: 0.3,
-    spanGaps: true,
-  }));
-  const longest = datasets.reduce((max, d) => Math.max(max, d.data.length), 0);
-  return new Chart(el, {
-    type: "line",
-    data: { labels: Array.from({ length: longest }, (_, i) => i), datasets },
-    options: { responsive: false, animation: false, plugins: { legend: { display: false }, tooltip: { enabled: false } },
-      scales: { x: { display: false }, y: { display: false } } },
-  });
-}
-
 function adminFmtLatency(ms) {
   if (ms == null) return "-";
   if (ms < 1000) return `${Math.round(ms)}ms`;
@@ -159,24 +139,22 @@ class AdminHealthView {
       </div>`;
   }
 
-  modelProviderRowHtml(provider) {
-    const key = `model:${provider.name}`;
-    const expanded = this.expandedServices.has(key);
-    const sparkHtml = adminSparklineHtml();
-    const sparkId = sparkHtml.match(/id="([^"]+)"/)[1];
-    this._pendingModelSparkIds = this._pendingModelSparkIds || {};
-    this._pendingModelSparkIds[provider.name] = sparkId;
-    const icon = provider.icon_type && typeof proxyIconHtml === "function" ? proxyIconHtml(provider, 18) : "";
-    return `
-      <div class="admin-health-row border-b border-line last:border-0" data-health-row="${_esc(key)}">
-        <button type="button" class="w-full flex items-center gap-2 py-2.5 text-left" data-health-row-toggle="${_esc(key)}">
+  modelBlockHtml(providers) {
+    const rows = providers.map((p) => {
+      const icon = p.icon_type && typeof proxyIconHtml === "function" ? proxyIconHtml(p, 18) : "";
+      return `
+        <div class="flex items-center gap-2 py-2">
           ${icon}
-          <span class="font-display font-semibold text-sm text-ink flex-1">${_esc(provider.name)}</span>
-          <span class="text-xs text-muted">${adminFmtLatency(provider.latency_ms)}</span>
-          ${sparkHtml}
-        </button>
-        <div class="admin-health-row-expand ${expanded ? "" : "hidden"} pb-3" data-health-row-expand="${_esc(key)}">
-          <div class="h-[140px]"><canvas id="health_chart_mobile_${_esc(key)}"></canvas></div>
+          <span class="font-display font-semibold text-sm text-ink flex-1 truncate">${_esc(p.name)}</span>
+          <span class="text-xs text-muted flex-none">${adminFmtLatency(p.latency_ms)}</span>
+        </div>`;
+    }).join("");
+    const chartHeight = Math.max(providers.length * 40, 60);
+    return `
+      <div class="admin-health-row border-b border-line last:border-0" data-health-row="model_latency_block">
+        <div class="flex items-center gap-3">
+          <div class="flex-1 flex flex-col divide-y divide-line">${rows}</div>
+          <div class="w-[90px] flex-none" style="height:${chartHeight}px"><canvas id="health_chart_mobile_model_shared"></canvas></div>
         </div>
       </div>`;
   }
@@ -189,10 +167,9 @@ class AdminHealthView {
     Object.values(this.mobileExpandCharts).forEach((c) => c && c.destroy());
     this.mobileExpandCharts = {};
     this._pendingSparkIds = {};
-    this._pendingModelSparkIds = {};
     const hasModels = modelProviders && modelProviders.length;
     box.innerHTML = services.map((s) => this.mobileRowHtml(s)).join("")
-      + (hasModels ? modelProviders.map((p) => this.modelProviderRowHtml(p)).join("") : "");
+      + (hasModels ? this.modelBlockHtml(modelProviders) : "");
     services.forEach((s) => {
       const sparkId = this._pendingSparkIds[s.name];
       const points = (s.latency_history || []).slice(-20).map((p) => (p.ok ? p.ms : null));
@@ -204,16 +181,7 @@ class AdminHealthView {
       }
     });
     if (hasModels) {
-      modelProviders.forEach((p) => {
-        const key = `model:${p.name}`;
-        const sparkId = this._pendingModelSparkIds[p.name];
-        this.sparkCharts[key] = adminRenderMultiSparkline(sparkId, modelProviders);
-        const toggle = box.querySelector(`[data-health-row-toggle="${key}"]`);
-        if (toggle) toggle.onclick = () => this.toggleServiceExpand(key);
-        if (this.expandedServices.has(key)) {
-          this.mobileExpandCharts[key] = this.renderMultiChart(modelProviders, `health_chart_mobile_${key}`, this.mobileExpandCharts);
-        }
-      });
+      this.sparkCharts.model_latency_block = this.renderMultiChart(modelProviders, "health_chart_mobile_model_shared", this.sparkCharts);
     }
   }
 
