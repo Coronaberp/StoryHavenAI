@@ -19,7 +19,7 @@ def _upload(filename="avatar.png", data=_PNG_BYTES):
 
 def _as_user(row):
     return {"id": row["id"], "username": row["username"], "is_admin": bool(row["is_admin"]),
-            "role": "admin" if row["is_admin"] else "user", "tier": row.get("tier", "full")}
+            "role": "admin" if row["is_admin"] else "member", "tier": row.get("tier", "full")}
 
 async def test_public_profile_returns_expected_fields(db_conn):
     owner = await user_repo.create_user("profile_test_owner_1", "s3cret-password")

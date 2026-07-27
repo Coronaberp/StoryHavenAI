@@ -50,7 +50,7 @@ users = sa.Table(
     sa.Column("suspension_reason", sa.Text),
     sa.Column("identity_label", sa.Text),
 
-    sa.Column("role", sa.Text, nullable=False, server_default=text("'user'")),
+    sa.Column("role", sa.Text, nullable=False, server_default=text("'member'")),
     sa.Column("totp_secret", sa.Text),
     sa.Column("totp_enabled", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("totp_backup_codes", sa.Text),
@@ -1096,6 +1096,9 @@ async def init():
         no_dev_yet = await conn.execute(text("SELECT 1 FROM users WHERE role='dev' LIMIT 1"))
         if no_dev_yet.first() is None:
             await conn.execute(text("UPDATE users SET role='dev' WHERE username='zukaarimoto'"))
+
+        await conn.execute(text("UPDATE users SET role = 'member' WHERE role = 'user'"))
+        await conn.execute(text("UPDATE users SET role = 'guest' WHERE tier = 'guest' AND role = 'member'"))
 
     from backend.repositories import role_permissions as role_permissions_repo
     await role_permissions_repo.seed_defaults()

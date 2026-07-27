@@ -101,7 +101,7 @@ class SettingsView {
         </span>
         <div class="min-w-0">
           <div class="font-display font-semibold text-[15.5px] text-ink truncate">${_esc(ME?.display_name || ME?.username || "")}</div>
-          <div class="text-xs text-muted mt-0.5">@${_esc(ME?.username || "")}${ME?.role && ME.role !== "user" ? " · " + (ME.role === "dev" ? t("artisans_dev") : t("artisans_admin")) : ""}</div>
+          <div class="text-xs text-muted mt-0.5">@${_esc(ME?.username || "")}${ME?.role && ME.role !== "member" && ME.role !== "guest" ? " · " + (ME.role === "dev" ? t("artisans_dev") : t("artisans_admin")) : ""}</div>
         </div>
       </div>
       ${sEyebrowHtml(t("settings_section_preferences"))}

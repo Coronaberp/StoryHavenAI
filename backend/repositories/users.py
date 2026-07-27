@@ -86,10 +86,12 @@ async def create_user(username: str, password: str, is_admin: bool = False,
                        totp_enabled: bool = False, totp_login_required: bool = False,
                        invite_code_id: str | None = None, tier: str = "full") -> dict:
     uid = nid("u")
+    role = "guest" if tier == "guest" else "member"
     await _w(insert(users).values(
         id=uid, username=username.strip().lower(),
         password_hash=hash_password(password), is_admin=int(is_admin),
         status=status, created=time.time(), invite_code_id=invite_code_id, tier=tier,
+        role=role,
         totp_secret=_encrypt_secret(totp_secret) if totp_secret else None,
         totp_backup_codes=hash_backup_codes(totp_backup_codes),
         totp_enabled=int(totp_enabled), totp_login_required=int(totp_login_required)))
@@ -128,6 +130,11 @@ async def set_totp_login_required(uid: str, required: bool):
 async def set_tier(uid: str, tier: str):
     await _w(update(users).where(users.c.id == uid).values(tier=tier))
     log.info("users: tier=%s uid=%s", tier, uid)
+
+async def set_role(uid: str, role: str) -> None:
+    is_admin = role in ("admin", "dev")
+    await _w(update(users).where(users.c.id == uid).values(role=role, is_admin=int(is_admin)))
+    log.info(f"users: role set id={uid} role={role}")
 
 async def add_guest_usage(uid: str, field: str, amount: int):
     column = users.c[field]
@@ -246,11 +253,11 @@ async def update_user_password(uid: str, new_password: str):
     log.info(f"user password updated id={uid}")
 
 async def update_user_role(uid: str, is_admin: bool):
-    await _w(update(users).where(users.c.id == uid).values(is_admin=int(is_admin)))
+    await set_role(uid, "admin" if is_admin else "member")
     log.info(f"user role changed id={uid} is_admin={is_admin}")
 
 async def set_dev_role(uid: str, is_dev: bool):
-    await _w(update(users).where(users.c.id == uid).values(role="dev" if is_dev else "admin"))
+    await set_role(uid, "dev" if is_dev else "admin")
     log.info(f"user dev role changed id={uid} is_dev={is_dev}")
 
 async def set_explicit(uid: str, explicit: bool):

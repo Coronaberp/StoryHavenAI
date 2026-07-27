@@ -11,7 +11,7 @@ from backend.schemas import LoraPublishIn, ModelMetaIn
 pytestmark = pytest.mark.asyncio
 
 ADMIN = {"id": "u_mp_admin", "username": "mpadmin", "is_admin": True, "role": "admin"}
-PLAIN_USER = {"id": "u_mp_user", "username": "mpuser", "is_admin": False, "role": "user"}
+PLAIN_USER = {"id": "u_mp_user", "username": "mpuser", "is_admin": False, "role": "member"}
 
 _PNG_BYTES = bytes.fromhex(
     "89504e470d0a1a0a0000000d494844520000000100000001080600000"

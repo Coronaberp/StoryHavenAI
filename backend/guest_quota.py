@@ -20,7 +20,7 @@ _LIMITS = {
 }
 
 def is_guest(user: dict) -> bool:
-    return (user.get("tier") or "full") == "guest"
+    return user.get("role") == "guest"
 
 def check(user: dict, kind: str) -> None:
     if not is_guest(user):

@@ -67,7 +67,7 @@ async def test_ui_translations_uses_cached_localization(db_conn):
     assert result["strings"]["save"] == "Guardar"
 
 async def test_admin_resync_ui_translations_rejects_non_admin(db_conn):
-    user = {"id": "u_plain_1", "username": "plainuser", "is_admin": False, "role": "user"}
+    user = {"id": "u_plain_1", "username": "plainuser", "is_admin": False, "role": "member"}
     from backend.auth import get_admin
 
     with pytest.raises(HTTPException) as exc_info:

@@ -10,14 +10,14 @@ def test_full_tier_never_limited():
     guest_quota.check({"tier": "full", "guest_tokens_used": 10**9}, "tokens")
 
 def test_guest_under_limit_passes():
-    guest_quota.check({"tier": "guest", "guest_tokens_used": 999_999}, "tokens")
+    guest_quota.check({"role": "guest", "guest_tokens_used": 999_999}, "tokens")
 
 def test_guest_at_limit_blocked():
     for kind, field, limit in [("tokens", "guest_tokens_used", 1_000_000),
                                ("images", "guest_images_used", 400),
                                ("videos", "guest_videos_used", 8)]:
         with pytest.raises(HTTPException) as exc_info:
-            guest_quota.check({"tier": "guest", field: limit}, kind)
+            guest_quota.check({"role": "guest", field: limit}, kind)
         assert exc_info.value.status_code == 403
 
 async def test_record_increments_only_for_guests(db_conn):
@@ -50,9 +50,9 @@ async def test_guest_register_and_invite_tier(db_conn):
     assert invited["tier"] == "guest" and invited["status"] == "active"
 
 def test_require_full_blocks_guests_only():
-    guest_quota.require_full({"tier": "full"}, "create characters")
+    guest_quota.require_full({"role": "member"}, "create characters")
     with pytest.raises(HTTPException) as exc_info:
-        guest_quota.require_full({"tier": "guest"}, "create characters")
+        guest_quota.require_full({"role": "guest"}, "create characters")
     assert exc_info.value.status_code == 403
 
 async def test_guest_register_gets_generated_username(db_conn):

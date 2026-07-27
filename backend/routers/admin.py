@@ -100,7 +100,7 @@ async def admin_set_user_tier(uid: str, body: UserTierIn,
         raise HTTPException(404, "user not found")
     if target.get("role") in ("admin", "dev") or target.get("is_admin"):
         raise HTTPException(400, "Admins are always full tier")
-    await user_repo.set_tier(uid, body.tier)
+    await user_repo.set_role(uid, "guest" if body.tier == "guest" else "member")
     log.info("admin: tier=%s uid=%s by=%s", body.tier, uid, current_user["username"])
     return {"id": uid, "tier": body.tier}
 
