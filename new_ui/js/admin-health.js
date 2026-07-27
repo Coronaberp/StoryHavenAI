@@ -144,7 +144,7 @@ class AdminHealthView {
           ${sparkHtml}
         </button>
         <div class="admin-health-row-expand ${expanded ? "" : "hidden"} pb-3" data-health-row-expand="${_esc(s.name)}">
-          <div class="h-[140px]"><canvas id="health_chart_mobile_${_esc(s.name)}"></canvas></div>
+          <div class="h-[140px] overflow-hidden"><canvas id="health_chart_mobile_${_esc(s.name)}"></canvas></div>
           ${s.error ? `<div class="text-xs mt-1" style="color:var(--color-warn)">${_esc(s.error)}</div>` : ""}
         </div>
       </div>`;
@@ -165,8 +165,8 @@ class AdminHealthView {
     return `
       <div class="admin-health-row border-b border-line last:border-0" data-health-row="model_latency_block">
         <div class="flex items-center gap-3">
-          <div class="flex-1 flex flex-col divide-y divide-line">${rows}</div>
-          <div class="w-[90px] flex-none" style="height:${chartHeight}px"><canvas id="health_chart_mobile_model_shared"></canvas></div>
+          <div class="flex-1 min-w-0 flex flex-col divide-y divide-line">${rows}</div>
+          <div class="w-[90px] flex-none overflow-hidden" style="height:${chartHeight}px"><canvas id="health_chart_mobile_model_shared" width="90" height="${chartHeight}" style="width:100%;height:100%;max-width:90px"></canvas></div>
         </div>
       </div>`;
   }
@@ -214,7 +214,7 @@ class AdminHealthView {
           <span>${t("admin_health_latency")}: <b class="text-ink" id="health_latency_${_esc(s.name)}">${adminFmtLatency(s.latency_ms)}</b></span>
           <span>${t("admin_health_uptime_24h")}: <b class="text-ink" id="health_uptime_pct_${_esc(s.name)}">${_esc(pct)}</b></span>
         </div>
-        <div class="h-[50px]"><canvas id="health_chart_${_esc(s.name)}"></canvas></div>
+        <div class="h-[50px] overflow-hidden"><canvas id="health_chart_${_esc(s.name)}"></canvas></div>
         <div class="text-xs text-muted mt-1" id="health_avg_${_esc(s.name)}">${t("admin_health_avg")}: ${_esc(avg)}</div>
         <div class="text-xs mt-2" id="health_error_${_esc(s.name)}" style="color:var(--color-warn);${s.error ? "" : "display:none"}">${_esc(s.error || "")}</div>
       </div>
@@ -300,7 +300,7 @@ class AdminHealthView {
         <div class="flex items-center gap-2 mb-2">
           <span class="font-display font-semibold text-sm text-ink">${t("admin_health_model_latency", "Model latency")}</span>
         </div>
-        <div class="h-[50px] mb-2"><canvas id="health_chart_model_latency"></canvas></div>
+        <div class="h-[50px] mb-2 overflow-hidden"><canvas id="health_chart_model_latency"></canvas></div>
         <div class="flex flex-col">${legendRows}</div>
       </div>
     `;
@@ -328,16 +328,17 @@ class AdminHealthView {
     store = store || this.charts;
     const canvas = document.getElementById(canvasId);
     if (!canvas || typeof Chart === "undefined") return null;
-    const allTimestamps = new Set();
-    providers.forEach((p) => (p.latency_history || []).forEach((pt) => allTimestamps.add(pt.t)));
-    const timestamps = Array.from(allTimestamps).sort((a, b) => a - b);
-    const labels = timestamps.map((ts) => new Date(ts * 1000).toLocaleTimeString());
+    const maxLen = providers.reduce((max, p) => Math.max(max, (p.latency_history || []).length), 0);
+    const labels = Array.from({ length: maxLen }, (_, i) => i);
     const datasets = providers.map((p, i) => {
-      const byTime = {};
-      (p.latency_history || []).forEach((pt) => { byTime[pt.t] = pt.ok ? pt.ms : null; });
+      const hist = p.latency_history || [];
+      const offset = maxLen - hist.length;
       return {
         label: p.name,
-        data: timestamps.map((ts) => (ts in byTime ? byTime[ts] : null)),
+        data: Array.from({ length: maxLen }, (_, idx) => {
+          const point = idx >= offset ? hist[idx - offset] : null;
+          return point && point.ok ? point.ms : null;
+        }),
         borderColor: adminModelColor(p, i),
         backgroundColor: adminModelColor(p, i),
         borderWidth: 1.5,
