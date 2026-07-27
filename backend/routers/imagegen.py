@@ -19,7 +19,7 @@ from backend.imagegen_providers import generate_via_provider
 from backend import guest_quota
 from backend.gpu_queue import gpu_queue
 from backend.state import api, CFG, MEDIA_DIR, MAX_UPLOAD_BYTES, log
-from backend.auth import get_current_user, get_current_user_optional, require_permission
+from backend.auth import get_current_user, get_current_user_optional, require_capability
 from backend.media import _delete_media_file, _write_file, validate_image, reencode_webp
 from backend.chat_service import _own_session, _endpoints, _eff_cfg
 from backend.ai_helpers import _generate_image_prompt, generate_image_prompt_and_params
@@ -519,7 +519,8 @@ async def stream_video(body: ImageGenVideoIn, current_user: dict = Depends(get_c
     return StreamingResponse(gen(), media_type="text/event-stream")
 
 @api.post("/imagegen/upscale")
-async def upscale_standalone_image(body: ImageGenUpscaleIn, current_user: dict = Depends(require_permission("system_settings", "write"))):
+async def upscale_standalone_image(body: ImageGenUpscaleIn, current_user: dict = Depends(require_capability(
+        "system_settings.edit", "Edit OAuth config, trigger a lore reindex, or run an image upscale."))):
     _require_comfyui_backend()
     image_bytes = _decode_reference_image(body.image)
     if not image_bytes:
