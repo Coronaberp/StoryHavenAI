@@ -1,4 +1,6 @@
-from backend.retrieval import chunk_lore_content, LORE_CHUNK_THRESHOLD_TOKENS
+from backend.retrieval import (
+    chunk_lore_content, LORE_CHUNK_THRESHOLD_TOKENS, LORE_RECURSION_MAX_ADDED,
+)
 
 def test_short_content_is_a_single_chunk():
     content = "A short lore entry about a tavern."
@@ -273,3 +275,42 @@ async def test_retrieve_non_always_entry_still_feeds_recursion_gating(db_conn):
     matched_ids = {e["id"] for e in matched}
     assert triggered_entry in matched_ids
     assert gated_entry in matched_ids
+
+async def test_retrieve_recursion_cascade_is_capped(db_conn):
+    from backend.repositories import lore
+    char_id = "char-cap-1"
+    entry_ids = []
+    for i in range(LORE_RECURSION_MAX_ADDED + 15):
+        key = f"chain{i}"
+        next_key = f"chain{i + 1}"
+        entry_id = await lore.create(char_id, [key], f"This mentions {next_key} in passing.", False)
+        entry_ids.append(entry_id)
+    matched, _ = await retrieve(char_id, "sess-cap-1", "chain0", "chain0 begins")
+    assert len(matched) <= 1 + LORE_RECURSION_MAX_ADDED
+
+async def test_retrieve_query_matched_entry_ordered_before_recursion_added(db_conn):
+    from backend.repositories import lore
+    char_id = "char-order-1"
+    named_entry = await lore.create(char_id, ["aizawa"], "Aizawa is a stern teacher.", False)
+    stale_entry = await lore.create(char_id, ["inasa"], "Inasa mentions the dorms often.", False)
+    recursion_entry = await lore.create(char_id, ["dorms"], "The dorms are a shared building.", False)
+    matched, _ = await retrieve(
+        char_id, "sess-order-1", "aizawa speaks up",
+        "earlier inasa talked about the dorms",
+    )
+    matched_ids = [e["id"] for e in matched]
+    assert matched_ids[0] == named_entry
+    assert matched_ids.index(named_entry) < matched_ids.index(stale_entry)
+    assert matched_ids.index(named_entry) < matched_ids.index(recursion_entry)
+
+async def test_retrieve_always_entry_included_even_when_cascade_is_capped(db_conn):
+    from backend.repositories import lore
+    char_id = "char-cap-always-1"
+    always_entry = await lore.create(char_id, ["academy"], "The Academy stands tall.", True)
+    for i in range(LORE_RECURSION_MAX_ADDED + 15):
+        key = f"chain{i}"
+        next_key = f"chain{i + 1}"
+        await lore.create(char_id, [key], f"This mentions {next_key} in passing.", False)
+    matched, _ = await retrieve(char_id, "sess-cap-always-1", "chain0", "chain0 begins")
+    matched_ids = {e["id"] for e in matched}
+    assert always_entry in matched_ids
