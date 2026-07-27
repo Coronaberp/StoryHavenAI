@@ -108,7 +108,7 @@ function applyAvatarRing() {
     el.textContent = ME?.username ? `@${ME.username}` : "";
   });
   document.querySelectorAll("[data-dossier-role]").forEach((el) => {
-    if (ME?.role && ME.role !== "user") {
+    if (ME?.role && ME.role !== "member" && ME.role !== "guest") {
       el.textContent = ME.role === "dev" ? t("artisans_dev") : t("artisans_admin");
       el.hidden = false;
     } else {
