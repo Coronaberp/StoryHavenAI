@@ -824,7 +824,7 @@ def _compose_profile_card(name, avatar_rel, banner_rel, characters_count, follow
     name_max_w = width - 48 - text_x
     name_font = _og_fit_font(draw, name_text, _FONT_DISPLAY, 50, 26, 600, name_max_w)
     draw.text((text_x, name_y), name_text, font=name_font, fill=_OG_GOLD)
-    if username or tag_text or joined_ts:
+    if username or tag_text:
         handle_font = _og_font(_FONT_BODY, 22, 500)
         row_cy = handle_y + 15
         cx = text_x
@@ -839,13 +839,12 @@ def _compose_profile_card(name, avatar_rel, banner_rel, characters_count, follow
             draw.rounded_rectangle([cx, row_cy - pill_h / 2, cx + pill_w, row_cy + pill_h / 2],
                                    radius=pill_h / 2, fill=_OG_GOLD)
             draw.text((cx + 12, row_cy), tag_text, font=tag_font, fill=_OG_PAPER, anchor="lm")
-            cx += pill_w + 16
-        if joined_ts:
-            import datetime as _dt
-            joined_text = f"Joined {_dt.datetime.fromtimestamp(joined_ts).strftime('%B %Y')}"
-            draw.text((cx, row_cy), joined_text, font=handle_font, fill=_OG_MUTED, anchor="lm")
-    _og_stat_row(draw, text_x, stats_y,
-                [("person", characters_count, "Characters"), ("people", followers_count, "Followers")])
+    stat_items = [("person", characters_count, "Characters"), ("people", followers_count, "Followers")]
+    if joined_ts:
+        import datetime as _dt
+        joined_text = _dt.datetime.fromtimestamp(joined_ts).strftime("%b %Y")
+        stat_items.append(("clock", joined_text, "Joined"))
+    _og_stat_row(draw, text_x, stats_y, stat_items)
     try:
         canvas.save(cache_fs, "PNG")
     except Exception as e:
@@ -1056,7 +1055,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "21"
+_OG_IMG_VERSION = "22"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
