@@ -599,6 +599,15 @@ def _og_font(path, size, weight):
         pass
     return font
 
+def _og_fit_font(draw, text, path, max_size, min_size, weight, max_width):
+    size = max_size
+    while size > min_size:
+        font = _og_font(path, size, weight)
+        if draw.textlength(text, font=font) <= max_width:
+            return font
+        size -= 2
+    return _og_font(path, min_size, weight)
+
 def _og_wrap(draw, text, font, max_width, max_lines):
     lines, current = [], ""
     for word in (text or "").split():
@@ -694,7 +703,10 @@ def _compose_character_card(name, avatar_rel, banner_rel, tags, genre, message_c
     else:
         text_x = 48
         name_y = content_bottom - 54
-    draw.text((text_x, name_y), (name or "")[:34], font=_og_font(_FONT_DISPLAY, 44, 600), fill=(255, 255, 255))
+    name_text = name or ""
+    name_max_w = width - 48 - text_x
+    name_font = _og_fit_font(draw, name_text, _FONT_DISPLAY, 44, 22, 600, name_max_w)
+    draw.text((text_x, name_y), name_text, font=name_font, fill=(255, 255, 255))
     badge_x = 48
     if genre:
         genre_font = _og_font(_FONT_BODY, 22, 600)
@@ -1007,7 +1019,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "16"
+_OG_IMG_VERSION = "17"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
