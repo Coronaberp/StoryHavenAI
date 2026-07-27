@@ -5,8 +5,6 @@ const ADMIN_HEALTH_SERVICE_LABELS = {
   comfyui: "ComfyUI", image_classify_llm: "Image classifier", modal: "Modal",
 };
 
-const ADMIN_HEALTH_MODEL_COLORS = ["#e3bd6c", "#4d6bfe", "#4caf50", "#e05c5c", "#9b6bd1", "#3aa3c9"];
-
 function adminFmtLatency(ms) {
   if (ms == null) return "-";
   if (ms < 1000) return `${Math.round(ms)}ms`;
@@ -33,97 +31,32 @@ class AdminHealthView {
     this.sparkCharts = {};
     this.mobileExpandCharts = {};
     this.expandedServices = new Set();
-    this.modelChart = null;
+    this.modelServices = [];
     main.innerHTML = `<div class="text-sm text-muted">${_esc(t("common_loading"))}</div>`;
     this.render();
-    await this.loadHealth();
-    await this.loadModelLatency();
+    await Promise.all([this.loadHealth(), this.loadModelLatency()]);
     await this.loadLogs();
   }
 
   async loadModelLatency() {
     try {
       const data = await api(`/api/admin/model-latency?hours=${this.hours}`);
-      this.modelLatencyData = data.models || [];
-      this.modelLatencyError = null;
+      this.modelServices = (data.models || []).map((m) => ({
+        name: m.name,
+        ok: m.latest_latency_ms != null,
+        latency_ms: m.latest_latency_ms,
+        avg_latency_ms: m.avg_latency_ms,
+        uptime_pct_24h: m.success_pct,
+        error: "",
+        latency_history: m.latency_history,
+        icon_type: m.icon_type,
+        icon_value: m.icon_value,
+        base_url: m.base_url,
+      }));
     } catch (e) {
-      this.modelLatencyError = e.message || "Couldn't load model latency.";
-      this.modelLatencyData = null;
+      this.modelServices = [];
     }
-    this.renderModelLatency();
-  }
-
-  modelLegendRowHtml(m, color) {
-    const icon = typeof proxyIconHtml === "function" ? proxyIconHtml(m, 18) : "";
-    const latency = adminFmtLatency(m.latest_latency_ms);
-    const uptime = m.success_pct != null ? `${m.success_pct}%` : "-";
-    return `
-      <div class="flex items-center gap-2 py-1.5">
-        <span class="w-2 h-2 rounded-full flex-none" style="background:${color}"></span>
-        ${icon}
-        <span class="font-display font-semibold text-sm text-ink flex-1 truncate">${_esc(m.name)}</span>
-        <span class="text-xs text-muted text-right flex-none">${_esc(latency)} · ${_esc(uptime)}</span>
-      </div>`;
-  }
-
-  renderModelLatency() {
-    const box = document.getElementById("model_latency_card");
-    if (!box) return;
-    if (this.modelLatencyError) {
-      box.innerHTML = `<p class="text-sm" style="color:var(--color-warn)">${_esc(this.modelLatencyError)}</p>`;
-      return;
-    }
-    if (!this.modelLatencyData) return;
-    const models = this.modelLatencyData;
-    if (!models.length) {
-      box.innerHTML = `<p class="text-sm text-muted">${t("admin_health_no_models_configured", "No chat model endpoints configured.")}</p>`;
-      return;
-    }
-
-    const colors = ADMIN_HEALTH_MODEL_COLORS;
-    if (!box.querySelector("#model_latency_canvas")) {
-      box.innerHTML = `
-        <div class="h-[100px] lg:h-[160px] mb-2"><canvas id="model_latency_canvas"></canvas></div>
-        <div id="model_latency_legend" class="flex flex-col divide-y divide-line"></div>
-      `;
-    }
-    document.getElementById("model_latency_legend").innerHTML =
-      models.map((m, i) => this.modelLegendRowHtml(m, colors[i % colors.length])).join("");
-
-    const canvas = document.getElementById("model_latency_canvas");
-    if (!canvas || typeof Chart === "undefined") return;
-    const allTimestamps = new Set();
-    models.forEach((m) => (m.latency_history || []).forEach((p) => allTimestamps.add(p.t)));
-    const timestamps = Array.from(allTimestamps).sort((a, b) => a - b);
-    const datasets = models.map((m, i) => {
-      const byTime = {};
-      (m.latency_history || []).forEach((p) => { byTime[p.t] = p.ok ? p.ms : null; });
-      return {
-        data: timestamps.map((ts) => (ts in byTime ? byTime[ts] : null)),
-        borderColor: colors[i % colors.length],
-        backgroundColor: colors[i % colors.length],
-        borderWidth: 1.5,
-        pointRadius: 0,
-        tension: 0.3,
-        spanGaps: true,
-      };
-    });
-    if (this.modelChart) {
-      this.modelChart.data.datasets = datasets;
-      this.modelChart.update();
-      return;
-    }
-    this.modelChart = new Chart(canvas, {
-      type: "line",
-      data: { labels: timestamps.map((ts) => new Date(ts * 1000).toLocaleTimeString()), datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        plugins: { legend: { display: false }, tooltip: { enabled: true } },
-        scales: { x: { display: false }, y: { display: false } },
-      },
-    });
+    this.renderHealth();
   }
 
   async loadHealth() {
@@ -171,10 +104,11 @@ class AdminHealthView {
     const sparkId = sparkHtml.match(/id="([^"]+)"/)[1];
     this._pendingSparkIds = this._pendingSparkIds || {};
     this._pendingSparkIds[s.name] = sparkId;
+    const icon = s.icon_type && typeof proxyIconHtml === "function" ? proxyIconHtml(s, 18) : "";
     return `
       <div class="admin-health-row border-b border-line last:border-0" data-health-row="${_esc(s.name)}">
         <button type="button" class="w-full flex items-center gap-2 py-2.5 text-left" data-health-row-toggle="${_esc(s.name)}">
-          <span class="w-2 h-2 rounded-full flex-none" style="background:${s.ok ? "var(--color-success)" : "var(--color-warn)"}"></span>
+          ${icon || `<span class="w-2 h-2 rounded-full flex-none" style="background:${s.ok ? "var(--color-success)" : "var(--color-warn)"}"></span>`}
           <span class="font-display font-semibold text-sm text-ink flex-1">${_esc(ADMIN_HEALTH_SERVICE_LABELS[s.name] || s.name)}</span>
           <span class="text-xs text-muted">${adminFmtLatency(s.latency_ms)}</span>
           ${sparkHtml}
@@ -186,7 +120,7 @@ class AdminHealthView {
       </div>`;
   }
 
-  renderMobileRows() {
+  renderMobileRows(services) {
     const box = document.getElementById("health_grid_mobile");
     if (!box || !this.healthData) return;
     Object.values(this.sparkCharts).forEach((c) => c && c.destroy());
@@ -194,7 +128,6 @@ class AdminHealthView {
     Object.values(this.mobileExpandCharts).forEach((c) => c && c.destroy());
     this.mobileExpandCharts = {};
     this._pendingSparkIds = {};
-    const services = this.healthData.services;
     box.innerHTML = services.map((s) => this.mobileRowHtml(s)).join("");
     services.forEach((s) => {
       const sparkId = this._pendingSparkIds[s.name];
@@ -211,10 +144,13 @@ class AdminHealthView {
   serviceCardHtml(s) {
     const pct = s.uptime_pct_24h == null ? "-" : `${s.uptime_pct_24h}%`;
     const avg = adminFmtLatency(s.avg_latency_ms);
+    const icon = s.icon_type && typeof proxyIconHtml === "function"
+      ? proxyIconHtml(s, 18)
+      : `<span class="w-2 h-2 rounded-full flex-none" id="health_dot_${_esc(s.name)}" style="background:${s.ok ? "var(--color-success)" : "var(--color-warn)"}"></span>`;
     return `
       <div class="rounded-[13px] border p-3.5" id="health_card_${_esc(s.name)}" style="border-color:${s.ok ? "var(--color-line)" : "var(--color-warn)"}">
         <div class="flex items-center gap-2 mb-2">
-          <span class="w-2 h-2 rounded-full flex-none" id="health_dot_${_esc(s.name)}" style="background:${s.ok ? "var(--color-success)" : "var(--color-warn)"}"></span>
+          ${icon}
           <span class="font-display font-semibold text-sm text-ink">${_esc(ADMIN_HEALTH_SERVICE_LABELS[s.name] || s.name)}</span>
           <span class="text-xs text-muted ml-auto" id="health_status_text_${_esc(s.name)}">${s.ok ? t("admin_health_up") : t("admin_health_down")}</span>
         </div>
@@ -309,7 +245,7 @@ class AdminHealthView {
     if (!this.healthData) return;
     if (uptimeBox) uptimeBox.textContent = `${t("admin_health_process_uptime")}: ${adminHealthFmtDuration(this.healthData.process_uptime_seconds)}`;
 
-    const services = this.healthData.services;
+    const services = [...this.healthData.services, ...this.modelServices];
     const existingNames = Object.keys(this.charts);
     const namesMatch = existingNames.length === services.length &&
       services.every((s) => existingNames.includes(s.name));
@@ -324,7 +260,7 @@ class AdminHealthView {
       services.forEach((s) => this.updateServiceCard(s));
     }
 
-    this.renderMobileRows();
+    this.renderMobileRows(services);
   }
 
   destroyCharts() {
@@ -334,7 +270,6 @@ class AdminHealthView {
     this.sparkCharts = {};
     Object.values(this.mobileExpandCharts || {}).forEach((chart) => chart && chart.destroy());
     this.mobileExpandCharts = {};
-    if (this.modelChart) { this.modelChart.destroy(); this.modelChart = null; }
   }
 }
 
@@ -391,9 +326,6 @@ AdminHealthView.prototype.render = function () {
     </div>
     <div id="health_grid_desktop" class="mb-3 hidden lg:block"><span class="text-sm text-muted">${t("admin_health_loading")}</span></div>
     <div id="health_grid_mobile" class="mb-6 lg:hidden rounded-[13px] border border-line bg-surface px-3"><span class="text-sm text-muted">${t("admin_health_loading")}</span></div>
-
-    <div class="font-display font-semibold text-base text-ink mb-2">${t("admin_health_model_latency", "Current model latency")}</div>
-    <div id="model_latency_card" class="mb-6 rounded-[13px] border border-line bg-surface p-3.5"><span class="text-sm text-muted">${t("admin_health_loading")}</span></div>
 
     <div class="flex items-center justify-between mb-2">
       <div class="font-display font-semibold text-base text-ink">${t("admin_health_server_logs")}</div>
