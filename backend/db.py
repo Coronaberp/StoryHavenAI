@@ -73,6 +73,19 @@ role_permissions = sa.Table(
     sa.Column("can_execute", sa.Boolean, nullable=False, server_default=text("false")),
 )
 
+roles = sa.Table(
+    "roles", _meta,
+    sa.Column("name", sa.Text, primary_key=True),
+    sa.Column("label", sa.Text, nullable=False),
+    sa.Column("is_builtin", sa.Boolean, nullable=False, server_default=text("false")),
+)
+
+role_capabilities = sa.Table(
+    "role_capabilities", _meta,
+    sa.Column("role", sa.Text, primary_key=True),
+    sa.Column("capability", sa.Text, primary_key=True),
+)
+
 auth_sessions = sa.Table(
     "auth_sessions", _meta,
     sa.Column("token", sa.Text, primary_key=True),
@@ -1101,7 +1114,11 @@ async def init():
         await conn.execute(text("UPDATE users SET role = 'guest' WHERE tier = 'guest' AND role = 'member'"))
 
     from backend.repositories import role_permissions as role_permissions_repo
+    from backend.repositories import roles as roles_repo
+    from backend.repositories import role_capabilities as role_capabilities_repo
     await role_permissions_repo.seed_defaults()
+    await roles_repo.seed_builtins()
+    await role_capabilities_repo.seed_defaults()
 
     env_key = os.environ.get("SECRET_ENCRYPTION_KEY", "").strip()
     if env_key:

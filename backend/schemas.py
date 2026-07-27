@@ -573,15 +573,12 @@ class SuspendUserIn(BaseModel):
 class DevRoleIn(BaseModel):
     is_dev: bool
 
-class RolePermissionEntryIn(BaseModel):
-    role: str
-    resource: str
-    can_read: bool
-    can_write: bool
-    can_execute: bool
+class RoleCreateIn(BaseModel):
+    name: str
+    label: str
 
-class RolePermissionsBatchIn(BaseModel):
-    entries: list[RolePermissionEntryIn]
+class RoleCapabilitiesBatchIn(BaseModel):
+    capabilities: list[str]
 
 class AdminNoteIn(BaseModel):
     note: str
