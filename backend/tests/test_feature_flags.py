@@ -32,7 +32,7 @@ async def test_non_dev_blocked_when_disabled(db_conn):
 
 async def test_enabled_flag_passes_through(db_conn):
     check = feature_flags.require_feature_enabled("comments")
-    await check(current_user={"role": "user"})
+    await check(current_user={"role": "member"})
 
 def test_feature_keys_and_impact_descriptions_have_matching_keys():
     assert set(feature_flags.FEATURE_KEYS) == set(feature_flags.FEATURE_IMPACT_DESCRIPTIONS)

@@ -66,7 +66,7 @@ async def public_profile(username: str, current_user: dict | None = Depends(get_
         "profile_html": db._decrypt_secret(u.get("profile_html") or ""),
         "card_html": db._decrypt_secret(u.get("card_html") or ""),
         "is_admin": u["is_admin"],
-        "role": u.get("role") or "user",
+        "role": u.get("role") or "member",
         "title": u.get("title") if (u.get("title_status") == "approved" or is_self) else "",
         "title_status": u.get("title_status") if is_self else (
             "approved" if u.get("title_status") == "approved" else "none"),

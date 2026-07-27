@@ -34,7 +34,7 @@ async def test_update_user_role_and_status(db_conn):
 
 async def test_set_dev_role_grant_and_revoke(db_conn):
     user = await user_repo.create_user("repo_test_dev_user", "s3cret-password", is_admin=True)
-    assert user["role"] == "user"
+    assert user["role"] == "member"
 
     await user_repo.set_dev_role(user["id"], True)
     fetched = await user_repo.get_user_by_id(user["id"])
@@ -321,3 +321,32 @@ async def test_set_user_experimental_features_enabled(db_conn):
     assert updated["experimental_features_enabled"] is True
     reverted = await user_repo.set_user_experimental_features_enabled(user["id"], False)
     assert reverted["experimental_features_enabled"] is False
+
+async def test_set_role_updates_role_and_is_admin_for_admin(db_conn):
+    user = await user_repo.create_user("roletest1", "s3cret-password")
+    await user_repo.set_role(user["id"], "admin")
+    fetched = await user_repo.get_user_by_id(user["id"])
+    assert fetched["role"] == "admin"
+    assert fetched["is_admin"] is True
+
+async def test_set_role_updates_role_and_is_admin_for_member(db_conn):
+    user = await user_repo.create_user("roletest2", "s3cret-password")
+    await user_repo.set_role(user["id"], "admin")
+    await user_repo.set_role(user["id"], "member")
+    fetched = await user_repo.get_user_by_id(user["id"])
+    assert fetched["role"] == "member"
+    assert fetched["is_admin"] is False
+
+async def test_set_role_dev_keeps_is_admin_true(db_conn):
+    user = await user_repo.create_user("roletest3", "s3cret-password")
+    await user_repo.set_role(user["id"], "dev")
+    fetched = await user_repo.get_user_by_id(user["id"])
+    assert fetched["role"] == "dev"
+    assert fetched["is_admin"] is True
+
+async def test_set_role_guest_keeps_is_admin_false(db_conn):
+    user = await user_repo.create_user("roletest4", "s3cret-password")
+    await user_repo.set_role(user["id"], "guest")
+    fetched = await user_repo.get_user_by_id(user["id"])
+    assert fetched["role"] == "guest"
+    assert fetched["is_admin"] is False
