@@ -915,6 +915,43 @@ def _og_split_cast_background(canvas, width, height, cast, tint=(0, 0, 0)):
             canvas.paste(_og_cover(source, width, height), (0, 0))
     return Image.blend(canvas, Image.new("RGB", (width, height), tint), 0.35)
 
+def _og_avatar_tile_row(canvas, draw, cast, cy, accent_rgb, bg_rgb):
+    from PIL import ImageDraw as _ImageDraw
+    width = canvas.width
+    shown = cast[:5]
+    overflow = len(cast) - len(shown)
+    size, gap, radius = 130, 22, 22
+    slot_count = len(shown) + (1 if overflow > 0 else 0)
+    if slot_count == 0:
+        return
+    total_w = size * slot_count + gap * (slot_count - 1)
+    start_x = (width - total_w) // 2
+    y = cy - size // 2
+    for i, member in enumerate(shown):
+        x = start_x + i * (size + gap)
+        mask = Image.new("L", (size, size), 0)
+        _ImageDraw.Draw(mask).rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=255)
+        avatar = _og_open_media(member.get("avatar"))
+        if avatar is not None:
+            canvas.paste(_og_cover(avatar, size, size), (x, y), mask)
+        else:
+            canvas.paste(Image.new("RGB", (size, size), accent_rgb), (x, y), mask)
+            initial = (member.get("name") or "?")[0].upper()
+            initial_font = _og_font(_FONT_DISPLAY, round(size * 0.4), 600)
+            initial_w = draw.textlength(initial, font=initial_font)
+            draw.text((x + size / 2 - initial_w / 2, y + size / 2 - size * 0.26),
+                      initial, font=initial_font, fill=bg_rgb)
+        draw.rounded_rectangle([x, y, x + size - 1, y + size - 1], radius=radius, outline=accent_rgb, width=3)
+    if overflow > 0:
+        x = start_x + len(shown) * (size + gap)
+        mask = Image.new("L", (size, size), 0)
+        _ImageDraw.Draw(mask).rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=255)
+        canvas.paste(Image.new("RGB", (size, size), bg_rgb), (x, y), mask)
+        draw.rounded_rectangle([x, y, x + size - 1, y + size - 1], radius=radius, outline=accent_rgb, width=3)
+        overflow_font = _og_font(_FONT_DISPLAY, round(size * 0.36), 600)
+        draw.text((x + size / 2, y + size / 2), f"+{overflow}", font=overflow_font,
+                  fill=accent_rgb, anchor="mm")
+
 def _compose_group_card(group_name, cast, character_count, like_count, creator_name, genre, cache_key,
                         group_mode="roleplay"):
     from PIL import ImageDraw
@@ -932,10 +969,12 @@ def _compose_group_card(group_name, cast, character_count, like_count, creator_n
     accent_rgb = _OG_CHAT_BLUE if is_chat else _OG_GOLD
     gradient_h = 340
     canvas = Image.new("RGB", (width, height), _OG_CHAT_BG if is_chat else _OG_PAPER)
-    tint = (10, 16, 28) if is_chat else (0, 0, 0)
-    canvas = _og_split_cast_background(canvas, width, height, cast, tint)
-    _og_apply_bottom_gradient(canvas, width, height, gradient_h, tint)
+    if not is_chat:
+        canvas = _og_split_cast_background(canvas, width, height, cast)
+        _og_apply_bottom_gradient(canvas, width, height, gradient_h)
     draw = ImageDraw.Draw(canvas)
+    if is_chat:
+        _og_avatar_tile_row(canvas, draw, cast, height - gradient_h - 6, accent_rgb, _OG_CHAT_BG)
     _og_brand_mark(canvas, draw)
     mode_label = "Chat" if is_chat else "Roleplay"
     mode_font = _og_font(_FONT_BODY, 22, 600)
@@ -1106,7 +1145,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "28"
+_OG_IMG_VERSION = "29"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
