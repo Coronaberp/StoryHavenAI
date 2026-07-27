@@ -181,7 +181,8 @@ async def admin_service_health(hours: float = 24, _: dict = Depends(require_capa
     }
 
 @api.get("/admin/model-latency")
-async def admin_model_latency(hours: float = 24, _: dict = Depends(require_permission("service_health", "read"))):
+async def admin_model_latency(hours: float = 24, _: dict = Depends(require_capability(
+        "service_health.view", "View current service health status."))):
     proxies = sorted(CFG.get("chat_proxies") or [], key=lambda p: p.get("priority", 0))
     limit = min(int(hours * 60 / 5) + 5, 3000)
     since = time.time() - hours * 3600
