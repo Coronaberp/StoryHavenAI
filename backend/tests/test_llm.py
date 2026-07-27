@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from backend import llm
+from backend.repositories import health as health_repo
 
 def test_strip_json_fence_removes_json_fence():
     assert llm.strip_json_fence('```json\n{"a": 1}\n```') == '{"a": 1}'
@@ -199,3 +200,66 @@ async def test_classify_image_explicit_transport_error_never_raises(monkeypatch)
     assert explicit is False
     assert confidence == 0
     assert raw.startswith("<error:")
+
+async def _fake_chat_stream_success(*args, **kwargs):
+    yield ("content", "hello")
+
+async def _fake_chat_stream_failure(*args, **kwargs):
+    raise RuntimeError("endpoint unreachable")
+    yield  # pragma: no cover
+
+@pytest.mark.asyncio
+async def test_chat_stream_with_fallback_records_latency_on_success(db_conn, monkeypatch):
+    monkeypatch.setattr(llm, "chat_stream", _fake_chat_stream_success)
+    profiles = [{"name": "Primary Provider", "base_url": "http://primary/v1", "model": "m"}]
+    result = {}
+    events = [ev async for ev in llm.chat_stream_with_fallback([], profiles, result=result)]
+    assert events == [("content", "hello")]
+    assert result["profile"]["name"] == "Primary Provider"
+    ping = await health_repo.latest_ping("model:Primary Provider")
+    assert ping is not None
+    assert bool(ping["ok"]) is True
+    assert ping["latency_ms"] is not None
+
+@pytest.mark.asyncio
+async def test_chat_stream_with_fallback_records_latency_on_failure_then_falls_back(db_conn, monkeypatch):
+    calls = []
+
+    async def dispatch(messages, model, params=None, parse_think=False, base_url=None,
+                       api_key=None, pin_host=False):
+        calls.append(base_url)
+        if base_url == "http://primary/v1":
+            async for ev in _fake_chat_stream_failure():
+                yield ev
+        else:
+            async for ev in _fake_chat_stream_success():
+                yield ev
+
+    monkeypatch.setattr(llm, "chat_stream", dispatch)
+    profiles = [
+        {"name": "Primary Provider", "base_url": "http://primary/v1", "model": "m"},
+        {"name": "Backup Provider", "base_url": "http://backup/v1", "model": "m"},
+    ]
+    result = {}
+    events = [ev async for ev in llm.chat_stream_with_fallback([], profiles, result=result)]
+    assert events == [("content", "hello")]
+    assert result["profile"]["name"] == "Backup Provider"
+
+    failed_ping = await health_repo.latest_ping("model:Primary Provider")
+    assert failed_ping is not None
+    assert bool(failed_ping["ok"]) is False
+    assert "endpoint unreachable" in failed_ping["error"]
+
+    succeeded_ping = await health_repo.latest_ping("model:Backup Provider")
+    assert succeeded_ping is not None
+    assert bool(succeeded_ping["ok"]) is True
+
+@pytest.mark.asyncio
+async def test_chat_stream_with_fallback_raises_when_all_profiles_fail(db_conn, monkeypatch):
+    monkeypatch.setattr(llm, "chat_stream", _fake_chat_stream_failure)
+    profiles = [{"name": "Only Provider", "base_url": "http://only/v1", "model": "m"}]
+    with pytest.raises(RuntimeError, match="endpoint unreachable"):
+        async for _ in llm.chat_stream_with_fallback([], profiles):
+            pass
+    ping = await health_repo.latest_ping("model:Only Provider")
+    assert bool(ping["ok"]) is False

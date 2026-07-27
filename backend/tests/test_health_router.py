@@ -78,3 +78,51 @@ async def test_media_gen_status_still_uses_ping_for_comfyui(db_conn, monkeypatch
     monkeypatch.setattr(health_router.health_repo, "latest_ping", fake_ping)
     result = await health_router.media_gen_status(_={"id": "u"})
     assert result == {"available": False}
+
+async def test_admin_model_latency_returns_configured_proxies_sorted_by_priority(db_conn, monkeypatch):
+    from backend.routers import health as health_router
+    from backend.state import CFG
+
+    monkeypatch.setitem(CFG, "chat_proxies", [
+        {"name": "Second", "base_url": "http://b", "priority": 1,
+         "icon_type": "favicon", "icon_value": ""},
+        {"name": "First", "base_url": "http://a", "priority": 0,
+         "icon_type": "svg", "icon_value": "<svg></svg>"},
+    ])
+    result = await health_router.admin_model_latency(hours=24, _={"id": "a", "is_admin": True})
+    names = [m["name"] for m in result["models"]]
+    assert names == ["First", "Second"]
+    assert result["models"][0]["icon_type"] == "svg"
+    assert result["models"][0]["icon_value"] == "<svg></svg>"
+
+async def test_admin_model_latency_includes_recorded_history(db_conn, monkeypatch):
+    from backend.routers import health as health_router
+    from backend.state import CFG
+    from backend.repositories import health as health_repo
+
+    monkeypatch.setitem(CFG, "chat_proxies", [
+        {"name": "Only One", "base_url": "http://a", "priority": 0,
+         "icon_type": "favicon", "icon_value": ""},
+    ])
+    await health_repo.record_ping("model:Only One", True, 1234.5, "")
+    result = await health_router.admin_model_latency(hours=24, _={"id": "a", "is_admin": True})
+    model = result["models"][0]
+    assert model["latest_latency_ms"] == 1234.5
+    assert model["avg_latency_ms"] == 1234.5
+    assert model["success_pct"] == 100.0
+    assert len(model["latency_history"]) == 1
+    assert model["latency_history"][0]["ms"] == 1234.5
+
+async def test_admin_model_latency_with_no_history_returns_nulls(db_conn, monkeypatch):
+    from backend.routers import health as health_router
+    from backend.state import CFG
+
+    monkeypatch.setitem(CFG, "chat_proxies", [
+        {"name": "Untested", "base_url": "http://a", "priority": 0,
+         "icon_type": "favicon", "icon_value": ""},
+    ])
+    result = await health_router.admin_model_latency(hours=24, _={"id": "a", "is_admin": True})
+    model = result["models"][0]
+    assert model["latest_latency_ms"] is None
+    assert model["avg_latency_ms"] is None
+    assert model["latency_history"] == []

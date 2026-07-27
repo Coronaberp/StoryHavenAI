@@ -5,6 +5,10 @@ const ADMIN_HEALTH_SERVICE_LABELS = {
   comfyui: "ComfyUI", image_classify_llm: "Image classifier", modal: "Modal",
 };
 
+const ADMIN_MODEL_LATENCY_PALETTE = [
+  "#4d6bfe", "#e3bd6c", "#4caf50", "#e05c5c", "#9b6bd1", "#3aa3c9",
+];
+
 function adminHealthFmtDuration(secs) {
   secs = Math.floor(secs);
   const d = Math.floor(secs / 86400), h = Math.floor((secs % 86400) / 3600), m = Math.floor((secs % 3600) / 60);
@@ -23,10 +27,111 @@ class AdminHealthView {
     this.sparkCharts = {};
     this.mobileExpandCharts = {};
     this.expandedServices = new Set();
+    this.modelLatencyChart = null;
     main.innerHTML = `<div class="text-sm text-muted">${_esc(t("common_loading"))}</div>`;
     this.render();
     await this.loadHealth();
+    await this.loadModelLatency();
     await this.loadLogs();
+  }
+
+  async loadModelLatency() {
+    try {
+      this.modelLatencyData = await api(`/api/admin/model-latency?hours=${this.hours}`);
+      this.modelLatencyError = null;
+    } catch (e) {
+      this.modelLatencyError = e.message || "Couldn't load model latency.";
+      this.modelLatencyData = null;
+    }
+    this.renderModelLatency();
+  }
+
+  renderModelLatency() {
+    const box = document.getElementById("model_latency_box");
+    if (!box) return;
+    if (this.modelLatencyError) {
+      box.innerHTML = `<p class="text-sm" style="color:var(--color-warn)">${_esc(this.modelLatencyError)}</p>`;
+      return;
+    }
+    if (!this.modelLatencyData) return;
+    const models = this.modelLatencyData.models || [];
+    if (!models.length) {
+      box.innerHTML = `<p class="text-sm text-muted">${t("admin_health_no_models_configured", "No chat model endpoints configured.")}</p>`;
+      return;
+    }
+    if (!box.querySelector("#model_latency_canvas")) {
+      box.innerHTML = `
+        <div class="h-[220px] mb-3"><canvas id="model_latency_canvas"></canvas></div>
+        <div id="model_latency_legend" class="flex flex-wrap gap-3"></div>
+      `;
+    }
+    this.renderModelLatencyChart(models);
+    this.renderModelLatencyLegend(models);
+  }
+
+  renderModelLatencyChart(models) {
+    const canvas = document.getElementById("model_latency_canvas");
+    if (!canvas || typeof Chart === "undefined") return;
+    const line = getComputedStyle(document.documentElement).getPropertyValue("--color-line").trim() || "#2A2A2E";
+    const allTimestamps = new Set();
+    models.forEach((m) => (m.latency_history || []).forEach((p) => allTimestamps.add(p.t)));
+    const labels = Array.from(allTimestamps).sort((a, b) => a - b);
+    const datasets = models.map((m, i) => {
+      const color = ADMIN_MODEL_LATENCY_PALETTE[i % ADMIN_MODEL_LATENCY_PALETTE.length];
+      const byTime = {};
+      (m.latency_history || []).forEach((p) => { byTime[p.t] = p.ok ? p.ms : null; });
+      return {
+        label: m.name,
+        data: labels.map((t2) => (t2 in byTime ? byTime[t2] : null)),
+        borderColor: color,
+        backgroundColor: color,
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.2,
+        spanGaps: true,
+      };
+    });
+    const labelStrings = labels.map((t2) => new Date(t2 * 1000).toLocaleTimeString());
+    if (this.modelLatencyChart) {
+      this.modelLatencyChart.data.labels = labelStrings;
+      this.modelLatencyChart.data.datasets = datasets;
+      this.modelLatencyChart.update();
+      return;
+    }
+    this.modelLatencyChart = new Chart(canvas, {
+      type: "line",
+      data: { labels: labelStrings, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: true } },
+        scales: {
+          x: { display: false },
+          y: { display: true, grid: { color: line },
+               ticks: { callback: (v) => `${v} ms` } },
+        },
+      },
+    });
+  }
+
+  renderModelLatencyLegend(models) {
+    const box = document.getElementById("model_latency_legend");
+    if (!box) return;
+    box.innerHTML = models.map((m, i) => {
+      const color = ADMIN_MODEL_LATENCY_PALETTE[i % ADMIN_MODEL_LATENCY_PALETTE.length];
+      const latest = m.latest_latency_ms != null ? `${m.latest_latency_ms} ms` : "-";
+      const success = m.success_pct != null ? `${m.success_pct}%` : "-";
+      return `
+        <div class="flex items-center gap-2 rounded-md border border-line px-2 py-1.5">
+          <span class="w-2.5 h-2.5 rounded-full flex-none" style="background:${color}"></span>
+          ${typeof proxyIconHtml === "function" ? proxyIconHtml(m, 20) : ""}
+          <div class="flex flex-col">
+            <span class="text-xs font-semibold text-ink">${_esc(m.name)}</span>
+            <span class="text-[11px] text-muted">${_esc(latest)} · ${t("admin_health_uptime_24h")} ${_esc(success)}</span>
+          </div>
+        </div>`;
+    }).join("");
   }
 
   async loadHealth() {
@@ -45,6 +150,7 @@ class AdminHealthView {
   setRange(hours) {
     this.hours = hours;
     this.loadHealth();
+    this.loadModelLatency();
   }
 
   async refreshNow() {
@@ -236,6 +342,7 @@ class AdminHealthView {
     this.sparkCharts = {};
     Object.values(this.mobileExpandCharts || {}).forEach((chart) => chart && chart.destroy());
     this.mobileExpandCharts = {};
+    if (this.modelLatencyChart) { this.modelLatencyChart.destroy(); this.modelLatencyChart = null; }
   }
 }
 
@@ -292,6 +399,9 @@ AdminHealthView.prototype.render = function () {
     </div>
     <div id="health_grid_desktop" class="mb-3 hidden lg:block"><span class="text-sm text-muted">${t("admin_health_loading")}</span></div>
     <div id="health_grid_mobile" class="mb-6 lg:hidden rounded-[13px] border border-line bg-surface px-3"><span class="text-sm text-muted">${t("admin_health_loading")}</span></div>
+
+    <div class="font-display font-semibold text-base text-ink mb-2">${t("admin_health_model_latency", "Current model latency")}</div>
+    <div id="model_latency_box" class="mb-6 rounded-[13px] border border-line bg-surface p-3"><span class="text-sm text-muted">${t("admin_health_loading")}</span></div>
 
     <div class="flex items-center justify-between mb-2">
       <div class="font-display font-semibold text-base text-ink">${t("admin_health_server_logs")}</div>

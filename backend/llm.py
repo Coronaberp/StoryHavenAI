@@ -1,5 +1,6 @@
 import json
 import re
+import time
 import logging
 import httpx
 
@@ -339,13 +340,22 @@ def _looks_like_refusal(text: str) -> bool:
     sample = (text or "").strip()[:600]
     return any(p.search(sample) for p in _REFUSAL_PATTERNS)
 
+async def _record_model_latency(profile_name: str, ok: bool, latency_ms: float, error: str = "") -> None:
+    from backend.repositories import health as health_repo
+    try:
+        await health_repo.record_ping(f"model:{profile_name}", ok, latency_ms, error)
+    except Exception:
+        log.exception("llm: failed to record model latency for profile=%s", profile_name)
+
 async def chat_stream_with_fallback(messages, profiles, params=None, parse_think=False, pin_host=False, result=None):
     if not profiles:
         raise RuntimeError("no chat endpoint profiles configured")
     last_error = None
     for idx, profile in enumerate(profiles):
         is_last = idx == len(profiles) - 1
+        profile_name = profile.get("name") or profile["base_url"]
         events = []
+        t0 = time.monotonic()
         try:
             async for ev in chat_stream(
                     messages, profile["model"], params, parse_think=parse_think,
@@ -354,14 +364,19 @@ async def chat_stream_with_fallback(messages, profiles, params=None, parse_think
                 events.append(ev)
         except Exception as e:
             last_error = e
+            latency_ms = (time.monotonic() - t0) * 1000
+            await _record_model_latency(profile_name, False, latency_ms, str(e))
             log.warning("chat fallback: profile=%s (%s) failed, trying next: %s",
-                        profile.get("name") or profile["base_url"], idx, e)
+                        profile_name, idx, e)
             continue
+        latency_ms = (time.monotonic() - t0) * 1000
         content_text = "".join(text for channel, text in events if channel == "content")
         if _looks_like_refusal(content_text) and not is_last:
+            await _record_model_latency(profile_name, False, latency_ms, "looked like a refusal")
             log.warning("chat fallback: profile=%s (%s) looked like a refusal, trying next",
-                        profile.get("name") or profile["base_url"], idx)
+                        profile_name, idx)
             continue
+        await _record_model_latency(profile_name, True, latency_ms)
         if result is not None:
             result["profile"] = profile
         for ev in events:

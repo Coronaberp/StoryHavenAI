@@ -177,3 +177,35 @@ async def admin_service_health(hours: float = 24, _: dict = Depends(require_perm
         "process_uptime_seconds": round(time.time() - PROCESS_START_TIME, 1),
         "services": services,
     }
+
+@api.get("/admin/model-latency")
+async def admin_model_latency(hours: float = 24, _: dict = Depends(require_permission("service_health", "read"))):
+    proxies = sorted(CFG.get("chat_proxies") or [], key=lambda p: p.get("priority", 0))
+    limit = min(int(hours * 60 / 5) + 5, 3000)
+    since = time.time() - hours * 3600
+    models = []
+    for proxy in proxies:
+        service_name = f"model:{proxy.get('name') or proxy.get('base_url')}"
+        history, uptime_pct = await asyncio.gather(
+            health_repo.history(service_name, limit=limit, since=since),
+            health_repo.uptime_pct(service_name, hours=hours),
+        )
+        latencies = [h["latency_ms"] for h in history if h["latency_ms"] is not None]
+        avg_latency_ms = round(sum(latencies) / len(latencies), 1) if latencies else None
+        latest = history[-1] if history else None
+        models.append({
+            "name": proxy.get("name") or proxy.get("base_url"),
+            "priority": proxy.get("priority", 0),
+            "icon_type": proxy.get("icon_type") or "favicon",
+            "icon_value": proxy.get("icon_value") or "",
+            "latest_latency_ms": (round(latest["latency_ms"], 1)
+                                  if latest and latest["latency_ms"] is not None else None),
+            "avg_latency_ms": avg_latency_ms,
+            "success_pct": uptime_pct,
+            "latency_history": [
+                {"t": h["created"], "ok": bool(h["ok"]),
+                 "ms": round(h["latency_ms"], 1) if h["latency_ms"] is not None else None}
+                for h in history
+            ],
+        })
+    return {"models": models}
