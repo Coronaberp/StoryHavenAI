@@ -63,6 +63,15 @@ users = sa.Table(
     sa.Column("guest_videos_used", sa.Integer, nullable=False, server_default=text("0")),
 )
 
+role_permissions = sa.Table(
+    "role_permissions", _meta,
+    sa.Column("role", sa.Text, primary_key=True),
+    sa.Column("resource", sa.Text, primary_key=True),
+    sa.Column("can_read", sa.Boolean, nullable=False, server_default=text("false")),
+    sa.Column("can_write", sa.Boolean, nullable=False, server_default=text("false")),
+    sa.Column("can_execute", sa.Boolean, nullable=False, server_default=text("false")),
+)
+
 auth_sessions = sa.Table(
     "auth_sessions", _meta,
     sa.Column("token", sa.Text, primary_key=True),
