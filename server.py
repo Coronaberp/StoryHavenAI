@@ -31,6 +31,9 @@ from backend.repositories import session_invites
 from backend.repositories import chat_sessions as chat_sessions_repo
 from backend.repositories import session_characters as session_char_repo
 from backend.repositories import session_participants
+from backend.repositories import characters as characters_repo
+from backend.repositories import content_likes as content_likes_repo
+from backend.repositories import follows as follows_repo
 
 mimetypes.add_type("image/webp", ".webp")
 
@@ -295,27 +298,153 @@ def _og_creator_footer(canvas, draw, name, avatar_rel, accent_hex, banner_hex):
         text_x = ax + size + 20
     draw.text((text_x, ay + 14), (name or "")[:44], font=_og_font(_FONT_BODY, 30, 600), fill=_OG_GOLD)
 
-def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex):
+def _og_icon_message(draw, x, y, size, color):
+    stroke = max(2, round(size * 0.08))
+    pad = size * 0.12
+    body_w, body_h = size - 2 * pad, size * 0.62
+    draw.rounded_rectangle([x + pad, y + pad, x + pad + body_w, y + pad + body_h],
+                           radius=size * 0.14, outline=color, width=stroke)
+    tail_x = x + pad + body_w * 0.24
+    draw.polygon([(tail_x, y + pad + body_h - 1), (tail_x, y + pad + body_h + size * 0.16),
+                 (tail_x + size * 0.18, y + pad + body_h - 1)], fill=color)
+
+def _og_icon_heart(draw, x, y, size, color):
+    lobe_r = size * 0.22
+    top = y + size * 0.16
+    draw.ellipse([x + size * 0.1, top, x + size * 0.1 + 2 * lobe_r, top + 2 * lobe_r], fill=color)
+    draw.ellipse([x + size * 0.9 - 2 * lobe_r, top, x + size * 0.9, top + 2 * lobe_r], fill=color)
+    draw.polygon([(x + size * 0.08, top + lobe_r * 0.9), (x + size * 0.5, y + size * 0.92),
+                 (x + size * 0.92, top + lobe_r * 0.9)], fill=color)
+
+def _og_icon_people(draw, x, y, size, color):
+    stroke = max(2, round(size * 0.09))
+    r = size * 0.16
+    draw.ellipse([x + size * 0.06, y + size * 0.1, x + size * 0.06 + 2 * r, y + size * 0.1 + 2 * r],
+                outline=color, width=stroke)
+    draw.arc([x, y + size * 0.4, x + size * 0.52, y + size * 0.98], 195, 345, fill=color, width=stroke)
+    draw.ellipse([x + size * 0.46, y + size * 0.1, x + size * 0.46 + 2 * r, y + size * 0.1 + 2 * r],
+                outline=color, width=stroke)
+    draw.arc([x + size * 0.4, y + size * 0.4, x + size * 0.4 + size * 0.52, y + size * 0.98],
+             195, 345, fill=color, width=stroke)
+
+def _og_icon_person(draw, x, y, size, color):
+    stroke = max(2, round(size * 0.09))
+    r = size * 0.2
+    draw.ellipse([x + size * 0.5 - r, y + size * 0.06, x + size * 0.5 + r, y + size * 0.06 + 2 * r],
+                outline=color, width=stroke)
+    draw.arc([x + size * 0.12, y + size * 0.48, x + size * 0.88, y + size * 1.05], 195, 345,
+             fill=color, width=stroke)
+
+def _og_icon_clock(draw, x, y, size, color):
+    stroke = max(2, round(size * 0.08))
+    draw.ellipse([x + size * 0.08, y + size * 0.08, x + size * 0.92, y + size * 0.92],
+                outline=color, width=stroke)
+    cx, cy = x + size * 0.5, y + size * 0.5
+    draw.line([(cx, cy), (cx, cy - size * 0.26)], fill=color, width=stroke)
+    draw.line([(cx, cy), (cx + size * 0.2, cy + size * 0.12)], fill=color, width=stroke)
+
+def _og_icon_pin(draw, x, y, size, color):
+    stroke = max(2, round(size * 0.08))
+    draw.ellipse([x + size * 0.24, y + size * 0.06, x + size * 0.76, y + size * 0.58],
+                outline=color, width=stroke)
+    draw.polygon([(x + size * 0.5 - size * 0.11, y + size * 0.5),
+                 (x + size * 0.5 + size * 0.11, y + size * 0.5),
+                 (x + size * 0.5, y + size * 0.94)], fill=color)
+
+def _og_icon_bolt(draw, x, y, size, color):
+    draw.polygon([(x + size * 0.55, y + size * 0.04), (x + size * 0.18, y + size * 0.58),
+                 (x + size * 0.44, y + size * 0.58), (x + size * 0.4, y + size * 0.96),
+                 (x + size * 0.84, y + size * 0.38), (x + size * 0.56, y + size * 0.38)], fill=color)
+
+_OG_ICONS = {
+    "message": _og_icon_message, "heart": _og_icon_heart, "people": _og_icon_people,
+    "person": _og_icon_person, "clock": _og_icon_clock, "pin": _og_icon_pin, "bolt": _og_icon_bolt,
+}
+
+def _og_icon(draw, name, x, y, size, color):
+    icon_fn = _OG_ICONS.get(name)
+    if icon_fn:
+        icon_fn(draw, x, y, size, color)
+
+def _og_stat_block(draw, x, top, icon_name, value, label, icon_color):
+    icon_size = 30
+    _og_icon(draw, icon_name, x, top, icon_size, icon_color)
+    value_font = _og_font(_FONT_BODY, 30, 700)
+    label_font = _og_font(_FONT_BODY, 20, 500)
+    value_text = str(value)
+    value_width = draw.textlength(value_text, font=value_font)
+    label_width = draw.textlength(label, font=label_font)
+    block_width = max(icon_size, value_width, label_width)
+    draw.text((x + (block_width - value_width) / 2, top + icon_size + 10), value_text,
+              font=value_font, fill=icon_color)
+    draw.text((x + (block_width - label_width) / 2, top + icon_size + 48), label,
+              font=label_font, fill=_OG_MUTED)
+    return block_width
+
+def _og_stat_row(draw, x, top, stats, icon_color=None, gap=44):
+    icon_color = icon_color or _OG_GOLD
+    cursor_x = x
+    for icon_name, value, label in stats:
+        block_width = _og_stat_block(draw, cursor_x, top, icon_name, value, label, icon_color)
+        cursor_x += block_width + gap
+
+def _og_brand_mark(canvas, draw):
+    mark_x, mark_y, mark_size = 32, 28, 16
+    draw.rounded_rectangle([mark_x, mark_y, mark_x + mark_size, mark_y + mark_size],
+                           radius=4, fill=_OG_GOLD)
+    draw.text((mark_x + mark_size + 10, mark_y - 3), "StoryHaven AI",
+              font=_og_font(_FONT_BODY, 20, 700), fill=_OG_GOLD)
+
+def _og_bottom_gradient(width, gradient_h, peak=225, power=1.3):
+    column = Image.new("L", (1, gradient_h), 0)
+    for i in range(gradient_h):
+        column.putpixel((0, i), int(peak * (i / gradient_h) ** power))
+    return column.resize((width, gradient_h))
+
+def _og_apply_bottom_gradient(canvas, width, height, gradient_h):
+    mask = _og_bottom_gradient(width, gradient_h)
+    canvas.paste(Image.new("RGB", (width, gradient_h), (0, 0, 0)), (0, height - gradient_h), mask)
+
+def _og_relative_time(timestamp) -> str:
+    if not timestamp:
+        return "recently"
+    import time as _time
+    delta = max(0, _time.time() - timestamp)
+    if delta < 60:
+        return "Active just now"
+    if delta < 3600:
+        minutes = round(delta / 60)
+        return f"Active {minutes} minute{'s' if minutes != 1 else ''} ago"
+    if delta < 86400:
+        hours = round(delta / 3600)
+        return f"Active {hours} hour{'s' if hours != 1 else ''} ago"
+    days = round(delta / 86400)
+    return f"Active {days} day{'s' if days != 1 else ''} ago"
+
+def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex,
+                        like_count=0, positive_tags=None, negative_tags=None,
+                        cfg=None, steps=None, sampler=None, checkpoint=None):
     from PIL import ImageFilter, ImageDraw
     if not rel_path or not rel_path.startswith("/media/"):
         return None
     fname = rel_path[len("/media/"):].split("?")[0]
     base, _ext = os.path.splitext(fname)
-    digest = hashlib.md5(f"{fname}|{name}|{avatar_rel}|{accent_hex}|{banner_hex}".encode()).hexdigest()[:8]
+    signature = f"{fname}|{name}|{avatar_rel}|{accent_hex}|{banner_hex}|{like_count}|{positive_tags}|{negative_tags}|{cfg}|{steps}|{sampler}|{checkpoint}"
+    digest = hashlib.md5(signature.encode()).hexdigest()[:8]
     cache_name = f"{base}_ogcard{digest}v{_OG_IMG_VERSION}.png"
     cache_fs = os.path.join(MEDIA_DIR, cache_name)
     if os.path.exists(cache_fs):
         return f"/media/{cache_name}"
     src_fs = os.path.join(MEDIA_DIR, fname)
-    header_fs = os.path.join(STATIC_DIR, "img", "og-header.png")
     try:
         art = Image.open(src_fs).convert("RGB")
-        header = Image.open(header_fs).convert("RGB").resize((1200, 150))
     except Exception as e:
-        log.warning("og compose: cannot open art/header for %s: %s", rel_path, e)
+        log.warning("og compose: cannot open art for %s: %s", rel_path, e)
         return None
-    width, height, band, footer_top = 1200, 630, 150, 546
+    width, footer_top, footer_bottom, band = 1200, 546, 630, 150
     art_h = footer_top - band
+    meta_h = 140
+    height = footer_bottom + meta_h
     canvas = Image.new("RGB", (width, height), _OG_PAPER)
     draw = ImageDraw.Draw(canvas)
     background = _og_cover(art, width, art_h).filter(ImageFilter.GaussianBlur(28))
@@ -324,7 +453,35 @@ def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex):
     foreground = _og_contain(art, width - 96, art_h - 48)
     canvas.paste(foreground, ((width - foreground.width) // 2, band + (art_h - foreground.height) // 2))
     _og_creator_footer(canvas, draw, name, avatar_rel, accent_hex, banner_hex)
-    canvas.paste(header, (0, 0))
+    if like_count:
+        heart_font = _og_font(_FONT_BODY, 30, 600)
+        like_text = str(like_count)
+        like_x = width - 48 - draw.textlength(like_text, font=heart_font) - 34
+        _og_icon(draw, "heart", like_x, footer_top + 34, 26, _OG_GOLD)
+        draw.text((like_x + 34, footer_top + 36), like_text, font=heart_font, fill=_OG_GOLD)
+    draw.rectangle([0, footer_bottom, width, height], fill=_OG_PAPER)
+    draw.line([(0, footer_bottom), (width, footer_bottom)], fill=_OG_GOLD, width=1)
+    meta_y = footer_bottom + 18
+    if positive_tags:
+        _og_draw_tags(draw, 48, meta_y, positive_tags[:4], _og_font(_FONT_BODY, 22, 500))
+        meta_y += 46
+    if negative_tags:
+        negative_text = "Avoiding: " + ", ".join(negative_tags[:3])
+        draw.text((48, meta_y), negative_text[:90], font=_og_font(_FONT_BODY, 20, 400), fill=_OG_MUTED)
+        meta_y += 32
+    config_bits = []
+    if cfg is not None:
+        config_bits.append(f"CFG {cfg}")
+    if steps is not None:
+        config_bits.append(f"{steps} steps")
+    if sampler:
+        config_bits.append(sampler)
+    if checkpoint:
+        config_bits.append(checkpoint)
+    if config_bits:
+        draw.text((48, meta_y + 6), " · ".join(config_bits)[:100],
+                  font=_og_font(_FONT_BODY, 20, 500), fill=_OG_MUTED)
+    _og_brand_mark(canvas, draw)
     try:
         canvas.save(cache_fs, "PNG")
     except Exception as e:
@@ -333,9 +490,12 @@ def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex):
     return f"/media/{cache_name}"
 
 def _og_image_url(request: Request, art_rel_path, name=None, avatar_rel=None,
-                  accent_hex=None, banner_hex=None) -> str:
+                  accent_hex=None, banner_hex=None, like_count=0, positive_tags=None,
+                  negative_tags=None, cfg=None, steps=None, sampler=None, checkpoint=None) -> str:
     origin = str(request.base_url).rstrip("/")
-    composite = _compose_image_card(art_rel_path, name, avatar_rel, accent_hex, banner_hex)
+    composite = _compose_image_card(art_rel_path, name, avatar_rel, accent_hex, banner_hex,
+                                    like_count, positive_tags, negative_tags,
+                                    cfg, steps, sampler, checkpoint)
     if composite:
         return f"{origin}{composite}"
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
@@ -427,60 +587,116 @@ def _og_draw_tags(draw, x, y, tags, font):
         draw.text((cx + 13, y + 6), label, font=font, fill=_OG_GOLD)
         cx += pill_w + 10
 
-def _compose_profile_card(name, desc, avatar_rel, banner_rel, tags, cache_key,
-                          accent_hex=None, banner_hex=None):
-    from PIL import ImageDraw, ImageFilter
-    import hashlib
-    digest = hashlib.md5(f"{cache_key}|{name}|{desc}|{avatar_rel}|{banner_rel}|{tags}|{accent_hex}|{banner_hex}".encode()).hexdigest()[:12]
+def _compose_character_card(name, desc, art_rel, tags, genre, message_count, like_count, cache_key):
+    from PIL import ImageDraw
+    digest = hashlib.md5(
+        f"{cache_key}|{name}|{desc}|{art_rel}|{tags}|{genre}|{message_count}|{like_count}".encode()
+    ).hexdigest()[:12]
+    cache_name = f"ogchar_{digest}_v{_OG_IMG_VERSION}.png"
+    cache_fs = os.path.join(MEDIA_DIR, cache_name)
+    if os.path.exists(cache_fs):
+        return f"/media/{cache_name}"
+    width, height = 1200, 630
+    canvas = Image.new("RGB", (width, height), _OG_PAPER)
+    art = _og_open_media(art_rel)
+    if art is not None:
+        canvas.paste(_og_cover(art, width, height), (0, 0))
+    gradient_h = round(height * 0.62)
+    _og_apply_bottom_gradient(canvas, width, height, gradient_h)
+    draw = ImageDraw.Draw(canvas)
+    _og_brand_mark(canvas, draw)
+    top = height - gradient_h + 22
+    draw.text((48, top), (name or "")[:38], font=_og_font(_FONT_DISPLAY, 50, 600), fill=(255, 255, 255))
+    desc_font = _og_font(_FONT_BODY, 25, 400)
+    desc_y = top + 64
+    desc_lines = _og_wrap(draw, desc, desc_font, width - 96, 2)
+    for i, line in enumerate(desc_lines):
+        draw.text((48, desc_y + i * 33), line, font=desc_font, fill=_OG_MUTED)
+    badge_y = desc_y + len(desc_lines) * 33 + 16
+    badge_x = 48
+    if genre:
+        genre_font = _og_font(_FONT_BODY, 22, 600)
+        pill_w = draw.textlength(genre, font=genre_font) + 26
+        draw.rounded_rectangle([badge_x, badge_y, badge_x + pill_w, badge_y + 36], radius=18, fill=_OG_GOLD)
+        draw.text((badge_x + 13, badge_y + 6), genre, font=genre_font, fill=_OG_PAPER)
+        badge_x += pill_w + 12
+    if tags:
+        _og_draw_tags(draw, badge_x, badge_y, tags, _og_font(_FONT_BODY, 22, 500))
+    stats_y = badge_y + 56
+    _og_stat_row(draw, 48, stats_y,
+                [("message", message_count, "Messages"), ("heart", like_count, "Likes")],
+                icon_color=(255, 255, 255))
+    try:
+        canvas.save(cache_fs, "PNG")
+    except Exception as e:
+        log.warning("og character card save failed: %s", e)
+        return None
+    return f"/media/{cache_name}"
+
+def _og_character_url(request: Request, name, desc, art_rel, tags, genre,
+                      message_count, like_count, cache_key) -> str:
+    origin = str(request.base_url).rstrip("/")
+    card = _compose_character_card(name, desc, art_rel, tags, genre, message_count, like_count, cache_key)
+    if card:
+        return f"{origin}{card}"
+    return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
+
+def _compose_profile_card(name, desc, avatar_rel, banner_rel, characters_count, followers_count,
+                          cache_key, accent_hex=None, banner_hex=None):
+    from PIL import ImageDraw
+    digest = hashlib.md5(
+        f"{cache_key}|{name}|{desc}|{avatar_rel}|{banner_rel}|{characters_count}|{followers_count}|{accent_hex}|{banner_hex}".encode()
+    ).hexdigest()[:12]
     cache_name = f"ogp_{digest}_v{_OG_IMG_VERSION}.png"
     cache_fs = os.path.join(MEDIA_DIR, cache_name)
     if os.path.exists(cache_fs):
         return f"/media/{cache_name}"
-    width, height, band, strip_h = 1200, 630, 150, 210
-    canvas = Image.new("RGB", (width, height), _OG_PAPER)
+    width, banner_h, avatar_size, overlap = 1200, 260, 160, 70
+    wrapper_h = banner_h + overlap
+    wrapper = Image.new("RGB", (width, wrapper_h), _OG_PAPER)
+    accent_rgb = _og_hex_rgb(accent_hex, _OG_GOLD)
+    banner_rgb = _og_hex_rgb(banner_hex, accent_rgb)
+    banner_src = _og_open_media(banner_rel)
+    if banner_src is not None:
+        wrapper.paste(_og_cover(banner_src, width, banner_h), (0, 0))
+    else:
+        wrapper.paste(_og_diagonal_gradient(max(width, banner_h), accent_rgb, banner_rgb)
+                     .resize((width, banner_h)), (0, 0))
+    wrapper_draw = ImageDraw.Draw(wrapper)
+    avatar_x, avatar_y, ring = 48, banner_h - overlap, 6
+    outer = avatar_size + ring * 2
+    ring_gradient = _og_diagonal_gradient(outer, accent_rgb, banner_rgb)
+    ring_mask = Image.new("L", (outer, outer), 0)
+    ImageDraw.Draw(ring_mask).ellipse([0, 0, outer - 1, outer - 1], fill=255)
+    wrapper.paste(ring_gradient, (avatar_x - ring, avatar_y - ring), ring_mask)
+    avatar_mask = Image.new("L", (avatar_size, avatar_size), 0)
+    ImageDraw.Draw(avatar_mask).ellipse([0, 0, avatar_size - 1, avatar_size - 1], fill=255)
+    avatar_img = _og_open_media(avatar_rel)
+    if avatar_img is not None:
+        wrapper.paste(_og_cover(avatar_img, avatar_size, avatar_size), (avatar_x, avatar_y), avatar_mask)
+    else:
+        wrapper.paste(Image.new("RGB", (avatar_size, avatar_size), accent_rgb),
+                     (avatar_x, avatar_y), avatar_mask)
+        initial = (name or "?")[0].upper()
+        initial_font = _og_font(_FONT_DISPLAY, 70, 600)
+        initial_w = wrapper_draw.textlength(initial, font=initial_font)
+        wrapper_draw.text((avatar_x + avatar_size / 2 - initial_w / 2, avatar_y + avatar_size / 2 - 44),
+                          initial, font=initial_font, fill=_OG_PAPER)
+    canvas = Image.new("RGB", (width, 630), _OG_PAPER)
+    canvas.paste(wrapper, (0, 0))
     draw = ImageDraw.Draw(canvas)
-    strip_src = _og_open_media(banner_rel)
-    blur_strip = strip_src is None
-    if strip_src is None:
-        strip_src = _og_open_media(avatar_rel)
-    if strip_src is not None:
-        strip = _og_cover(strip_src, width, strip_h)
-        if blur_strip:
-            strip = strip.filter(ImageFilter.GaussianBlur(24))
-            strip = Image.blend(strip, Image.new("RGB", (width, strip_h), (0, 0, 0)), 0.4)
-        canvas.paste(strip, (0, band))
-    draw.line([(0, band + strip_h), (width, band + strip_h)], fill=_OG_GOLD, width=2)
-    size, ax, ay, ring = 148, 48, band + strip_h - 72, 5
-    avatar = _og_open_media(avatar_rel)
-    text_x = 48
-    if avatar is not None:
-        accent_rgb = _og_hex_rgb(accent_hex, _OG_GOLD)
-        banner_rgb = _og_hex_rgb(banner_hex, accent_rgb)
-        outer = size + ring * 2
-        gradient = _og_diagonal_gradient(outer, accent_rgb, banner_rgb)
-        outer_mask = Image.new("L", (outer, outer), 0)
-        ImageDraw.Draw(outer_mask).rounded_rectangle([0, 0, outer - 1, outer - 1], radius=31, fill=255)
-        canvas.paste(gradient, (ax - ring, ay - ring), outer_mask)
-        av = _og_cover(avatar, size, size)
-        mask = Image.new("L", (size, size), 0)
-        ImageDraw.Draw(mask).rounded_rectangle([0, 0, size - 1, size - 1], radius=26, fill=255)
-        canvas.paste(av, (ax, ay), mask)
-        text_x = ax + size + 34
-    name_y = band + strip_h + 18
+    _og_brand_mark(canvas, draw)
+    text_x = avatar_x + avatar_size + 34
+    name_y = banner_h + 14
     draw.text((text_x, name_y), (name or "")[:38], font=_og_font(_FONT_DISPLAY, 50, 600), fill=_OG_GOLD)
-    tags_bottom = 0
-    if tags:
-        _og_draw_tags(draw, text_x, name_y + 66, tags, _og_font(_FONT_BODY, 22, 500))
-        tags_bottom = name_y + 66 + 36
     desc_font = _og_font(_FONT_BODY, 26, 400)
-    desc_y = max(ay + size + 28, tags_bottom + 18)
-    for i, line in enumerate(_og_wrap(draw, desc, desc_font, width - 96, 3)):
-        draw.text((48, desc_y + i * 37), line, font=desc_font, fill=_OG_MUTED)
-    try:
-        header = Image.open(os.path.join(STATIC_DIR, "img", "og-header.png")).convert("RGB").resize((width, band))
-        canvas.paste(header, (0, 0))
-    except Exception:
-        pass
+    desc_y = name_y + 64
+    desc_lines = _og_wrap(draw, desc, desc_font, width - text_x - 48, 2)
+    for i, line in enumerate(desc_lines):
+        draw.text((text_x, desc_y + i * 34), line, font=desc_font, fill=_OG_MUTED)
+    stats_y = desc_y + len(desc_lines) * 34 + 26
+    _og_stat_row(draw, text_x, stats_y,
+                [("person", characters_count, "Characters"), ("people", followers_count, "Followers")])
     try:
         canvas.save(cache_fs, "PNG")
     except Exception as e:
@@ -488,61 +704,70 @@ def _compose_profile_card(name, desc, avatar_rel, banner_rel, tags, cache_key,
         return None
     return f"/media/{cache_name}"
 
-def _og_profile_url(request: Request, name, desc, avatar_rel, banner_rel, tags, cache_key,
-                    accent_hex=None, banner_hex=None) -> str:
+def _og_profile_url(request: Request, name, desc, avatar_rel, banner_rel, characters_count,
+                    followers_count, cache_key, accent_hex=None, banner_hex=None) -> str:
     origin = str(request.base_url).rstrip("/")
-    card = _compose_profile_card(name, desc, avatar_rel, banner_rel, tags, cache_key,
-                                 accent_hex, banner_hex)
+    card = _compose_profile_card(name, desc, avatar_rel, banner_rel, characters_count,
+                                 followers_count, cache_key, accent_hex, banner_hex)
     if card:
         return f"{origin}{card}"
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
 
-def _compose_group_card(group_name, cast, cache_key, footer_text=None):
+def _og_split_cast_background(canvas, width, height, cast):
+    members = cast[:2]
+    if len(members) == 2:
+        half = width // 2
+        left = _og_open_media(members[0].get("avatar"))
+        right = _og_open_media(members[1].get("avatar"))
+        if left is not None:
+            canvas.paste(_og_cover(left, half, height), (0, 0))
+        if right is not None:
+            canvas.paste(_og_cover(right, width - half, height), (half, 0))
+    elif len(members) == 1:
+        source = _og_open_media(members[0].get("avatar"))
+        if source is not None:
+            canvas.paste(_og_cover(source, width, height), (0, 0))
+    return Image.blend(canvas, Image.new("RGB", (width, height), (0, 0, 0)), 0.35)
+
+def _compose_group_card(group_name, desc, cast, character_count, like_count, creator_name, genre, cache_key):
     from PIL import ImageDraw
-    import hashlib
     signature = "|".join(f"{c.get('name') or ''}:{c.get('avatar') or ''}" for c in cast)
-    digest = hashlib.md5(f"{cache_key}|{group_name}|{len(cast)}|{footer_text}|{signature}".encode()).hexdigest()[:12]
+    digest = hashlib.md5(
+        f"{cache_key}|{group_name}|{desc}|{signature}|{character_count}|{like_count}|{creator_name}|{genre}".encode()
+    ).hexdigest()[:12]
     cache_name = f"ogg_{digest}_v{_OG_IMG_VERSION}.png"
     cache_fs = os.path.join(MEDIA_DIR, cache_name)
     if os.path.exists(cache_fs):
         return f"/media/{cache_name}"
-    width, height, band = 1200, 630, 150
+    width, height = 1200, 630
     canvas = Image.new("RGB", (width, height), _OG_PAPER)
+    canvas = _og_split_cast_background(canvas, width, height, cast)
+    gradient_h = 340
+    _og_apply_bottom_gradient(canvas, width, height, gradient_h)
     draw = ImageDraw.Draw(canvas)
-    try:
-        header = Image.open(os.path.join(STATIC_DIR, "img", "og-header.png")).convert("RGB").resize((width, band))
-        canvas.paste(header, (0, 0))
-    except Exception:
-        pass
-    name_font = _og_font(_FONT_DISPLAY, 52, 600)
-    name_text = (group_name or "")[:34]
-    draw.text(((width - draw.textlength(name_text, font=name_font)) / 2, band + 34),
-              name_text, font=name_font, fill=_OG_GOLD)
-    members = cast[:4]
-    size, gap, ring, radius = 184, 30, 5, 34
-    row_width = len(members) * size + max(0, len(members) - 1) * gap
-    start_x = (width - row_width) // 2
-    avatar_y = band + 128
-    label_font = _og_font(_FONT_BODY, 24, 500)
-    for index, member in enumerate(members):
-        x = start_x + index * (size + gap)
-        outer = size + ring * 2
-        gradient = _og_diagonal_gradient(outer, _OG_GOLD, _og_hex_rgb(None, _OG_GOLD))
-        outer_mask = Image.new("L", (outer, outer), 0)
-        ImageDraw.Draw(outer_mask).rounded_rectangle([0, 0, outer - 1, outer - 1], radius=radius + ring, fill=255)
-        canvas.paste(gradient, (x - ring, avatar_y - ring), outer_mask)
-        source = _og_open_media(member.get("avatar"))
-        art = _og_cover(source, size, size) if source is not None else Image.new("RGB", (size, size), (38, 38, 44))
-        mask = Image.new("L", (size, size), 0)
-        ImageDraw.Draw(mask).rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=255)
-        canvas.paste(art, (x, avatar_y), mask)
-        label = (member.get("name") or "")[:15]
-        draw.text((x + (size - draw.textlength(label, font=label_font)) / 2, avatar_y + size + 14),
-                  label, font=label_font, fill=_OG_MUTED)
-    count_font = _og_font(_FONT_BODY, 27, 500)
-    count_text = footer_text or (f"{len(cast)} character group" if len(cast) != 1 else "1 character group")
-    draw.text(((width - draw.textlength(count_text, font=count_font)) / 2, height - 62),
-              count_text, font=count_font, fill=_OG_GOLD)
+    _og_brand_mark(canvas, draw)
+    if genre:
+        genre_font = _og_font(_FONT_BODY, 22, 600)
+        pill_w = draw.textlength(genre, font=genre_font) + 26
+        draw.rounded_rectangle([48, 32, 48 + pill_w, 68], radius=18, fill=_OG_GOLD)
+        draw.text((48 + 13, 38), genre, font=genre_font, fill=_OG_PAPER)
+    name_font = _og_font(_FONT_DISPLAY, 50, 600)
+    name_y = height - gradient_h + 28
+    draw.text((48, name_y), (group_name or "")[:38], font=name_font, fill=(255, 255, 255))
+    desc_font = _og_font(_FONT_BODY, 26, 400)
+    desc_y = name_y + 64
+    desc_lines = _og_wrap(draw, desc, desc_font, width - 96, 3)
+    for i, line in enumerate(desc_lines):
+        draw.text((48, desc_y + i * 34), line, font=desc_font, fill=_OG_MUTED)
+    stats_y = desc_y + len(desc_lines) * 34 + 22
+    _og_stat_row(draw, 48, stats_y,
+                [("people", character_count, "Characters"), ("heart", like_count, "Likes")],
+                icon_color=(255, 255, 255))
+    if creator_name:
+        creator_font = _og_font(_FONT_BODY, 22, 500)
+        creator_text = f"by {creator_name}"
+        draw.text((width - 48 - draw.textlength(creator_text, font=creator_font), stats_y + 10),
+                  creator_text, font=creator_font, fill=_OG_MUTED)
     try:
         canvas.save(cache_fs, "PNG")
     except Exception as e:
@@ -550,9 +775,116 @@ def _compose_group_card(group_name, cast, cache_key, footer_text=None):
         return None
     return f"/media/{cache_name}"
 
-def _og_group_url(request: Request, group_name, cast, cache_key, footer_text=None) -> str:
+def _og_group_url(request: Request, group_name, desc, cast, character_count, like_count,
+                  creator_name, genre, cache_key) -> str:
     origin = str(request.base_url).rstrip("/")
-    card = _compose_group_card(group_name, cast, cache_key, footer_text)
+    card = _compose_group_card(group_name, desc, cast, character_count, like_count,
+                               creator_name, genre, cache_key)
+    if card:
+        return f"{origin}{card}"
+    return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
+
+def _compose_shared_chat_card(title, desc, cast, player_count, message_count, last_active_ts,
+                              location_text, cache_key):
+    from PIL import ImageDraw
+    signature = "|".join(f"{c.get('name') or ''}:{c.get('avatar') or ''}" for c in cast)
+    digest = hashlib.md5(
+        f"{cache_key}|{title}|{desc}|{signature}|{player_count}|{message_count}|{last_active_ts}|{location_text}".encode()
+    ).hexdigest()[:12]
+    cache_name = f"ogchat_{digest}_v{_OG_IMG_VERSION}.png"
+    cache_fs = os.path.join(MEDIA_DIR, cache_name)
+    if os.path.exists(cache_fs):
+        return f"/media/{cache_name}"
+    width, height = 1200, 630
+    canvas = Image.new("RGB", (width, height), _OG_PAPER)
+    canvas = _og_split_cast_background(canvas, width, height, cast)
+    gradient_h = 340
+    _og_apply_bottom_gradient(canvas, width, height, gradient_h)
+    draw = ImageDraw.Draw(canvas)
+    _og_brand_mark(canvas, draw)
+    live_font = _og_font(_FONT_BODY, 22, 700)
+    live_label = "ACTIVE NOW"
+    live_w = draw.textlength(live_label, font=live_font) + 44
+    live_x = width - 48 - live_w
+    draw.rounded_rectangle([live_x, 32, live_x + live_w, 68], radius=18, fill=(46, 196, 113))
+    _og_icon(draw, "bolt", live_x + 12, 38, 22, (255, 255, 255))
+    draw.text((live_x + 40, 40), live_label, font=live_font, fill=(255, 255, 255))
+    name_font = _og_font(_FONT_DISPLAY, 50, 600)
+    name_y = height - gradient_h + 28
+    draw.text((48, name_y), (title or "")[:38], font=name_font, fill=(255, 255, 255))
+    scene_y = name_y + 62
+    if location_text:
+        location_font = _og_font(_FONT_BODY, 24, 500)
+        _og_icon(draw, "pin", 48, scene_y, 22, _OG_MUTED)
+        draw.text((48 + 30, scene_y + 2), location_text[:60], font=location_font, fill=_OG_MUTED)
+        scene_y += 34
+    desc_font = _og_font(_FONT_BODY, 26, 400)
+    desc_y = scene_y + 8
+    desc_lines = _og_wrap(draw, desc, desc_font, width - 96, 3)
+    for i, line in enumerate(desc_lines):
+        draw.text((48, desc_y + i * 34), line, font=desc_font, fill=_OG_MUTED)
+    stats_y = desc_y + len(desc_lines) * 34 + 22
+    _og_stat_row(draw, 48, stats_y,
+                [("people", player_count, "Players"), ("message", message_count, "Messages"),
+                 ("clock", _og_relative_time(last_active_ts).replace("Active ", "").capitalize(), "Last active")],
+                icon_color=(255, 255, 255))
+    try:
+        canvas.save(cache_fs, "PNG")
+    except Exception as e:
+        log.warning("og shared-chat card save failed: %s", e)
+        return None
+    return f"/media/{cache_name}"
+
+def _og_shared_chat_url(request: Request, title, desc, cast, player_count, message_count,
+                        last_active_ts, location_text, cache_key) -> str:
+    origin = str(request.base_url).rstrip("/")
+    card = _compose_shared_chat_card(title, desc, cast, player_count, message_count,
+                                     last_active_ts, location_text, cache_key)
+    if card:
+        return f"{origin}{card}"
+    return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
+
+def _compose_docs_card():
+    from PIL import ImageDraw
+    cache_name = f"ogdocs_v{_OG_IMG_VERSION}.png"
+    cache_fs = os.path.join(MEDIA_DIR, cache_name)
+    if os.path.exists(cache_fs):
+        return f"/media/{cache_name}"
+    width, height = 1200, 630
+    canvas = Image.new("RGB", (width, height), _OG_PAPER)
+    draw = ImageDraw.Draw(canvas)
+    _og_brand_mark(canvas, draw)
+    draw.text((48, 130), "How StoryHaven Works", font=_og_font(_FONT_DISPLAY, 54, 600), fill=_OG_GOLD)
+    desc = ("The whole architecture in plain English. How it remembers your stories, pulls in "
+            "your world, and runs group chats. Sign in to read the full documentation.")
+    desc_font = _og_font(_FONT_BODY, 28, 400)
+    desc_lines = _og_wrap(draw, desc, desc_font, width - 96, 3)
+    for i, line in enumerate(desc_lines):
+        draw.text((48, 220 + i * 38), line, font=desc_font, fill=_OG_MUTED)
+    pill_font = _og_font(_FONT_BODY, 24, 600)
+    px, py = 48, 220 + len(desc_lines) * 38 + 24
+    for label in ("Memory", "Lore", "Group Chats", "Live API", "6 Diagrams"):
+        pill_w = draw.textlength(label, font=pill_font) + 32
+        if px + pill_w > width - 48:
+            px, py = 48, py + 54
+        draw.rounded_rectangle([px, py, px + pill_w, py + 42], radius=21, outline=_OG_GOLD, width=2)
+        draw.text((px + 16, py + 8), label, font=pill_font, fill=_OG_GOLD)
+        px += pill_w + 14
+    cta = "Sign in to read the full documentation"
+    cta_font = _og_font(_FONT_BODY, 24, 600)
+    cta_w = draw.textlength(cta, font=cta_font) + 48
+    draw.rounded_rectangle([48, height - 90, 48 + cta_w, height - 42], radius=24, outline=_OG_MUTED, width=2)
+    draw.text((48 + 24, height - 78), cta, font=cta_font, fill=_OG_MUTED)
+    try:
+        canvas.save(cache_fs, "PNG")
+    except Exception as e:
+        log.warning("og docs card save failed: %s", e)
+        return None
+    return f"/media/{cache_name}"
+
+def _og_docs_url(request: Request) -> str:
+    origin = str(request.base_url).rstrip("/")
+    card = _compose_docs_card()
     if card:
         return f"{origin}{card}"
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
@@ -619,11 +951,11 @@ async def character_share_card(cid: str, request: Request):
     if c and c.get("is_public"):
         title = c.get("name") or brand_name
         desc = _og_excerpt(c.get("description")) or brand_tagline
-        owner = await user_repo.get_user_by_id(c.get("owner_id")) if c.get("owner_id") else None
-        img = _og_profile_url(request, c.get("name") or brand_name, desc,
-                              c.get("avatar"), (c.get("assets") or {}).get("banner"),
-                              c.get("tags"), f"c{cid}",
-                              (owner or {}).get("accent_color"), (owner or {}).get("banner_color"))
+        message_count = await chat_sessions_repo.message_count_for_char(cid)
+        like_count = await content_likes_repo.like_count("character", cid)
+        img = _og_character_url(request, c.get("name") or brand_name, desc,
+                                c.get("avatar"), c.get("tags"), c.get("genre"),
+                                message_count, like_count, f"c{cid}")
     else:
         title = brand_name
         desc = brand_tagline
@@ -647,8 +979,12 @@ async def group_share_card(gid: str, request: Request):
         if cast and all(member.get("is_public") for member in cast):
             title = g.get("name") or brand_name
             names = ", ".join(member.get("name") or "?" for member in cast[:4])
-            desc = _og_excerpt(f"A character group with {names}.") or brand_tagline
-            img = _og_group_url(request, g.get("name") or brand_name, cast, f"g{gid}")
+            desc = _og_excerpt(g.get("opening") or f"A character group with {names}.") or brand_tagline
+            like_count = await content_likes_repo.like_count("group", gid)
+            creator = await user_repo.get_user_by_id(g.get("owner_id")) if g.get("owner_id") else None
+            creator_name = (creator or {}).get("display_name") or (creator or {}).get("username")
+            img = _og_group_url(request, g.get("name") or brand_name, desc, cast, len(cast),
+                                like_count, creator_name, g.get("genre"), f"g{gid}")
             return _share_shell(title, desc, img, "website", canonical)
     fallback = f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
     return _share_shell(brand_name, brand_tagline, fallback, "website", canonical)
@@ -678,8 +1014,10 @@ async def chat_share_card(sid: str, request: Request):
                     title = session.get("title") or brand_name
                     names = ", ".join(member.get("name") or "?" for member in cast[:4])
                     desc = _og_excerpt(f"Join this multiplayer adventure with {names}.") or brand_tagline
-                    footer = "1 player" if players == 1 else f"{players} players"
-                    img = _og_group_url(request, title, cast, f"chat{sid}", footer)
+                    message_count = len(session.get("messages") or [])
+                    img = _og_shared_chat_url(request, title, desc, cast, players, message_count,
+                                              session.get("updated"), session.get("char_location"),
+                                              f"chat{sid}")
                     return _share_shell(title, desc, img, "website", f"{origin}/chats/{sid}?token={token}")
     generic = f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
     return _share_shell(brand_name, brand_tagline, generic, "website", f"{origin}/chats/{sid}")
@@ -692,8 +1030,11 @@ async def user_share_card(username: str, request: Request):
     if u and u.get("status") == "active":
         title = db._decrypt_secret(u.get("display_name") or "") or u.get("username") or brand_name
         desc = _og_excerpt(db._decrypt_secret(u.get("bio") or "")) or brand_tagline
+        characters_count = await characters_repo.public_character_count(u.get("id"))
+        followers_count = await follows_repo.follower_count(u.get("id"))
         img = _og_profile_url(request, title, desc, u.get("avatar"), u.get("banner_img"),
-                              None, f"u{username}", u.get("accent_color"), u.get("banner_color"))
+                              characters_count, followers_count, f"u{username}",
+                              u.get("accent_color"), u.get("banner_color"))
     else:
         title = brand_name
         desc = brand_tagline
@@ -713,18 +1054,26 @@ async def image_share_card(iid: str, request: Request):
         else:
             art_rel = rec.get("image") or None
     creator = None
+    like_count = 0
+    positive_tags, negative_tags = None, None
+    cfg, steps, sampler, checkpoint = None, None, None, None
     if art_rel:
         creator = await user_repo.get_user_by_id(rec.get("user_id"))
         name = (creator or {}).get("display_name") or (creator or {}).get("username") or "a StoryHaven creator"
         title = f"View this image on {brand_name}"
         desc = f"By {name}"
+        like_count = await content_likes_repo.like_count("image", iid)
+        positive_tags = [tag.strip() for tag in (rec.get("positive") or "").split(",") if tag.strip()]
+        negative_tags = [tag.strip() for tag in (rec.get("negative") or "").split(",") if tag.strip()]
+        cfg, steps, sampler, checkpoint = rec.get("cfg"), rec.get("steps"), rec.get("sampler"), rec.get("checkpoint")
     else:
         name = brand_name
         title = brand_name
         desc = brand_tagline
     img = _og_image_url(request, art_rel, name if art_rel else None,
                         (creator or {}).get("avatar"), (creator or {}).get("accent_color"),
-                        (creator or {}).get("banner_color"))
+                        (creator or {}).get("banner_color"), like_count, positive_tags,
+                        negative_tags, cfg, steps, sampler, checkpoint)
     canonical = f"{str(request.base_url).rstrip('/')}/i/{iid}"
     return _share_shell(title, desc, img, "website", canonical)
 
@@ -733,8 +1082,8 @@ async def docs_share_card(request: Request):
     origin = str(request.base_url).rstrip("/")
     title = "How StoryHaven Works"
     desc = ("The whole architecture in plain English. How it remembers your stories, "
-            "pulls in your world, and runs group chats. Sign in to read the full docs.")
-    img = f"{origin}/img/docs-og.png?v={_OG_IMG_VERSION}"
+            "pulls in your world, and runs group chats. Sign in to read the full documentation.")
+    img = _og_docs_url(request)
     canonical = f"{origin}/settings-docs"
     return _share_shell(title, desc, img, "website", canonical)
 

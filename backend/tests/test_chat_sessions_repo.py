@@ -131,3 +131,16 @@ async def test_set_explicit_mode(db_conn):
     await chat_sessions.set_explicit_mode(sid, False)
     s = await chat_sessions.get(sid)
     assert s["explicit_mode"] == 0
+
+async def test_message_count_for_char_sums_across_sessions(db_conn):
+    first = await _make_session(db_conn, char_id="char-77")
+    second = await _make_session(db_conn, char_id="char-77")
+    other = await _make_session(db_conn, char_id="char-99")
+    await chat_sessions.add_message(first, "user", "hello")
+    await chat_sessions.add_message(first, "assistant", "hi there")
+    await chat_sessions.add_message(second, "user", "another chat")
+    await chat_sessions.add_message(other, "user", "unrelated")
+    assert await chat_sessions.message_count_for_char("char-77") == 3
+
+async def test_message_count_for_char_no_sessions(db_conn):
+    assert await chat_sessions.message_count_for_char("nonexistent") == 0
