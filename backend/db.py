@@ -1093,6 +1093,9 @@ async def init():
         if no_dev_yet.first() is None:
             await conn.execute(text("UPDATE users SET role='dev' WHERE username='zukaarimoto'"))
 
+    from backend.repositories import role_permissions as role_permissions_repo
+    await role_permissions_repo.seed_defaults()
+
     env_key = os.environ.get("SECRET_ENCRYPTION_KEY", "").strip()
     if env_key:
         try:

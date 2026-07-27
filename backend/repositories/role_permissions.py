@@ -43,11 +43,10 @@ async def _seed_row_if_absent(role: str, resource: str, can_read: bool, can_writ
 
 async def seed_defaults() -> None:
     for key in FEATURE_KEYS:
-        await _seed_row_if_absent("guest", key, key == "chat", key == "chat", False)
+        if key == "chat":
+            await _seed_row_if_absent("guest", key, True, True, False)
         await _seed_row_if_absent("member", key, True, True, False)
         await _seed_row_if_absent("admin", key, True, True, True)
     for resource in ADMIN_RESOURCES:
-        await _seed_row_if_absent("guest", resource, False, False, False)
-        await _seed_row_if_absent("member", resource, False, False, False)
         await _seed_row_if_absent("admin", resource, True, True, True)
     log.info("role_permissions: default matrix seeded")
