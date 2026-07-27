@@ -7,7 +7,7 @@ from backend.repositories import notifications as notification_repo
 from backend import vectors
 from backend import llm
 from backend.state import api, CFG, PUBLIC_CFG_KEYS, USER_CFG_KEYS, apply_llm_config, log
-from backend.auth import get_current_user, require_permission
+from backend.auth import get_current_user, require_capability
 from backend.ssrf import _validate_chat_endpoint, _resolve_host_ip_issue
 from backend.repositories import flagged_endpoints as flagged_endpoint_repo
 from backend.repositories import users as user_repo
@@ -119,7 +119,8 @@ async def put_my_experimental_features(body: ExperimentalFeaturesIn,
 
 @api.put("/me/test-site-access")
 async def put_my_test_site_access(body: TestSiteAccessIn,
-                                  current_user: dict = Depends(require_permission("test_site_access", "write"))):
+                                  current_user: dict = Depends(require_capability(
+        "test_site.toggle_own", "Turn your own access to the test site on or off."))):
     user = await user_repo.set_test_site_warning_acknowledged(current_user["id"], body.acknowledged)
     log.info("test site access preference set: username=%s acknowledged=%s",
              current_user["username"], bool(user["test_site_warning_acknowledged"]))
@@ -193,7 +194,8 @@ async def get_settings(current_user: dict = Depends(get_current_user)):
     return out
 
 @api.put("/settings")
-async def put_settings(body: SettingsIn, current_user: dict = Depends(require_permission("system_settings", "execute"))):
+async def put_settings(body: SettingsIn, current_user: dict = Depends(require_capability(
+        "system_settings.manage", "Change core app settings or resync UI translations."))):
     data = body.model_dump(exclude_none=True)
     if "image_provider" in data and data["image_provider"] not in ("comfyui", "openai", "stability", "novelai", "a1111"):
         raise HTTPException(400, "image_provider must be one of comfyui, openai, stability, novelai, a1111")
