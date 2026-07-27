@@ -514,8 +514,16 @@ def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex,
         return None
     width, footer_top, footer_bottom, band = 1200, 510, 630, 150
     art_h = footer_top - band
-    meta_h = 180
-    height = footer_bottom + meta_h
+    tag_font = _og_font(_FONT_BODY, 18, 500)
+    column_width = (width - 96 - 24) // 2
+    scratch_draw = ImageDraw.Draw(Image.new("RGB", (1, 1)))
+    pos_measured = _og_draw_prompt_tag_column(scratch_draw, 48, 0, column_width,
+                                              positive_tags, tag_font, _OG_TAG_POSITIVE)
+    neg_measured = _og_draw_prompt_tag_column(scratch_draw, 48, 0, column_width,
+                                              negative_tags, tag_font, _OG_TAG_NEGATIVE)
+    meta_y = footer_bottom + 18 + max(pos_measured, neg_measured) + 6
+    bottom_row_cy = meta_y + 16
+    height = round(bottom_row_cy + 34)
     canvas = Image.new("RGB", (width, height), _OG_PAPER)
     draw = ImageDraw.Draw(canvas)
     background = _og_cover(art, width, art_h).filter(ImageFilter.GaussianBlur(28))
@@ -532,8 +540,6 @@ def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex,
         draw.text((like_x + 34, footer_top + 36), like_text, font=heart_font, fill=_OG_GOLD)
     draw.rectangle([0, footer_bottom, width, height], fill=_OG_PAPER)
     draw.line([(0, footer_bottom), (width, footer_bottom)], fill=_OG_GOLD, width=1)
-    tag_font = _og_font(_FONT_BODY, 18, 500)
-    column_width = (width - 96 - 24) // 2
     positive_bottom = _og_draw_prompt_tag_column(draw, 48, footer_bottom + 18, column_width,
                                                  positive_tags, tag_font, _OG_TAG_POSITIVE)
     negative_bottom = _og_draw_prompt_tag_column(draw, 48 + column_width + 24, footer_bottom + 18,
@@ -1082,7 +1088,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "24"
+_OG_IMG_VERSION = "25"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
