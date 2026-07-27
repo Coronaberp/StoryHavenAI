@@ -286,5 +286,11 @@ IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 ACCESS_COOKIE_NAME = "sh_access"
 REFRESH_COOKIE_NAME = "sh_refresh"
 
+GENRE_OPTIONS = [
+    "Fantasy", "Sci-Fi", "Romance", "Horror", "Mystery", "Comedy",
+    "Slice of Life", "Historical", "Modern/Realistic", "Adventure",
+    "Drama", "Other",
+]
+
 auth_router = APIRouter(prefix="/api/auth")
 api = APIRouter(prefix="/api")

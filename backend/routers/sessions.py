@@ -97,7 +97,7 @@ async def create_group_session(body: GroupCreateIn, current_user: dict = Depends
             raise HTTPException(400, "RPG characters cannot join a group chat")
         chars.append(c)
     gid = await groups_repo.create(current_user["id"], body.name or "Group", (body.opening or "").strip(),
-                                   "chat" if chat_mode else "roleplay", 0, char_ids)
+                                   "chat" if chat_mode else "roleplay", 0, char_ids, genre=body.genre)
     sid = await start_group_from_cast(current_user["id"], body.name or "Group",
                                       (body.opening or "").strip(),
                                       "chat" if chat_mode else "roleplay", char_ids, chars, source_group_id=gid)

@@ -50,3 +50,25 @@ async def test_list_all_mine_scope_excludes_others(db_conn):
 
 async def test_owner_username_none_when_no_owner(db_conn):
     assert await characters.owner_username(None) is None
+
+async def test_create_with_valid_genre(db_conn):
+    c = await _make_character(db_conn, name="Genred", genre="Fantasy")
+    assert c["genre"] == "Fantasy"
+
+async def test_create_with_invalid_genre_is_ignored(db_conn):
+    c = await _make_character(db_conn, name="BadGenre", genre="Not A Real Genre")
+    assert c["genre"] is None
+
+async def test_create_with_no_genre_defaults_to_none(db_conn):
+    c = await _make_character(db_conn, name="NoGenre")
+    assert c["genre"] is None
+
+async def test_update_genre(db_conn):
+    c = await _make_character(db_conn, name="ToRegenre", genre="Horror")
+    updated = await characters.update(c["id"], {"genre": "Comedy"})
+    assert updated["genre"] == "Comedy"
+
+async def test_update_with_invalid_genre_clears_it(db_conn):
+    c = await _make_character(db_conn, name="ToClear", genre="Drama")
+    updated = await characters.update(c["id"], {"genre": "Not Real"})
+    assert updated["genre"] is None

@@ -1,11 +1,18 @@
 "use strict";
 
+const GROUP_GENRE_OPTIONS = [
+  "Fantasy", "Sci-Fi", "Romance", "Horror", "Mystery", "Comedy",
+  "Slice of Life", "Historical", "Modern/Realistic", "Adventure",
+  "Drama", "Other",
+];
+
 class GroupCreateModal {
   constructor() {
     this.chars = [];
     this.selected = new Set();
     this.loading = true;
     this.mode = "roleplay";
+    this.genre = null;
   }
 
   _paintMode() {
@@ -31,6 +38,8 @@ class GroupCreateModal {
     this.layer.querySelectorAll(".grp-mode-btn").forEach((b) => {
       b.onclick = () => { this.mode = b.dataset.mode; this._paintMode(); };
     });
+    const genreSelect = this.layer.querySelector("#grpGenre");
+    if (genreSelect) genreSelect.onchange = () => { this.genre = genreSelect.value || null; };
     if (this.editGid) {
       this.layer.querySelector("#grpName").value = this.presetName || "";
       this.layer.querySelector("#grpOpening").value = this.presetOpening || "";
@@ -79,6 +88,10 @@ class GroupCreateModal {
               <div style="font-size:11px;color:var(--color-sec);margin-top:1px">${m === "roleplay" ? t("group_mode_roleplay_desc", "Actions and dialogue, told with narration.") : t("group_mode_chat_desc", "Dialogue only. Actions are ignored.")}</div>
             </button>`).join("")}
         </div>
+        <select id="grpGenre" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface-2);color:var(--color-ink);font-size:13.5px">
+          <option value="">${t("group_create_genre_none", "No genre")}</option>
+          ${GROUP_GENRE_OPTIONS.map((g) => `<option value="${_attr(g)}"${this.genre === g ? " selected" : ""}>${_esc(g)}</option>`).join("")}
+        </select>
         <div style="display:flex;align-items:center;justify-content:space-between">
           <span class="font-mono" style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-muted)">${t("group_create_cast", "Cast")}</span>
           <span id="grpCount" class="font-mono" style="font-size:11px;color:var(--color-accent)">0 / 4</span>
@@ -166,12 +179,12 @@ class GroupCreateModal {
     btn.textContent = busyLabel;
     try {
       if (this.editGid) {
-        await api(`/api/groups/${encodeURIComponent(this.editGid)}`, { method: "PUT", body: JSON.stringify({ name, opening, char_ids, mode: this.mode }) });
+        await api(`/api/groups/${encodeURIComponent(this.editGid)}`, { method: "PUT", body: JSON.stringify({ name, opening, char_ids, mode: this.mode, genre: this.genre }) });
         closeTopModal();
         navigate(`/g/${encodeURIComponent(this.editGid)}`);
         return;
       }
-      const r = await api("/api/group-chats", { method: "POST", body: JSON.stringify({ name, opening, char_ids, mode: this.mode }) });
+      const r = await api("/api/group-chats", { method: "POST", body: JSON.stringify({ name, opening, char_ids, mode: this.mode, genre: this.genre }) });
       closeTopModal();
       navigate(`/chats/${r.session_id}`);
     } catch (err) {

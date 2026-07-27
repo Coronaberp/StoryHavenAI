@@ -1,5 +1,11 @@
 "use strict";
 
+const GENRE_OPTIONS = [
+  "Fantasy", "Sci-Fi", "Romance", "Horror", "Mystery", "Comedy",
+  "Slice of Life", "Historical", "Modern/Realistic", "Adventure",
+  "Drama", "Other",
+];
+
 const GENDER_TAGS = {
   male: ["male", "man", "boy"],
   female: ["female", "woman", "girl"],
@@ -120,7 +126,7 @@ class ExploreCharactersView {
     this.chars = [];
     this.loading = true;
     this.error = "";
-    this.filters = { q: "", creators: [], tags: [], gender: "any", mode: "all", rating: ME?.nsfw_allowed ? "all" : "sfw" };
+    this.filters = { q: "", creators: [], tags: [], genres: [], gender: "any", mode: "all", rating: ME?.nsfw_allowed ? "all" : "sfw" };
     this.drawerOpen = false;
     this.editingCreator = null;
     this.creatorProfiles = {};
@@ -180,6 +186,7 @@ class ExploreCharactersView {
         const tags = (c.tags || []).map((t) => String(t).toLowerCase());
         if (!want.some((w) => tags.includes(w))) return false;
       }
+      if (this.filters.genres.length && !this.filters.genres.includes(c.genre)) return false;
       if (this.scope === "community") {
         const blockedTags = getBlockedTags();
         if (blockedTags.length) {
@@ -197,7 +204,7 @@ class ExploreCharactersView {
 
   activeFilterCount() {
     const f = this.filters;
-    return f.creators.length + f.tags.length + (f.gender !== "any" ? 1 : 0) +
+    return f.creators.length + f.tags.length + f.genres.length + (f.gender !== "any" ? 1 : 0) +
       (f.mode !== "all" ? 1 : 0);
   }
 
@@ -254,6 +261,12 @@ class ExploreCharactersView {
       if (!matches.length) { box.classList.remove("open"); box.innerHTML = ""; return; }
       box.innerHTML = matches.map((t) => `<button type="button" class="dropdown-item" data-pick-tag="${_attr(t)}">#${_esc(t)}</button>`).join("");
       box.classList.add("open");
+    } else if (val.startsWith(">")) {
+      const q = val.slice(1).toLowerCase();
+      const matches = GENRE_OPTIONS.filter((g) => !this.filters.genres.includes(g) && g.toLowerCase().includes(q));
+      if (!matches.length) { box.classList.remove("open"); box.innerHTML = ""; return; }
+      box.innerHTML = matches.map((g) => `<button type="button" class="dropdown-item" data-pick-genre="${_attr(g)}">&gt;${_esc(g)}</button>`).join("");
+      box.classList.add("open");
     } else {
       box.classList.remove("open");
       box.innerHTML = "";
@@ -268,6 +281,11 @@ class ExploreCharactersView {
       search.value = "";
       box.classList.remove("open");
       this.addTag(btn.dataset.pickTag);
+    });
+    box.querySelectorAll("[data-pick-genre]").forEach((btn) => btn.onclick = () => {
+      search.value = "";
+      box.classList.remove("open");
+      this.addGenre(btn.dataset.pickGenre);
     });
   }
 
@@ -295,6 +313,7 @@ class ExploreCharactersView {
     if (f.mode !== "all") pills.push({ key: "mode", type: "mode", label: f.mode, icon: MODE_ICONS[f.mode] });
     f.creators.forEach((name) => pills.push({ key: "creator", type: "creator", value: name, label: `@${name}`, editable: true }));
     f.tags.forEach((tag) => pills.push({ key: "tag", type: "tag", value: tag, label: `#${tag}` }));
+    f.genres.forEach((genre) => pills.push({ key: "genre", type: "genre", value: genre, label: `>${genre}` }));
     return pills;
   }
 
@@ -305,6 +324,7 @@ class ExploreCharactersView {
     else if (key === "nsfw") f.rating = "sfw";
     else if (key === "creator") f.creators = f.creators.filter((c) => c !== value);
     else if (key === "tag") f.tags = f.tags.filter((t) => t !== value);
+    else if (key === "genre") f.genres = f.genres.filter((g) => g !== value);
     this.load();
   }
 
@@ -354,6 +374,11 @@ class ExploreCharactersView {
 
   addTag(tag) {
     if (!this.filters.tags.includes(tag)) this.filters.tags = [...this.filters.tags, tag];
+    this.load();
+  }
+
+  addGenre(genre) {
+    if (!this.filters.genres.includes(genre)) this.filters.genres = [...this.filters.genres, genre];
     this.load();
   }
 
@@ -472,7 +497,7 @@ class ExploreCharactersView {
     let searchTimer;
     search.oninput = () => {
       this.updateSuggestions();
-      if (search.value.startsWith("@") || search.value.startsWith("#")) return;
+      if (search.value.startsWith("@") || search.value.startsWith("#") || search.value.startsWith(">")) return;
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => {
         f.q = search.value.trim();
@@ -483,7 +508,11 @@ class ExploreCharactersView {
       if (e.key === "Backspace" || e.key === "Delete") {
         if (search.value !== "") return;
         e.preventDefault();
-        if (f.tags.length) {
+        if (f.genres.length) {
+          const removed = f.genres[f.genres.length - 1];
+          f.genres = f.genres.slice(0, -1);
+          toast(`Removed >${removed} filter`);
+        } else if (f.tags.length) {
           const removed = f.tags[f.tags.length - 1];
           f.tags = f.tags.slice(0, -1);
           toast(`Removed #${removed} filter`);
@@ -507,6 +536,14 @@ class ExploreCharactersView {
         this.addTag(val.slice(1));
         search.value = "";
         f.q = "";
+      } else if (val.startsWith(">") && val.length > 1) {
+        const q = val.slice(1).toLowerCase();
+        const match = GENRE_OPTIONS.find((g) => g.toLowerCase() === q);
+        if (match) {
+          this.addGenre(match);
+          search.value = "";
+          f.q = "";
+        }
       }
     };
   }

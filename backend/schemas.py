@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from backend.state import GENRE_OPTIONS
+
 AVATAR_ALLOWED_PREFIXES = ("/media/", "http://", "https://", "data:image/")
 AVATAR_UNSAFE_CHARACTERS = re.compile(r"[\"'<>`\\\s\x00-\x1f]")
 
@@ -15,6 +17,11 @@ def validate_avatar_reference(value: str) -> str:
         raise ValueError("avatar contains characters that are not allowed in a URL")
     return value
 
+def validate_genre(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return value if value in GENRE_OPTIONS else None
+
 class CharacterIn(BaseModel):
     name: str = "Unnamed"
     description: str = ""
@@ -24,6 +31,7 @@ class CharacterIn(BaseModel):
     dialogue: str = ""
     system_prompt: str = ""
     tags: list[str] = []
+    genre: str | None = None
     creator: str = "you"
     avatar: str = ""
     alt_greetings: list[str] = []
@@ -44,6 +52,11 @@ class CharacterIn(BaseModel):
     @classmethod
     def check_avatar(cls, value: str) -> str:
         return validate_avatar_reference(value)
+
+    @field_validator("genre")
+    @classmethod
+    def check_genre(cls, value: str | None) -> str | None:
+        return validate_genre(value)
 
     @model_validator(mode="after")
     def check_prompt_fields_combined_length(self):
@@ -639,6 +652,12 @@ class GroupCreateIn(BaseModel):
     opening: str = ""
     char_ids: list[str] = []
     mode: str = "roleplay"
+    genre: str | None = None
+
+    @field_validator("genre")
+    @classmethod
+    def check_genre(cls, value: str | None) -> str | None:
+        return validate_genre(value)
 
 class GroupPublishIn(BaseModel):
     session_id: str
@@ -648,6 +667,12 @@ class GroupEditIn(BaseModel):
     opening: str = ""
     char_ids: list[str] = []
     mode: str = "roleplay"
+    genre: str | None = None
+
+    @field_validator("genre")
+    @classmethod
+    def check_genre(cls, value: str | None) -> str | None:
+        return validate_genre(value)
 
 class MuteIn(BaseModel):
     muted: bool = True
