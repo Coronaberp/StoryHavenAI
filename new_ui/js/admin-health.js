@@ -297,11 +297,11 @@ class AdminHealthView {
           <span class="text-xs text-muted flex-none">${_esc(adminFmtLatency(p.latency_ms))}</span>
         </div>`).join("");
     return `
-      <div class="rounded-[13px] border border-line p-3.5" id="health_card_model_latency">
+      <div class="rounded-[13px] border border-line p-3.5 col-span-2" id="health_card_model_latency">
         <div class="flex items-center gap-2 mb-2">
           <span class="font-display font-semibold text-sm text-ink">${t("admin_health_model_latency", "Model latency")}</span>
         </div>
-        <div class="h-[50px] mb-2 overflow-hidden"><canvas id="health_chart_model_latency"></canvas></div>
+        <div class="h-[90px] mb-2 overflow-hidden"><canvas id="health_chart_model_latency"></canvas></div>
         <div class="flex flex-col">${legendRows}</div>
       </div>
     `;
