@@ -43,6 +43,7 @@ users = sa.Table(
     sa.Column("card_html", sa.Text, nullable=False, server_default=text("''")),
     sa.Column("nsfw_allowed", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("experimental_features_enabled", sa.Integer, nullable=False, server_default=text("0")),
+    sa.Column("test_site_warning_acknowledged", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("is_explicit", sa.Integer, nullable=False, server_default=text("0")),
     sa.Column("title", sa.Text),
     sa.Column("title_status", sa.Text, nullable=False, server_default=text("'none'")),
@@ -796,6 +797,9 @@ async def init():
             "INTEGER NOT NULL DEFAULT 0"))
         await conn.execute(text(
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS experimental_features_enabled "
+            "INTEGER NOT NULL DEFAULT 0"))
+        await conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS test_site_warning_acknowledged "
             "INTEGER NOT NULL DEFAULT 0"))
         await conn.execute(text(
             "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS length_key "

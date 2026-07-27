@@ -7,12 +7,12 @@ from backend.repositories import notifications as notification_repo
 from backend import vectors
 from backend import llm
 from backend.state import api, CFG, PUBLIC_CFG_KEYS, USER_CFG_KEYS, apply_llm_config, log
-from backend.auth import get_current_user, get_admin
+from backend.auth import get_current_user, get_admin, require_permission
 from backend.ssrf import _validate_chat_endpoint, _resolve_host_ip_issue
 from backend.repositories import flagged_endpoints as flagged_endpoint_repo
 from backend.repositories import users as user_repo
 from backend.repositories import settings as global_settings_repo
-from backend.schemas import UserSettingsIn, SettingsIn, NsfwAllowedIn, ExperimentalFeaturesIn
+from backend.schemas import UserSettingsIn, SettingsIn, NsfwAllowedIn, ExperimentalFeaturesIn, TestSiteAccessIn
 from backend.prompt import DIRECTIVE_COMMANDS
 
 def _scrub_api_key(overrides: dict) -> dict:
@@ -116,6 +116,14 @@ async def put_my_experimental_features(body: ExperimentalFeaturesIn,
     log.info("experimental features preference set: username=%s enabled=%s",
              current_user["username"], bool(user["experimental_features_enabled"]))
     return {"experimental_features_enabled": bool(user["experimental_features_enabled"])}
+
+@api.put("/me/test-site-access")
+async def put_my_test_site_access(body: TestSiteAccessIn,
+                                  current_user: dict = Depends(require_permission("test_site_access", "write"))):
+    user = await user_repo.set_test_site_warning_acknowledged(current_user["id"], body.acknowledged)
+    log.info("test site access preference set: username=%s acknowledged=%s",
+             current_user["username"], bool(user["test_site_warning_acknowledged"]))
+    return {"test_site_warning_acknowledged": bool(user["test_site_warning_acknowledged"])}
 
 @api.get("/config")
 async def config(_: dict = Depends(get_current_user)):

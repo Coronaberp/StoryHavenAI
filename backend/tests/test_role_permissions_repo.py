@@ -54,3 +54,10 @@ async def test_seed_defaults_admin_has_execute_on_admin_resources(db_conn):
     await rp.seed_defaults()
     row = await rp.get("admin", "user_management")
     assert row == {"can_read": True, "can_write": True, "can_execute": True}
+
+async def test_seed_defaults_grants_test_site_access_to_guest_and_member(db_conn):
+    await rp.seed_defaults()
+    guest_row = await rp.get("guest", "test_site_access")
+    member_row = await rp.get("member", "test_site_access")
+    assert guest_row == {"can_read": True, "can_write": True, "can_execute": False}
+    assert member_row == {"can_read": True, "can_write": True, "can_execute": False}

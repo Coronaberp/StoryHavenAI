@@ -188,6 +188,12 @@ async def set_user_experimental_features_enabled(uid: str, enabled: bool) -> dic
     log.info(f"user experimental_features_enabled changed id={uid} enabled={bool(enabled)}")
     return await get_user_by_id(uid)
 
+async def set_test_site_warning_acknowledged(uid: str, acknowledged: bool) -> dict | None:
+    await _w(update(users).where(users.c.id == uid).values(
+        test_site_warning_acknowledged=int(bool(acknowledged))))
+    log.info(f"user test_site_warning_acknowledged changed id={uid} acknowledged={bool(acknowledged)}")
+    return await get_user_by_id(uid)
+
 async def update_user_profile(uid: str, data: dict):
     allowed = {k: data[k] for k in ("display_name", "bio", "avatar", "banner_color",
                                     "accent_color", "banner_img", "chat_background_img", "social_links",

@@ -552,6 +552,9 @@ class NsfwAllowedIn(BaseModel):
 class ExperimentalFeaturesIn(BaseModel):
     enabled: bool
 
+class TestSiteAccessIn(BaseModel):
+    acknowledged: bool
+
 class MultiplayerJoinIn(BaseModel):
     token: str
     persona_id: str | None = None
