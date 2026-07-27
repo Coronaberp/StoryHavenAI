@@ -64,15 +64,6 @@ users = sa.Table(
     sa.Column("guest_videos_used", sa.Integer, nullable=False, server_default=text("0")),
 )
 
-role_permissions = sa.Table(
-    "role_permissions", _meta,
-    sa.Column("role", sa.Text, primary_key=True),
-    sa.Column("resource", sa.Text, primary_key=True),
-    sa.Column("can_read", sa.Boolean, nullable=False, server_default=text("false")),
-    sa.Column("can_write", sa.Boolean, nullable=False, server_default=text("false")),
-    sa.Column("can_execute", sa.Boolean, nullable=False, server_default=text("false")),
-)
-
 roles = sa.Table(
     "roles", _meta,
     sa.Column("name", sa.Text, primary_key=True),
@@ -1113,10 +1104,8 @@ async def init():
         await conn.execute(text("UPDATE users SET role = 'member' WHERE role = 'user'"))
         await conn.execute(text("UPDATE users SET role = 'guest' WHERE tier = 'guest' AND role = 'member'"))
 
-    from backend.repositories import role_permissions as role_permissions_repo
     from backend.repositories import roles as roles_repo
     from backend.repositories import role_capabilities as role_capabilities_repo
-    await role_permissions_repo.seed_defaults()
     await roles_repo.seed_builtins()
     await role_capabilities_repo.seed_defaults()
 
