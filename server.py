@@ -629,10 +629,13 @@ def _og_draw_prompt_tag_column(draw, x, y, column_width, tags, font, color):
         cx += pill_w + 8
     return cy + 32
 
-def _compose_character_card(name, desc, art_rel, tags, genre, message_count, like_count, cache_key):
+def _compose_character_card(name, avatar_rel, banner_rel, tags, genre, message_count, like_count,
+                            creator_name, creator_avatar_rel, creator_accent_hex, creator_banner_hex,
+                            cache_key):
     from PIL import ImageDraw
     digest = hashlib.md5(
-        f"{cache_key}|{name}|{desc}|{art_rel}|{tags}|{genre}|{message_count}|{like_count}".encode()
+        f"{cache_key}|{name}|{avatar_rel}|{banner_rel}|{tags}|{genre}|{message_count}|{like_count}"
+        f"|{creator_name}|{creator_avatar_rel}|{creator_accent_hex}|{creator_banner_hex}".encode()
     ).hexdigest()[:12]
     cache_name = f"ogchar_{digest}_v{_OG_IMG_VERSION}.png"
     cache_fs = os.path.join(MEDIA_DIR, cache_name)
@@ -640,21 +643,21 @@ def _compose_character_card(name, desc, art_rel, tags, genre, message_count, lik
         return f"/media/{cache_name}"
     width, height = 1200, 630
     canvas = Image.new("RGB", (width, height), _OG_PAPER)
-    art = _og_open_media(art_rel)
-    if art is not None:
-        canvas.paste(_og_cover(art, width, height), (0, 0))
+    hero = _og_open_media(banner_rel) or _og_open_media(avatar_rel)
+    if hero is not None:
+        canvas.paste(_og_cover(hero, width, height), (0, 0))
     gradient_h = round(height * 0.62)
     _og_apply_bottom_gradient(canvas, width, height, gradient_h)
     draw = ImageDraw.Draw(canvas)
     _og_brand_mark(canvas, draw)
-    top = height - gradient_h + 22
-    draw.text((48, top), (name or "")[:38], font=_og_font(_FONT_DISPLAY, 50, 600), fill=(255, 255, 255))
-    desc_font = _og_font(_FONT_BODY, 25, 400)
-    desc_y = top + 64
-    desc_lines = _og_wrap(draw, desc, desc_font, width - 96, 2)
-    for i, line in enumerate(desc_lines):
-        draw.text((48, desc_y + i * 33), line, font=desc_font, fill=_OG_MUTED)
-    badge_y = desc_y + len(desc_lines) * 33 + 16
+    avatar_size, avatar_ring = 96, 4
+    avatar_x, avatar_y = 48, height - gradient_h + 8
+    _og_paste_ringed_avatar(canvas, draw, avatar_rel, avatar_x, avatar_y, avatar_size, name,
+                           creator_accent_hex, creator_banner_hex, ring=avatar_ring)
+    text_x = avatar_x + avatar_size + 28
+    name_y = avatar_y + avatar_size / 2 - 32
+    draw.text((text_x, name_y), (name or "")[:34], font=_og_font(_FONT_DISPLAY, 44, 600), fill=(255, 255, 255))
+    badge_y = avatar_y + avatar_size + 22
     badge_x = 48
     if genre:
         genre_font = _og_font(_FONT_BODY, 22, 600)
@@ -668,6 +671,14 @@ def _compose_character_card(name, desc, art_rel, tags, genre, message_count, lik
     _og_stat_row(draw, 48, stats_y,
                 [("message", message_count, "Messages"), ("heart", like_count, "Likes")],
                 icon_color=(255, 255, 255))
+    if creator_name:
+        creator_size = 34
+        creator_x, creator_y = width - 260, stats_y + 6
+        _og_paste_ringed_avatar(canvas, draw, creator_avatar_rel, creator_x, creator_y, creator_size,
+                               creator_name, creator_accent_hex, creator_banner_hex, ring=2)
+        creator_font = _og_font(_FONT_BODY, 20, 500)
+        draw.text((creator_x + creator_size + 12, creator_y + 6), f"Created by {creator_name}"[:42],
+                  font=creator_font, fill=_OG_MUTED)
     try:
         canvas.save(cache_fs, "PNG")
     except Exception as e:
@@ -675,19 +686,44 @@ def _compose_character_card(name, desc, art_rel, tags, genre, message_count, lik
         return None
     return f"/media/{cache_name}"
 
-def _og_character_url(request: Request, name, desc, art_rel, tags, genre,
-                      message_count, like_count, cache_key) -> str:
+def _og_character_url(request: Request, name, avatar_rel, banner_rel, tags, genre,
+                      message_count, like_count, creator_name, creator_avatar_rel,
+                      creator_accent_hex, creator_banner_hex, cache_key) -> str:
     origin = str(request.base_url).rstrip("/")
-    card = _compose_character_card(name, desc, art_rel, tags, genre, message_count, like_count, cache_key)
+    card = _compose_character_card(name, avatar_rel, banner_rel, tags, genre, message_count, like_count,
+                                   creator_name, creator_avatar_rel, creator_accent_hex,
+                                   creator_banner_hex, cache_key)
     if card:
         return f"{origin}{card}"
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
 
-def _compose_profile_card(name, desc, avatar_rel, banner_rel, characters_count, followers_count,
+def _og_paste_ringed_avatar(canvas, draw, avatar_rel, x, y, size, name, accent_hex=None, banner_hex=None, ring=6):
+    from PIL import ImageDraw
+    accent_rgb = _og_hex_rgb(accent_hex, _OG_GOLD)
+    banner_rgb = _og_hex_rgb(banner_hex, accent_rgb)
+    outer = size + ring * 2
+    ring_gradient = _og_diagonal_gradient(outer, accent_rgb, banner_rgb)
+    ring_mask = Image.new("L", (outer, outer), 0)
+    ImageDraw.Draw(ring_mask).ellipse([0, 0, outer - 1, outer - 1], fill=255)
+    canvas.paste(ring_gradient, (x - ring, y - ring), ring_mask)
+    avatar_mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(avatar_mask).ellipse([0, 0, size - 1, size - 1], fill=255)
+    avatar_img = _og_open_media(avatar_rel)
+    if avatar_img is not None:
+        canvas.paste(_og_cover(avatar_img, size, size), (x, y), avatar_mask)
+    else:
+        canvas.paste(Image.new("RGB", (size, size), accent_rgb), (x, y), avatar_mask)
+        initial = (name or "?")[0].upper()
+        initial_font = _og_font(_FONT_DISPLAY, round(size * 0.44), 600)
+        initial_w = draw.textlength(initial, font=initial_font)
+        draw.text((x + size / 2 - initial_w / 2, y + size / 2 - round(size * 0.28)),
+                  initial, font=initial_font, fill=_OG_PAPER)
+
+def _compose_profile_card(name, avatar_rel, banner_rel, characters_count, followers_count,
                           cache_key, accent_hex=None, banner_hex=None):
     from PIL import ImageDraw
     digest = hashlib.md5(
-        f"{cache_key}|{name}|{desc}|{avatar_rel}|{banner_rel}|{characters_count}|{followers_count}|{accent_hex}|{banner_hex}".encode()
+        f"{cache_key}|{name}|{avatar_rel}|{banner_rel}|{characters_count}|{followers_count}|{accent_hex}|{banner_hex}".encode()
     ).hexdigest()[:12]
     cache_name = f"ogp_{digest}_v{_OG_IMG_VERSION}.png"
     cache_fs = os.path.join(MEDIA_DIR, cache_name)
@@ -705,38 +741,17 @@ def _compose_profile_card(name, desc, avatar_rel, banner_rel, characters_count, 
         wrapper.paste(_og_diagonal_gradient(max(width, banner_h), accent_rgb, banner_rgb)
                      .resize((width, banner_h)), (0, 0))
     wrapper_draw = ImageDraw.Draw(wrapper)
-    avatar_x, avatar_y, ring = 48, banner_h - overlap, 6
-    outer = avatar_size + ring * 2
-    ring_gradient = _og_diagonal_gradient(outer, accent_rgb, banner_rgb)
-    ring_mask = Image.new("L", (outer, outer), 0)
-    ImageDraw.Draw(ring_mask).ellipse([0, 0, outer - 1, outer - 1], fill=255)
-    wrapper.paste(ring_gradient, (avatar_x - ring, avatar_y - ring), ring_mask)
-    avatar_mask = Image.new("L", (avatar_size, avatar_size), 0)
-    ImageDraw.Draw(avatar_mask).ellipse([0, 0, avatar_size - 1, avatar_size - 1], fill=255)
-    avatar_img = _og_open_media(avatar_rel)
-    if avatar_img is not None:
-        wrapper.paste(_og_cover(avatar_img, avatar_size, avatar_size), (avatar_x, avatar_y), avatar_mask)
-    else:
-        wrapper.paste(Image.new("RGB", (avatar_size, avatar_size), accent_rgb),
-                     (avatar_x, avatar_y), avatar_mask)
-        initial = (name or "?")[0].upper()
-        initial_font = _og_font(_FONT_DISPLAY, 70, 600)
-        initial_w = wrapper_draw.textlength(initial, font=initial_font)
-        wrapper_draw.text((avatar_x + avatar_size / 2 - initial_w / 2, avatar_y + avatar_size / 2 - 44),
-                          initial, font=initial_font, fill=_OG_PAPER)
+    avatar_x, avatar_y = 48, banner_h - overlap
+    _og_paste_ringed_avatar(wrapper, wrapper_draw, avatar_rel, avatar_x, avatar_y, avatar_size,
+                           name, accent_hex, banner_hex)
     canvas = Image.new("RGB", (width, 630), _OG_PAPER)
     canvas.paste(wrapper, (0, 0))
     draw = ImageDraw.Draw(canvas)
     _og_brand_mark(canvas, draw)
     text_x = avatar_x + avatar_size + 34
-    name_y = banner_h + 14
+    name_y = banner_h + 30
     draw.text((text_x, name_y), (name or "")[:38], font=_og_font(_FONT_DISPLAY, 50, 600), fill=_OG_GOLD)
-    desc_font = _og_font(_FONT_BODY, 26, 400)
-    desc_y = name_y + 64
-    desc_lines = _og_wrap(draw, desc, desc_font, width - text_x - 48, 2)
-    for i, line in enumerate(desc_lines):
-        draw.text((text_x, desc_y + i * 34), line, font=desc_font, fill=_OG_MUTED)
-    stats_y = desc_y + len(desc_lines) * 34 + 26
+    stats_y = name_y + 74
     _og_stat_row(draw, text_x, stats_y,
                 [("person", characters_count, "Characters"), ("people", followers_count, "Followers")])
     try:
@@ -746,10 +761,10 @@ def _compose_profile_card(name, desc, avatar_rel, banner_rel, characters_count, 
         return None
     return f"/media/{cache_name}"
 
-def _og_profile_url(request: Request, name, desc, avatar_rel, banner_rel, characters_count,
+def _og_profile_url(request: Request, name, avatar_rel, banner_rel, characters_count,
                     followers_count, cache_key, accent_hex=None, banner_hex=None) -> str:
     origin = str(request.base_url).rstrip("/")
-    card = _compose_profile_card(name, desc, avatar_rel, banner_rel, characters_count,
+    card = _compose_profile_card(name, avatar_rel, banner_rel, characters_count,
                                  followers_count, cache_key, accent_hex, banner_hex)
     if card:
         return f"{origin}{card}"
@@ -771,11 +786,11 @@ def _og_split_cast_background(canvas, width, height, cast):
             canvas.paste(_og_cover(source, width, height), (0, 0))
     return Image.blend(canvas, Image.new("RGB", (width, height), (0, 0, 0)), 0.35)
 
-def _compose_group_card(group_name, desc, cast, character_count, like_count, creator_name, genre, cache_key):
+def _compose_group_card(group_name, cast, character_count, like_count, creator_name, genre, cache_key):
     from PIL import ImageDraw
     signature = "|".join(f"{c.get('name') or ''}:{c.get('avatar') or ''}" for c in cast)
     digest = hashlib.md5(
-        f"{cache_key}|{group_name}|{desc}|{signature}|{character_count}|{like_count}|{creator_name}|{genre}".encode()
+        f"{cache_key}|{group_name}|{signature}|{character_count}|{like_count}|{creator_name}|{genre}".encode()
     ).hexdigest()[:12]
     cache_name = f"ogg_{digest}_v{_OG_IMG_VERSION}.png"
     cache_fs = os.path.join(MEDIA_DIR, cache_name)
@@ -796,12 +811,7 @@ def _compose_group_card(group_name, desc, cast, character_count, like_count, cre
     name_font = _og_font(_FONT_DISPLAY, 50, 600)
     name_y = height - gradient_h + 28
     draw.text((48, name_y), (group_name or "")[:38], font=name_font, fill=(255, 255, 255))
-    desc_font = _og_font(_FONT_BODY, 26, 400)
-    desc_y = name_y + 64
-    desc_lines = _og_wrap(draw, desc, desc_font, width - 96, 3)
-    for i, line in enumerate(desc_lines):
-        draw.text((48, desc_y + i * 34), line, font=desc_font, fill=_OG_MUTED)
-    stats_y = desc_y + len(desc_lines) * 34 + 22
+    stats_y = name_y + 78
     _og_stat_row(draw, 48, stats_y,
                 [("people", character_count, "Characters"), ("heart", like_count, "Likes")],
                 icon_color=(255, 255, 255))
@@ -817,21 +827,21 @@ def _compose_group_card(group_name, desc, cast, character_count, like_count, cre
         return None
     return f"/media/{cache_name}"
 
-def _og_group_url(request: Request, group_name, desc, cast, character_count, like_count,
+def _og_group_url(request: Request, group_name, cast, character_count, like_count,
                   creator_name, genre, cache_key) -> str:
     origin = str(request.base_url).rstrip("/")
-    card = _compose_group_card(group_name, desc, cast, character_count, like_count,
+    card = _compose_group_card(group_name, cast, character_count, like_count,
                                creator_name, genre, cache_key)
     if card:
         return f"{origin}{card}"
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
 
-def _compose_shared_chat_card(title, desc, cast, player_count, message_count, last_active_ts,
+def _compose_shared_chat_card(title, cast, player_count, message_count, last_active_ts,
                               location_text, cache_key):
     from PIL import ImageDraw
     signature = "|".join(f"{c.get('name') or ''}:{c.get('avatar') or ''}" for c in cast)
     digest = hashlib.md5(
-        f"{cache_key}|{title}|{desc}|{signature}|{player_count}|{message_count}|{last_active_ts}|{location_text}".encode()
+        f"{cache_key}|{title}|{signature}|{player_count}|{message_count}|{last_active_ts}|{location_text}".encode()
     ).hexdigest()[:12]
     cache_name = f"ogchat_{digest}_v{_OG_IMG_VERSION}.png"
     cache_fs = os.path.join(MEDIA_DIR, cache_name)
@@ -860,12 +870,7 @@ def _compose_shared_chat_card(title, desc, cast, player_count, message_count, la
         _og_icon(draw, "pin", 48, scene_y, 22, _OG_MUTED)
         draw.text((48 + 30, scene_y + 2), location_text[:60], font=location_font, fill=_OG_MUTED)
         scene_y += 34
-    desc_font = _og_font(_FONT_BODY, 26, 400)
-    desc_y = scene_y + 8
-    desc_lines = _og_wrap(draw, desc, desc_font, width - 96, 3)
-    for i, line in enumerate(desc_lines):
-        draw.text((48, desc_y + i * 34), line, font=desc_font, fill=_OG_MUTED)
-    stats_y = desc_y + len(desc_lines) * 34 + 22
+    stats_y = scene_y + 30
     _og_stat_row(draw, 48, stats_y,
                 [("people", player_count, "Players"), ("message", message_count, "Messages"),
                  ("clock", _og_relative_time(last_active_ts).replace("Active ", "").capitalize(), "Last active")],
@@ -877,10 +882,10 @@ def _compose_shared_chat_card(title, desc, cast, player_count, message_count, la
         return None
     return f"/media/{cache_name}"
 
-def _og_shared_chat_url(request: Request, title, desc, cast, player_count, message_count,
+def _og_shared_chat_url(request: Request, title, cast, player_count, message_count,
                         last_active_ts, location_text, cache_key) -> str:
     origin = str(request.base_url).rstrip("/")
-    card = _compose_shared_chat_card(title, desc, cast, player_count, message_count,
+    card = _compose_shared_chat_card(title, cast, player_count, message_count,
                                      last_active_ts, location_text, cache_key)
     if card:
         return f"{origin}{card}"
@@ -957,7 +962,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "8"
+_OG_IMG_VERSION = "9"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
@@ -995,9 +1000,14 @@ async def character_share_card(cid: str, request: Request):
         desc = _og_excerpt(c.get("description")) or brand_tagline
         message_count = await chat_sessions_repo.message_count_for_char(cid)
         like_count = await content_likes_repo.like_count("character", cid)
-        img = _og_character_url(request, c.get("name") or brand_name, desc,
-                                c.get("avatar"), c.get("tags"), c.get("genre"),
-                                message_count, like_count, f"c{cid}")
+        owner = await user_repo.get_user_by_id(c.get("owner_id")) if c.get("owner_id") else None
+        creator_name = (owner or {}).get("display_name") or (owner or {}).get("username")
+        img = _og_character_url(request, c.get("name") or brand_name,
+                                c.get("avatar"), (c.get("assets") or {}).get("banner"),
+                                c.get("tags"), c.get("genre"), message_count, like_count,
+                                creator_name, (owner or {}).get("avatar"),
+                                (owner or {}).get("accent_color"), (owner or {}).get("banner_color"),
+                                f"c{cid}")
     else:
         title = brand_name
         desc = brand_tagline
@@ -1025,7 +1035,7 @@ async def group_share_card(gid: str, request: Request):
             like_count = await content_likes_repo.like_count("group", gid)
             creator = await user_repo.get_user_by_id(g.get("owner_id")) if g.get("owner_id") else None
             creator_name = (creator or {}).get("display_name") or (creator or {}).get("username")
-            img = _og_group_url(request, g.get("name") or brand_name, desc, cast, len(cast),
+            img = _og_group_url(request, g.get("name") or brand_name, cast, len(cast),
                                 like_count, creator_name, g.get("genre"), f"g{gid}")
             return _share_shell(title, desc, img, "website", canonical)
     fallback = f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
@@ -1057,7 +1067,7 @@ async def chat_share_card(sid: str, request: Request):
                     names = ", ".join(member.get("name") or "?" for member in cast[:4])
                     desc = _og_excerpt(f"Join this multiplayer adventure with {names}.") or brand_tagline
                     message_count = len(session.get("messages") or [])
-                    img = _og_shared_chat_url(request, title, desc, cast, players, message_count,
+                    img = _og_shared_chat_url(request, title, cast, players, message_count,
                                               session.get("updated"), session.get("char_location"),
                                               f"chat{sid}")
                     return _share_shell(title, desc, img, "website", f"{origin}/chats/{sid}?token={token}")
@@ -1074,7 +1084,7 @@ async def user_share_card(username: str, request: Request):
         desc = _og_excerpt(db._decrypt_secret(u.get("bio") or "")) or brand_tagline
         characters_count = await characters_repo.public_character_count(u.get("id"))
         followers_count = await follows_repo.follower_count(u.get("id"))
-        img = _og_profile_url(request, title, desc, u.get("avatar"), u.get("banner_img"),
+        img = _og_profile_url(request, title, u.get("avatar"), u.get("banner_img"),
                               characters_count, followers_count, f"u{username}",
                               u.get("accent_color"), u.get("banner_color"))
     else:
