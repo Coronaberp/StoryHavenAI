@@ -780,10 +780,11 @@ def _og_paste_ringed_avatar(canvas, draw, avatar_rel, x, y, size, name, accent_h
                   initial, font=initial_font, fill=_OG_PAPER)
 
 def _compose_profile_card(name, avatar_rel, banner_rel, characters_count, followers_count,
-                          cache_key, accent_hex=None, banner_hex=None):
+                          cache_key, accent_hex=None, banner_hex=None, username=None, tag_text=None):
     from PIL import ImageDraw
     digest = hashlib.md5(
-        f"{cache_key}|{name}|{avatar_rel}|{banner_rel}|{characters_count}|{followers_count}|{accent_hex}|{banner_hex}".encode()
+        f"{cache_key}|{name}|{avatar_rel}|{banner_rel}|{characters_count}|{followers_count}"
+        f"|{accent_hex}|{banner_hex}|{username}|{tag_text}".encode()
     ).hexdigest()[:12]
     cache_name = f"ogp_{digest}_v{_OG_IMG_VERSION}.png"
     cache_fs = os.path.join(MEDIA_DIR, cache_name)
@@ -792,9 +793,11 @@ def _compose_profile_card(name, avatar_rel, banner_rel, characters_count, follow
     width, height, avatar_size, overlap = 1200, 630, 160, 70
     bottom_margin = 48
     stats_block_h = 98
+    handle_row_h = 44 if (username or tag_text) else 0
     stats_y = height - bottom_margin - stats_block_h
-    avatar_y = stats_y - overlap - 104
+    avatar_y = stats_y - overlap - 104 - handle_row_h
     name_y = avatar_y + overlap + 30
+    handle_y = name_y + 58
     banner_h = avatar_y + overlap
     avatar_ring = 6
     wrapper_h = avatar_y + avatar_size + avatar_ring + 4
@@ -820,6 +823,18 @@ def _compose_profile_card(name, avatar_rel, banner_rel, characters_count, follow
     name_max_w = width - 48 - text_x
     name_font = _og_fit_font(draw, name_text, _FONT_DISPLAY, 50, 26, 600, name_max_w)
     draw.text((text_x, name_y), name_text, font=name_font, fill=_OG_GOLD)
+    if username or tag_text:
+        handle_font = _og_font(_FONT_BODY, 22, 500)
+        cx = text_x
+        if username:
+            handle_text = f"@{username}"
+            draw.text((cx, handle_y), handle_text, font=handle_font, fill=_OG_MUTED)
+            cx += draw.textlength(handle_text, font=handle_font) + 16
+        if tag_text:
+            tag_font = _og_font(_FONT_BODY, 16, 600)
+            pill_w = draw.textlength(tag_text, font=tag_font) + 24
+            draw.rounded_rectangle([cx, handle_y + 2, cx + pill_w, handle_y + 30], radius=14, fill=_OG_GOLD)
+            draw.text((cx + 12, handle_y + 8), tag_text, font=tag_font, fill=_OG_PAPER)
     _og_stat_row(draw, text_x, stats_y,
                 [("person", characters_count, "Characters"), ("people", followers_count, "Followers")])
     try:
@@ -830,10 +845,12 @@ def _compose_profile_card(name, avatar_rel, banner_rel, characters_count, follow
     return f"/media/{cache_name}"
 
 def _og_profile_url(request: Request, name, avatar_rel, banner_rel, characters_count,
-                    followers_count, cache_key, accent_hex=None, banner_hex=None) -> str:
+                    followers_count, cache_key, accent_hex=None, banner_hex=None,
+                    username=None, tag_text=None) -> str:
     origin = str(request.base_url).rstrip("/")
     card = _compose_profile_card(name, avatar_rel, banner_rel, characters_count,
-                                 followers_count, cache_key, accent_hex, banner_hex)
+                                 followers_count, cache_key, accent_hex, banner_hex,
+                                 username, tag_text)
     if card:
         return f"{origin}{card}"
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
@@ -1030,7 +1047,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "19"
+_OG_IMG_VERSION = "20"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
@@ -1152,9 +1169,16 @@ async def user_share_card(username: str, request: Request):
         desc = _og_excerpt(db._decrypt_secret(u.get("bio") or "")) or brand_tagline
         characters_count = await characters_repo.public_character_count(u.get("id"))
         followers_count = await follows_repo.follower_count(u.get("id"))
+        if u.get("title_status") == "approved" and u.get("title"):
+            tag_text = u.get("title")
+        elif u.get("is_admin"):
+            tag_text = "Dev" if u.get("role") == "dev" else "Admin"
+        else:
+            tag_text = None
         img = _og_profile_url(request, title, u.get("avatar"), u.get("banner_img"),
                               characters_count, followers_count, f"u{username}",
-                              u.get("accent_color"), u.get("banner_color"))
+                              u.get("accent_color"), u.get("banner_color"),
+                              u.get("username"), tag_text)
     else:
         title = brand_name
         desc = brand_tagline
