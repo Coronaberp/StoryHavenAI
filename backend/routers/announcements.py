@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from backend import llm
-from backend.auth import get_admin, get_current_user
+from backend.auth import get_current_user, require_permission
 from backend.repositories import notifications as notification_repo
 from backend.repositories import settings as settings_repo
 from backend.repositories import users as user_repo
@@ -20,7 +20,7 @@ class AnnounceIn(BaseModel):
     link: str = ""
 
 @api.post("/admin/announce")
-async def admin_announce(payload: AnnounceIn, current_user: dict = Depends(get_admin)):
+async def admin_announce(payload: AnnounceIn, current_user: dict = Depends(require_permission("site_announcements", "write"))):
     title = payload.title.strip()
     if not title:
         raise HTTPException(status_code=400, detail="Title is required")
@@ -36,7 +36,7 @@ def _chat_fallback_profiles_default() -> list[dict]:
     return sorted(proxies, key=lambda p: p.get("priority", 0))
 
 @api.post("/admin/notifications/generate-tone")
-async def admin_generate_toned_notification(payload: AdminToneGenerateIn, current_user: dict = Depends(get_admin)):
+async def admin_generate_toned_notification(payload: AdminToneGenerateIn, current_user: dict = Depends(require_permission("site_announcements", "write"))):
     context = payload.context.strip()
     if not context:
         raise HTTPException(400, "Context is required")
@@ -91,7 +91,7 @@ async def admin_generate_toned_notification(payload: AdminToneGenerateIn, curren
     return StreamingResponse(gen(), media_type="text/event-stream")
 
 @api.post("/admin/notifications/send-targeted")
-async def admin_send_targeted_notification(payload: AdminTargetedNotifyIn, current_user: dict = Depends(get_admin)):
+async def admin_send_targeted_notification(payload: AdminTargetedNotifyIn, current_user: dict = Depends(require_permission("site_announcements", "write"))):
     text = payload.text.strip()
     title = payload.title.strip() or "A message from the admins"
     if not text:
@@ -125,7 +125,7 @@ async def get_site_banner(current_user: dict = Depends(get_current_user)):
     return await _active_banner()
 
 @api.put("/admin/site-banner")
-async def set_site_banner(payload: SiteBannerIn, current_user: dict = Depends(get_admin)):
+async def set_site_banner(payload: SiteBannerIn, current_user: dict = Depends(require_permission("site_announcements", "execute"))):
     message = payload.message.strip()
     if not message:
         raise HTTPException(status_code=400, detail="Message is required")
@@ -141,7 +141,7 @@ async def set_site_banner(payload: SiteBannerIn, current_user: dict = Depends(ge
     return data
 
 @api.delete("/admin/site-banner")
-async def clear_site_banner(current_user: dict = Depends(get_admin)):
+async def clear_site_banner(current_user: dict = Depends(require_permission("site_announcements", "execute"))):
     await settings_repo.set_settings({"site_banner": None})
     log.info("admin: site banner cleared by=%s", current_user["username"])
     return {"ok": True}

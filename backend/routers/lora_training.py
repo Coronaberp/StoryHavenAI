@@ -15,7 +15,7 @@ from backend.repositories import lora_training as lora_training_repo
 from backend.repositories import checkpoints as checkpoint_repo, loras as lora_repo
 from backend import modal_client
 from backend import modal_provision
-from backend.auth import get_admin
+from backend.auth import require_permission
 from backend.feature_flags import require_feature_enabled
 from backend.imagegen import ANIMA_CLIP_NAME, ANIMA_VAE_NAME
 from backend.state import (api, log, LORA_OUTPUT_DIR, CHECKPOINTS_DIR, DIFFUSION_MODELS_DIR,
@@ -35,11 +35,11 @@ def _iso8601_compact() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 @api.get("/admin/lora-training/jobs")
-async def list_lora_training_jobs(current_user: dict = Depends(get_admin)):
+async def list_lora_training_jobs(current_user: dict = Depends(require_permission("lora_training_admin", "read"))):
     return await lora_training_repo.list_jobs()
 
 @api.get("/admin/lora-training/checkpoints")
-async def list_local_checkpoints(current_user: dict = Depends(get_admin)):
+async def list_local_checkpoints(current_user: dict = Depends(require_permission("lora_training_admin", "read"))):
     try:
         names = sorted(n for n in os.listdir(CHECKPOINTS_DIR) if n.lower().endswith(_CKPT_EXTS))
     except OSError as e:
@@ -48,7 +48,7 @@ async def list_local_checkpoints(current_user: dict = Depends(get_admin)):
     return {"checkpoints": names}
 
 @api.delete("/admin/lora-training/jobs/{jid}")
-async def delete_lora_training_job(jid: str, current_user: dict = Depends(get_admin)):
+async def delete_lora_training_job(jid: str, current_user: dict = Depends(require_permission("lora_training_admin", "execute"))):
     job = await lora_training_repo.get_job(jid)
     if not job:
         raise HTTPException(404, "not found")
@@ -70,11 +70,11 @@ async def delete_lora_training_job(jid: str, current_user: dict = Depends(get_ad
     return {"deleted": True}
 
 @api.get("/admin/lora-training/jobs/{jid}/checkpoints")
-async def list_job_checkpoints(jid: str, current_user: dict = Depends(get_admin)):
+async def list_job_checkpoints(jid: str, current_user: dict = Depends(require_permission("lora_training_admin", "read"))):
     return await lora_training_repo.list_checkpoints(jid)
 
 @api.delete("/admin/lora-training/checkpoints/{cid}")
-async def delete_job_checkpoint(cid: str, current_user: dict = Depends(get_admin)):
+async def delete_job_checkpoint(cid: str, current_user: dict = Depends(require_permission("lora_training_admin", "execute"))):
     ckpt = await lora_training_repo.delete_checkpoint(cid)
     if not ckpt:
         raise HTTPException(404, "not found")
@@ -87,7 +87,7 @@ async def delete_job_checkpoint(cid: str, current_user: dict = Depends(get_admin
     return {"deleted": True}
 
 @api.post("/admin/lora-training/jobs/{jid}/checkpoint")
-async def request_lora_checkpoint(jid: str, current_user: dict = Depends(get_admin)):
+async def request_lora_checkpoint(jid: str, current_user: dict = Depends(require_permission("lora_training_admin", "read"))):
     job = await lora_training_repo.get_job(jid)
     if not job:
         raise HTTPException(404, "not found")
@@ -133,7 +133,7 @@ async def _queue_status(job_id: str) -> tuple[bool, int]:
         return idx == 0, idx
 
 @api.post("/admin/lora-training/jobs/{jid}/abort")
-async def abort_lora_training_job(jid: str, current_user: dict = Depends(get_admin)):
+async def abort_lora_training_job(jid: str, current_user: dict = Depends(require_permission("lora_training_admin", "execute"))):
     job = await lora_training_repo.get_job(jid)
     if not job:
         raise HTTPException(404, "not found")
@@ -162,7 +162,7 @@ async def create_and_stream_lora_training_job(
         captions: str = Form("[]"),
         noise_offset: float = Form(0.0), network_dropout: float = Form(0.0),
         images: list[UploadFile] = File(...),
-        current_user: dict = Depends(get_admin),
+        current_user: dict = Depends(require_permission("lora_training_admin", "write")),
         _feature_ok: None = Depends(require_feature_enabled("lora_training"))):
     body = LoraTrainingJobIn(name=name, trigger_word=trigger_word, base_checkpoint=local_checkpoint,
                              resolution=resolution, rank=rank, alpha=alpha,
