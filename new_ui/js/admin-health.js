@@ -5,10 +5,6 @@ const ADMIN_HEALTH_SERVICE_LABELS = {
   comfyui: "ComfyUI", image_classify_llm: "Image classifier", modal: "Modal",
 };
 
-const ADMIN_MODEL_LATENCY_PALETTE = [
-  "#4d6bfe", "#e3bd6c", "#4caf50", "#e05c5c", "#9b6bd1", "#3aa3c9",
-];
-
 function adminHealthFmtDuration(secs) {
   secs = Math.floor(secs);
   const d = Math.floor(secs / 86400), h = Math.floor((secs % 86400) / 3600), m = Math.floor((secs % 3600) / 60);
@@ -27,7 +23,10 @@ class AdminHealthView {
     this.sparkCharts = {};
     this.mobileExpandCharts = {};
     this.expandedServices = new Set();
-    this.modelLatencyChart = null;
+    this.modelCharts = {};
+    this.modelSparkCharts = {};
+    this.modelMobileExpandCharts = {};
+    this.expandedModels = new Set();
     main.innerHTML = `<div class="text-sm text-muted">${_esc(t("common_loading"))}</div>`;
     this.render();
     await this.loadHealth();
@@ -37,7 +36,18 @@ class AdminHealthView {
 
   async loadModelLatency() {
     try {
-      this.modelLatencyData = await api(`/api/admin/model-latency?hours=${this.hours}`);
+      const data = await api(`/api/admin/model-latency?hours=${this.hours}`);
+      this.modelLatencyData = (data.models || []).map((m) => ({
+        name: m.name,
+        icon_type: m.icon_type,
+        icon_value: m.icon_value,
+        ok: m.latest_latency_ms != null,
+        latency_ms: m.latest_latency_ms,
+        avg_latency_ms: m.avg_latency_ms,
+        uptime_pct_24h: m.success_pct,
+        error: "",
+        latency_history: m.latency_history,
+      }));
       this.modelLatencyError = null;
     } catch (e) {
       this.modelLatencyError = e.message || "Couldn't load model latency.";
@@ -46,92 +56,95 @@ class AdminHealthView {
     this.renderModelLatency();
   }
 
+  modelCardHtml(m) {
+    const pct = m.uptime_pct_24h == null ? "-" : `${m.uptime_pct_24h}%`;
+    const avg = m.avg_latency_ms == null ? "-" : `${m.avg_latency_ms} ms`;
+    const icon = typeof proxyIconHtml === "function" ? proxyIconHtml(m, 18) : "";
+    return `
+      <div class="rounded-[13px] border border-line p-3.5" id="model_card_${_esc(m.name)}">
+        <div class="flex items-center gap-2 mb-2">
+          ${icon}
+          <span class="font-display font-semibold text-sm text-ink">${_esc(m.name)}</span>
+          <span class="text-xs text-muted ml-auto" id="model_status_text_${_esc(m.name)}">${m.ok ? t("admin_health_up") : "-"}</span>
+        </div>
+        <div class="flex gap-4 text-xs text-sec mb-2">
+          <span>${t("admin_health_latency")}: <b class="text-ink" id="model_latency_${_esc(m.name)}">${m.latency_ms != null ? m.latency_ms + " ms" : "-"}</b></span>
+          <span>${t("admin_health_uptime_24h")}: <b class="text-ink" id="model_uptime_pct_${_esc(m.name)}">${_esc(pct)}</b></span>
+        </div>
+        <div class="h-[50px]"><canvas id="model_chart_${_esc(m.name)}"></canvas></div>
+        <div class="text-xs text-muted mt-1" id="model_avg_${_esc(m.name)}">${t("admin_health_avg")}: ${_esc(avg)}</div>
+      </div>
+    `;
+  }
+
+  modelMobileRowHtml(m) {
+    const expanded = this.expandedModels.has(m.name);
+    const sparkHtml = adminSparklineHtml();
+    const sparkId = sparkHtml.match(/id="([^"]+)"/)[1];
+    this._pendingModelSparkIds = this._pendingModelSparkIds || {};
+    this._pendingModelSparkIds[m.name] = sparkId;
+    const icon = typeof proxyIconHtml === "function" ? proxyIconHtml(m, 18) : "";
+    return `
+      <div class="admin-health-row border-b border-line last:border-0" data-model-row="${_esc(m.name)}">
+        <button type="button" class="w-full flex items-center gap-2 py-2.5 text-left" data-model-row-toggle="${_esc(m.name)}">
+          ${icon}
+          <span class="font-display font-semibold text-sm text-ink flex-1">${_esc(m.name)}</span>
+          <span class="text-xs text-muted">${m.latency_ms != null ? m.latency_ms + " ms" : "-"}</span>
+          ${sparkHtml}
+        </button>
+        <div class="admin-health-row-expand ${expanded ? "" : "hidden"} pb-3" data-model-row-expand="${_esc(m.name)}">
+          <div class="h-[140px]"><canvas id="model_chart_mobile_${_esc(m.name)}"></canvas></div>
+        </div>
+      </div>`;
+  }
+
+  toggleModelExpand(name) {
+    if (this.expandedModels.has(name)) this.expandedModels.delete(name);
+    else this.expandedModels.add(name);
+    this.renderModelLatency();
+  }
+
   renderModelLatency() {
-    const box = document.getElementById("model_latency_box");
-    if (!box) return;
+    const grid = document.getElementById("model_grid_desktop");
+    const mobileBox = document.getElementById("model_grid_mobile");
+    if (!grid) return;
     if (this.modelLatencyError) {
-      box.innerHTML = `<p class="text-sm" style="color:var(--color-warn)">${_esc(this.modelLatencyError)}</p>`;
+      grid.innerHTML = `<p class="text-sm" style="color:var(--color-warn)">${_esc(this.modelLatencyError)}</p>`;
+      if (mobileBox) mobileBox.innerHTML = `<p class="text-sm" style="color:var(--color-warn)">${_esc(this.modelLatencyError)}</p>`;
       return;
     }
     if (!this.modelLatencyData) return;
-    const models = this.modelLatencyData.models || [];
+    const models = this.modelLatencyData;
     if (!models.length) {
-      box.innerHTML = `<p class="text-sm text-muted">${t("admin_health_no_models_configured", "No chat model endpoints configured.")}</p>`;
+      const emptyHtml = `<p class="text-sm text-muted">${t("admin_health_no_models_configured", "No chat model endpoints configured.")}</p>`;
+      grid.innerHTML = emptyHtml;
+      if (mobileBox) mobileBox.innerHTML = emptyHtml;
       return;
     }
-    if (!box.querySelector("#model_latency_canvas")) {
-      box.innerHTML = `
-        <div class="h-[220px] mb-3"><canvas id="model_latency_canvas"></canvas></div>
-        <div id="model_latency_legend" class="flex flex-wrap gap-3"></div>
-      `;
-    }
-    this.renderModelLatencyChart(models);
-    this.renderModelLatencyLegend(models);
-  }
 
-  renderModelLatencyChart(models) {
-    const canvas = document.getElementById("model_latency_canvas");
-    if (!canvas || typeof Chart === "undefined") return;
-    const line = getComputedStyle(document.documentElement).getPropertyValue("--color-line").trim() || "#2A2A2E";
-    const allTimestamps = new Set();
-    models.forEach((m) => (m.latency_history || []).forEach((p) => allTimestamps.add(p.t)));
-    const labels = Array.from(allTimestamps).sort((a, b) => a - b);
-    const datasets = models.map((m, i) => {
-      const color = ADMIN_MODEL_LATENCY_PALETTE[i % ADMIN_MODEL_LATENCY_PALETTE.length];
-      const byTime = {};
-      (m.latency_history || []).forEach((p) => { byTime[p.t] = p.ok ? p.ms : null; });
-      return {
-        label: m.name,
-        data: labels.map((t2) => (t2 in byTime ? byTime[t2] : null)),
-        borderColor: color,
-        backgroundColor: color,
-        borderWidth: 1.5,
-        pointRadius: 0,
-        tension: 0.2,
-        spanGaps: true,
-      };
-    });
-    const labelStrings = labels.map((t2) => new Date(t2 * 1000).toLocaleTimeString());
-    if (this.modelLatencyChart) {
-      this.modelLatencyChart.data.labels = labelStrings;
-      this.modelLatencyChart.data.datasets = datasets;
-      this.modelLatencyChart.update();
-      return;
-    }
-    this.modelLatencyChart = new Chart(canvas, {
-      type: "line",
-      data: { labels: labelStrings, datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        plugins: { legend: { display: false }, tooltip: { enabled: true } },
-        scales: {
-          x: { display: false },
-          y: { display: true, grid: { color: line },
-               ticks: { callback: (v) => `${v} ms` } },
-        },
-      },
-    });
-  }
+    grid.innerHTML = `<div class="admin-health-grid">${models.map((m) => this.modelCardHtml(m)).join("")}</div>`;
+    Object.values(this.modelCharts).forEach((chart) => chart.destroy());
+    this.modelCharts = {};
+    models.forEach((m) => this.renderChart(m, `model_chart_${m.name}`, this.modelCharts));
 
-  renderModelLatencyLegend(models) {
-    const box = document.getElementById("model_latency_legend");
-    if (!box) return;
-    box.innerHTML = models.map((m, i) => {
-      const color = ADMIN_MODEL_LATENCY_PALETTE[i % ADMIN_MODEL_LATENCY_PALETTE.length];
-      const latest = m.latest_latency_ms != null ? `${m.latest_latency_ms} ms` : "-";
-      const success = m.success_pct != null ? `${m.success_pct}%` : "-";
-      return `
-        <div class="flex items-center gap-2 rounded-md border border-line px-2 py-1.5">
-          <span class="w-2.5 h-2.5 rounded-full flex-none" style="background:${color}"></span>
-          ${typeof proxyIconHtml === "function" ? proxyIconHtml(m, 20) : ""}
-          <div class="flex flex-col">
-            <span class="text-xs font-semibold text-ink">${_esc(m.name)}</span>
-            <span class="text-[11px] text-muted">${_esc(latest)} · ${t("admin_health_uptime_24h")} ${_esc(success)}</span>
-          </div>
-        </div>`;
-    }).join("");
+    if (mobileBox) {
+      Object.values(this.modelSparkCharts).forEach((c) => c && c.destroy());
+      this.modelSparkCharts = {};
+      Object.values(this.modelMobileExpandCharts).forEach((c) => c && c.destroy());
+      this.modelMobileExpandCharts = {};
+      this._pendingModelSparkIds = {};
+      mobileBox.innerHTML = models.map((m) => this.modelMobileRowHtml(m)).join("");
+      models.forEach((m) => {
+        const sparkId = this._pendingModelSparkIds[m.name];
+        const points = (m.latency_history || []).slice(-20).map((p) => (p.ok ? p.ms : null));
+        this.modelSparkCharts[m.name] = adminRenderSparkline(sparkId, points);
+        const toggle = mobileBox.querySelector(`[data-model-row-toggle="${m.name}"]`);
+        if (toggle) toggle.onclick = () => this.toggleModelExpand(m.name);
+        if (this.expandedModels.has(m.name)) {
+          this.modelMobileExpandCharts[m.name] = this.renderChart(m, `model_chart_mobile_${m.name}`, this.modelMobileExpandCharts);
+        }
+      });
+    }
   }
 
   async loadHealth() {
@@ -342,7 +355,12 @@ class AdminHealthView {
     this.sparkCharts = {};
     Object.values(this.mobileExpandCharts || {}).forEach((chart) => chart && chart.destroy());
     this.mobileExpandCharts = {};
-    if (this.modelLatencyChart) { this.modelLatencyChart.destroy(); this.modelLatencyChart = null; }
+    Object.values(this.modelCharts || {}).forEach((chart) => chart && chart.destroy());
+    this.modelCharts = {};
+    Object.values(this.modelSparkCharts || {}).forEach((chart) => chart && chart.destroy());
+    this.modelSparkCharts = {};
+    Object.values(this.modelMobileExpandCharts || {}).forEach((chart) => chart && chart.destroy());
+    this.modelMobileExpandCharts = {};
   }
 }
 
@@ -401,7 +419,8 @@ AdminHealthView.prototype.render = function () {
     <div id="health_grid_mobile" class="mb-6 lg:hidden rounded-[13px] border border-line bg-surface px-3"><span class="text-sm text-muted">${t("admin_health_loading")}</span></div>
 
     <div class="font-display font-semibold text-base text-ink mb-2">${t("admin_health_model_latency", "Current model latency")}</div>
-    <div id="model_latency_box" class="mb-6 rounded-[13px] border border-line bg-surface p-3"><span class="text-sm text-muted">${t("admin_health_loading")}</span></div>
+    <div id="model_grid_desktop" class="mb-3 hidden lg:block"><span class="text-sm text-muted">${t("admin_health_loading")}</span></div>
+    <div id="model_grid_mobile" class="mb-6 lg:hidden rounded-[13px] border border-line bg-surface px-3"><span class="text-sm text-muted">${t("admin_health_loading")}</span></div>
 
     <div class="flex items-center justify-between mb-2">
       <div class="font-display font-semibold text-base text-ink">${t("admin_health_server_logs")}</div>
