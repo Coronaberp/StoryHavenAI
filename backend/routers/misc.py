@@ -9,7 +9,7 @@ from backend.repositories import notifications as notification_repo
 from backend import vectors
 from backend import llm
 from backend.state import api, CFG, log
-from backend.auth import get_current_user, require_permission
+from backend.auth import get_current_user, require_permission, get_dev
 from backend.chat_service import (_eff_cfg, _endpoints, _ui_language, _chat_language,
                           _localize_texts, _own_session, _glossary_note, _src_hash)
 from backend.repositories import content_reports as content_report_repo
@@ -57,21 +57,24 @@ async def ui_translations(body: UiTranslateIn, current_user: dict = Depends(get_
 
 UI_RESYNC_BATCH_SIZE = 1000
 
+async def _compute_missing_translations(strings: dict) -> dict[str, list[str]]:
+    hashes = {k: _src_hash(v) for k, v in strings.items()}
+    all_hashes = list(set(hashes.values()))
+    missing_by_lang = {}
+    for lang in SUPPORTED_UI_LANGUAGES:
+        lang_key = lang.lower()
+        cached = await db.get_localizations(all_hashes, lang_key)
+        missing_by_lang[lang] = [key for key, h in hashes.items() if h not in cached]
+    return missing_by_lang
+
+
 async def _run_ui_translation_resync(strings: dict, admin_username: str):
     global _ui_resync_running
     ep = await _endpoints({}, None, False)
     chat_model = CFG["chat_model"]
     sem = asyncio.Semaphore(UI_RESYNC_CONCURRENCY)
-    hashes = {k: _src_hash(v) for k, v in strings.items()}
-    all_hashes = list(set(hashes.values()))
-
-    work_items = []
-    for lang in SUPPORTED_UI_LANGUAGES:
-        lang_key = lang.lower()
-        cached = await db.get_localizations(all_hashes, lang_key)
-        for key, h in hashes.items():
-            if h not in cached:
-                work_items.append((lang, key))
+    missing_by_lang = await _compute_missing_translations(strings)
+    work_items = [(lang, key) for lang, keys in missing_by_lang.items() for key in keys]
 
     log.info("admin: UI translation resync started by=%s keys=%d languages=%d missing=%d",
              admin_username, len(strings), len(SUPPORTED_UI_LANGUAGES), len(work_items))
@@ -100,7 +103,7 @@ async def _run_ui_translation_resync(strings: dict, admin_username: str):
                  admin_username, len(work_items), total_translated)
 
 @api.post("/admin/resync-ui-translations")
-async def admin_resync_ui_translations(body: ResyncUiTranslationsIn, current_user: dict = Depends(require_permission("system_settings", "execute"))):
+async def admin_resync_ui_translations(body: ResyncUiTranslationsIn, current_user: dict = Depends(get_dev)):
     global _ui_resync_running
     if not body.strings:
         raise HTTPException(400, "no strings provided")
@@ -109,6 +112,13 @@ async def admin_resync_ui_translations(body: ResyncUiTranslationsIn, current_use
     _ui_resync_running = True
     asyncio.create_task(_run_ui_translation_resync(body.strings, current_user["username"]))
     return {"started": True, "keys": len(body.strings), "languages": len(SUPPORTED_UI_LANGUAGES)}
+
+@api.post("/admin/dev/ui-translations-status")
+async def admin_ui_translations_status(body: ResyncUiTranslationsIn, current_user: dict = Depends(get_dev)):
+    missing_by_lang = await _compute_missing_translations(body.strings)
+    languages = [{"lang": lang, "missing_count": len(keys)} for lang, keys in missing_by_lang.items()]
+    total_missing = sum(l["missing_count"] for l in languages)
+    return {"total_keys": len(body.strings), "languages": languages, "total_missing": total_missing}
 
 @api.post("/localize")
 async def localize(body: LocalizeIn, current_user: dict = Depends(get_current_user)):
