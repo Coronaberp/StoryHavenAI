@@ -71,26 +71,23 @@ def test_shared_chat_card_has_og_image():
     marker = f"{E2E_MARKER}{uuid.uuid4().hex[:8]}]"
     cookie = api_login("test", "11111111")
     client = api_client(cookie)
-    char_ids = []
+    char_id = None
     session_id = None
     try:
-        for i in range(2):
-            char_resp = client.post("/api/characters", json={
-                "name": f"E2E Card Chat Member {i} {marker}",
-                "mode": "character",
-                "greeting": "Hello.",
-                "is_public": True,
-            })
-            char_resp.raise_for_status()
-            char_ids.append(char_resp.json()["id"])
-        group_chat_resp = client.post("/api/group-chats", json={
-            "name": f"E2E Card Live Chat {marker}",
-            "mode": "roleplay",
-            "opening": "The story begins.",
-            "char_ids": char_ids,
+        client.put("/api/me/experimental-features", json={"enabled": True}).raise_for_status()
+        char_resp = client.post("/api/characters", json={
+            "name": f"E2E Card Chat Character {marker}",
+            "mode": "rpg",
+            "greeting": "Hello.",
+            "is_public": True,
         })
-        group_chat_resp.raise_for_status()
-        session_id = group_chat_resp.json()["session_id"]
+        char_resp.raise_for_status()
+        char_id = char_resp.json()["id"]
+        session_resp = client.post(f"/api/characters/{char_id}/sessions", json={
+            "persona_id": None, "greeting_index": 0,
+        })
+        session_resp.raise_for_status()
+        session_id = session_resp.json()["id"]
         invite_resp = client.post(f"/api/sessions/{session_id}/multiplayer/invite-link")
         invite_resp.raise_for_status()
         token = invite_resp.json()["token"]
@@ -101,8 +98,9 @@ def test_shared_chat_card_has_og_image():
     finally:
         if session_id:
             client.delete(f"/api/sessions/{session_id}")
-        for char_id in char_ids:
+        if char_id:
             client.delete(f"/api/characters/{char_id}")
+        client.put("/api/me/experimental-features", json={"enabled": False})
         client.close()
 
 
