@@ -7,6 +7,14 @@ const ADMIN_HEALTH_SERVICE_LABELS = {
 
 const ADMIN_HEALTH_MODEL_COLORS = ["#e3bd6c", "#4d6bfe", "#4caf50", "#e05c5c", "#9b6bd1", "#3aa3c9"];
 
+function adminFmtLatency(ms) {
+  if (ms == null) return "-";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  if (ms < 3600000) return `${(ms / 60000).toFixed(1)}min`;
+  return `${(ms / 3600000).toFixed(1)}h`;
+}
+
 function adminHealthFmtDuration(secs) {
   secs = Math.floor(secs);
   const d = Math.floor(secs / 86400), h = Math.floor((secs % 86400) / 3600), m = Math.floor((secs % 3600) / 60);
@@ -47,7 +55,7 @@ class AdminHealthView {
 
   modelLegendRowHtml(m, color) {
     const icon = typeof proxyIconHtml === "function" ? proxyIconHtml(m, 18) : "";
-    const latency = m.latest_latency_ms != null ? `${m.latest_latency_ms} ms` : "-";
+    const latency = adminFmtLatency(m.latest_latency_ms);
     const uptime = m.success_pct != null ? `${m.success_pct}%` : "-";
     return `
       <div class="flex items-center gap-2 py-1.5">
@@ -168,7 +176,7 @@ class AdminHealthView {
         <button type="button" class="w-full flex items-center gap-2 py-2.5 text-left" data-health-row-toggle="${_esc(s.name)}">
           <span class="w-2 h-2 rounded-full flex-none" style="background:${s.ok ? "var(--color-success)" : "var(--color-warn)"}"></span>
           <span class="font-display font-semibold text-sm text-ink flex-1">${_esc(ADMIN_HEALTH_SERVICE_LABELS[s.name] || s.name)}</span>
-          <span class="text-xs text-muted">${s.latency_ms != null ? s.latency_ms + " ms" : "-"}</span>
+          <span class="text-xs text-muted">${adminFmtLatency(s.latency_ms)}</span>
           ${sparkHtml}
         </button>
         <div class="admin-health-row-expand ${expanded ? "" : "hidden"} pb-3" data-health-row-expand="${_esc(s.name)}">
@@ -202,7 +210,7 @@ class AdminHealthView {
 
   serviceCardHtml(s) {
     const pct = s.uptime_pct_24h == null ? "-" : `${s.uptime_pct_24h}%`;
-    const avg = s.avg_latency_ms == null ? "-" : `${s.avg_latency_ms} ms`;
+    const avg = adminFmtLatency(s.avg_latency_ms);
     return `
       <div class="rounded-[13px] border p-3.5" id="health_card_${_esc(s.name)}" style="border-color:${s.ok ? "var(--color-line)" : "var(--color-warn)"}">
         <div class="flex items-center gap-2 mb-2">
@@ -211,7 +219,7 @@ class AdminHealthView {
           <span class="text-xs text-muted ml-auto" id="health_status_text_${_esc(s.name)}">${s.ok ? t("admin_health_up") : t("admin_health_down")}</span>
         </div>
         <div class="flex gap-4 text-xs text-sec mb-2">
-          <span>${t("admin_health_latency")}: <b class="text-ink" id="health_latency_${_esc(s.name)}">${s.latency_ms != null ? s.latency_ms + " ms" : "-"}</b></span>
+          <span>${t("admin_health_latency")}: <b class="text-ink" id="health_latency_${_esc(s.name)}">${adminFmtLatency(s.latency_ms)}</b></span>
           <span>${t("admin_health_uptime_24h")}: <b class="text-ink" id="health_uptime_pct_${_esc(s.name)}">${_esc(pct)}</b></span>
         </div>
         <div class="h-[50px]"><canvas id="health_chart_${_esc(s.name)}"></canvas></div>
@@ -229,11 +237,11 @@ class AdminHealthView {
     const statusText = document.getElementById(`health_status_text_${s.name}`);
     if (statusText) statusText.textContent = s.ok ? t("admin_health_up") : t("admin_health_down");
     const latency = document.getElementById(`health_latency_${s.name}`);
-    if (latency) latency.textContent = s.latency_ms != null ? s.latency_ms + " ms" : "-";
+    if (latency) latency.textContent = adminFmtLatency(s.latency_ms);
     const pctEl = document.getElementById(`health_uptime_pct_${s.name}`);
     if (pctEl) pctEl.textContent = s.uptime_pct_24h == null ? "-" : `${s.uptime_pct_24h}%`;
     const avgEl = document.getElementById(`health_avg_${s.name}`);
-    if (avgEl) avgEl.textContent = `${t("admin_health_avg")}: ${s.avg_latency_ms == null ? "-" : `${s.avg_latency_ms} ms`}`;
+    if (avgEl) avgEl.textContent = `${t("admin_health_avg")}: ${adminFmtLatency(s.avg_latency_ms)}`;
     const errEl = document.getElementById(`health_error_${s.name}`);
     if (errEl) {
       errEl.textContent = s.error || "";

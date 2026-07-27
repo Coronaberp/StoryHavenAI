@@ -95,6 +95,18 @@ async def test_admin_model_latency_returns_configured_proxies_sorted_by_priority
     assert result["models"][0]["icon_type"] == "svg"
     assert result["models"][0]["icon_value"] == "<svg></svg>"
 
+async def test_admin_model_latency_includes_base_url_for_favicon_icon_fallback(db_conn, monkeypatch):
+    from backend.routers import health as health_router
+    from backend.state import CFG
+
+    monkeypatch.setitem(CFG, "chat_proxies", [
+        {"name": "Favicon Provider", "base_url": "https://api.example.com/v1", "priority": 0,
+         "icon_type": "favicon", "icon_value": ""},
+    ])
+    result = await health_router.admin_model_latency(hours=24, _={"id": "a", "is_admin": True})
+    model = result["models"][0]
+    assert model["base_url"] == "https://api.example.com/v1"
+
 async def test_admin_model_latency_includes_recorded_history(db_conn, monkeypatch):
     from backend.routers import health as health_router
     from backend.state import CFG

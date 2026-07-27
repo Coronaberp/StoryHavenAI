@@ -196,6 +196,7 @@ async def admin_model_latency(hours: float = 24, _: dict = Depends(require_permi
         models.append({
             "name": proxy.get("name") or proxy.get("base_url"),
             "priority": proxy.get("priority", 0),
+            "base_url": proxy.get("base_url") or "",
             "icon_type": proxy.get("icon_type") or "favicon",
             "icon_value": proxy.get("icon_value") or "",
             "latest_latency_ms": (round(latest["latency_ms"], 1)
