@@ -109,6 +109,11 @@ const routes = {
     window.adminAnnouncePanel = new AdminAnnouncePanel();
     window.adminAnnouncePanel.mount(main);
   },
+  "admin-dev": (main) => {
+    if (!ME || ME.role !== "dev") { navigate("/admin"); return; }
+    window.adminDevView = new AdminDevView();
+    window.adminDevView.mount(main);
+  },
   "creator-profile": (main) => new ProfileView().mount(main),
   "shared-image": async (main) => {
     const iid = location.pathname.split("/").filter(Boolean)[1];
@@ -189,6 +194,7 @@ const ROOT_FOR_ROUTE = {
   "admin-health": "dossier",
   "admin-features": "dossier",
   "admin-announce": "dossier",
+  "admin-dev": "dossier",
 };
 
 const NAV_LABEL_ROUTES = {
