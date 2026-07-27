@@ -42,3 +42,7 @@ installer/models.manifest.tsv
 
 # Local research and audit write-ups, not part of the app
 report.md
+
+# Infra/ops runbooks — container names, host paths, restore procedures.
+# Useful locally, not something to publish alongside app source.
+docs/RECOVERY.md
