@@ -1,4 +1,4 @@
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from backend.db import roles, users, _q, _q1, _w, _scalar
@@ -10,7 +10,12 @@ async def get(name: str) -> dict | None:
     row = await _q1(select(roles).where(roles.c.name == name))
     if not row:
         return None
-    return {"name": row["name"], "label": row["label"], "is_builtin": bool(row["is_builtin"])}
+    return {"name": row["name"], "label": row["label"], "is_builtin": bool(row["is_builtin"]),
+            "capabilities_seeded": bool(row["capabilities_seeded"])}
+
+async def mark_capabilities_seeded(name: str) -> None:
+    await _w(update(roles).where(roles.c.name == name).values(capabilities_seeded=True))
+    log.info("roles: marked capabilities_seeded name=%s", name)
 
 async def create(name: str, label: str) -> None:
     if name == "dev":

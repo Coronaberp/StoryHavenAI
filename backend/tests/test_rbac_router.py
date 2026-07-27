@@ -14,7 +14,8 @@ async def test_create_role(db_conn):
     from backend.schemas import RoleCreateIn
     result = await rbac.create_role(RoleCreateIn(name="moderator", label="Moderator"),
                                      current_user={"role": "dev", "username": "devuser"})
-    assert result == {"name": "moderator", "label": "Moderator", "is_builtin": False}
+    assert result == {"name": "moderator", "label": "Moderator", "is_builtin": False,
+                       "capabilities_seeded": False}
 
 async def test_create_role_rejects_duplicate(db_conn):
     from fastapi import HTTPException

@@ -54,8 +54,15 @@ async def test_set_all_empty_list_clears_role(db_conn):
     assert await rc.list_for_role("member") == []
 
 
+async def _reset_seeded_marker(*role_names):
+    from sqlalchemy import update
+    from backend.db import roles, _w
+    for role in role_names:
+        await _w(update(roles).where(roles.c.name == role).values(capabilities_seeded=False))
+
+
 async def test_seed_defaults_first_run_grants_everything(db_conn):
-    # Reset guest/member/admin to genuinely empty within this test's own
+    # Reset guest/member/admin to genuinely unseeded within this test's own
     # transaction first — in the shared test database they're already seeded
     # by the app-startup db.init() call that ran before any test executed, so
     # without this reset they would never be "first run" from seed_defaults()'s
@@ -64,6 +71,7 @@ async def test_seed_defaults_first_run_grants_everything(db_conn):
     for role in ("guest", "member", "admin"):
         for cap in await rc.list_for_role(role):
             await rc.revoke(role, cap)
+    await _reset_seeded_marker("guest", "member", "admin")
     await rc.seed_defaults()
     admin_caps = set(await rc.list_for_role("admin"))
     assert admin_caps == set(CAPABILITY_REGISTRY)
@@ -75,6 +83,8 @@ async def test_seed_defaults_leaves_non_empty_role_untouched(db_conn):
     # Same reasoning as above: clear member's pre-existing seeded rows first so
     # that granting a single capability below genuinely represents "a role with
     # exactly one Dev-curated grant", not "the seeded defaults plus one extra".
+    # The marker is left alone (already seeded), which is exactly what should
+    # stop seed_defaults() from touching this role again.
     for cap in await rc.list_for_role("member"):
         await rc.revoke("member", cap)
     await rc.grant("member", "users.view")
@@ -87,8 +97,23 @@ async def test_seed_defaults_leaves_non_empty_role_untouched(db_conn):
 async def test_seed_defaults_does_not_resurrect_revoked_admin_capability(db_conn):
     from backend.auth import CAPABILITY_REGISTRY
     any_capability = next(iter(CAPABILITY_REGISTRY))
+    await _reset_seeded_marker("admin")
     await rc.seed_defaults()
     await rc.revoke("admin", any_capability)
     assert await rc.has("admin", any_capability) is False
     await rc.seed_defaults()
     assert await rc.has("admin", any_capability) is False
+
+
+async def test_seed_defaults_does_not_resurrect_revoked_guest_default(db_conn):
+    # Guest/member only ever have a single default capability, so revoking it
+    # drops the role to zero rows — indistinguishable from "never seeded" if
+    # the gate were still row-count based. The capabilities_seeded marker must
+    # be what prevents re-granting here.
+    await _reset_seeded_marker("guest")
+    await rc.seed_defaults()
+    assert await rc.list_for_role("guest") == ["test_site.toggle_own"]
+    await rc.revoke("guest", "test_site.toggle_own")
+    assert await rc.list_for_role("guest") == []
+    await rc.seed_defaults()
+    assert await rc.list_for_role("guest") == []

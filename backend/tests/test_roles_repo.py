@@ -6,7 +6,7 @@ async def test_roles_table_exists():
     from backend.db import roles
     assert roles.name == "roles"
     cols = {c.name for c in roles.columns}
-    assert cols == {"name", "label", "is_builtin"}
+    assert cols == {"name", "label", "is_builtin", "capabilities_seeded"}
 
 from backend.repositories import roles as roles_repo
 
@@ -30,7 +30,8 @@ async def test_seed_builtins_does_not_duplicate(db_conn):
 async def test_create_custom_role(db_conn):
     await roles_repo.create("moderator", "Moderator")
     row = await roles_repo.get("moderator")
-    assert row == {"name": "moderator", "label": "Moderator", "is_builtin": False}
+    assert row == {"name": "moderator", "label": "Moderator", "is_builtin": False,
+                   "capabilities_seeded": False}
 
 async def test_create_rejects_duplicate_name(db_conn):
     await roles_repo.create("moderator", "Moderator")

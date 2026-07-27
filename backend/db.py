@@ -69,6 +69,7 @@ roles = sa.Table(
     sa.Column("name", sa.Text, primary_key=True),
     sa.Column("label", sa.Text, nullable=False),
     sa.Column("is_builtin", sa.Boolean, nullable=False, server_default=text("false")),
+    sa.Column("capabilities_seeded", sa.Boolean, nullable=False, server_default=text("false")),
 )
 
 role_capabilities = sa.Table(
@@ -1093,6 +1094,13 @@ async def init():
         await conn.execute(text(
             "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS voice_overrides "
             "TEXT NOT NULL DEFAULT '{}'"))
+
+        await conn.execute(text(
+            "ALTER TABLE roles ADD COLUMN IF NOT EXISTS capabilities_seeded "
+            "BOOLEAN NOT NULL DEFAULT false"))
+
+        await conn.execute(text(
+            "DELETE FROM role_capabilities WHERE role NOT IN (SELECT name FROM roles)"))
 
         await conn.execute(text(
             "DO $$ BEGIN "
