@@ -198,6 +198,7 @@ import backend.routers.lora_training
 import backend.routers.groups
 import backend.routers.announcements
 import backend.routers.rbac
+import backend.routers.admin_dev
 
 app.include_router(auth_router)
 app.include_router(api)
