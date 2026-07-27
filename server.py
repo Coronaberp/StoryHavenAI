@@ -277,12 +277,12 @@ def _og_contain(img, w, h):
     ratio = min(w / img.width, h / img.height)
     return img.resize((max(1, round(img.width * ratio)), max(1, round(img.height * ratio))))
 
-def _og_creator_footer(canvas, draw, name, avatar_rel, accent_hex, banner_hex):
+def _og_creator_footer(canvas, draw, name, avatar_rel, accent_hex, banner_hex, username=None, tag_text=None):
     from PIL import ImageDraw
-    width, footer_top = 1200, 546
+    width, footer_top = 1200, 510
     draw.rectangle([0, footer_top, width, 630], fill=_OG_PAPER)
     draw.line([(0, footer_top), (width, footer_top)], fill=_OG_GOLD, width=2)
-    size, ring, ax, ay = 60, 3, 48, 558
+    size, ring, ax, ay = 60, 3, 48, 530
     text_x = ax
     avatar = _og_open_media(avatar_rel)
     if avatar is not None:
@@ -293,12 +293,29 @@ def _og_creator_footer(canvas, draw, name, avatar_rel, accent_hex, banner_hex):
         outer_mask = Image.new("L", (outer, outer), 0)
         ImageDraw.Draw(outer_mask).ellipse([0, 0, outer - 1, outer - 1], fill=255)
         canvas.paste(gradient, (ax - ring, ay - ring), outer_mask)
-        av = _og_cover(avatar, size, size)
+        fitted = _og_contain(avatar, size, size)
+        tile = Image.new("RGB", (size, size), accent_rgb)
+        tile.paste(fitted, ((size - fitted.width) // 2, (size - fitted.height) // 2))
         mask = Image.new("L", (size, size), 0)
         ImageDraw.Draw(mask).ellipse([0, 0, size - 1, size - 1], fill=255)
-        canvas.paste(av, (ax, ay), mask)
+        canvas.paste(tile, (ax, ay), mask)
         text_x = ax + size + 20
-    draw.text((text_x, ay + 14), (name or "")[:44], font=_og_font(_FONT_BODY, 30, 600), fill=_OG_GOLD)
+    draw.text((text_x, ay + 2), (name or "")[:44], font=_og_font(_FONT_BODY, 28, 600), fill=_OG_GOLD)
+    if username or tag_text:
+        handle_font = _og_font(_FONT_BODY, 20, 500)
+        row_cy = ay + 46
+        cx = text_x
+        if username:
+            handle_text = f"@{username}"
+            draw.text((cx, row_cy), handle_text, font=handle_font, fill=_OG_MUTED, anchor="lm")
+            cx += draw.textlength(handle_text, font=handle_font) + 14
+        if tag_text:
+            tag_font = _og_font(_FONT_BODY, 15, 600)
+            pill_h = 26
+            pill_w = draw.textlength(tag_text, font=tag_font) + 22
+            draw.rounded_rectangle([cx, row_cy - pill_h / 2, cx + pill_w, row_cy + pill_h / 2],
+                                   radius=pill_h / 2, fill=_OG_GOLD)
+            draw.text((cx + 11, row_cy), tag_text, font=tag_font, fill=_OG_PAPER, anchor="lm")
 
 def _og_icon_message(draw, x, y, size, color):
     stroke = max(2, round(size * 0.08))
@@ -474,13 +491,16 @@ async def _og_resolve_upscaler_display_name(upscaler_name):
 
 def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex,
                         like_count=0, positive_tags=None, negative_tags=None,
-                        cfg=None, steps=None, sampler=None, checkpoint=None, upscaler=None):
+                        cfg=None, steps=None, sampler=None, checkpoint=None, upscaler=None,
+                        username=None, tag_text=None, created_ts=None):
     from PIL import ImageFilter, ImageDraw
     if not rel_path or not rel_path.startswith("/media/"):
         return None
     fname = rel_path[len("/media/"):].split("?")[0]
     base, _ext = os.path.splitext(fname)
-    signature = f"{fname}|{name}|{avatar_rel}|{accent_hex}|{banner_hex}|{like_count}|{positive_tags}|{negative_tags}|{cfg}|{steps}|{sampler}|{checkpoint}|{upscaler}"
+    signature = (f"{fname}|{name}|{avatar_rel}|{accent_hex}|{banner_hex}|{like_count}|{positive_tags}"
+                 f"|{negative_tags}|{cfg}|{steps}|{sampler}|{checkpoint}|{upscaler}"
+                 f"|{username}|{tag_text}|{created_ts}")
     digest = hashlib.md5(signature.encode()).hexdigest()[:8]
     cache_name = f"{base}_ogcard{digest}v{_OG_IMG_VERSION}.png"
     cache_fs = os.path.join(MEDIA_DIR, cache_name)
@@ -492,7 +512,7 @@ def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex,
     except Exception as e:
         log.warning("og compose: cannot open art for %s: %s", rel_path, e)
         return None
-    width, footer_top, footer_bottom, band = 1200, 546, 630, 150
+    width, footer_top, footer_bottom, band = 1200, 510, 630, 150
     art_h = footer_top - band
     meta_h = 180
     height = footer_bottom + meta_h
@@ -503,7 +523,7 @@ def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex,
     canvas.paste(background, (0, band))
     foreground = _og_contain(art, width - 96, art_h - 48)
     canvas.paste(foreground, ((width - foreground.width) // 2, band + (art_h - foreground.height) // 2))
-    _og_creator_footer(canvas, draw, name, avatar_rel, accent_hex, banner_hex)
+    _og_creator_footer(canvas, draw, name, avatar_rel, accent_hex, banner_hex, username, tag_text)
     if like_count:
         heart_font = _og_font(_FONT_BODY, 30, 600)
         like_text = str(like_count)
@@ -533,6 +553,11 @@ def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex,
     if config_bits:
         draw.text((48, meta_y + 6), " · ".join(config_bits)[:100],
                   font=_og_font(_FONT_BODY, 20, 500), fill=_OG_MUTED)
+    if created_ts:
+        import datetime as _dt
+        ts_text = _dt.datetime.fromtimestamp(created_ts).strftime("%b %d, %Y")
+        draw.text((width - 48, height - 24), ts_text,
+                  font=_og_font(_FONT_BODY, 18, 500), fill=_OG_MUTED, anchor="rb")
     _og_brand_mark(canvas, draw)
     try:
         canvas.save(cache_fs, "PNG")
@@ -544,11 +569,12 @@ def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex,
 def _og_image_url(request: Request, art_rel_path, name=None, avatar_rel=None,
                   accent_hex=None, banner_hex=None, like_count=0, positive_tags=None,
                   negative_tags=None, cfg=None, steps=None, sampler=None, checkpoint=None,
-                  upscaler=None) -> str:
+                  upscaler=None, username=None, tag_text=None, created_ts=None) -> str:
     origin = str(request.base_url).rstrip("/")
     composite = _compose_image_card(art_rel_path, name, avatar_rel, accent_hex, banner_hex,
                                     like_count, positive_tags, negative_tags,
-                                    cfg, steps, sampler, checkpoint, upscaler)
+                                    cfg, steps, sampler, checkpoint, upscaler,
+                                    username, tag_text, created_ts)
     if composite:
         return f"{origin}{composite}"
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
@@ -1055,7 +1081,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "22"
+_OG_IMG_VERSION = "23"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
@@ -1224,10 +1250,17 @@ async def image_share_card(iid: str, request: Request):
         name = brand_name
         title = brand_name
         desc = brand_tagline
+    if creator and creator.get("title_status") == "approved" and creator.get("title"):
+        tag_text = creator.get("title")
+    elif creator and creator.get("is_admin"):
+        tag_text = "Dev" if creator.get("role") == "dev" else "Admin"
+    else:
+        tag_text = None
     img = _og_image_url(request, art_rel, name if art_rel else None,
                         (creator or {}).get("avatar"), (creator or {}).get("accent_color"),
                         (creator or {}).get("banner_color"), like_count, positive_tags,
-                        negative_tags, cfg, steps, sampler, checkpoint, upscaler)
+                        negative_tags, cfg, steps, sampler, checkpoint, upscaler,
+                        (creator or {}).get("username"), tag_text, rec.get("created") if art_rel else None)
     canonical = f"{str(request.base_url).rstrip('/')}/i/{iid}"
     return _share_shell(title, desc, img, "website", canonical)
 
