@@ -6,8 +6,10 @@ class AdminDevView {
   async mount(main) {
     this.main = main;
     this.translationStatus = null;
+    this.modelRequests = [];
     this.render();
     this.loadTranslationStatus();
+    this.loadModelRequests();
   }
 
   render() {
@@ -28,6 +30,11 @@ class AdminDevView {
         <div class="text-[10px] uppercase tracking-wide text-muted mb-1">${t("admin_dev_translation_status_label", "Coverage by language")}</div>
         <div id="devTranslationStatus" class="text-xs font-mono text-ink bg-surface-2 rounded-md p-2.5 mb-3 leading-relaxed">${t("common_loading", "Loading…")}</div>
         <button type="button" id="devResyncTranslations" class="px-3 py-2 rounded-md border border-line text-xs text-ink">${t("admin_config_resync_ui_translations_button")}</button>
+      </div>
+      <div class="border border-line rounded-lg p-3 mb-3">
+        <div class="font-display font-semibold text-sm text-ink mb-1">${t("admin_dev_model_procurement_title", "Model procurement")}</div>
+        <p class="text-xs text-muted mb-3">${t("admin_dev_model_procurement_description", "Fetch approved model requests directly, or copy the manual command if automation can't finish.")}</p>
+        <div id="devModelRequests"></div>
       </div>
       <div data-admin-dev-container></div>
       </div>
@@ -75,6 +82,66 @@ class AdminDevView {
       errorToast(e.message || t("admin_config_resync_ui_translations_failed"));
     }
     if (btn) { btn.disabled = false; btn.textContent = t("admin_config_resync_ui_translations_button"); }
+  }
+
+  async loadModelRequests() {
+    try {
+      const all = await api("/api/admin/model-requests");
+      this.modelRequests = all.filter((r) => r.status === "approved" && !r.fulfilled);
+    } catch (e) {
+      this.modelRequests = [];
+    }
+    this.renderModelRequests();
+  }
+
+  renderModelRequests() {
+    const container = document.getElementById("devModelRequests");
+    if (!container) return;
+    if (!this.modelRequests.length) {
+      container.innerHTML = `<p class="text-xs text-muted">${t("admin_dev_no_pending_requests", "No approved requests waiting.")}</p>`;
+      return;
+    }
+    container.innerHTML = this.modelRequests.map((r) => `
+      <div class="flex items-center justify-between gap-2 py-2 border-b border-line last:border-0">
+        <div class="text-xs text-ink">${_esc(r.model_name)} <span class="text-muted">(${_esc(r.request_type)})</span></div>
+        <button type="button" data-fetch-request="${_attr(r.id)}" class="px-2.5 py-1 rounded-md border border-line text-xs text-ink">${t("admin_dev_fetch_button", "Fetch")}</button>
+      </div>
+    `).join("");
+    container.querySelectorAll("[data-fetch-request]").forEach((btn) => {
+      btn.onclick = () => this.fetchModelRequest(btn.dataset.fetchRequest, btn);
+    });
+  }
+
+  async fetchModelRequest(rid, btn) {
+    btn.disabled = true;
+    btn.textContent = t("admin_dev_fetching", "Fetching…");
+    try {
+      const r = await api(`/api/admin/model-requests/${encodeURIComponent(rid)}/fetch`, { method: "POST" });
+      if (r.status === "fetched") {
+        toast(t("admin_dev_fetch_complete", "Downloaded and placed."));
+        await this.loadModelRequests();
+      } else if (r.status === "fetched_needs_chown_fix") {
+        await openModal(`
+          <div style="padding:4px 2px">
+            <h3 class="font-display" style="font-size:16px;font-weight:600;color:var(--color-ink);margin:0 0 10px">${t("admin_dev_needs_chown_title", "Downloaded, one manual step left")}</h3>
+            <p style="font-size:13px;color:var(--color-sec);margin:0 0 10px">${t("admin_dev_needs_chown_body", "The file downloaded fine, but ownership couldn't be fixed from here. Run this on the host:")}</p>
+            <pre style="font-size:11px;background:var(--color-surface-2);padding:10px;border-radius:8px;overflow-x:auto;white-space:pre-wrap">${_esc(r.manual_command)}</pre>
+          </div>
+        `);
+        await this.loadModelRequests();
+      } else {
+        await openModal(`
+          <div style="padding:4px 2px">
+            <h3 class="font-display" style="font-size:16px;font-weight:600;color:var(--color-warn);margin:0 0 10px">${t("admin_dev_fetch_failed_title", "Automated fetch failed, use the manual command")}</h3>
+            <pre style="font-size:11px;background:var(--color-surface-2);padding:10px;border-radius:8px;overflow-x:auto;white-space:pre-wrap">${_esc(r.manual_command)}</pre>
+          </div>
+        `);
+      }
+    } catch (e) {
+      errorToast(e.message || t("admin_dev_fetch_error", "Fetch failed."));
+    }
+    btn.disabled = false;
+    btn.textContent = t("admin_dev_fetch_button", "Fetch");
   }
 }
 
