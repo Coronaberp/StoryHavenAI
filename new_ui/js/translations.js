@@ -221,10 +221,13 @@ const UI_STRINGS = {
   tutorial_reset_progress_confirm_message: "Reset your tutorial progress? It just clears the checkmarks - your fragile ego is untouched.",
 
   compendium_featured: "Featured",
+  compendium_for_you_subtitle: "Picked for you",
   compendium_loading: "Consulting the archive…",
   compendium_no_threads_yet: "No threads yet.",
   compendium_nothing_here_yet: "Nothing here yet.",
   compendium_section_characters: "Characters",
+  compendium_section_featured: "Featured",
+  compendium_section_for_you: "For You",
   compendium_section_creators: "Creators",
   compendium_section_forum: "Forum",
   compendium_section_media_gallery: "Media Gallery",

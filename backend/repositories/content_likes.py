@@ -31,6 +31,15 @@ async def like_count(target_type: str, target_id: str) -> int:
                             .where(and_(content_likes.c.target_type == target_type,
                                         content_likes.c.target_id == target_id))) or 0
 
+async def like_counts_batch(target_type: str, target_ids: list[str]) -> dict[str, int]:
+    if not target_ids:
+        return {}
+    rows = await db._q(select(content_likes.c.target_id, func.count().label("n"))
+                       .where(and_(content_likes.c.target_type == target_type,
+                                   content_likes.c.target_id.in_(target_ids)))
+                       .group_by(content_likes.c.target_id))
+    return {r["target_id"]: r["n"] for r in rows}
+
 async def has_liked(target_type: str, target_id: str, user_id: str) -> bool:
     row = await db._q1(select(content_likes).where(and_(
         content_likes.c.target_type == target_type,

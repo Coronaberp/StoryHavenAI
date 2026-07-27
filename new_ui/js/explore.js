@@ -18,7 +18,8 @@ function _compendiumTier() {
 }
 
 const _COMPENDIUM_LIMITS = {
-  chars: { mobile: 6, tablet: 9, desktop: 12, ultrawide: 18 },
+  forYou: { mobile: 6, tablet: 9, desktop: 12, ultrawide: 18 },
+  featured: { mobile: 6, tablet: 9, desktop: 12, ultrawide: 18 },
   creators: { mobile: 6, tablet: 9, desktop: 12, ultrawide: 18 },
   images: { mobile: 6, tablet: 9, desktop: 12, ultrawide: 18 },
   threads: { mobile: 3, tablet: 4, desktop: 6, ultrawide: 9 },
@@ -26,7 +27,8 @@ const _COMPENDIUM_LIMITS = {
 
 class ExploreView {
   constructor() {
-    this.chars = null;
+    this.forYou = null;
+    this.featured = null;
     this.creators = null;
     this.images = null;
     this.threads = null;
@@ -42,13 +44,19 @@ class ExploreView {
   async mount(main) {
     this.main = main;
     this.render();
-    const [chars, creators, images, threads] = await Promise.all([
-      api("/api/characters?scope=community").catch(() => []),
+    const [forYouResult, featuredResult, creators, images, threads] = await Promise.all([
+      api("/api/characters?scope=community&rank=for_you").catch(() => ({ items: [], personalized: false })),
+      api("/api/characters?scope=community&rank=featured").catch(() => ({ items: [], personalized: false })),
       api("/api/users").catch(() => []),
       api("/api/imagegen/community").catch(() => []),
       api("/api/forum/threads?sort=top").catch(() => []),
     ]);
-    this._charsAll = _shuffleSample(chars.filter((c) => c.kind !== "group" && !c.is_explicit), _COMPENDIUM_LIMITS.chars.ultrawide);
+    const forYouItems = (forYouResult.items || []).filter((c) => c.kind !== "group" && !c.is_explicit);
+    const featuredItems = (featuredResult.items || []).filter((c) => c.kind !== "group" && !c.is_explicit);
+    this._forYouAll = forYouResult.personalized
+      ? forYouItems.slice(0, _COMPENDIUM_LIMITS.forYou.ultrawide)
+      : _shuffleSample(forYouItems, _COMPENDIUM_LIMITS.forYou.ultrawide);
+    this._featuredAll = featuredItems.slice(0, _COMPENDIUM_LIMITS.featured.ultrawide);
     this._creatorsAll = _shuffleSample(creators, _COMPENDIUM_LIMITS.creators.ultrawide);
     this._imagesAll = _shuffleSample(images.filter((i) => !i.is_explicit), _COMPENDIUM_LIMITS.images.ultrawide);
     this._threadsAll = threads.slice(0, _COMPENDIUM_LIMITS.threads.ultrawide);
@@ -60,7 +68,8 @@ class ExploreView {
 
   applyTierLimits() {
     const tier = _compendiumTier();
-    this.chars = this._charsAll.slice(0, _COMPENDIUM_LIMITS.chars[tier]);
+    this.forYou = this._forYouAll.slice(0, _COMPENDIUM_LIMITS.forYou[tier]);
+    this.featured = this._featuredAll.slice(0, _COMPENDIUM_LIMITS.featured[tier]);
     this.creators = this._creatorsAll.slice(0, _COMPENDIUM_LIMITS.creators[tier]);
     this.images = this._imagesAll.slice(0, _COMPENDIUM_LIMITS.images[tier]);
     this.threads = this._threadsAll.slice(0, _COMPENDIUM_LIMITS.threads[tier]);
@@ -68,7 +77,8 @@ class ExploreView {
 
   async loadCharCreatorProfiles() {
     const usernames = [...new Set([
-      ...this.chars.map((c) => c.owner_username),
+      ...this.forYou.map((c) => c.owner_username),
+      ...this.featured.map((c) => c.owner_username),
       ...this.images.map((i) => i.owner_username),
     ].filter(Boolean))];
     if (!usernames.length) return;
@@ -80,13 +90,13 @@ class ExploreView {
     this.render();
   }
 
-  sectionHtml(title, seeAllRoute, bodyHtml, loaded) {
+  sectionHtml(title, seeAllRoute, bodyHtml, loaded, subtitle) {
     return `
       <div style="display:flex;flex-direction:column;gap:8px">
         <div style="display:flex;align-items:baseline;justify-content:space-between">
           <div>
             <div class="font-display" style="font-size:16px;font-weight:600;color:var(--color-ink)">${title}</div>
-            <div class="font-mono" style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-muted)">${t("compendium_featured")}</div>
+            <div class="font-mono" style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-muted)">${subtitle}</div>
           </div>
           <a href="/${seeAllRoute}" data-route="__seeall" onclick="event.preventDefault();navigate('/${seeAllRoute}')"
             style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-accent);white-space:nowrap">${t("compendium_see_all")}</a>
@@ -96,11 +106,11 @@ class ExploreView {
     `;
   }
 
-  charCarouselHtml() {
-    if (!this.chars.length) return `<p style="color:var(--color-sec);font-size:13px">${t("compendium_nothing_here_yet")}</p>`;
+  charCarouselHtml(list) {
+    if (!list.length) return `<p style="color:var(--color-sec);font-size:13px">${t("compendium_nothing_here_yet")}</p>`;
     return `
       <div class="compendium-row compendium-row-char">
-        ${this.chars.map((c) => `<div class="compendium-row-item">${characterCardHtml(c, this.charCreatorProfiles[c.owner_username])}</div>`).join("")}
+        ${list.map((c) => `<div class="compendium-row-item">${characterCardHtml(c, this.charCreatorProfiles[c.owner_username])}</div>`).join("")}
       </div>
     `;
   }
@@ -186,15 +196,16 @@ class ExploreView {
   }
 
   render() {
-    if (this._charsAll) this.applyTierLimits();
-    const loaded = this.chars !== null;
+    if (this._forYouAll) this.applyTierLimits();
+    const loaded = this.forYou !== null;
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:20px">
         ${pageHeaderHtml("Explore", "Overview", t("ph_explore_title"), t("ph_explore_sub"))}
-        ${this.sectionHtml(t("compendium_section_characters"), "explore/characters", loaded ? this.charCarouselHtml() : "", loaded)}
-        ${this.sectionHtml(t("compendium_section_creators"), "explore/creators", loaded ? this.creatorCarouselHtml() : "", loaded)}
-        ${this.sectionHtml(t("compendium_section_media_gallery"), "explore/images", loaded ? this.imageCarouselHtml() : "", loaded)}
-        ${this.sectionHtml(t("compendium_section_forum"), "explore/forum", loaded ? this.threadCarouselHtml() : "", loaded)}
+        ${this.sectionHtml(t("compendium_section_for_you"), "explore/characters", loaded ? this.charCarouselHtml(this.forYou) : "", loaded, t("compendium_for_you_subtitle"))}
+        ${this.sectionHtml(t("compendium_section_featured"), "explore/characters", loaded ? this.charCarouselHtml(this.featured) : "", loaded, t("compendium_featured"))}
+        ${this.sectionHtml(t("compendium_section_creators"), "explore/creators", loaded ? this.creatorCarouselHtml() : "", loaded, t("compendium_featured"))}
+        ${this.sectionHtml(t("compendium_section_media_gallery"), "explore/images", loaded ? this.imageCarouselHtml() : "", loaded, t("compendium_featured"))}
+        ${this.sectionHtml(t("compendium_section_forum"), "explore/forum", loaded ? this.threadCarouselHtml() : "", loaded, t("compendium_featured"))}
       </div>
     `;
     wireCharCardDominantColors(this.main);
