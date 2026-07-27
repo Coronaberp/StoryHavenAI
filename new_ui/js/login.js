@@ -142,7 +142,8 @@ class AuthView {
 
   mount(main) {
     this.main = main;
-    this.values = {};
+    const prefillUsername = new URLSearchParams(location.search).get("username");
+    this.values = prefillUsername ? { username: prefillUsername } : {};
     this.oauthProviders = [];
     this.setView("signin");
     this.startConditionalPasskey();

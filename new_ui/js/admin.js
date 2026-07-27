@@ -106,7 +106,7 @@ class AdminOverviewView {
         <span class="font-mono text-xs" style="color:var(--color-accent)">${t("admin_open")}</span>
       </button>
       ${ME?.role === "dev" ? `
-      <a href="https://[REDACTED]" target="_blank" rel="noopener noreferrer" class="w-full flex items-center gap-2 p-3 rounded-[13px] border border-line bg-surface">
+      <a href="https://[REDACTED]/login?username=${encodeURIComponent(ME?.username || "")}" target="_blank" rel="noopener noreferrer" class="w-full flex items-center gap-2 p-3 rounded-[13px] border border-line bg-surface">
         <span class="w-[7px] h-[7px] rounded-full flex-none" style="background:var(--color-accent)"></span>
         <span class="text-[13px] text-ink flex-1 text-left">${t("admin_overview_open_test_site", "Test site")}</span>
         <span class="font-mono text-xs" style="color:var(--color-accent)">${t("admin_open")}</span>
