@@ -3,7 +3,7 @@ import pytest
 from backend.repositories import users as user_repo
 from backend.routers.settings import (
     get_my_settings, get_settings, put_my_experimental_features, put_settings,
-    put_my_test_site_access,
+    put_my_test_site_access, config,
 )
 from backend.schemas import ExperimentalFeaturesIn, SettingsIn, TestSiteAccessIn
 from backend.state import CFG
@@ -42,6 +42,22 @@ async def test_put_test_site_access_sets_acknowledged(db_conn):
     result = await put_my_test_site_access(TestSiteAccessIn(acknowledged=True), current_user=user)
 
     assert result == {"test_site_warning_acknowledged": True}
+
+async def test_config_exposes_test_site_domain_from_cfg(db_conn, monkeypatch):
+    monkeypatch.setitem(CFG, "test_site_domain", "[REDACTED]")
+    user = {"id": "user-a", "username": "user-a", "is_admin": False}
+
+    result = await config(user)
+
+    assert result["test_site_domain"] == "[REDACTED]"
+
+async def test_config_test_site_domain_defaults_to_empty_string(db_conn, monkeypatch):
+    monkeypatch.setitem(CFG, "test_site_domain", "")
+    user = {"id": "user-a", "username": "user-a", "is_admin": False}
+
+    result = await config(user)
+
+    assert result["test_site_domain"] == ""
 
 async def test_get_and_put_settings_return_same_has_key_fields(db_conn):
     admin_user = {"id": "admin-a", "username": "admin-a", "is_admin": True}

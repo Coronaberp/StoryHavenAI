@@ -132,7 +132,8 @@ async def config(_: dict = Depends(get_current_user)):
             "enable_thinking": CFG["enable_thinking"],
             "default_language": CFG.get("default_language") or "English",
             "directives": sorted(DIRECTIVE_COMMANDS - {"roll"}),
-            "legacy_text_commands_supported": False}
+            "legacy_text_commands_supported": False,
+            "test_site_domain": CFG.get("test_site_domain") or ""}
 
 def _scrub_model_request_hosts(hosts: list) -> list[dict]:
     return [{"host": h.get("host"), "has_api_key": bool(h.get("api_key"))} for h in hosts]

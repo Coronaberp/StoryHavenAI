@@ -110,6 +110,7 @@ CFG = {
     "memory_v2_budget_tokens": int(os.environ.get("MEMORY_V2_BUDGET_TOKENS", "1000")),
     "webauthn_rp_id": os.environ.get("WEBAUTHN_RP_ID", ""),
     "webauthn_origin": os.environ.get("WEBAUTHN_ORIGIN", ""),
+    "test_site_domain": os.environ.get("TEST_SITE_DOMAIN", ""),
     "gpu_temp_limit": int(os.environ.get("GPU_TEMP_LIMIT", "83")),
     "gpu_temp_resume": int(os.environ.get("GPU_TEMP_RESUME", "75")),
     "scene_style": False,
