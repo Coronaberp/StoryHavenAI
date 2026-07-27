@@ -6,7 +6,7 @@ from sqlalchemy import select, insert, update as sa_update, delete as sa_delete,
 
 from backend.db import (
     sessions, messages,
-    nid, _q, _q1, _w, _preview, _encrypt_secret, _decrypt_secret, engine,
+    nid, _q, _q1, _w, _scalar, _preview, _encrypt_secret, _decrypt_secret, engine,
     _encrypt_json_list, _decrypt_json_list,
 )
 from backend.repositories import session_characters as session_char_repo
@@ -107,6 +107,12 @@ async def list_for_char(cid: str) -> list[dict]:
     stmt = (select(sessions).where(sessions.c.char_id == cid)
             .order_by(sessions.c.updated.desc()))
     return await _with_preview(await _q(stmt))
+
+async def message_count_for_char(cid: str) -> int:
+    stmt = (select(func.count())
+            .select_from(messages.join(sessions, messages.c.session_id == sessions.c.id))
+            .where(sessions.c.char_id == cid))
+    return await _scalar(stmt) or 0
 
 async def touch(sid: str):
     await _w(sa_update(sessions).where(sessions.c.id == sid).values(updated=time.time()))

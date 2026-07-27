@@ -72,3 +72,12 @@ async def test_update_with_invalid_genre_clears_it(db_conn):
     c = await _make_character(db_conn, name="ToClear", genre="Drama")
     updated = await characters.update(c["id"], {"genre": "Not Real"})
     assert updated["genre"] is None
+
+async def test_public_character_count_only_counts_public(db_conn):
+    await _make_character(db_conn, name="Public One", owner_id="user-count", is_public=True)
+    await _make_character(db_conn, name="Public Two", owner_id="user-count", is_public=True)
+    await _make_character(db_conn, name="Private One", owner_id="user-count", is_public=False)
+    assert await characters.public_character_count("user-count") == 2
+
+async def test_public_character_count_no_characters(db_conn):
+    assert await characters.public_character_count("nonexistent") == 0

@@ -92,6 +92,11 @@ async def owner_username(owner_id: str | None) -> str | None:
         return None
     return await _scalar(select(users.c.username).where(users.c.id == owner_id))
 
+async def public_character_count(owner_id: str) -> int:
+    return await _scalar(select(func.count()).select_from(characters)
+                         .where(and_(characters.c.owner_id == owner_id,
+                                     characters.c.is_public == 1))) or 0
+
 async def list_public_users(q: str | None = None) -> list[dict]:
     counts = await _q(select(characters.c.owner_id, func.count().label("n"))
                       .where(characters.c.is_public == 1)
