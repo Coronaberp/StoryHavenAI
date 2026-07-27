@@ -643,21 +643,28 @@ def _compose_character_card(name, avatar_rel, banner_rel, tags, genre, message_c
         return f"/media/{cache_name}"
     width, height = 1200, 630
     canvas = Image.new("RGB", (width, height), _OG_PAPER)
-    hero = _og_open_media(banner_rel) or _og_open_media(avatar_rel)
+    has_banner = bool(_og_open_media(banner_rel))
+    hero = _og_open_media(banner_rel) if has_banner else _og_open_media(avatar_rel)
     if hero is not None:
         canvas.paste(_og_cover(hero, width, height), (0, 0))
     gradient_h = round(height * 0.62)
     _og_apply_bottom_gradient(canvas, width, height, gradient_h)
     draw = ImageDraw.Draw(canvas)
     _og_brand_mark(canvas, draw)
-    avatar_size, avatar_ring = 96, 4
-    avatar_x, avatar_y = 48, height - gradient_h + 8
-    _og_paste_ringed_avatar(canvas, draw, avatar_rel, avatar_x, avatar_y, avatar_size, name,
-                           creator_accent_hex, creator_banner_hex, ring=avatar_ring)
-    text_x = avatar_x + avatar_size + 28
-    name_y = avatar_y + avatar_size / 2 - 32
+    if has_banner:
+        avatar_size, avatar_ring = 96, 4
+        avatar_x, avatar_y = 48, height - gradient_h + 8
+        _og_paste_ringed_avatar(canvas, draw, avatar_rel, avatar_x, avatar_y, avatar_size, name,
+                               creator_accent_hex, creator_banner_hex, ring=avatar_ring)
+        text_x = avatar_x + avatar_size + 28
+        name_y = avatar_y + avatar_size / 2 - 32
+        content_bottom = avatar_y + avatar_size
+    else:
+        text_x = 48
+        name_y = height - gradient_h + 22
+        content_bottom = name_y + 54
     draw.text((text_x, name_y), (name or "")[:34], font=_og_font(_FONT_DISPLAY, 44, 600), fill=(255, 255, 255))
-    badge_y = avatar_y + avatar_size + 22
+    badge_y = content_bottom + 22
     badge_x = 48
     if genre:
         genre_font = _og_font(_FONT_BODY, 22, 600)
@@ -962,7 +969,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "9"
+_OG_IMG_VERSION = "10"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
