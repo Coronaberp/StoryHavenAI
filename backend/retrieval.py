@@ -8,6 +8,7 @@ from backend.repositories import lore_chunks as lore_chunks_repo
 
 LORE_CHUNK_THRESHOLD_TOKENS = 450
 LORE_RECURSION_MAX_DEPTH = 2
+LORE_RECURSION_MAX_ADDED = 20
 
 def _estimate_tokens(text: str) -> int:
     return len(text) // 4 + 1
@@ -128,22 +129,44 @@ def _entry_matches(e: dict, text_lower: str) -> bool:
 
 async def retrieve(char_id, session_id, query, recent, viewer_id: str | None = None) -> tuple[list[dict], None]:
     rt = (recent or "").lower()
+    qt = (query or "").lower()
     entries = await db.list_lore(char_id, viewer_id)
     matched: dict[str, dict] = {}
+    query_matched_ids: set[str] = set()
     for e in entries:
-        if e["always"] or _entry_matches(e, rt):
+        if e["always"]:
             matched[e["id"]] = e
+        elif _entry_matches(e, qt):
+            matched[e["id"]] = e
+            query_matched_ids.add(e["id"])
+    for e in entries:
+        if e["id"] in matched:
+            continue
+        if _entry_matches(e, rt):
+            matched[e["id"]] = e
+    direct_count = len(matched)
+
     scan_text = rt
+    recursion_added = 0
     for _ in range(LORE_RECURSION_MAX_DEPTH):
         combined = scan_text + " " + " ".join(m["content"].lower() for m in matched.values() if not m["always"])
         added = False
         for e in entries:
+            if recursion_added >= LORE_RECURSION_MAX_ADDED:
+                break
             if e["id"] in matched:
                 continue
             if _entry_matches(e, combined):
                 matched[e["id"]] = e
+                recursion_added += 1
                 added = True
-        if not added:
+        if not added or recursion_added >= LORE_RECURSION_MAX_ADDED:
             break
         scan_text = combined
-    return list(matched.values()), None
+
+    ordered = [matched[eid] for eid in query_matched_ids]
+    ordered.extend(m for eid, m in matched.items() if eid not in query_matched_ids)
+    log.info("lore retrieval: char=%s query_matched=%d direct=%d recursion_added=%d total=%d capped=%s",
+             char_id, len(query_matched_ids), direct_count, recursion_added, len(matched),
+             recursion_added >= LORE_RECURSION_MAX_ADDED)
+    return ordered, None
