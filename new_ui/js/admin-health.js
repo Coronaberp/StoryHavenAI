@@ -5,6 +5,8 @@ const ADMIN_HEALTH_SERVICE_LABELS = {
   comfyui: "ComfyUI", image_classify_llm: "Image classifier", modal: "Modal",
 };
 
+const ADMIN_HEALTH_MODEL_COLORS = ["#e3bd6c", "#4d6bfe", "#4caf50", "#e05c5c", "#9b6bd1", "#3aa3c9"];
+
 function adminFmtLatency(ms) {
   if (ms == null) return "-";
   if (ms < 1000) return `${Math.round(ms)}ms`;
@@ -231,6 +233,94 @@ class AdminHealthView {
     return store[service.name];
   }
 
+  modelLatencyCardHtml(providers) {
+    const legendRows = providers.map((p, i) => {
+      const icon = p.icon_type && typeof proxyIconHtml === "function" ? proxyIconHtml(p, 16) : "";
+      const color = ADMIN_HEALTH_MODEL_COLORS[i % ADMIN_HEALTH_MODEL_COLORS.length];
+      return `
+        <div class="flex items-center gap-2 py-0.5">
+          <span class="w-2 h-2 rounded-full flex-none" style="background:${color}"></span>
+          ${icon}
+          <span class="text-xs text-ink flex-1 truncate">${_esc(p.name)}</span>
+          <span class="text-xs text-muted flex-none">${_esc(adminFmtLatency(p.latency_ms))}</span>
+        </div>`;
+    }).join("");
+    return `
+      <div class="rounded-[13px] border border-line p-3.5" id="health_card_model_latency">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="font-display font-semibold text-sm text-ink">${t("admin_health_model_latency", "Model latency")}</span>
+        </div>
+        <div class="h-[50px] mb-2"><canvas id="health_chart_model_latency"></canvas></div>
+        <div class="flex flex-col">${legendRows}</div>
+      </div>
+    `;
+  }
+
+  updateModelLatencyCard(providers) {
+    const card = document.getElementById("health_card_model_latency");
+    if (card) {
+      const legendBox = card.querySelector(".flex.flex-col");
+      if (legendBox) {
+        legendBox.innerHTML = providers.map((p, i) => {
+          const icon = p.icon_type && typeof proxyIconHtml === "function" ? proxyIconHtml(p, 16) : "";
+          const color = ADMIN_HEALTH_MODEL_COLORS[i % ADMIN_HEALTH_MODEL_COLORS.length];
+          return `
+            <div class="flex items-center gap-2 py-0.5">
+              <span class="w-2 h-2 rounded-full flex-none" style="background:${color}"></span>
+              ${icon}
+              <span class="text-xs text-ink flex-1 truncate">${_esc(p.name)}</span>
+              <span class="text-xs text-muted flex-none">${_esc(adminFmtLatency(p.latency_ms))}</span>
+            </div>`;
+        }).join("");
+      }
+    }
+    this.renderMultiChart(providers);
+  }
+
+  renderMultiChart(providers, canvasId, store) {
+    canvasId = canvasId || "health_chart_model_latency";
+    store = store || this.charts;
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || typeof Chart === "undefined") return null;
+    const allTimestamps = new Set();
+    providers.forEach((p) => (p.latency_history || []).forEach((pt) => allTimestamps.add(pt.t)));
+    const timestamps = Array.from(allTimestamps).sort((a, b) => a - b);
+    const labels = timestamps.map((ts) => new Date(ts * 1000).toLocaleTimeString());
+    const datasets = providers.map((p, i) => {
+      const byTime = {};
+      (p.latency_history || []).forEach((pt) => { byTime[pt.t] = pt.ok ? pt.ms : null; });
+      return {
+        label: p.name,
+        data: timestamps.map((ts) => (ts in byTime ? byTime[ts] : null)),
+        borderColor: ADMIN_HEALTH_MODEL_COLORS[i % ADMIN_HEALTH_MODEL_COLORS.length],
+        backgroundColor: ADMIN_HEALTH_MODEL_COLORS[i % ADMIN_HEALTH_MODEL_COLORS.length],
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.3,
+        spanGaps: true,
+      };
+    });
+    const existing = store.model_latency;
+    if (existing) {
+      existing.data.labels = labels;
+      existing.data.datasets = datasets;
+      existing.update();
+      return existing;
+    }
+    store.model_latency = new Chart(canvas, {
+      type: "line",
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: true } },
+        scales: { x: { display: false }, y: { display: false } },
+      },
+    });
+    return store.model_latency;
+  }
+
   renderHealth() {
     const grid = document.getElementById("health_grid_desktop");
     const mobileBox = document.getElementById("health_grid_mobile");
@@ -245,22 +335,24 @@ class AdminHealthView {
     if (!this.healthData) return;
     if (uptimeBox) uptimeBox.textContent = `${t("admin_health_process_uptime")}: ${adminHealthFmtDuration(this.healthData.process_uptime_seconds)}`;
 
-    const services = [...this.healthData.services, ...this.modelServices];
+    const desktopItems = [...this.healthData.services];
+    if (this.modelServices.length) desktopItems.push({ name: "model_latency", multi: true, providers: this.modelServices });
+    const desktopKeys = desktopItems.map((s) => s.name);
     const existingNames = Object.keys(this.charts);
-    const namesMatch = existingNames.length === services.length &&
-      services.every((s) => existingNames.includes(s.name));
+    const namesMatch = existingNames.length === desktopKeys.length &&
+      desktopKeys.every((name) => existingNames.includes(name));
     const gridHasCards = !!grid.querySelector("[id^='health_card_']");
 
     if (!gridHasCards || !namesMatch) {
-      grid.innerHTML = `<div class="admin-health-grid">${services.map((s) => this.serviceCardHtml(s)).join("")}</div>`;
+      grid.innerHTML = `<div class="admin-health-grid">${desktopItems.map((s) => (s.multi ? this.modelLatencyCardHtml(s.providers) : this.serviceCardHtml(s))).join("")}</div>`;
       Object.values(this.charts).forEach((chart) => chart.destroy());
       this.charts = {};
-      services.forEach((s) => this.renderChart(s));
+      desktopItems.forEach((s) => (s.multi ? this.renderMultiChart(s.providers) : this.renderChart(s)));
     } else {
-      services.forEach((s) => this.updateServiceCard(s));
+      desktopItems.forEach((s) => (s.multi ? this.updateModelLatencyCard(s.providers) : this.updateServiceCard(s)));
     }
 
-    this.renderMobileRows(services);
+    this.renderMobileRows([...this.healthData.services, ...this.modelServices]);
   }
 
   destroyCharts() {
