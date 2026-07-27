@@ -8,7 +8,7 @@ from backend.repositories import emojis as custom_emoji_repo
 from backend.repositories.emojis import _shape_custom_emoji
 from backend.repositories import notifications as notification_repo
 from backend.state import api, log, IMG_EXTS, MEDIA_DIR
-from backend.auth import get_current_user, require_permission
+from backend.auth import get_current_user, require_capability
 from backend.feature_flags import require_feature_enabled
 from backend.media import _save_uploaded_image, _delete_media_file, gif_blurred_preview
 from backend.classify import classify_image_nsfw, _is_animated_image
@@ -101,11 +101,13 @@ async def delete_emoji(eid: str, current_user: dict = Depends(get_current_user))
     return {"deleted": True}
 
 @api.get("/admin/emojis")
-async def admin_list_emojis(_: dict = Depends(require_permission("emoji_moderation", "read"))):
+async def admin_list_emojis(_: dict = Depends(require_capability(
+        "emojis.view_submissions", "View submitted custom emojis."))):
     return await custom_emoji_repo.list_all(admin_view=True)
 
 @api.post("/admin/emojis/{eid}/approve")
-async def admin_approve_emoji(eid: str, current_user: dict = Depends(require_permission("emoji_moderation", "execute"))):
+async def admin_approve_emoji(eid: str, current_user: dict = Depends(require_capability(
+        "emojis.approve", "Approve a submitted emoji."))):
     row = await custom_emoji_repo.get(eid, admin_view=True)
     if not row:
         raise HTTPException(404, "not found")
@@ -115,7 +117,8 @@ async def admin_approve_emoji(eid: str, current_user: dict = Depends(require_per
     return {"approved": True}
 
 @api.patch("/admin/emojis/{eid}")
-async def admin_update_emoji(eid: str, body: EmojiUpdateIn, current_user: dict = Depends(require_permission("emoji_moderation", "write"))):
+async def admin_update_emoji(eid: str, body: EmojiUpdateIn, current_user: dict = Depends(require_capability(
+        "emojis.edit", "Edit an emoji's metadata."))):
     if body.kind is not None and body.kind not in ("emoji", "sticker"):
         raise HTTPException(400, "kind must be 'emoji' or 'sticker'")
     row = await custom_emoji_repo.update(eid, body.shortcode, body.kind)

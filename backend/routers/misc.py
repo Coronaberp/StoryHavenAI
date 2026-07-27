@@ -9,7 +9,7 @@ from backend.repositories import notifications as notification_repo
 from backend import vectors
 from backend import llm
 from backend.state import api, CFG, log
-from backend.auth import get_current_user, require_permission, get_dev
+from backend.auth import get_current_user, get_dev
 from backend.chat_service import (_eff_cfg, _endpoints, _ui_language, _chat_language,
                           _localize_texts, _own_session, _glossary_note, _src_hash)
 from backend.repositories import content_reports as content_report_repo

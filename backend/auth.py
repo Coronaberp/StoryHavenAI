@@ -1,7 +1,6 @@
 import re
 import secrets
 import time
-from typing import Literal
 
 import jwt
 import pyotp
@@ -121,19 +120,25 @@ async def get_experimental_user(current_user: dict = Depends(get_current_user)) 
         raise HTTPException(status_code=404, detail="Not found")
     return current_user
 
-def require_permission(resource: str, level: Literal["read", "write", "execute"]):
+CAPABILITY_REGISTRY: dict[str, str] = {}
+
+def require_capability(key: str, description: str):
+    CAPABILITY_REGISTRY[key] = description
     async def _check(current_user: dict = Depends(get_current_user)) -> dict:
         if current_user.get("role") == "dev":
             return current_user
-        from backend.repositories import role_permissions as role_permissions_repo
-        row = await role_permissions_repo.get(current_user.get("role"), resource)
-        allowed = bool(row) and {
-            "read": row["can_read"], "write": row["can_write"], "execute": row["can_execute"],
-        }[level]
-        if not allowed:
+        from backend.repositories import role_capabilities as role_capabilities_repo
+        if not await role_capabilities_repo.has(current_user.get("role"), key):
             raise HTTPException(status_code=403, detail="Not authorized")
         return current_user
     return _check
+
+async def has_capability(role: str, key: str, description: str) -> bool:
+    CAPABILITY_REGISTRY[key] = description
+    if role == "dev":
+        return True
+    from backend.repositories import role_capabilities as role_capabilities_repo
+    return await role_capabilities_repo.has(role, key)
 
 _FAILED_LOGINS: dict[tuple[str, str], list[float]] = {}
 _LOGIN_MAX_ATTEMPTS = 5

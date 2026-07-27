@@ -64,13 +64,18 @@ users = sa.Table(
     sa.Column("guest_videos_used", sa.Integer, nullable=False, server_default=text("0")),
 )
 
-role_permissions = sa.Table(
-    "role_permissions", _meta,
-    sa.Column("role", sa.Text, primary_key=True),
-    sa.Column("resource", sa.Text, primary_key=True),
-    sa.Column("can_read", sa.Boolean, nullable=False, server_default=text("false")),
-    sa.Column("can_write", sa.Boolean, nullable=False, server_default=text("false")),
-    sa.Column("can_execute", sa.Boolean, nullable=False, server_default=text("false")),
+roles = sa.Table(
+    "roles", _meta,
+    sa.Column("name", sa.Text, primary_key=True),
+    sa.Column("label", sa.Text, nullable=False),
+    sa.Column("is_builtin", sa.Boolean, nullable=False, server_default=text("false")),
+    sa.Column("capabilities_seeded", sa.Boolean, nullable=False, server_default=text("false")),
+)
+
+role_capabilities = sa.Table(
+    "role_capabilities", _meta,
+    sa.Column("role", sa.Text, sa.ForeignKey("roles.name", ondelete="CASCADE"), primary_key=True),
+    sa.Column("capability", sa.Text, primary_key=True),
 )
 
 auth_sessions = sa.Table(
@@ -1091,6 +1096,27 @@ async def init():
             "TEXT NOT NULL DEFAULT '{}'"))
 
         await conn.execute(text(
+            "ALTER TABLE roles ADD COLUMN IF NOT EXISTS capabilities_seeded "
+            "BOOLEAN NOT NULL DEFAULT false"))
+
+        await conn.execute(text(
+            "DELETE FROM role_capabilities WHERE role NOT IN (SELECT name FROM roles)"))
+
+        await conn.execute(text(
+            "DO $$ BEGIN "
+            "IF NOT EXISTS ("
+            "SELECT 1 FROM pg_constraint "
+            "WHERE conrelid = 'role_capabilities'::regclass "
+            "AND confrelid = 'roles'::regclass "
+            "AND contype = 'f'"
+            ") THEN "
+            "ALTER TABLE role_capabilities "
+            "ADD CONSTRAINT role_capabilities_role_fkey "
+            "FOREIGN KEY (role) REFERENCES roles(name) ON DELETE CASCADE; "
+            "END IF; "
+            "END $$;"))
+
+        await conn.execute(text(
             "UPDATE users SET role='admin' WHERE is_admin=1 AND role='user'"))
 
         no_dev_yet = await conn.execute(text("SELECT 1 FROM users WHERE role='dev' LIMIT 1"))
@@ -1100,8 +1126,10 @@ async def init():
         await conn.execute(text("UPDATE users SET role = 'member' WHERE role = 'user'"))
         await conn.execute(text("UPDATE users SET role = 'guest' WHERE tier = 'guest' AND role = 'member'"))
 
-    from backend.repositories import role_permissions as role_permissions_repo
-    await role_permissions_repo.seed_defaults()
+    from backend.repositories import roles as roles_repo
+    from backend.repositories import role_capabilities as role_capabilities_repo
+    await roles_repo.seed_builtins()
+    await role_capabilities_repo.seed_defaults()
 
     env_key = os.environ.get("SECRET_ENCRYPTION_KEY", "").strip()
     if env_key:
