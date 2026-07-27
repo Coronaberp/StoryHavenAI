@@ -31,6 +31,15 @@ cd /app/ai-frontend || exec echo "FATAL: /app/ai-frontend not mounted"
 # this, editing one mid-deploy triggers a full uvicorn worker reload that
 # kills whatever `modal deploy` subprocess that same request just spawned,
 # aborting the deploy with Modal's own "Stopping app - unknown reason".
+# --reload-exclude .claude/worktrees/*: those are other agent sessions'
+# isolated editing copies, never imported by server.py — without this,
+# any concurrent agent's file edit anywhere in its own worktree triggers a
+# full uvicorn worker reload here too, cancelling whatever chat generation
+# is in flight at that moment (--timeout-graceful-shutdown below forces the
+# cutoff). Measured 45 reload events in 10 minutes from worktree activity
+# alone, 2 of which killed an in-flight chat request mid-stream — this is
+# what turned actual ~1-2s replies into apparent multi-minute hangs for
+# real users on the pre-split shared instance.
 # --timeout-graceful-shutdown 3: on --reload, uvicorn waits indefinitely for
 # in-flight connections to close before restarting the worker. The
 # multiplayer /live endpoint holds a long-lived SSE stream open for as long
@@ -39,4 +48,4 @@ cd /app/ai-frontend || exec echo "FATAL: /app/ai-frontend not mounted"
 # reload forever, requiring a manual `podman restart story-game` each time.
 # This caps the wait at 3 seconds before uvicorn force-closes stragglers and
 # restarts anyway.
-exec /app/ai-frontend/venv/bin/uvicorn server:app --host 0.0.0.0 --port 3000 --reload --reload-exclude 'modal_app/*' --proxy-headers --forwarded-allow-ips='*' --timeout-graceful-shutdown 3
+exec /app/ai-frontend/venv/bin/uvicorn server:app --host 0.0.0.0 --port 3000 --reload --reload-exclude 'modal_app/*' --reload-exclude '.claude/worktrees/*' --proxy-headers --forwarded-allow-ips='*' --timeout-graceful-shutdown 3
