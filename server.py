@@ -232,6 +232,14 @@ async def index():
 def esc_html(s: str) -> str:
     return html.escape(str(s or ""), quote=True)
 
+def _og_join_names(names) -> str:
+    names = [n for n in names if n]
+    if not names:
+        return ""
+    if len(names) == 1:
+        return names[0]
+    return ", ".join(names[:-1]) + " and " + names[-1]
+
 def _og_excerpt(text: str, limit: int = 200) -> str:
     s = " ".join((text or "").split())
     if len(s) <= limit:
@@ -1251,8 +1259,11 @@ async def group_share_card(gid: str, request: Request):
                 cast.append(member)
         if cast and all(member.get("is_public") for member in cast):
             title = g.get("name") or brand_name
-            names = ", ".join(member.get("name") or "?" for member in cast[:4])
-            desc = _og_excerpt(g.get("opening") or f"A character group with {names}.") or brand_tagline
+            names = _og_join_names(member.get("name") or "?" for member in cast[:4])
+            if (g.get("group_mode") or "roleplay") == "chat":
+                desc = _og_excerpt(f"Join the chat with {names}.") or brand_tagline
+            else:
+                desc = _og_excerpt(g.get("opening") or f"A character group with {names}.") or brand_tagline
             like_count = await content_likes_repo.like_count("group", gid)
             creator = await user_repo.get_user_by_id(g.get("owner_id")) if g.get("owner_id") else None
             creator_name = (creator or {}).get("display_name") or (creator or {}).get("username")
