@@ -8,7 +8,7 @@ from backend import guest_quota
 from backend import vectors
 from backend import lore_memory
 from backend.state import api, CFG, log, IMG_EXTS
-from backend.auth import get_current_user, get_current_user_optional, require_permission
+from backend.auth import get_current_user, get_current_user_optional, require_capability
 from backend.retrieval import index_lore, chunk_lore_content
 from backend.classify import classify_image_background, _data_url_to_bytes
 from backend.routers.characters import _decode_lore_image
@@ -207,7 +207,8 @@ async def delete_lore(lid: str, current_user: dict = Depends(get_current_user)):
     return {"deleted": True}
 
 @api.post("/admin/lore/{lid}/reindex")
-async def reindex_lore(lid: str, current_user: dict = Depends(require_permission("system_settings", "write"))):
+async def reindex_lore(lid: str, current_user: dict = Depends(require_capability(
+        "system_settings.edit", "Edit OAuth config, trigger a lore reindex, or run an image upscale."))):
     entry = await lore.get(lid)
     if not entry:
         raise HTTPException(404, "lore entry not found")
