@@ -82,6 +82,11 @@ class SettingsView {
       this.settings = { overrides: {}, defaults: {} };
       errorToast(t("settings_couldnt_load_settings_showing_defaults"));
     }
+    try {
+      this.testSiteDomain = (await api("/api/config")).test_site_domain || "";
+    } catch (e) {
+      this.testSiteDomain = "";
+    }
     this.render();
   }
 
@@ -132,8 +137,8 @@ class SettingsView {
       ${sEyebrowHtml(t("settings_section_experimental", "Experimental"))}
       ${settingsRowHtml({ icon: svgIcon("beaker"), label: t("settings_row_experimental_features", "Enable multiplayer chat (experimental)"), sublabel: t("settings_row_experimental_features_sub", "Unlocks Multiplayer below — share a chat session with up to 8 people"), right: toggleSwitchHtml("settingsView.toggleExperimentalFeatures()", experimentalOn) })}
       ${experimentalOn ? settingsRowHtml({ icon: svgIcon("masks"), label: t("settings_row_multiplayer", "Multiplayer"), sublabel: t("settings_row_multiplayer_sub", "Invite links, party chat, and who's in your sessions"), onclick: "navigate('/multiplayer')" }) : ""}
-      ${settingsRowHtml({ icon: svgIcon("beaker"), label: t("settings_row_test_site", "Dev test server (early access, unstable)"), sublabel: t("settings_row_test_site_sub", "Try the newest features before they're stable. Separate account, can go down anytime."), right: toggleSwitchHtml("settingsView.toggleTestSiteAccess()", !!ME?.test_site_warning_acknowledged) })}
-      ${ME?.test_site_warning_acknowledged ? settingsRowHtml({ icon: svgIcon("shield"), label: t("settings_row_test_site_link", "Open test server"), sublabel: t("settings_row_test_site_link_sub", "Opens in a new tab, prefills your username"), onclick: `window.open('https://[REDACTED]/login?username=' + encodeURIComponent(ME?.username || ''), '_blank', 'noopener,noreferrer')` }) : ""}
+      ${this.testSiteDomain ? settingsRowHtml({ icon: svgIcon("beaker"), label: t("settings_row_test_site", "Dev test server (early access, unstable)"), sublabel: t("settings_row_test_site_sub", "Try the newest features before they're stable. Separate account, can go down anytime."), right: toggleSwitchHtml("settingsView.toggleTestSiteAccess()", !!ME?.test_site_warning_acknowledged) }) : ""}
+      ${this.testSiteDomain && ME?.test_site_warning_acknowledged ? settingsRowHtml({ icon: svgIcon("shield"), label: t("settings_row_test_site_link", "Open test server"), sublabel: t("settings_row_test_site_link_sub", "Opens in a new tab, prefills your username"), onclick: `window.open('https://${this.testSiteDomain}/login?username=' + encodeURIComponent(ME?.username || ''), '_blank', 'noopener,noreferrer')` }) : ""}
       <button type="button" onclick="confirmSignOut()"
         class="w-full flex items-center justify-center gap-2 mt-5 py-3.5 rounded-[13px] font-medium text-[14.5px]"
         style="border:1px solid var(--color-warn);background:color-mix(in srgb, var(--color-warn) 12%, transparent);color:var(--color-warn)">
