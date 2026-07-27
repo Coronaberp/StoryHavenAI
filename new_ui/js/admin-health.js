@@ -7,6 +7,43 @@ const ADMIN_HEALTH_SERVICE_LABELS = {
 
 const ADMIN_HEALTH_MODEL_COLORS = ["#e3bd6c", "#4d6bfe", "#4caf50", "#e05c5c", "#9b6bd1", "#3aa3c9"];
 
+function adminExtractSvgDominantColor(svgMarkup) {
+  if (!svgMarkup) return null;
+  const matches = svgMarkup.matchAll(/fill:\s*#([0-9a-fA-F]{3,6})|fill="#([0-9a-fA-F]{3,6})"/g);
+  for (const m of matches) {
+    const hex = "#" + (m[1] || m[2]);
+    const lower = hex.toLowerCase();
+    if (lower === "#fff" || lower === "#ffffff" || lower === "#000" || lower === "#000000") continue;
+    return hex;
+  }
+  return null;
+}
+
+function adminModelColor(provider, index) {
+  const extracted = provider.icon_type === "svg" ? adminExtractSvgDominantColor(provider.icon_value) : null;
+  return extracted || ADMIN_HEALTH_MODEL_COLORS[index % ADMIN_HEALTH_MODEL_COLORS.length];
+}
+
+function adminRenderMultiSparkline(canvasId, providers) {
+  const el = document.getElementById(canvasId);
+  if (!el || typeof Chart === "undefined") return null;
+  const datasets = providers.map((p, i) => ({
+    data: (p.latency_history || []).slice(-20).map((pt) => (pt.ok ? pt.ms : null)),
+    borderColor: adminModelColor(p, i),
+    borderWidth: 1.5,
+    pointRadius: 0,
+    tension: 0.3,
+    spanGaps: true,
+  }));
+  const longest = datasets.reduce((max, d) => Math.max(max, d.data.length), 0);
+  return new Chart(el, {
+    type: "line",
+    data: { labels: Array.from({ length: longest }, (_, i) => i), datasets },
+    options: { responsive: false, animation: false, plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: { x: { display: false }, y: { display: false } } },
+  });
+}
+
 function adminFmtLatency(ms) {
   if (ms == null) return "-";
   if (ms < 1000) return `${Math.round(ms)}ms`;
@@ -122,7 +159,33 @@ class AdminHealthView {
       </div>`;
   }
 
-  renderMobileRows(services) {
+  modelMobileRowHtml(providers) {
+    const expanded = this.expandedServices.has("model_latency");
+    const sparkHtml = adminSparklineHtml();
+    const sparkId = sparkHtml.match(/id="([^"]+)"/)[1];
+    this._pendingModelSparkId = sparkId;
+    const icons = providers.map((p) => (p.icon_type && typeof proxyIconHtml === "function" ? proxyIconHtml(p, 16) : "")).join("");
+    const legendRows = providers.map((p, i) => `
+      <div class="flex items-center gap-2 py-0.5">
+        <span class="w-2 h-2 rounded-full flex-none" style="background:${adminModelColor(p, i)}"></span>
+        <span class="text-xs text-ink flex-1 truncate">${_esc(p.name)}</span>
+        <span class="text-xs text-muted flex-none">${_esc(adminFmtLatency(p.latency_ms))}</span>
+      </div>`).join("");
+    return `
+      <div class="admin-health-row border-b border-line last:border-0" data-health-row="model_latency">
+        <button type="button" class="w-full flex items-center gap-2 py-2.5 text-left" data-health-row-toggle="model_latency">
+          <span class="flex items-center -space-x-1.5 flex-none">${icons}</span>
+          <span class="font-display font-semibold text-sm text-ink flex-1">${t("admin_health_model_latency", "Model latency")}</span>
+          ${sparkHtml}
+        </button>
+        <div class="admin-health-row-expand ${expanded ? "" : "hidden"} pb-3" data-health-row-expand="model_latency">
+          <div class="h-[140px]"><canvas id="health_chart_mobile_model_latency"></canvas></div>
+          <div class="flex flex-col mt-2">${legendRows}</div>
+        </div>
+      </div>`;
+  }
+
+  renderMobileRows(services, modelProviders) {
     const box = document.getElementById("health_grid_mobile");
     if (!box || !this.healthData) return;
     Object.values(this.sparkCharts).forEach((c) => c && c.destroy());
@@ -130,7 +193,9 @@ class AdminHealthView {
     Object.values(this.mobileExpandCharts).forEach((c) => c && c.destroy());
     this.mobileExpandCharts = {};
     this._pendingSparkIds = {};
-    box.innerHTML = services.map((s) => this.mobileRowHtml(s)).join("");
+    this._pendingModelSparkId = null;
+    const hasModels = modelProviders && modelProviders.length;
+    box.innerHTML = services.map((s) => this.mobileRowHtml(s)).join("") + (hasModels ? this.modelMobileRowHtml(modelProviders) : "");
     services.forEach((s) => {
       const sparkId = this._pendingSparkIds[s.name];
       const points = (s.latency_history || []).slice(-20).map((p) => (p.ok ? p.ms : null));
@@ -141,6 +206,14 @@ class AdminHealthView {
         this.mobileExpandCharts[s.name] = this.renderChart(s, `health_chart_mobile_${s.name}`, this.mobileExpandCharts);
       }
     });
+    if (hasModels) {
+      this.sparkCharts.model_latency = adminRenderMultiSparkline(this._pendingModelSparkId, modelProviders);
+      const toggle = box.querySelector('[data-health-row-toggle="model_latency"]');
+      if (toggle) toggle.onclick = () => this.toggleServiceExpand("model_latency");
+      if (this.expandedServices.has("model_latency")) {
+        this.mobileExpandCharts.model_latency = this.renderMultiChart(modelProviders, "health_chart_mobile_model_latency", this.mobileExpandCharts);
+      }
+    }
   }
 
   serviceCardHtml(s) {
@@ -236,7 +309,7 @@ class AdminHealthView {
   modelLatencyCardHtml(providers) {
     const legendRows = providers.map((p, i) => {
       const icon = p.icon_type && typeof proxyIconHtml === "function" ? proxyIconHtml(p, 16) : "";
-      const color = ADMIN_HEALTH_MODEL_COLORS[i % ADMIN_HEALTH_MODEL_COLORS.length];
+      const color = adminModelColor(p, i);
       return `
         <div class="flex items-center gap-2 py-0.5">
           <span class="w-2 h-2 rounded-full flex-none" style="background:${color}"></span>
@@ -263,7 +336,7 @@ class AdminHealthView {
       if (legendBox) {
         legendBox.innerHTML = providers.map((p, i) => {
           const icon = p.icon_type && typeof proxyIconHtml === "function" ? proxyIconHtml(p, 16) : "";
-          const color = ADMIN_HEALTH_MODEL_COLORS[i % ADMIN_HEALTH_MODEL_COLORS.length];
+          const color = adminModelColor(p, i);
           return `
             <div class="flex items-center gap-2 py-0.5">
               <span class="w-2 h-2 rounded-full flex-none" style="background:${color}"></span>
@@ -292,8 +365,8 @@ class AdminHealthView {
       return {
         label: p.name,
         data: timestamps.map((ts) => (ts in byTime ? byTime[ts] : null)),
-        borderColor: ADMIN_HEALTH_MODEL_COLORS[i % ADMIN_HEALTH_MODEL_COLORS.length],
-        backgroundColor: ADMIN_HEALTH_MODEL_COLORS[i % ADMIN_HEALTH_MODEL_COLORS.length],
+        borderColor: adminModelColor(p, i),
+        backgroundColor: adminModelColor(p, i),
         borderWidth: 1.5,
         pointRadius: 0,
         tension: 0.3,
@@ -352,7 +425,7 @@ class AdminHealthView {
       desktopItems.forEach((s) => (s.multi ? this.updateModelLatencyCard(s.providers) : this.updateServiceCard(s)));
     }
 
-    this.renderMobileRows([...this.healthData.services, ...this.modelServices]);
+    this.renderMobileRows(this.healthData.services, this.modelServices);
   }
 
   destroyCharts() {
