@@ -7,6 +7,15 @@ Ideas surveyed 2026-07-25 against the actual codebase. Everything listed here wa
 ### Voice (TTS)
 Being designed now. Dual-voice on-demand playback: narrator voice for actions, character voice for quoted dialogue. Kokoro container as shipped default plus bring-your-own OpenAI-compatible endpoint via the two-tier settings pattern. Creator picks the character voice in the workshop, user can override per session. Server-side segment synthesis, WAV concat, cached under MEDIA_DIR keyed by content and voice hash. STT (whisper mic input) deferred to a follow-up.
 
+### Discovery & embeds rework (six sequential specs, brainstormed 2026-07-28)
+Kicked off by a critique of the share-card (Discord/OG embed) design, which surfaced that the underlying data it wanted (genre, real engagement) didn't exist yet, and that the landing Explore page has no real ranking at all (`_shuffleSample`, literal random shuffle). Sequenced so each spec's data feeds the next:
+1. **Genre taxonomy** (spec written) — new single-select `genre` field on characters and groups, fixed list, plus a `>genre` Explore search-box filter token following the existing `#tag`/`@creator` pill pattern in `explore-characters.js`.
+2. **Content likes** (spec written) — binary like/unlike on characters, groups, and standalone images via a new `content_likes` table (generalizing `comments`' existing polymorphic `target_type` pattern), a "My Likes" list in Settings (`settings-blocks.js`'s pattern), no creator notification.
+3. **For You / Featured** (spec written) — replaces the landing Explore page's random shuffle with a personalized "For You" ranking (genre affinity + likes + chat history + follows) and a non-personalized "Featured" (likes + recency, same for everyone). Depends on specs 1 and 2.
+4. **Embed v3** — component-based share-card rework (per-content-type composition instead of one shared layout forced onto everything), artwork-forward, shrunk brand watermark, gold reserved for accents only. Currently paused mid-brainstorm pending specs 1-3's data. Character/Profile currently share one PIL composer (`_compose_profile_card`) and Group/Shared-chat share another (`_compose_group_card`) in `server.py` — this splits both pairs into real per-type designs. Docs card (`docs-og.png`) goes from a static pre-rendered image to dynamic, auth-aware rendering.
+5. **Universal search bar** (not yet brainstormed) — a new global search entry point across characters/groups/creators/images/forum, replacing today's separate per-page search boxes.
+6. **Explore page redesign** (not yet brainstormed) — follows once specs 3-5 exist so it can incorporate For You/Featured, the new global search, and Embed v3's visual language.
+
 ## Backlog
 
 ### Proactive characters
