@@ -33,9 +33,13 @@ async def test_revoke_missing_grant_is_a_noop(db_conn):
     assert await rc.has("member", "comments.delete_any") is False
 
 async def test_list_for_role(db_conn):
-    await rc.grant("admin", "users.view")
-    await rc.grant("admin", "users.delete")
-    assert set(await rc.list_for_role("admin")) == {"users.view", "users.delete"}
+    # Uses an unseeded role name rather than "admin" — seed_defaults() grants admin
+    # every capability currently in CAPABILITY_REGISTRY, which grows as more routers
+    # register capabilities at import time, so asserting an exact set for "admin"
+    # is order-dependent on how many capabilities happen to be registered this run.
+    await rc.grant("moderator_test_role", "users.view")
+    await rc.grant("moderator_test_role", "users.delete")
+    assert set(await rc.list_for_role("moderator_test_role")) == {"users.view", "users.delete"}
 
 async def test_set_all_replaces_existing_grants(db_conn):
     await rc.grant("member", "comments.delete_any")
