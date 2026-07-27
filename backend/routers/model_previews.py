@@ -9,7 +9,7 @@ from backend import imagegen
 from backend.routers.imagegen import _require_comfyui_backend
 from backend.state import (api, CFG, IMG_EXTS, log, CHECKPOINTS_DIR, LORA_OUTPUT_DIR,
                            UPSCALE_MODELS_DIR, MEDIA_DIR, MAX_UPLOAD_BYTES)
-from backend.auth import get_current_user, get_current_user_optional, get_admin
+from backend.auth import get_current_user, get_current_user_optional, require_permission
 from backend.media import _delete_media_file, _save_uploaded_image, _write_file
 from backend.schemas import ModelMetaIn, LoraPublishIn
 
@@ -111,7 +111,7 @@ def _categories_for_type(model_type: str | None) -> list[str]:
 
 @api.put("/admin/checkpoint-previews/{name:path}/meta")
 async def set_checkpoint_meta_route(name: str, body: ModelMetaIn,
-                                    current_user: dict = Depends(get_admin)):
+                                    current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
 
     categories = _categories_for_type(body.model_type)
     await checkpoints.set_meta(name, body.display_name, body.description, body.model_type,
@@ -131,7 +131,7 @@ async def set_checkpoint_meta_route(name: str, body: ModelMetaIn,
 
 @api.put("/admin/checkpoint-previews/{name:path}/video")
 async def set_checkpoint_preview_video(name: str, file: UploadFile = File(...),
-                                       current_user: dict = Depends(get_admin)):
+                                       current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
     if (file.content_type or "") not in ("video/mp4", "video/webm"):
         raise HTTPException(400, "Preview must be an mp4 or webm video")
     data = await file.read()
@@ -151,14 +151,14 @@ async def set_checkpoint_preview_video(name: str, file: UploadFile = File(...),
 
 @api.put("/admin/checkpoint-previews/{name:path}/nsfw")
 async def set_checkpoint_preview_nsfw(name: str, file: UploadFile = File(...),
-                                      current_user: dict = Depends(get_admin)):
+                                      current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
     url = await _set_preview_image(name, file, "ckptprevnsfw",
                                    _nsfw_getter(checkpoints), _nsfw_setter(checkpoints))
     log.info("admin: checkpoint nsfw preview set by=%s checkpoint=%s", current_user["username"], name)
     return {"checkpoint_name": name, "image_nsfw": url}
 
 @api.delete("/admin/checkpoint-previews/{name:path}/nsfw")
-async def clear_checkpoint_preview_nsfw(name: str, current_user: dict = Depends(get_admin)):
+async def clear_checkpoint_preview_nsfw(name: str, current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
     old = await checkpoints.get_preview(name, nsfw=True)
     if old:
         _delete_media_file(old.split("?")[0])
@@ -168,14 +168,14 @@ async def clear_checkpoint_preview_nsfw(name: str, current_user: dict = Depends(
 
 @api.put("/admin/checkpoint-previews/{name:path}")
 async def set_checkpoint_preview(name: str, file: UploadFile = File(...),
-                                 current_user: dict = Depends(get_admin)):
+                                 current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
     url = await _set_preview_image(name, file, "ckptprev",
                                    checkpoints.get_preview, checkpoints.set_preview)
     log.info("admin: checkpoint preview set by=%s checkpoint=%s", current_user["username"], name)
     return {"checkpoint_name": name, "image": url}
 
 @api.delete("/admin/checkpoint-previews/{name:path}")
-async def clear_checkpoint_preview(name: str, current_user: dict = Depends(get_admin)):
+async def clear_checkpoint_preview(name: str, current_user: dict = Depends(require_permission("model_previews_curation", "execute"))):
     old = await checkpoints.get_preview(name)
     if old:
         _delete_media_file(old.split("?")[0])
@@ -217,7 +217,7 @@ async def get_lora_previews(current_user: dict = Depends(get_current_user)):
 
 @api.put("/admin/lora-previews/{name:path}/meta")
 async def set_lora_meta_route(name: str, body: ModelMetaIn,
-                              current_user: dict = Depends(get_admin)):
+                              current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
     if body.model_category and any(c not in MODEL_CATEGORIES for c in body.model_category):
         raise HTTPException(400, f"model_category entries must be one of {MODEL_CATEGORIES}")
     await loras.set_meta(name, body.display_name, body.description, body.model_category, body.keywords)
@@ -226,7 +226,7 @@ async def set_lora_meta_route(name: str, body: ModelMetaIn,
             "model_category": body.model_category, "keywords": body.keywords}
 
 @api.put("/admin/lora-previews/{name:path}/publish")
-async def publish_lora_route(name: str, body: LoraPublishIn, current_user: dict = Depends(get_admin)):
+async def publish_lora_route(name: str, body: LoraPublishIn, current_user: dict = Depends(require_permission("model_previews_curation", "execute"))):
     if not await loras.get_visibility(name):
         raise HTTPException(404, "this LoRA isn't gated (only self-trained LoRAs need publishing)")
     await loras.set_published(name, body.published)
@@ -236,14 +236,14 @@ async def publish_lora_route(name: str, body: LoraPublishIn, current_user: dict 
 
 @api.put("/admin/lora-previews/{name:path}/nsfw")
 async def set_lora_preview_nsfw(name: str, file: UploadFile = File(...),
-                                current_user: dict = Depends(get_admin)):
+                                current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
     url = await _set_preview_image(name, file, "lorapreviewnsfw",
                                    _nsfw_getter(loras), _nsfw_setter(loras))
     log.info("admin: lora nsfw preview set by=%s lora=%s", current_user["username"], name)
     return {"lora_name": name, "image_nsfw": url}
 
 @api.delete("/admin/lora-previews/{name:path}/nsfw")
-async def clear_lora_preview_nsfw(name: str, current_user: dict = Depends(get_admin)):
+async def clear_lora_preview_nsfw(name: str, current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
     old = await loras.get_preview(name, nsfw=True)
     if old:
         _delete_media_file(old.split("?")[0])
@@ -253,14 +253,14 @@ async def clear_lora_preview_nsfw(name: str, current_user: dict = Depends(get_ad
 
 @api.put("/admin/lora-previews/{name:path}")
 async def set_lora_preview(name: str, file: UploadFile = File(...),
-                           current_user: dict = Depends(get_admin)):
+                           current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
     url = await _set_preview_image(name, file, "lorapreview",
                                    loras.get_preview, loras.set_preview)
     log.info("admin: lora preview set by=%s lora=%s", current_user["username"], name)
     return {"lora_name": name, "image": url}
 
 @api.delete("/admin/lora-previews/{name:path}")
-async def clear_lora_preview(name: str, current_user: dict = Depends(get_admin)):
+async def clear_lora_preview(name: str, current_user: dict = Depends(require_permission("model_previews_curation", "execute"))):
     old = await loras.get_preview(name)
     if old:
         _delete_media_file(old.split("?")[0])
@@ -271,7 +271,7 @@ async def clear_lora_preview(name: str, current_user: dict = Depends(get_admin))
 _DELETABLE_MODEL_DIRS = {"ckpt": CHECKPOINTS_DIR, "lora": LORA_OUTPUT_DIR, "upsc": UPSCALE_MODELS_DIR}
 
 @api.delete("/admin/models/{kind}/{name:path}")
-async def delete_model_file(kind: str, name: str, current_user: dict = Depends(get_admin)):
+async def delete_model_file(kind: str, name: str, current_user: dict = Depends(require_permission("model_previews_curation", "execute"))):
     base_dir = _DELETABLE_MODEL_DIRS.get(kind)
     if not base_dir:
         raise HTTPException(400, f"deleting {kind} files isn't supported")
@@ -295,21 +295,21 @@ async def get_sampler_previews(current_user: dict = Depends(get_current_user)):
 
 @api.put("/admin/sampler-previews/{name:path}/meta")
 async def set_sampler_meta_route(name: str, body: ModelMetaIn,
-                                 current_user: dict = Depends(get_admin)):
+                                 current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
     await samplers.set_meta(name, body.display_name, body.description)
     log.info("admin: sampler meta set by=%s sampler=%s", current_user["username"], name)
     return {"sampler_name": name, "display_name": body.display_name, "description": body.description}
 
 @api.put("/admin/sampler-previews/{name:path}")
 async def set_sampler_preview(name: str, file: UploadFile = File(...),
-                              current_user: dict = Depends(get_admin)):
+                              current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
     url = await _set_preview_image(name, file, "sampprev",
                                    samplers.get_preview, samplers.set_preview)
     log.info("admin: sampler preview set by=%s sampler=%s", current_user["username"], name)
     return {"sampler_name": name, "image": url}
 
 @api.delete("/admin/sampler-previews/{name:path}")
-async def clear_sampler_preview(name: str, current_user: dict = Depends(get_admin)):
+async def clear_sampler_preview(name: str, current_user: dict = Depends(require_permission("model_previews_curation", "execute"))):
     old = await samplers.get_preview(name)
     if old:
         _delete_media_file(old.split("?")[0])
@@ -323,21 +323,21 @@ async def get_scheduler_previews(current_user: dict = Depends(get_current_user))
 
 @api.put("/admin/scheduler-previews/{name:path}/meta")
 async def set_scheduler_meta_route(name: str, body: ModelMetaIn,
-                                   current_user: dict = Depends(get_admin)):
+                                   current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
     await schedulers.set_meta(name, body.display_name, body.description)
     log.info("admin: scheduler meta set by=%s scheduler=%s", current_user["username"], name)
     return {"scheduler_name": name, "display_name": body.display_name, "description": body.description}
 
 @api.put("/admin/scheduler-previews/{name:path}")
 async def set_scheduler_preview(name: str, file: UploadFile = File(...),
-                                current_user: dict = Depends(get_admin)):
+                                current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
     url = await _set_preview_image(name, file, "schedprev",
                                    schedulers.get_preview, schedulers.set_preview)
     log.info("admin: scheduler preview set by=%s scheduler=%s", current_user["username"], name)
     return {"scheduler_name": name, "image": url}
 
 @api.delete("/admin/scheduler-previews/{name:path}")
-async def clear_scheduler_preview(name: str, current_user: dict = Depends(get_admin)):
+async def clear_scheduler_preview(name: str, current_user: dict = Depends(require_permission("model_previews_curation", "execute"))):
     old = await schedulers.get_preview(name)
     if old:
         _delete_media_file(old.split("?")[0])
@@ -359,21 +359,21 @@ async def get_upscaler_previews(current_user: dict = Depends(get_current_user)):
 
 @api.put("/admin/upscaler-previews/{name:path}/meta")
 async def set_upscaler_meta_route(name: str, body: ModelMetaIn,
-                                  current_user: dict = Depends(get_admin)):
+                                  current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
     await upscalers.set_meta(name, body.display_name, body.description)
     log.info("admin: upscaler meta set by=%s upscaler=%s", current_user["username"], name)
     return {"upscaler_name": name, "display_name": body.display_name, "description": body.description}
 
 @api.put("/admin/upscaler-previews/{name:path}")
 async def set_upscaler_preview(name: str, file: UploadFile = File(...),
-                               current_user: dict = Depends(get_admin)):
+                               current_user: dict = Depends(require_permission("model_previews_curation", "write"))):
     url = await _set_preview_image(name, file, "upscprev",
                                    upscalers.get_preview, upscalers.set_preview)
     log.info("admin: upscaler preview set by=%s upscaler=%s", current_user["username"], name)
     return {"upscaler_name": name, "image": url}
 
 @api.delete("/admin/upscaler-previews/{name:path}")
-async def clear_upscaler_preview(name: str, current_user: dict = Depends(get_admin)):
+async def clear_upscaler_preview(name: str, current_user: dict = Depends(require_permission("model_previews_curation", "execute"))):
     old = await upscalers.get_preview(name)
     if old:
         _delete_media_file(old.split("?")[0])
