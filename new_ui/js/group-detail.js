@@ -51,15 +51,39 @@ class GroupDetailView {
         ${g.opening ? `<div class="gd-opening-block"><div class="gd-section-label">${t("group_detail_opening", "Opening scene")}</div><p class="gd-opening">${_esc(g.opening)}</p></div>` : ""}
         <div class="gd-actions">
           <button type="button" id="gdStart" class="pe-gen-btn gd-start">${t("group_detail_start", "Start chat")}</button>
+          ${ME ? `<button type="button" id="gdLike" class="gd-sec-btn" style="color:${g.liked_by_me ? "var(--color-accent)" : ""}">
+            <svg viewBox="0 0 24 24" fill="${g.liked_by_me ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:-2px"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+            ${g.like_count ? ` ${g.like_count}` : ""}
+          </button>` : ""}
           ${g.is_owner ? `<button type="button" id="gdEdit" class="gd-sec-btn">${t("group_detail_edit", "Edit")}</button>` : ""}
           ${g.is_owner ? `<button type="button" id="gdDelete" class="gd-sec-btn gd-sec-danger">${t("group_detail_delete", "Delete")}</button>` : ""}
         </div>
       </div>`;
     this.main.querySelector("#gdStart").onclick = () => this.start();
+    this.main.querySelector("#gdLike")?.addEventListener("click", () => this.toggleLike());
     const edit = this.main.querySelector("#gdEdit");
     if (edit) edit.onclick = () => this.openEdit();
     const del = this.main.querySelector("#gdDelete");
     if (del) del.onclick = () => this.remove();
+  }
+
+  async toggleLike() {
+    const g = this.group;
+    const wasLiked = g.liked_by_me;
+    const previousCount = g.like_count || 0;
+    g.liked_by_me = !wasLiked;
+    g.like_count = previousCount + (wasLiked ? -1 : 1);
+    this.render();
+    try {
+      const res = await api(`/api/group/${encodeURIComponent(this.gid)}/like`, { method: wasLiked ? "DELETE" : "POST" });
+      g.liked_by_me = res.liked;
+      g.like_count = res.like_count;
+    } catch (err) {
+      g.liked_by_me = wasLiked;
+      g.like_count = previousCount;
+      errorToast(err.message || t("group_detail_couldnt_update_like", "Couldn't update that like."));
+    }
+    this.render();
   }
 
   async openEdit() {

@@ -608,6 +608,14 @@ comment_likes = sa.Table(
     sa.Column("user_id", sa.Text, primary_key=True),
 )
 
+content_likes = sa.Table(
+    "content_likes", _meta,
+    sa.Column("target_type", sa.Text, primary_key=True),
+    sa.Column("target_id", sa.Text, primary_key=True),
+    sa.Column("user_id", sa.Text, primary_key=True),
+    sa.Column("created", sa.Float, nullable=False),
+)
+
 forum_threads = sa.Table(
     "forum_threads", _meta,
     sa.Column("id", sa.Text, primary_key=True),

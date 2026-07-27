@@ -9,6 +9,7 @@ from backend.repositories import characters
 from backend.repositories import chat_sessions
 from backend.repositories import session_characters as session_char_repo
 from backend.repositories import users as users_repo
+from backend.repositories import content_likes as content_like_repo
 from backend.routers.sessions import start_group_from_cast
 from backend.feature_flags import require_feature_enabled
 
@@ -83,7 +84,10 @@ async def get_group(gid: str, current_user: dict | None = Depends(get_current_us
             "owner": {"username": (owner or {}).get("username"),
                       "display_name": (owner or {}).get("display_name"),
                       "avatar": (owner or {}).get("avatar")},
-            "cast": await _cast_view(gid, viewer_id)}
+            "cast": await _cast_view(gid, viewer_id),
+            "like_count": await content_like_repo.like_count("group", gid),
+            "liked_by_me": viewer_id is not None and await content_like_repo.has_liked(
+                "group", gid, viewer_id)}
 
 async def _validate_cast(char_ids: list[str], owner_id: str) -> list[str]:
     seen, ordered = set(), []

@@ -54,6 +54,25 @@ class CharacterView {
     }
   }
 
+  async toggleLike() {
+    const c = this.char;
+    const wasLiked = c.liked_by_me;
+    const previousCount = c.like_count || 0;
+    c.liked_by_me = !wasLiked;
+    c.like_count = previousCount + (wasLiked ? -1 : 1);
+    this.render();
+    try {
+      const res = await api(`/api/character/${encodeURIComponent(c.id)}/like`, { method: wasLiked ? "DELETE" : "POST" });
+      c.liked_by_me = res.liked;
+      c.like_count = res.like_count;
+    } catch (err) {
+      c.liked_by_me = wasLiked;
+      c.like_count = previousCount;
+      errorToast(err.message || t("char_couldnt_update_like"));
+    }
+    this.render();
+  }
+
   async deleteCharacter() {
     if (!(await confirmDialog(`${t("char_delete_confirm_prefix")} "${this.char.name}"${t("char_delete_confirm_suffix")}`))) return;
     try {
@@ -424,6 +443,12 @@ class CharacterView {
               <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:2px">
                 <h1 class="font-display" style="font-weight:600;font-size:22px;letter-spacing:-.01em;color:var(--color-ink);margin:0;line-height:1.2">${_esc(c.name)}</h1>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+                  ${ME ? `
+                  <button type="button" id="charLike" class="ig-icon-btn" aria-label="${t("char_like")}" data-tooltip="${t("char_like")}" style="position:static;width:30px;height:30px;color:${c.liked_by_me ? "var(--color-accent)" : ""}">
+                    <svg viewBox="0 0 24 24" fill="${c.liked_by_me ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+                    ${c.like_count ? `<span style="font-size:10px;margin-left:2px">${c.like_count}</span>` : ""}
+                  </button>
+                  ` : ""}
                   <button type="button" id="charComments" class="ig-icon-btn" aria-label="${t("char_comments")}" data-tooltip="${t("char_comments")}" style="position:static;width:30px;height:30px">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                   </button>
@@ -556,6 +581,7 @@ class CharacterView {
     });
     document.getElementById("charComments").onclick = () => openCommentsModal("character", c.id);
     document.getElementById("charShare").onclick = () => copyShareUrl(`${location.origin}/c/${encodeURIComponent(c.id)}`);
+    document.getElementById("charLike")?.addEventListener("click", () => this.toggleLike());
     document.getElementById("charGroupsBtn")?.addEventListener("click", (e) => {
       e.stopPropagation();
       this.groupsMenuOpen = !this.groupsMenuOpen;

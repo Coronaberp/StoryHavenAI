@@ -57,6 +57,7 @@ const routes = {
     new MultiplayerView().mount(main);
   },
   "settings-blocks": (main) => { window.blockedView = new BlockedSettingsView(); window.blockedView.mount(main); },
+  "settings-likes": (main) => { window.likesView = new LikesSettingsView(); window.likesView.mount(main); },
   "settings-docs": (main) => { new DocsSettingsView().mount(main); },
   "settings-api": (main) => { new ApiExplorerView().mount(main); },
   admin: (main) => {
@@ -187,6 +188,7 @@ const ROOT_FOR_ROUTE = {
   "settings-account": "dossier",
   multiplayer: "dossier",
   "settings-blocks": "dossier",
+  "settings-likes": "dossier",
   "settings-docs": "dossier",
   "settings-api": "dossier",
   admin: "dossier",

@@ -14,6 +14,7 @@ from backend.repositories import characters
 from backend.repositories import chat_sessions
 from backend.repositories import model_requests as model_request_repo
 from backend.repositories import notifications as notification_repo
+from backend.repositories import content_likes as content_like_repo
 from backend import imagegen
 from backend.imagegen_providers import generate_via_provider
 from backend import guest_quota
@@ -692,6 +693,9 @@ async def get_shared_standalone_image(iid: str, current_user: dict | None = Depe
     rec = await standalone_image_repo.get_public(iid)
     if rec is None:
         raise HTTPException(404, "image not found")
+    rec["like_count"] = await content_like_repo.like_count("image", iid)
+    rec["liked_by_me"] = bool(current_user) and await content_like_repo.has_liked(
+        "image", iid, current_user["id"])
     return rec
 
 @api.get("/imagegen/community")

@@ -15,6 +15,7 @@ from backend.repositories import personas
 from backend.repositories import memory_facts
 from backend.repositories import groups as groups_repo
 from backend.repositories import users as users_repo
+from backend.repositories import content_likes as content_like_repo
 from backend import vectors
 from backend.state import api, MEDIA_DIR, IMG_EXTS, CFG, log
 from backend.auth import get_current_user, get_current_user_optional
@@ -90,6 +91,9 @@ async def get_character(cid: str, current_user: dict | None = Depends(get_curren
             and await db.is_block_between(current_user["id"], c["owner_id"])):
         raise HTTPException(404, "character not found")
 
+    c["like_count"] = await content_like_repo.like_count("character", cid)
+    c["liked_by_me"] = bool(current_user) and await content_like_repo.has_liked(
+        "character", cid, current_user["id"])
     return c
 
 @api.post("/characters")

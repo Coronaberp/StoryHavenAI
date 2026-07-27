@@ -14,6 +14,7 @@ const SETTINGS_ICONS = {
   book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H20"/>',
   beaker: '<path d="M9 3h6M10 3v5.5L4.5 18a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 8.5V3"/><path d="M7 15h10"/>',
   mic: '<rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><line x1="12" y1="17.5" x2="12" y2="21.5"/><line x1="8.5" y1="21.5" x2="15.5" y2="21.5"/>',
+  heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>',
 };
 
 function svgIcon(name, size = 18) {
@@ -112,6 +113,7 @@ class SettingsView {
       ${settingsRowHtml({ icon: svgIcon("eye"), label: t("settings_row_enable_mature_content"), sublabel: t("settings_row_enable_mature_content_sub"), right: toggleSwitchHtml("settingsView.toggleNsfw()", nsfwOn) })}
       ${settingsRowHtml({ icon: svgIcon("eyeOff"), label: t("settings_row_privacy_blur"), sublabel: t("settings_row_privacy_blur_sub"), right: toggleSwitchHtml("settingsView.togglePrivacy()", privacyOn) })}
       ${settingsRowHtml({ icon: svgIcon("ban"), label: t("settings_row_blocked_creators_tags"), sublabel: t("settings_row_blocked_creators_tags_sub"), onclick: "navigate('/settings-blocks')" })}
+      ${settingsRowHtml({ icon: svgIcon("heart"), label: t("settings_row_my_likes", "My Likes"), sublabel: t("settings_row_my_likes_sub", "Characters, groups, and images you've liked"), onclick: "navigate('/settings-likes')" })}
       ${sEyebrowHtml(t("settings_section_account"))}
       ${settingsRowHtml({ icon: svgIcon("lock"), label: t("settings_row_account_lang"), sublabel: t("settings_row_account_lang_sub"), onclick: "navigate('/settings-account')" })}
       ${settingsRowHtml({ icon: svgIcon("book"), label: t("settings_row_docs", "Docs & API"), sublabel: t("settings_row_docs_sub", "How StoryHaven works, and the raw API"), onclick: "navigate('/settings-docs')" })}

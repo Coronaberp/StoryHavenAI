@@ -271,6 +271,12 @@ class ExploreMediaView {
             ` : ""}
           </div>
           <div class="ig-detail-icons">
+            ${ME ? `
+            <button type="button" class="ig-icon-btn" data-act="like" data-tooltip="${_attr(t("pinacotheca_like"))}" aria-label="${_attr(t("pinacotheca_like"))}" style="color:${img.liked_by_me ? "var(--color-accent)" : ""}">
+              <svg viewBox="0 0 24 24" fill="${img.liked_by_me ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+              ${img.like_count ? `<span style="font-size:11px;margin-left:3px">${img.like_count}</span>` : ""}
+            </button>
+            ` : ""}
             <button type="button" class="ig-icon-btn" data-act="download" data-tooltip="${_attr(t("pinacotheca_download"))}" aria-label="${_attr(t("pinacotheca_download"))}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             </button>
@@ -388,11 +394,48 @@ class ExploreMediaView {
         else errorToast(t("pinacotheca_copy_tags_failed"));
       };
     });
+    container.querySelector("[data-act='like']")?.addEventListener("click", (e) => this.toggleLike(img, e.currentTarget));
     container.querySelector("[data-act='report']")?.addEventListener("click", () => this.openReportModal(img));
     container.querySelector("[data-act='download']")?.addEventListener("click", () => this.downloadImage(img));
     container.querySelector("[data-act='share']")?.addEventListener("click", () => this.copyShareLink(img));
     container.querySelector("[data-act='delete']")?.addEventListener("click", () => this.deleteImage(img));
     container.querySelector("[data-act='studio']")?.addEventListener("click", () => this.openStudioModal(img));
+  }
+
+  _renderLikeButton(btn, img) {
+    btn.style.color = img.liked_by_me ? "var(--color-accent)" : "";
+    const svg = btn.querySelector("svg");
+    svg.setAttribute("fill", img.liked_by_me ? "currentColor" : "none");
+    let countEl = btn.querySelector("span");
+    if (img.like_count) {
+      if (!countEl) {
+        countEl = document.createElement("span");
+        countEl.style.fontSize = "11px";
+        countEl.style.marginLeft = "3px";
+        btn.appendChild(countEl);
+      }
+      countEl.textContent = img.like_count;
+    } else if (countEl) {
+      countEl.remove();
+    }
+  }
+
+  async toggleLike(img, btn) {
+    const wasLiked = img.liked_by_me;
+    const previousCount = img.like_count || 0;
+    img.liked_by_me = !wasLiked;
+    img.like_count = previousCount + (wasLiked ? -1 : 1);
+    this._renderLikeButton(btn, img);
+    try {
+      const res = await api(`/api/image/${encodeURIComponent(img.id)}/like`, { method: wasLiked ? "DELETE" : "POST" });
+      img.liked_by_me = res.liked;
+      img.like_count = res.like_count;
+    } catch (err) {
+      img.liked_by_me = wasLiked;
+      img.like_count = previousCount;
+      errorToast(err.message || t("pinacotheca_couldnt_update_like"));
+    }
+    this._renderLikeButton(btn, img);
   }
 
   async downloadImage(img) {

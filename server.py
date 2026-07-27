@@ -199,6 +199,7 @@ import backend.routers.groups
 import backend.routers.announcements
 import backend.routers.rbac
 import backend.routers.admin_dev
+import backend.routers.content_likes
 
 app.include_router(auth_router)
 app.include_router(api)
