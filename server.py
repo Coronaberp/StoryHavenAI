@@ -33,6 +33,8 @@ from backend.repositories import session_characters as session_char_repo
 from backend.repositories import session_participants
 from backend.repositories import characters as characters_repo
 from backend.repositories import content_likes as content_likes_repo
+from backend.repositories import checkpoints as checkpoints_repo
+from backend.repositories import upscalers as upscalers_repo
 from backend.repositories import follows as follows_repo
 
 mimetypes.add_type("image/webp", ".webp")
@@ -368,13 +370,13 @@ def _og_icon(draw, name, x, y, size, color):
 
 def _og_stat_block(draw, x, top, icon_name, value, label, icon_color):
     icon_size = 30
-    _og_icon(draw, icon_name, x, top, icon_size, icon_color)
     value_font = _og_font(_FONT_BODY, 30, 700)
     label_font = _og_font(_FONT_BODY, 20, 500)
     value_text = str(value)
     value_width = draw.textlength(value_text, font=value_font)
     label_width = draw.textlength(label, font=label_font)
     block_width = max(icon_size, value_width, label_width)
+    _og_icon(draw, icon_name, x + (block_width - icon_size) / 2, top, icon_size, icon_color)
     draw.text((x + (block_width - value_width) / 2, top + icon_size + 10), value_text,
               font=value_font, fill=icon_color)
     draw.text((x + (block_width - label_width) / 2, top + icon_size + 48), label,
@@ -388,11 +390,21 @@ def _og_stat_row(draw, x, top, stats, icon_color=None, gap=44):
         block_width = _og_stat_block(draw, cursor_x, top, icon_name, value, label, icon_color)
         cursor_x += block_width + gap
 
+_OG_BRAND_MARK_CACHE = None
+
+def _og_brand_mark_icon():
+    global _OG_BRAND_MARK_CACHE
+    if _OG_BRAND_MARK_CACHE is None:
+        mark_path = os.path.join(STATIC_DIR, "img", "brand-mark.png")
+        icon = Image.open(mark_path).convert("RGBA").resize((32, 32), Image.LANCZOS)
+        _OG_BRAND_MARK_CACHE = icon
+    return _OG_BRAND_MARK_CACHE
+
 def _og_brand_mark(canvas, draw):
-    mark_x, mark_y, mark_size = 32, 28, 16
-    draw.rounded_rectangle([mark_x, mark_y, mark_x + mark_size, mark_y + mark_size],
-                           radius=4, fill=_OG_GOLD)
-    draw.text((mark_x + mark_size + 10, mark_y - 3), "StoryHaven AI",
+    mark_x, mark_y, mark_size = 32, 20, 32
+    icon = _og_brand_mark_icon()
+    canvas.paste(icon, (mark_x, mark_y), icon)
+    draw.text((mark_x + mark_size + 10, mark_y + 5), "StoryHaven AI",
               font=_og_font(_FONT_BODY, 20, 700), fill=_OG_GOLD)
 
 def _og_bottom_gradient(width, gradient_h, peak=225, power=1.3):
@@ -421,15 +433,27 @@ def _og_relative_time(timestamp) -> str:
     days = round(delta / 86400)
     return f"Active {days} day{'s' if days != 1 else ''} ago"
 
+async def _og_resolve_model_display_name(checkpoint_name):
+    if not checkpoint_name:
+        return None
+    row = await checkpoints_repo.get_display_name(checkpoint_name)
+    return row or checkpoint_name
+
+async def _og_resolve_upscaler_display_name(upscaler_name):
+    if not upscaler_name:
+        return None
+    row = await upscalers_repo.get_display_name(upscaler_name)
+    return row or upscaler_name
+
 def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex,
                         like_count=0, positive_tags=None, negative_tags=None,
-                        cfg=None, steps=None, sampler=None, checkpoint=None):
+                        cfg=None, steps=None, sampler=None, checkpoint=None, upscaler=None):
     from PIL import ImageFilter, ImageDraw
     if not rel_path or not rel_path.startswith("/media/"):
         return None
     fname = rel_path[len("/media/"):].split("?")[0]
     base, _ext = os.path.splitext(fname)
-    signature = f"{fname}|{name}|{avatar_rel}|{accent_hex}|{banner_hex}|{like_count}|{positive_tags}|{negative_tags}|{cfg}|{steps}|{sampler}|{checkpoint}"
+    signature = f"{fname}|{name}|{avatar_rel}|{accent_hex}|{banner_hex}|{like_count}|{positive_tags}|{negative_tags}|{cfg}|{steps}|{sampler}|{checkpoint}|{upscaler}"
     digest = hashlib.md5(signature.encode()).hexdigest()[:8]
     cache_name = f"{base}_ogcard{digest}v{_OG_IMG_VERSION}.png"
     cache_fs = os.path.join(MEDIA_DIR, cache_name)
@@ -443,7 +467,7 @@ def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex,
         return None
     width, footer_top, footer_bottom, band = 1200, 546, 630, 150
     art_h = footer_top - band
-    meta_h = 140
+    meta_h = 180
     height = footer_bottom + meta_h
     canvas = Image.new("RGB", (width, height), _OG_PAPER)
     draw = ImageDraw.Draw(canvas)
@@ -461,14 +485,13 @@ def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex,
         draw.text((like_x + 34, footer_top + 36), like_text, font=heart_font, fill=_OG_GOLD)
     draw.rectangle([0, footer_bottom, width, height], fill=_OG_PAPER)
     draw.line([(0, footer_bottom), (width, footer_bottom)], fill=_OG_GOLD, width=1)
-    meta_y = footer_bottom + 18
-    if positive_tags:
-        _og_draw_tags(draw, 48, meta_y, positive_tags[:4], _og_font(_FONT_BODY, 22, 500))
-        meta_y += 46
-    if negative_tags:
-        negative_text = "Avoiding: " + ", ".join(negative_tags[:3])
-        draw.text((48, meta_y), negative_text[:90], font=_og_font(_FONT_BODY, 20, 400), fill=_OG_MUTED)
-        meta_y += 32
+    tag_font = _og_font(_FONT_BODY, 18, 500)
+    column_width = (width - 96 - 24) // 2
+    positive_bottom = _og_draw_prompt_tag_column(draw, 48, footer_bottom + 18, column_width,
+                                                 positive_tags, tag_font, _OG_TAG_POSITIVE)
+    negative_bottom = _og_draw_prompt_tag_column(draw, 48 + column_width + 24, footer_bottom + 18,
+                                                 column_width, negative_tags, tag_font, _OG_TAG_NEGATIVE)
+    meta_y = max(positive_bottom, negative_bottom) + 6
     config_bits = []
     if cfg is not None:
         config_bits.append(f"CFG {cfg}")
@@ -478,6 +501,8 @@ def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex,
         config_bits.append(sampler)
     if checkpoint:
         config_bits.append(checkpoint)
+    if upscaler:
+        config_bits.append(upscaler)
     if config_bits:
         draw.text((48, meta_y + 6), " · ".join(config_bits)[:100],
                   font=_og_font(_FONT_BODY, 20, 500), fill=_OG_MUTED)
@@ -491,11 +516,12 @@ def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex,
 
 def _og_image_url(request: Request, art_rel_path, name=None, avatar_rel=None,
                   accent_hex=None, banner_hex=None, like_count=0, positive_tags=None,
-                  negative_tags=None, cfg=None, steps=None, sampler=None, checkpoint=None) -> str:
+                  negative_tags=None, cfg=None, steps=None, sampler=None, checkpoint=None,
+                  upscaler=None) -> str:
     origin = str(request.base_url).rstrip("/")
     composite = _compose_image_card(art_rel_path, name, avatar_rel, accent_hex, banner_hex,
                                     like_count, positive_tags, negative_tags,
-                                    cfg, steps, sampler, checkpoint)
+                                    cfg, steps, sampler, checkpoint, upscaler)
     if composite:
         return f"{origin}{composite}"
     return f"{origin}/img/storyhaven-og.png?v={_OG_IMG_VERSION}"
@@ -586,6 +612,22 @@ def _og_draw_tags(draw, x, y, tags, font):
         draw.rounded_rectangle([cx, y, cx + pill_w, y + 36], radius=18, outline=_OG_GOLD, width=2)
         draw.text((cx + 13, y + 6), label, font=font, fill=_OG_GOLD)
         cx += pill_w + 10
+
+_OG_TAG_POSITIVE = (127, 201, 143)
+_OG_TAG_NEGATIVE = (217, 138, 138)
+
+def _og_draw_prompt_tag_column(draw, x, y, column_width, tags, font, color):
+    cx, cy = x, y
+    for tag in (tags or [])[:6]:
+        label = str(tag)[:16]
+        pill_w = draw.textlength(label, font=font) + 20
+        if cx + pill_w > x + column_width:
+            cx = x
+            cy += 32
+        draw.rounded_rectangle([cx, cy, cx + pill_w, cy + 26], radius=13, outline=color, width=1)
+        draw.text((cx + 10, cy + 4), label, font=font, fill=color)
+        cx += pill_w + 8
+    return cy + 32
 
 def _compose_character_card(name, desc, art_rel, tags, genre, message_count, like_count, cache_key):
     from PIL import ImageDraw
@@ -915,7 +957,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "5"
+_OG_IMG_VERSION = "8"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
@@ -1056,7 +1098,7 @@ async def image_share_card(iid: str, request: Request):
     creator = None
     like_count = 0
     positive_tags, negative_tags = None, None
-    cfg, steps, sampler, checkpoint = None, None, None, None
+    cfg, steps, sampler, checkpoint, upscaler = None, None, None, None, None
     if art_rel:
         creator = await user_repo.get_user_by_id(rec.get("user_id"))
         name = (creator or {}).get("display_name") or (creator or {}).get("username") or "a StoryHaven creator"
@@ -1065,7 +1107,9 @@ async def image_share_card(iid: str, request: Request):
         like_count = await content_likes_repo.like_count("image", iid)
         positive_tags = [tag.strip() for tag in (rec.get("positive") or "").split(",") if tag.strip()]
         negative_tags = [tag.strip() for tag in (rec.get("negative") or "").split(",") if tag.strip()]
-        cfg, steps, sampler, checkpoint = rec.get("cfg"), rec.get("steps"), rec.get("sampler"), rec.get("checkpoint")
+        cfg, steps, sampler = rec.get("cfg"), rec.get("steps"), rec.get("sampler")
+        checkpoint = await _og_resolve_model_display_name(rec.get("checkpoint"))
+        upscaler = await _og_resolve_upscaler_display_name(rec.get("upscaler"))
     else:
         name = brand_name
         title = brand_name
@@ -1073,7 +1117,7 @@ async def image_share_card(iid: str, request: Request):
     img = _og_image_url(request, art_rel, name if art_rel else None,
                         (creator or {}).get("avatar"), (creator or {}).get("accent_color"),
                         (creator or {}).get("banner_color"), like_count, positive_tags,
-                        negative_tags, cfg, steps, sampler, checkpoint)
+                        negative_tags, cfg, steps, sampler, checkpoint, upscaler)
     canonical = f"{str(request.base_url).rstrip('/')}/i/{iid}"
     return _share_shell(title, desc, img, "website", canonical)
 

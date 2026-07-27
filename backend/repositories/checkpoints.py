@@ -11,6 +11,11 @@ from backend.state import log
 async def list_previews() -> dict:
     return await _list_model_previews(checkpoint_previews, checkpoint_previews.c.checkpoint_name)
 
+async def get_display_name(checkpoint_name: str) -> str | None:
+    r = await _q1(select(checkpoint_previews.c.display_name)
+                 .where(checkpoint_previews.c.checkpoint_name == checkpoint_name))
+    return (r["display_name"] if r else None) or None
+
 def _image_column(nsfw: bool):
     return checkpoint_previews.c.image_nsfw if nsfw else checkpoint_previews.c.image
 

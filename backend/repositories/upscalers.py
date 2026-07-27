@@ -11,6 +11,11 @@ from backend.state import log
 async def list_previews() -> dict:
     return await _list_model_previews(upscaler_previews, upscaler_previews.c.upscaler_name)
 
+async def get_display_name(upscaler_name: str) -> str | None:
+    r = await _q1(select(upscaler_previews.c.display_name)
+                 .where(upscaler_previews.c.upscaler_name == upscaler_name))
+    return (r["display_name"] if r else None) or None
+
 async def get_preview(name: str) -> str | None:
     r = await _q1(select(upscaler_previews.c.image).where(upscaler_previews.c.upscaler_name == name))
     return r["image"] if r else None
