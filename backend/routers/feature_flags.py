@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
-from backend.auth import get_current_user_optional, require_permission
+from backend.auth import get_current_user_optional, require_capability
 from backend.feature_flags import FEATURE_IMPACT_DESCRIPTIONS, FEATURE_KEYS
 from backend.repositories import feature_flags as feature_flags_repo
 from backend.repositories import notifications as notification_repo
@@ -32,7 +32,8 @@ async def _public_status(role: str | None) -> dict:
             if not row["enabled"]}
 
 @api.get("/admin/feature-flags")
-async def admin_list_feature_flags(_: dict = Depends(require_permission("feature_flags_admin", "read"))):
+async def admin_list_feature_flags(_: dict = Depends(require_capability(
+        "feature_flags.view", "View current feature flags and active-user counts."))):
     all_flags = await feature_flags_repo.get_all()
     out = {}
     for key, label in FEATURE_KEYS.items():
@@ -50,7 +51,8 @@ async def admin_list_feature_flags(_: dict = Depends(require_permission("feature
     return out
 
 @api.put("/admin/feature-flags/batch")
-async def admin_batch_feature_flags(body: FeatureFlagsBatchIn, current_user: dict = Depends(require_permission("feature_flags_admin", "execute"))):
+async def admin_batch_feature_flags(body: FeatureFlagsBatchIn, current_user: dict = Depends(require_capability(
+        "feature_flags.toggle", "Toggle one or more feature flags on or off."))):
     invalid = [k for k in body.keys if k not in FEATURE_KEYS]
     if invalid:
         raise HTTPException(status_code=400, detail=f"Unknown feature keys: {', '.join(invalid)}")
@@ -77,7 +79,8 @@ async def admin_batch_feature_flags(body: FeatureFlagsBatchIn, current_user: dic
     return rows
 
 @api.get("/admin/feature-flags/active-user-count")
-async def admin_feature_flags_active_user_count(_: dict = Depends(require_permission("feature_flags_admin", "read"))):
+async def admin_feature_flags_active_user_count(_: dict = Depends(require_capability(
+        "feature_flags.view", "View current feature flags and active-user counts."))):
     return {"count": len(await user_repo.list_active_non_dev_user_ids())}
 
 @api.get("/feature-status")
