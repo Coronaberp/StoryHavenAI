@@ -400,12 +400,39 @@ def _og_brand_mark_icon():
         _OG_BRAND_MARK_CACHE = icon
     return _OG_BRAND_MARK_CACHE
 
+def _og_frosted_pill(canvas, box, radius, tint=(10, 8, 6), tint_alpha=145, blur_radius=18):
+    from PIL import ImageDraw, ImageFilter
+    x0, y0, x1, y1 = (round(v) for v in box)
+    radius = round(radius)
+    x0, y0 = max(0, x0), max(0, y0)
+    x1, y1 = min(canvas.width, x1), min(canvas.height, y1)
+    if x1 <= x0 or y1 <= y0:
+        return
+    region = canvas.crop((x0, y0, x1, y1)).filter(ImageFilter.GaussianBlur(blur_radius))
+    tint_layer = Image.new("RGB", region.size, tint)
+    blended = Image.blend(region, tint_layer, tint_alpha / 255)
+    mask = Image.new("L", region.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, region.width - 1, region.height - 1],
+                                           radius=radius, fill=255)
+    canvas.paste(blended, (x0, y0), mask)
+
 def _og_brand_mark(canvas, draw):
-    mark_x, mark_y, mark_size = 32, 20, 32
+    mark_x, mark_y, mark_size = 32, 18, 32
+    title = "StoryHaven AI"
+    tagline = "Forge worlds. Remember everything."
+    title_font = _og_font(_FONT_BODY, 20, 700)
+    tagline_font = _og_font(_FONT_BODY, 13, 500)
+    text_w = max(draw.textlength(title, font=title_font), draw.textlength(tagline, font=tagline_font))
+    pad_x, pad_y = 16, 10
+    block_h = 42
+    pill_box = (mark_x - pad_x, mark_y - pad_y,
+               round(mark_x + mark_size + 10 + text_w + pad_x), mark_y + block_h + pad_y)
+    _og_frosted_pill(canvas, pill_box, radius=(pill_box[3] - pill_box[1]) // 2)
     icon = _og_brand_mark_icon()
-    canvas.paste(icon, (mark_x, mark_y), icon)
-    draw.text((mark_x + mark_size + 10, mark_y + 5), "StoryHaven AI",
-              font=_og_font(_FONT_BODY, 20, 700), fill=_OG_GOLD)
+    canvas.paste(icon, (mark_x, mark_y + (block_h - mark_size) // 2), icon)
+    text_x = mark_x + mark_size + 10
+    draw.text((text_x, mark_y), title, font=title_font, fill=_OG_GOLD)
+    draw.text((text_x, mark_y + 24), tagline, font=tagline_font, fill=_OG_MUTED)
 
 def _og_bottom_gradient(width, gradient_h, peak=225, power=1.3):
     column = Image.new("L", (1, gradient_h), 0)
@@ -651,20 +678,23 @@ def _compose_character_card(name, avatar_rel, banner_rel, tags, genre, message_c
     _og_apply_bottom_gradient(canvas, width, height, gradient_h)
     draw = ImageDraw.Draw(canvas)
     _og_brand_mark(canvas, draw)
+    bottom_margin = 48
+    stats_block_h = 98
+    stats_y = height - bottom_margin - stats_block_h
+    badge_y = stats_y - 56
+    content_bottom = badge_y - 22
     if has_banner:
-        avatar_size, avatar_ring = 96, 4
-        avatar_x, avatar_y = 48, height - gradient_h + 8
+        avatar_size, avatar_ring = 140, 5
+        avatar_x = 48
+        avatar_y = content_bottom - avatar_size
         _og_paste_ringed_avatar(canvas, draw, avatar_rel, avatar_x, avatar_y, avatar_size, name,
                                creator_accent_hex, creator_banner_hex, ring=avatar_ring)
         text_x = avatar_x + avatar_size + 28
         name_y = avatar_y + avatar_size / 2 - 32
-        content_bottom = avatar_y + avatar_size
     else:
         text_x = 48
-        name_y = height - gradient_h + 22
-        content_bottom = name_y + 54
+        name_y = content_bottom - 54
     draw.text((text_x, name_y), (name or "")[:34], font=_og_font(_FONT_DISPLAY, 44, 600), fill=(255, 255, 255))
-    badge_y = content_bottom + 22
     badge_x = 48
     if genre:
         genre_font = _og_font(_FONT_BODY, 22, 600)
@@ -674,17 +704,24 @@ def _compose_character_card(name, avatar_rel, banner_rel, tags, genre, message_c
         badge_x += pill_w + 12
     if tags:
         _og_draw_tags(draw, badge_x, badge_y, tags, _og_font(_FONT_BODY, 22, 500))
-    stats_y = badge_y + 56
     _og_stat_row(draw, 48, stats_y,
                 [("message", message_count, "Messages"), ("heart", like_count, "Likes")],
                 icon_color=(255, 255, 255))
     if creator_name:
-        creator_size = 34
-        creator_x, creator_y = width - 260, stats_y + 6
-        _og_paste_ringed_avatar(canvas, draw, creator_avatar_rel, creator_x, creator_y, creator_size,
-                               creator_name, creator_accent_hex, creator_banner_hex, ring=2)
+        creator_size = 40
         creator_font = _og_font(_FONT_BODY, 20, 500)
-        draw.text((creator_x + creator_size + 12, creator_y + 6), f"Created by {creator_name}"[:42],
+        creator_text = f"Created by {creator_name}"[:42]
+        creator_text_w = draw.textlength(creator_text, font=creator_font)
+        pad_x, pad_y, gap = 16, 10, 12
+        row_w = creator_size + gap + creator_text_w
+        row_y0 = (height - bottom_margin) - pad_y - creator_size
+        row_x1 = width - 48
+        row_x0 = row_x1 - row_w
+        pill_box = (row_x0 - pad_x, row_y0 - pad_y, row_x1 + pad_x, row_y0 + creator_size + pad_y)
+        _og_frosted_pill(canvas, pill_box, radius=(pill_box[3] - pill_box[1]) // 2)
+        _og_paste_ringed_avatar(canvas, draw, creator_avatar_rel, round(row_x0), round(row_y0), creator_size,
+                               creator_name, creator_accent_hex, creator_banner_hex, ring=2)
+        draw.text((row_x0 + creator_size + gap, row_y0 + creator_size / 2 - 12), creator_text,
                   font=creator_font, fill=_OG_MUTED)
     try:
         canvas.save(cache_fs, "PNG")
@@ -706,6 +743,7 @@ def _og_character_url(request: Request, name, avatar_rel, banner_rel, tags, genr
 
 def _og_paste_ringed_avatar(canvas, draw, avatar_rel, x, y, size, name, accent_hex=None, banner_hex=None, ring=6):
     from PIL import ImageDraw
+    x, y, size, ring = round(x), round(y), round(size), round(ring)
     accent_rgb = _og_hex_rgb(accent_hex, _OG_GOLD)
     banner_rgb = _og_hex_rgb(banner_hex, accent_rgb)
     outer = size + ring * 2
@@ -969,7 +1007,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "10"
+_OG_IMG_VERSION = "16"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
