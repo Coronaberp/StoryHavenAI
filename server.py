@@ -550,14 +550,15 @@ def _compose_image_card(rel_path, name, avatar_rel, accent_hex, banner_hex,
         config_bits.append(checkpoint)
     if upscaler:
         config_bits.append(upscaler)
+    bottom_row_cy = meta_y + 16
     if config_bits:
-        draw.text((48, meta_y + 6), " · ".join(config_bits)[:100],
-                  font=_og_font(_FONT_BODY, 20, 500), fill=_OG_MUTED)
+        draw.text((48, bottom_row_cy), " · ".join(config_bits)[:100],
+                  font=_og_font(_FONT_BODY, 20, 500), fill=_OG_MUTED, anchor="lm")
     if created_ts:
         import datetime as _dt
         ts_text = _dt.datetime.fromtimestamp(created_ts).strftime("%b %d, %Y")
-        draw.text((width - 48, height - 24), ts_text,
-                  font=_og_font(_FONT_BODY, 18, 500), fill=_OG_MUTED, anchor="rb")
+        draw.text((width - 48, bottom_row_cy), ts_text,
+                  font=_og_font(_FONT_BODY, 18, 500), fill=_OG_MUTED, anchor="rm")
     _og_brand_mark(canvas, draw)
     try:
         canvas.save(cache_fs, "PNG")
@@ -1081,7 +1082,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "23"
+_OG_IMG_VERSION = "24"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
