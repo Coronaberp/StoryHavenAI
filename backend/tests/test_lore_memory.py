@@ -1,5 +1,7 @@
 import pytest
 
+MAX_PINNED_FILLER = 12
+
 from backend import lore_memory
 from backend import vectors
 
@@ -361,3 +363,24 @@ async def test_link_expanded_neighbour_is_chunked_not_whole_entry(db_conn):
     assert [c["id"] for c in neighbour] == [f"{b['id']}#0", f"{b['id']}#1"]
     assert all(c["link_label"] == "leads" for c in neighbour)
     assert all(len(c["text"]) < len(long_content) for c in neighbour)
+
+async def test_query_matched_entry_wins_the_pinned_cap_over_higher_importance(db_conn):
+    from backend.repositories import lore as lore_repo
+    char_id = "char-lm-qm"
+    filler = []
+    for i in range(MAX_PINNED_FILLER):
+        lid = await lore_repo.create(char_id, [f"filler{i}"], f"Filler entry {i}.", always=True, owner_id="user-1")
+        entry = await lore_repo.get(lid)
+        entry["importance"] = 5
+        entry["query_matched"] = False
+        filler.append(entry)
+    named_id = await lore_repo.create(char_id, ["kestrel"], "Kestrel guards the north gate.",
+                                      always=False, owner_id="user-1")
+    named = await lore_repo.get(named_id)
+    named["importance"] = 1
+    named["query_matched"] = True
+    candidates = await lore_memory.fetch_lore_candidates(
+        char_id=char_id, session_id="sess-lm-qm", keyword_entries=[*filler, named],
+        query_vec=None, cfg={"top_k_lore": 4, "lore_max_dist": 0.8}, current_turn=1)
+    pinned_ids = [c["id"] for c in candidates if c["pinned"]]
+    assert named_id in pinned_ids

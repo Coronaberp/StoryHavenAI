@@ -164,8 +164,9 @@ async def retrieve(char_id, session_id, query, recent, viewer_id: str | None = N
             break
         scan_text = combined
 
-    ordered = [matched[eid] for eid in query_matched_ids]
-    ordered.extend(m for eid, m in matched.items() if eid not in query_matched_ids)
+    ordered = [{**matched[eid], "query_matched": True} for eid in query_matched_ids]
+    ordered.extend({**m, "query_matched": False}
+                   for eid, m in matched.items() if eid not in query_matched_ids)
     log.info("lore retrieval: char=%s query_matched=%d direct=%d recursion_added=%d total=%d capped=%s",
              char_id, len(query_matched_ids), direct_count, recursion_added, len(matched),
              recursion_added >= LORE_RECURSION_MAX_ADDED)

@@ -18,6 +18,7 @@ def lore_candidate(entry: dict, current_turn: int, distance: float = 0.0,
                    pinned: bool = False, link_label: str | None = None,
                    candidate_id: str | None = None, content: str | None = None) -> dict:
     return {
+        "query_matched": bool(entry.get("query_matched")),
         "id": candidate_id or entry["id"], "source": "lore", "fact_type": "lore",
         "text": content if content is not None else entry["content"],
         "participants": [], "importance": entry.get("importance", 3), "valence": 0,
@@ -81,7 +82,7 @@ async def fetch_lore_candidates(char_id: str, session_id: str, keyword_entries: 
     pinned_candidates: list[dict] = []
     for e in keyword_entries:
         pinned_candidates.extend(await _expand_entry_candidates(e, overrides, current_turn, pinned=True))
-    pinned_candidates.sort(key=lambda c: c["importance"], reverse=True)
+    pinned_candidates.sort(key=lambda c: (c.get("query_matched", False), c["importance"]), reverse=True)
     active_pinned = pinned_candidates[:MAX_PINNED_LORE_CHUNKS]
     demoted_pinned = [dict(c, pinned=False) for c in pinned_candidates[MAX_PINNED_LORE_CHUNKS:]]
     candidates = list(active_pinned)
