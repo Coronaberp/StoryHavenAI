@@ -481,6 +481,7 @@ class ChatView {
     this.streaming = false;
     this.abortController = null;
     this.directionPromptMode = null;
+    this.directionPromptTarget = null;
     this.moreMenuOpen = false;
     this.toolsMenuOpen = false;
     this.personalBgOk = false;
@@ -1528,11 +1529,15 @@ class ChatView {
     return `hsl(${hue} 55% 62%)`;
   }
 
-  async groupStreamAction(url) {
+  async groupStreamAction(url, body) {
     if (this.streaming) { toast(t("chat_still_generating_wait")); return; }
     this.streaming = true; this.render(); this.scrollToBottom();
     try {
-      const res = await fetch(url, { method: "POST", credentials: "include" });
+      const res = await fetch(url, {
+        method: "POST", credentials: "include",
+        headers: body ? { "Content-Type": "application/json" } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+      });
       if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || t("chat_that_turn_failed")); }
       const controller = new AbortController();
       await sseEvents(res, async (ev) => {
@@ -1562,8 +1567,14 @@ class ChatView {
     }
   }
 
-  groupPoke(cid) { this.groupStreamAction(`/api/sessions/${encodeURIComponent(this.sid)}/speak/${encodeURIComponent(cid)}`); }
-  groupReassign(mid, cid) { this.groupStreamAction(`/api/sessions/${encodeURIComponent(this.sid)}/messages/${encodeURIComponent(mid)}/reassign/${encodeURIComponent(cid)}`); }
+  groupPoke(cid, direction) {
+    this.groupStreamAction(`/api/sessions/${encodeURIComponent(this.sid)}/speak/${encodeURIComponent(cid)}`,
+      direction ? { content: direction } : null);
+  }
+  groupReassign(mid, cid, direction) {
+    this.groupStreamAction(`/api/sessions/${encodeURIComponent(this.sid)}/messages/${encodeURIComponent(mid)}/reassign/${encodeURIComponent(cid)}`,
+      direction ? { content: direction } : null);
+  }
 
   async groupToggleMute(cid) {
     const m = this._groupChar(cid); if (!m) return;
@@ -1589,15 +1600,22 @@ class ChatView {
     const m = this._groupChar(cid); if (!m) return;
     this._grpMenu(anchor, [
       { label: `👉 ${t("chat_group_make_speak", "Make")} ${_esc(m.name)} ${t("chat_group_speak", "speak")}`, onClick: () => this.groupPoke(cid) },
+      { label: `🎯 ${t("chat_group_make_speak", "Make")} ${_esc(m.name)} ${t("chat_group_speak", "speak")}…`, onClick: () => this.openDirectionPrompt("speak", { cid }) },
       { label: m.muted ? `🔊 ${t("chat_group_unmute", "Unmute")}` : `🔇 ${t("chat_group_mute", "Mute (skip in auto-pick)")}`, onClick: () => this.groupToggleMute(cid) },
     ]);
   }
 
   openReassignMenu(msg, anchor) {
-    const items = (this.session.cast || []).map((m) => ({
-      label: `<span style="width:10px;height:10px;border-radius:3px;background:${this._grpColor(m.char_id)};flex:none"></span> ${_esc(m.name)}${m.char_id === msg.char_id ? " ·" : ""}`,
-      onClick: () => this.groupReassign(msg.id, m.char_id),
-    }));
+    const items = (this.session.cast || []).flatMap((m) => [
+      {
+        label: `<span style="width:10px;height:10px;border-radius:3px;background:${this._grpColor(m.char_id)};flex:none"></span> ${_esc(m.name)}${m.char_id === msg.char_id ? " ·" : ""}`,
+        onClick: () => this.groupReassign(msg.id, m.char_id),
+      },
+      {
+        label: `🎯 ${_esc(m.name)}…`,
+        onClick: () => this.openDirectionPrompt("reassign", { mid: msg.id, cid: m.char_id }),
+      },
+    ]);
     this._grpMenu(anchor, items);
   }
 
@@ -1931,7 +1949,7 @@ class ChatView {
         </div>
         ${this.directionPromptMode ? `
           <div style="flex:none;display:flex;gap:8px;align-items:center;padding:9px 14px;border-top:1px solid var(--color-line);background:var(--color-surface-2)">
-            <input type="text" id="chatContinueInput" placeholder="${this.directionPromptMode === "regenerate" ? t("chat_regenerate_input_placeholder") : t("chat_continue_input_placeholder")}" style="flex:1;min-width:0;padding:9px 11px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface);color:var(--color-ink);font-size:13.5px">
+            <input type="text" id="chatContinueInput" placeholder="${this.directionPromptPlaceholder()}" style="flex:1;min-width:0;padding:9px 11px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface);color:var(--color-ink);font-size:13.5px">
             <button type="button" id="chatContinueCancel" class="chat-composer-btn" aria-label="${t("chat_cancel")}" data-tooltip="${t("chat_cancel")}" style="width:36px;height:36px">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
@@ -3343,8 +3361,18 @@ class ChatView {
     });
   }
 
-  openDirectionPrompt(mode) {
+  directionPromptPlaceholder() {
+    const placeholders = {
+      regenerate: "chat_regenerate_input_placeholder",
+      speak: "chat_group_speak_input_placeholder",
+      reassign: "chat_group_reassign_input_placeholder",
+    };
+    return t(placeholders[this.directionPromptMode] || "chat_continue_input_placeholder");
+  }
+
+  openDirectionPrompt(mode, target) {
     this.directionPromptMode = mode;
+    this.directionPromptTarget = target || null;
     this.render();
     const input = document.getElementById("chatContinueInput");
     input?.focus();
@@ -3352,6 +3380,7 @@ class ChatView {
 
   closeDirectionPrompt() {
     this.directionPromptMode = null;
+    this.directionPromptTarget = null;
     this.render();
   }
 
@@ -3359,7 +3388,11 @@ class ChatView {
     const input = document.getElementById("chatContinueInput");
     const direction = input ? input.value.trim() : "";
     const mode = this.directionPromptMode;
+    const target = this.directionPromptTarget;
     this.directionPromptMode = null;
+    this.directionPromptTarget = null;
+    if (mode === "speak") { this.groupPoke(target.cid, direction); return; }
+    if (mode === "reassign") { this.groupReassign(target.mid, target.cid, direction); return; }
     this.sendTurn(mode, direction ? { content: direction } : {});
   }
 

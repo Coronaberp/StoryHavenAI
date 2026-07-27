@@ -65,16 +65,24 @@ async def delete_memory_entry(sid: str, mid: str, current_user: dict = Depends(g
     return {"deleted": True}
 
 @api.post("/sessions/{sid}/speak/{char_id}")
-async def group_speak(sid: str, char_id: str, current_user: dict = Depends(get_current_user)):
+async def group_speak(sid: str, char_id: str, body: ChatIn | None = None,
+                      current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     guest_quota.check(current_user, "tokens")
-    return await run_group_speak(sid, char_id, current_user)
+    direction = strip_sigil(body.content) if (body and body.content and body.content.strip()) else None
+    if direction:
+        log.info("chat: group speak with direction session=%s by=%s", sid, current_user["username"])
+    return await run_group_speak(sid, char_id, current_user, direction=direction)
 
 @api.post("/sessions/{sid}/messages/{mid}/reassign/{char_id}")
-async def group_reassign(sid: str, mid: str, char_id: str, current_user: dict = Depends(get_current_user)):
+async def group_reassign(sid: str, mid: str, char_id: str, body: ChatIn | None = None,
+                         current_user: dict = Depends(get_current_user)):
     await _own_session(sid, current_user)
     guest_quota.check(current_user, "tokens")
-    return await run_group_speak(sid, char_id, current_user, replace_mid=mid)
+    direction = strip_sigil(body.content) if (body and body.content and body.content.strip()) else None
+    if direction:
+        log.info("chat: group reassign with direction session=%s by=%s", sid, current_user["username"])
+    return await run_group_speak(sid, char_id, current_user, replace_mid=mid, direction=direction)
 
 @api.post("/sessions/{sid}/chat")
 async def chat(sid: str, body: ChatIn, current_user: dict = Depends(get_current_user),

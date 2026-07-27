@@ -595,7 +595,7 @@ async def _group_single(s, eff, ep, chat_model, cid, current_user, think, user_o
     handle = _start_gen(sid, gen)
     return StreamingResponse(handle.stream(), media_type="text/event-stream")
 
-async def run_group_speak(sid, char_id, current_user, think=None, replace_mid=None):
+async def run_group_speak(sid, char_id, current_user, think=None, replace_mid=None, direction=None):
     user_overrides = await user_repo.get_user_settings(current_user["id"]) if current_user else {}
     eff = _eff_cfg(user_overrides)
     ep = await _endpoints(user_overrides, current_user["id"] if current_user else None,
@@ -605,7 +605,7 @@ async def run_group_speak(sid, char_id, current_user, think=None, replace_mid=No
     if not s or not s.get("is_group"):
         raise HTTPException(404, "group session not found")
     return await _group_single(s, eff, ep, chat_model, char_id, current_user, think,
-                               user_overrides, replace_mid=replace_mid)
+                               user_overrides, replace_mid=replace_mid, direction=direction)
 
 async def _narrate_action(action, actor_name, language, chat_model, ep, gender=None):
     named = bool(actor_name and actor_name.strip() and actor_name.strip().lower() != "you")

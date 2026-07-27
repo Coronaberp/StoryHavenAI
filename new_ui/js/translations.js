@@ -2290,6 +2290,8 @@ const UI_STRINGS = {
   chat_group_reassign: "Reassign speaker",
   chat_group_make_speak: "Make",
   chat_group_speak: "speak",
+  chat_group_speak_input_placeholder: "Speak plainly, or steer it…",
+  chat_group_reassign_input_placeholder: "Reassign plainly, or steer it…",
   chat_group_unmute: "Unmute",
   chat_group_mute: "Mute (skip in auto-pick)",
   chat_add_a_voice: "add a voice",
