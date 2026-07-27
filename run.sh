@@ -31,6 +31,22 @@ cd /app/ai-frontend || exec echo "FATAL: /app/ai-frontend not mounted"
 # this, editing one mid-deploy triggers a full uvicorn worker reload that
 # kills whatever `modal deploy` subprocess that same request just spawned,
 # aborting the deploy with Modal's own "Stopping app - unknown reason".
+# --reload-exclude /app/ai-frontend/.claude/worktrees: other agent sessions'
+# isolated editing copies, never imported by server.py — without this, any
+# concurrent agent's file edit anywhere in its own worktree triggers a full
+# reload here too, cancelling in-flight chat generation and, once, colliding
+# with a startup ALTER TABLE migration and crashing the app outright. This
+# MUST be the absolute path, not '.claude/worktrees' relative or a glob.
+# uvicorn's FileFilter (uvicorn/supervisors/watchfilesreload.py) treats a
+# --reload-exclude value as directory-scoped (recursively excluded via
+# `dir in path.parents`) only when `Path(value).is_dir()` is true — that
+# check passes for a relative value too (resolved against cwd), so it looks
+# like it should work, but watchfiles reports changed files as *absolute*
+# paths, and a relative Path is never equal to any element of an absolute
+# path's .parents — so the relative form silently excluded nothing, and a
+# glob form ('.claude/worktrees/*') separately failed for a different
+# reason (Path.match() doesn't cross more than one directory level). Both
+# were confirmed broken live before landing this absolute-path version.
 # --timeout-graceful-shutdown 3: on --reload, uvicorn waits indefinitely for
 # in-flight connections to close before restarting the worker. The
 # multiplayer /live endpoint holds a long-lived SSE stream open for as long
@@ -39,4 +55,4 @@ cd /app/ai-frontend || exec echo "FATAL: /app/ai-frontend not mounted"
 # reload forever, requiring a manual `podman restart story-game` each time.
 # This caps the wait at 3 seconds before uvicorn force-closes stragglers and
 # restarts anyway.
-exec /app/ai-frontend/venv/bin/uvicorn server:app --host 0.0.0.0 --port 3000 --reload --reload-exclude 'modal_app/*' --proxy-headers --forwarded-allow-ips='*' --timeout-graceful-shutdown 3
+exec /app/ai-frontend/venv/bin/uvicorn server:app --host 0.0.0.0 --port 3000 --reload --reload-exclude 'modal_app/*' --reload-exclude '/app/ai-frontend/.claude/worktrees' --proxy-headers --forwarded-allow-ips='*' --timeout-graceful-shutdown 3
