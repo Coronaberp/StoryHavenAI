@@ -266,8 +266,9 @@ class ExploreCharactersView {
     const isChat = g.group_mode === "chat";
     const modeLabel = isChat ? t("group_mode_chat", "Chat") : t("group_mode_roleplay", "Roleplay");
     const modeClass = isChat ? "mode-badge-crimson" : "mode-badge-gold";
+    const ringClass = isChat ? "mode-ring-crimson" : "mode-ring-gold";
     return `
-      <button type="button" class="char-card grp-card" style="box-shadow:0 0 0 2px ${isChat ? "#e2493d" : "#E3BD6C"} inset" onclick="navigate('/g/${encodeURIComponent(g.id)}')">
+      <button type="button" class="char-card grp-card ${ringClass}" onclick="navigate('/g/${encodeURIComponent(g.id)}')">
         <div style="aspect-ratio:1;width:100%;border-radius:12px;overflow:hidden">${groupGridAvatar(g.cast_preview)}</div>
         <div class="grp-card-meta">
           <span class="grp-card-name">${_esc(g.name)}</span>
@@ -323,9 +324,9 @@ class ExploreCharactersView {
 
   wireDrawer(root) {
     const f = this.filters;
-    root.querySelectorAll("[data-gender]").forEach((btn) => btn.onclick = () => { f.gender = btn.dataset.gender; this._searchBox.refreshFilter(); this.load(); });
-    root.querySelectorAll("[data-mode]").forEach((btn) => btn.onclick = () => { f.mode = btn.dataset.mode; this._searchBox.refreshFilter(); this.load(); });
-    root.querySelectorAll("[data-rating]").forEach((btn) => btn.onclick = () => { if (btn.disabled) return; f.rating = btn.dataset.rating; this._searchBox.refreshFilter(); this.load(); });
+    root.querySelectorAll("[data-gender]").forEach((btn) => btn.onclick = () => { f.gender = btn.dataset.gender; this.load(); this._searchBox.refreshFilter(); });
+    root.querySelectorAll("[data-mode]").forEach((btn) => btn.onclick = () => { f.mode = btn.dataset.mode; this.load(); this._searchBox.refreshFilter(); });
+    root.querySelectorAll("[data-rating]").forEach((btn) => btn.onclick = () => { if (btn.disabled) return; f.rating = btn.dataset.rating; this.load(); });
   }
 
   addTag(tag) {
@@ -355,7 +356,7 @@ class ExploreCharactersView {
           <div style="flex:1">${pageHeaderHtml("Explore", "Characters", t("ph_characters_title"), t("ph_characters_sub"))}</div>
         </div>
         `}
-        ${exploreTabsHtml("characters")}
+        ${this.scope === "mine" ? "" : exploreTabsHtml("characters")}
         <div style="display:flex;align-items:center;gap:5px">
           <div id="compendiumSearchBox" style="flex:1;min-width:0"></div>
           ${ME ? `<button type="button" onclick="openGroupCreate()" aria-label="${_attr(t("group_create_button", "New group chat"))}" data-tooltip="${_attr(t("group_create_button", "New group chat"))}"

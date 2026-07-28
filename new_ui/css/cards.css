@@ -365,6 +365,12 @@ select:focus-visible {
   color: #e2493d;
   border: 1px solid #e2493d;
 }
+.mode-ring-gold {
+  box-shadow: 0 0 0 2px #E3BD6C inset;
+}
+.mode-ring-crimson {
+  box-shadow: 0 0 0 2px #e2493d inset;
+}
 .thread-card-meta {
   font-family: var(--font-mono);
   font-size: 9.5px;

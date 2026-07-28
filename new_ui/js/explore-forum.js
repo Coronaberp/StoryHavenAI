@@ -172,7 +172,7 @@ class ExploreForumView {
   threadCardHtml(th) {
     const hot = th.score >= SYM_HOT_THRESHOLD;
     return `
-      <div class="card thread-card" data-tid="${_esc(th.id)}">
+      <div class="thread-card" data-tid="${_esc(th.id)}">
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
           ${th.category ? `<span class="sym-tag">${_esc(th.category)}</span>` : ""}
           ${hot ? `<span class="sym-hot">▲ ${t("forum_hot_badge")}</span>` : ""}
@@ -266,13 +266,13 @@ class ExploreForumView {
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:14px">
         ${pageHeaderHtml("Explore", "Forum", t("ph_forum_title"), t("ph_forum_sub"))}
-        ${exploreTabsHtml("forum")}
         ${ME ? `
           <button type="button" id="symNewBtn" class="sym-cta">
             <span class="sym-cta-icon">+</span>
             <span>${t("forum_start_a_discussion")}</span>
           </button>
         ` : ""}
+        ${exploreTabsHtml("forum")}
         <div id="forumSearchBox"></div>
         <div id="forumResultsArea"></div>
       </div>

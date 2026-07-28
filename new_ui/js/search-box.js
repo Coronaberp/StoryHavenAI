@@ -250,6 +250,7 @@ class SearchBox {
       this._loading = false;
       this._renderLoadingOnly();
     }
+    if (!this.container.isConnected) return;
     this.onChange(this.query, this.tokenValues, results);
   }
 
