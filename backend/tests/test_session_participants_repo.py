@@ -40,6 +40,13 @@ async def test_list_session_ids_for_user(db_conn):
     ids = await sp.list_session_ids_for_user("user-a")
     assert set(ids) == {"sess-5", "sess-6"}
 
+async def test_list_session_ids_for_user_excludes_left_sessions(db_conn):
+    await sp.add("sess-10", "user-a", "member")
+    await sp.add("sess-11", "user-a", "member")
+    await sp.remove("sess-10", "user-a")
+    ids = await sp.list_session_ids_for_user("user-a")
+    assert ids == ["sess-11"]
+
 async def test_add_rejects_ninth_participant(db_conn):
     for i in range(8):
         await sp.add("sess-4", f"user-{i}", "host" if i == 0 else "member")

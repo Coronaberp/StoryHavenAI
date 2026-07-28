@@ -58,7 +58,10 @@ async def list_all_for_session(session_id: str) -> list[dict]:
 
 async def list_session_ids_for_user(user_id: str) -> list[str]:
     rows = await _q(
-        select(session_participants.c.session_id).where(session_participants.c.user_id == user_id)
+        select(session_participants.c.session_id).where(
+            session_participants.c.user_id == user_id,
+            session_participants.c.left_at.is_(None),
+        )
     )
     return [r["session_id"] for r in rows]
 
