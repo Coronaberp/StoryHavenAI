@@ -140,8 +140,6 @@ class ExploreMediaView {
     this.images = [];
     this.loading = true;
     this.error = "";
-    this.q = "";
-    this.creatorFilters = [];
     this.creatorProfiles = {};
   }
 
@@ -149,14 +147,8 @@ class ExploreMediaView {
     return [...new Set(this.images.map((i) => i.owner_username).filter(Boolean))].sort();
   }
 
-  addCreatorFilter(name) {
-    if (!this.creatorFilters.includes(name)) this.creatorFilters = [...this.creatorFilters, name];
-    this.render();
-  }
-
-  removeCreatorFilter(name) {
-    this.creatorFilters = this.creatorFilters.filter((c) => c !== name);
-    this.render();
+  isSearching() {
+    return !!(this._searchBox && (this._searchBox.query.trim() || (this._searchBox.tokenValues.creator || []).length));
   }
 
   async mount(main) {
@@ -168,7 +160,7 @@ class ExploreMediaView {
   async load() {
     this.loading = true;
     this.error = "";
-    this.render();
+    this.renderResults();
     try {
       this.images = await api("/api/imagegen/community");
     } catch (err) {
@@ -176,7 +168,7 @@ class ExploreMediaView {
       this.images = [];
     }
     this.loading = false;
-    this.render();
+    this.renderResults();
     this.loadCreatorProfiles();
   }
 
@@ -188,7 +180,7 @@ class ExploreMediaView {
       catch { return [u, null]; }
     }));
     fetched.forEach(([u, profile]) => { if (profile) this.creatorProfiles[u] = profile; });
-    this.render();
+    this.renderResults();
   }
 
   frameHtml(img) {
@@ -464,7 +456,7 @@ class ExploreMediaView {
       await api(`/api/imagegen/standalone/${encodeURIComponent(img.id)}`, { method: "DELETE" });
       closeTopModal();
       this.images = this.images.filter((i) => i.id !== img.id);
-      this.render();
+      this.renderResults();
       toast(t("gallery_image_deleted"));
     } catch (err) {
       toast(err.message || t("gallery_delete_image_error"));
@@ -535,35 +527,53 @@ class ExploreMediaView {
     layer.querySelector("#pinReportNsfw").onclick = () => submit(true);
   }
 
-  visibleImages() {
-    return this.images.filter((img) => {
-      if (this.creatorFilters.length && !this.creatorFilters.includes(img.owner_username)) return false;
-      if (!this.q) return true;
-      return (img.positive || "").toLowerCase().includes(this.q.toLowerCase());
-    });
-  }
-
   render() {
-    const visible = this.visibleImages();
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:14px">
         ${pageHeaderHtml("Explore", "Media", t("ph_media_gallery_title"), t("ph_media_gallery_sub"))}
-        <div id="pinSearchBox" style="position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface)">
-          ${this.creatorFilters.map((c) => `
-            <span class="inline-pill pill-creator">@${_esc(c)}<span class="x" data-remove-creator="${_esc(c)}">&times;</span></span>
-          `).join("")}
-          <input type="text" id="pinSearch" value="${_esc(this.q)}" placeholder="${this.creatorFilters.length ? "" : _attr(t("gallery_search_placeholder"))}"
-            style="flex:1;min-width:70px;border:none;background:none;outline:none;color:var(--color-ink);font-size:13.5px;padding:4px 0">
-          <div id="pinSuggest" class="dropdown-menu" style="left:0;right:0;top:calc(100% + 4px)"></div>
-        </div>
-        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("gallery_loading")}</p>` : ""}
-        ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${_esc(this.error)}</p>` : ""}
-        ${!this.loading && !this.error && !visible.length ? `<p style="color:var(--color-sec);font-size:13px">${this.images.length ? t("gallery_no_search_matches") : t("gallery_no_images_shared")}</p>` : ""}
-        ${!this.loading && visible.length ? `<div class="pin-wall">${visible.map((img) => this.frameHtml(img)).join("")}</div>` : ""}
+        <div id="mediaSearchBox"></div>
+        <div id="mediaResultsArea"></div>
       </div>
     `;
-    wireCharCardDominantColors(this.main);
-    this.main.querySelectorAll(".pin-frame").forEach((el) => {
+    this._searchBox = new SearchBox({
+      container: this.main.querySelector("#mediaSearchBox"),
+      mode: "server",
+      endpoint: "/api/imagegen/community",
+      tokens: [
+        {
+          prefix: "@", param: "creator",
+          suggest: (q) => this.allCreators().filter((name) => name.toLowerCase().includes(q)),
+        },
+      ],
+      placeholder: t("gallery_search_placeholder"),
+      onChange: (query, tokenValues, results) => {
+        if (!query.trim() && !(tokenValues.creator || []).length) {
+          this.load();
+          return;
+        }
+        let list = results || [];
+        const creatorValues = tokenValues.creator || [];
+        if (creatorValues.length) list = list.filter((img) => creatorValues.includes(img.owner_username));
+        this.images = list;
+        this.renderResults();
+        this.loadCreatorProfiles();
+      },
+    });
+    this.renderResults();
+  }
+
+  renderResults() {
+    const visible = this.images;
+    const searching = this.isSearching();
+    const resultsArea = this.main.querySelector("#mediaResultsArea");
+    resultsArea.innerHTML = `
+      ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("gallery_loading")}</p>` : ""}
+      ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${_esc(this.error)}</p>` : ""}
+      ${!this.loading && !this.error && !visible.length ? `<p style="color:var(--color-sec);font-size:13px">${searching ? t("gallery_no_search_matches") : t("gallery_no_images_shared")}</p>` : ""}
+      ${!this.loading && visible.length ? `<div class="pin-wall">${visible.map((img) => this.frameHtml(img)).join("")}</div>` : ""}
+    `;
+    wireCharCardDominantColors(resultsArea);
+    resultsArea.querySelectorAll(".pin-frame").forEach((el) => {
       el.onclick = () => {
         const img = this.images.find((i) => i.id === el.dataset.iid);
         if (img) {
@@ -571,55 +581,6 @@ class ExploreMediaView {
           this.wireDetailModal(img);
         }
       };
-    });
-    this.main.querySelectorAll("[data-remove-creator]").forEach((x) => {
-      x.onclick = (e) => { e.stopPropagation(); this.removeCreatorFilter(x.dataset.removeCreator); };
-    });
-    const search = this.main.querySelector("#pinSearch");
-    let searchTimer;
-    search.oninput = () => {
-      this.updateCreatorSuggestions();
-      if (search.value.startsWith("@")) return;
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => {
-        this.q = search.value.trim();
-        this.render();
-      }, 250);
-    };
-    search.onkeydown = (e) => {
-      if (e.key === "Backspace" && search.value === "" && this.creatorFilters.length) {
-        e.preventDefault();
-        const removed = this.creatorFilters[this.creatorFilters.length - 1];
-        this.creatorFilters = this.creatorFilters.slice(0, -1);
-        toast(`Removed @${removed} filter`);
-        this.render();
-        return;
-      }
-      if (e.key !== "Enter") return;
-      const val = search.value.trim();
-      if (val.startsWith("@") && val.length > 1) {
-        this.addCreatorFilter(val.slice(1));
-        search.value = "";
-        this.q = "";
-      }
-    };
-  }
-
-  updateCreatorSuggestions() {
-    const box = this.main.querySelector("#pinSuggest");
-    const search = this.main.querySelector("#pinSearch");
-    if (!box || !search) return;
-    const val = search.value;
-    if (!val.startsWith("@")) { box.classList.remove("open"); box.innerHTML = ""; return; }
-    const q = val.slice(1).toLowerCase();
-    const matches = this.allCreators().filter((c) => !this.creatorFilters.includes(c) && c.toLowerCase().includes(q)).slice(0, 8);
-    if (!matches.length) { box.classList.remove("open"); box.innerHTML = ""; return; }
-    box.innerHTML = matches.map((c) => `<button type="button" class="dropdown-item" data-pick-creator="${_esc(c)}">@${_esc(c)}</button>`).join("");
-    box.classList.add("open");
-    box.querySelectorAll("[data-pick-creator]").forEach((btn) => btn.onclick = () => {
-      search.value = "";
-      box.classList.remove("open");
-      this.addCreatorFilter(btn.dataset.pickCreator);
     });
   }
 
