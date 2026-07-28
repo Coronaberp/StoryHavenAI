@@ -69,8 +69,8 @@ function wireCharCardDominantColors(root) {
 }
 
 function searchByTag(tag) {
-  if (window._activePantheonView && document.getElementById("pantheonGrid")) {
-    window._activePantheonView.addTag(tag);
+  if (window._activeCompendiumView && document.getElementById("compendiumGrid")) {
+    window._activeCompendiumView.addTag(tag);
     return;
   }
   navigate(`/explore/characters?tag=${encodeURIComponent(tag)}`);
@@ -86,7 +86,7 @@ function characterCardHtml(c, profile, opts = {}) {
   const art = c.avatar
     ? `background-image:url('${_attr(c.avatar)}')`
     : `background:linear-gradient(150deg, hsl(${hue} 55% 38%), hsl(${(hue + 40) % 360} 45% 16%))`;
-  const creatorName = profile?.display_name || c.owner_username || c.creator || t("pantheon_you_fallback");
+  const creatorName = profile?.display_name || c.owner_username || c.creator || t("compendium_you_fallback");
   const ringGradient = profile?.accent_color
     ? `linear-gradient(135deg, ${profile.accent_color}, ${profile.banner_color || profile.accent_color})`
     : "linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark))";
@@ -134,7 +134,7 @@ class ExploreCharactersView {
 
   async mount(main) {
     this.main = main;
-    window._activePantheonView = this;
+    window._activeCompendiumView = this;
     const initialTag = new URLSearchParams(location.search).get("tag");
     if (initialTag) this.filters.tags = [initialTag];
     this.render();
@@ -151,7 +151,7 @@ class ExploreCharactersView {
       if (this.filters.tags.length) params.set("tags", this.filters.tags.join(","));
       this.chars = await api(`/api/characters?${params.toString()}`);
     } catch (err) {
-      this.error = err.message || (this.scope === "mine" ? t("pantheon_load_error_mine") : t("pantheon_load_error_community"));
+      this.error = err.message || (this.scope === "mine" ? t("compendium_load_error_mine") : t("compendium_load_error_community"));
       this.chars = [];
     }
     this.loading = false;
@@ -224,7 +224,7 @@ class ExploreCharactersView {
     if (!top.length) return "";
     return `
       <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">
-        <button type="button" class="filter-chip${!f.tags.length ? " on" : ""}" data-for-you="1">${_esc(t("pantheon_for_you"))}</button>
+        <button type="button" class="filter-chip${!f.tags.length ? " on" : ""}" data-for-you="1">${_esc(t("compendium_for_you"))}</button>
         ${top.map((t) => `<button type="button" class="filter-chip${f.tags.includes(t) ? " on" : ""}" data-quick-tag="${t}">${t}</button>`).join("")}
       </div>
     `;
@@ -236,8 +236,8 @@ class ExploreCharactersView {
   }
 
   updateSuggestions() {
-    const box = this.main.querySelector("#pantheonSuggest");
-    const search = this.main.querySelector("#pantheonSearch");
+    const box = this.main.querySelector("#compendiumSuggest");
+    const search = this.main.querySelector("#compendiumSearch");
     if (!box || !search) return;
     const val = search.value;
     if (this.scope === "community" && val.startsWith("@")) {
@@ -339,25 +339,25 @@ class ExploreCharactersView {
     const heading = (label) => `<div style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-muted)">${label}</div>`;
     const ratingSection = ME?.nsfw_allowed ? `
         <div style="display:flex;flex-direction:column;gap:6px">
-          ${heading(t("pantheon_filter_rating_heading"))}
+          ${heading(t("compendium_filter_rating_heading"))}
           <div style="display:flex;flex-wrap:wrap;gap:6px">
-            <button type="button" class="filter-chip${f.rating === "all" ? " on" : ""}" data-rating="all">${t("pantheon_filter_all")}</button>
-            <button type="button" class="filter-chip${f.rating === "sfw" ? " on" : ""}" data-rating="sfw">${t("pantheon_filter_sfw")}</button>
-            <button type="button" class="filter-chip${f.rating === "nsfw" ? " on" : ""}" data-rating="nsfw">${t("pantheon_filter_nsfw")}</button>
+            <button type="button" class="filter-chip${f.rating === "all" ? " on" : ""}" data-rating="all">${t("compendium_filter_all")}</button>
+            <button type="button" class="filter-chip${f.rating === "sfw" ? " on" : ""}" data-rating="sfw">${t("compendium_filter_sfw")}</button>
+            <button type="button" class="filter-chip${f.rating === "nsfw" ? " on" : ""}" data-rating="nsfw">${t("compendium_filter_nsfw")}</button>
           </div>
         </div>` : "";
     return `
-      <div id="pantheonDrawer" style="display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:14px;border:1px dashed color-mix(in srgb, var(--color-accent) 45%, transparent);background:var(--color-surface)">
+      <div id="compendiumDrawer" style="display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:14px;border:1px dashed color-mix(in srgb, var(--color-accent) 45%, transparent);background:var(--color-surface)">
         <div style="display:flex;flex-direction:column;gap:6px">
-          ${heading(t("pantheon_filter_gender_heading"))}
+          ${heading(t("compendium_filter_gender_heading"))}
           <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${single("gender", "any", f.gender, t("pantheon_filter_any"))}${genderChip("male", t("pantheon_filter_male"))}${genderChip("female", t("pantheon_filter_female"))}${genderChip("other", t("pantheon_filter_other"))}
+            ${single("gender", "any", f.gender, t("compendium_filter_any"))}${genderChip("male", t("compendium_filter_male"))}${genderChip("female", t("compendium_filter_female"))}${genderChip("other", t("compendium_filter_other"))}
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px">
-          ${heading(t("pantheon_filter_mode_heading"))}
+          ${heading(t("compendium_filter_mode_heading"))}
           <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${single("mode", "all", f.mode, t("pantheon_filter_all"))}${modeChip("character", t("pantheon_filter_character"))}${modeChip("rpg", t("pantheon_filter_rpg"))}
+            ${single("mode", "all", f.mode, t("compendium_filter_all"))}${modeChip("character", t("compendium_filter_character"))}${modeChip("rpg", t("compendium_filter_rpg"))}
           </div>
         </div>
         ${ratingSection}
@@ -388,7 +388,7 @@ class ExploreCharactersView {
     }
     const solid = p.icon ? ` type-chip${p.type === "mode" ? " type-chip-mode" : ""}` : "";
     return `
-      <span class="inline-pill pill-${p.type}${solid}" data-clear="${_attr(p.key)}" data-clear-value="${_attr(p.value || "")}" ${p.editable ? `data-editable-value="${_attr(p.value)}" title="${_attr(t("pantheon_double_click_edit"))}"` : ""}>
+      <span class="inline-pill pill-${p.type}${solid}" data-clear="${_attr(p.key)}" data-clear-value="${_attr(p.value || "")}" ${p.editable ? `data-editable-value="${_attr(p.value)}" title="${_attr(t("compendium_double_click_edit"))}"` : ""}>
         ${p.icon || ""}${_esc(p.label)}<span class="x" data-clear-x="1">&times;</span>
       </span>
     `;
@@ -404,7 +404,7 @@ class ExploreCharactersView {
         ${this.scope === "mine" ? `
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
           <div style="flex:1">${pageHeaderHtml("Workshop", "Characters", t("ph_mycharacters_title"), t("ph_mycharacters_sub"))}</div>
-          <button type="button" class="grimoire-add-btn" onclick="navigate('/workshop/characters/new')" aria-label="${_attr(t("pantheon_new_character_aria"))}">
+          <button type="button" class="grimoire-add-btn" onclick="navigate('/workshop/characters/new')" aria-label="${_attr(t("compendium_new_character_aria"))}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           </button>
         </div>
@@ -414,13 +414,13 @@ class ExploreCharactersView {
         </div>
         `}
         <div style="display:flex;align-items:center;gap:5px">
-          <div id="pantheonSearchBox" style="position:relative;flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface)">
+          <div id="compendiumSearchBox" style="position:relative;flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface)">
             ${pills.map((p) => this.pillHtml(p)).join("")}
-            <input type="text" id="pantheonSearch" value="${_attr(f.q)}" placeholder="${pills.length ? "" : _attr(t("pantheon_search_placeholder"))}"
+            <input type="text" id="compendiumSearch" value="${_attr(f.q)}" placeholder="${pills.length ? "" : _attr(t("compendium_search_placeholder"))}"
               style="flex:1;min-width:70px;border:none;background:none;outline:none;color:var(--color-ink);font-size:13.5px;padding:4px 0">
-            <div id="pantheonSuggest" class="dropdown-menu" style="left:0;right:0;top:calc(100% + 4px)"></div>
+            <div id="compendiumSuggest" class="dropdown-menu" style="left:0;right:0;top:calc(100% + 4px)"></div>
           </div>
-          <button type="button" id="pantheonFilterBtn"
+          <button type="button" id="compendiumFilterBtn"
             style="position:relative;flex:none;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;
             border:1px solid var(--color-accent);background:${this.drawerOpen || count ? "var(--color-accent)" : "color-mix(in srgb, var(--color-accent) 14%, var(--color-surface))"};
             color:${this.drawerOpen || count ? "var(--color-paper-base, var(--color-paper))" : "var(--color-accent)"}">
@@ -435,18 +435,18 @@ class ExploreCharactersView {
         </div>
         ${this.popularTagsHtml()}
         ${this.drawerOpen ? this.filterDrawerHtml() : ""}
-        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("pantheon_loading")}</p>` : ""}
+        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("compendium_loading")}</p>` : ""}
         ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${this.error}</p>` : ""}
         ${!this.loading && !this.error && !visible.length ? (
           this.scope === "mine" && !count
-            ? `<p style="color:var(--color-sec);font-size:13px">${t("pantheon_empty_mine_prefix")} <a href="#" onclick="event.preventDefault();navigate('/workshop/characters/new')" style="color:var(--color-accent)">${t("pantheon_empty_mine_create_link")}</a>.</p>`
-            : `<p style="color:var(--color-sec);font-size:13px">${t("pantheon_empty_no_match")}</p>`
+            ? `<p style="color:var(--color-sec);font-size:13px">${t("compendium_empty_mine_prefix")} <a href="#" onclick="event.preventDefault();navigate('/workshop/characters/new')" style="color:var(--color-accent)">${t("compendium_empty_mine_create_link")}</a>.</p>`
+            : `<p style="color:var(--color-sec);font-size:13px">${t("compendium_empty_no_match")}</p>`
         ) : ""}
-        <div class="card-grid" id="pantheonGrid">${visible.map((c) => this.cardHtml(c)).join("")}</div>
+        <div class="card-grid" id="compendiumGrid">${visible.map((c) => this.cardHtml(c)).join("")}</div>
       </div>
     `;
     wireCharCardDominantColors(this.main);
-    this.main.querySelector("#pantheonFilterBtn").onclick = () => {
+    this.main.querySelector("#compendiumFilterBtn").onclick = () => {
       this.drawerOpen = !this.drawerOpen;
       this.render();
     };
@@ -492,8 +492,8 @@ class ExploreCharactersView {
       };
       editInput.onblur = commit;
     }
-    if (this.drawerOpen) this.wireDrawer(this.main.querySelector("#pantheonDrawer"));
-    const search = this.main.querySelector("#pantheonSearch");
+    if (this.drawerOpen) this.wireDrawer(this.main.querySelector("#compendiumDrawer"));
+    const search = this.main.querySelector("#compendiumSearch");
     let searchTimer;
     search.oninput = () => {
       this.updateSuggestions();

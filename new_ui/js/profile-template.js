@@ -269,7 +269,7 @@ function substituteProfileTemplate(html, p, own) {
       : `<button class="gl-follow${p.following ? " following" : ""}" type="button" data-feature="follows">${p.following ? `&#10003; ${t("profile_following", "Following")}` : `&#43; ${t("profile_follow_creator", "Follow this creator")}`}</button>`),
     "{{display_name}}": _esc(p.display_name || p.username || ""),
     "{{bio}}": _esc(p.bio || ""),
-    "{{rank}}": (p.title_status === "approved" && p.title) ? _esc(p.title) : (p.is_admin ? (p.role === "dev" ? t("artisans_dev") : t("artisans_admin")) : ""),
+    "{{rank}}": (p.title_status === "approved" && p.title) ? _esc(p.title) : (p.is_admin ? (p.role === "dev" ? t("creators_dev") : t("creators_admin")) : ""),
     "{{title}}": _esc(p.title_status === "approved" ? (p.title || "") : ""),
     "{{avatar_url}}": _esc(p.avatar || ""),
     "{{banner_url}}": _esc(p.banner_img || ""),

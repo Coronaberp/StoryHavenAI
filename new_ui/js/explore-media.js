@@ -172,7 +172,7 @@ class ExploreMediaView {
     try {
       this.images = await api("/api/imagegen/community");
     } catch (err) {
-      this.error = err.message || t("pinacotheca_load_error");
+      this.error = err.message || t("gallery_load_error");
       this.images = [];
     }
     this.loading = false;
@@ -193,7 +193,7 @@ class ExploreMediaView {
 
   frameHtml(img) {
     const blur = img.is_explicit && !ME?.nsfw_allowed;
-    const creatorName = img.owner_display_name || img.owner_username || t("pinacotheca_you_fallback");
+    const creatorName = img.owner_display_name || img.owner_username || t("gallery_you_fallback");
     const profile = this.creatorProfiles[img.owner_username];
     const avatarSrc = profile?.avatar || img.owner_avatar;
     const avatarInner = avatarSrc
@@ -223,10 +223,10 @@ class ExploreMediaView {
   tagsRowHtml(tags, kind) {
     const list = (tags || "").split(",").map((x) => x.trim()).filter(Boolean);
     if (!list.length) return "";
-    const label = kind === "pos" ? t("pinacotheca_positive_tags") : t("pinacotheca_negative_tags");
+    const label = kind === "pos" ? t("gallery_positive_tags") : t("gallery_negative_tags");
     return `
       <div data-tags="${_esc(tags)}">
-        <div class="ig-tags-label">${label} <span class="ig-tags-copy" data-act="copy-tags">${t("pinacotheca_copy")}</span></div>
+        <div class="ig-tags-label">${label} <span class="ig-tags-copy" data-act="copy-tags">${t("gallery_copy")}</span></div>
         <div class="ig-tags-wrap">${list.map((tg) => `<span class="ig-tag ${kind === "pos" ? "ig-tag-pos" : "ig-tag-neg"}">${_esc(tg)}</span>`).join("")}</div>
       </div>
     `;
@@ -234,16 +234,16 @@ class ExploreMediaView {
 
   placardHtml(img) {
     const rows = img.media_type === "video" ? [
-      [t("pinacotheca_duration"), img.fps ? `${(img.frame_count / img.fps).toFixed(1)}s` : null],
-      [t("pinacotheca_frame_rate"), img.fps ? `${img.fps} fps` : null],
+      [t("gallery_duration"), img.fps ? `${(img.frame_count / img.fps).toFixed(1)}s` : null],
+      [t("gallery_frame_rate"), img.fps ? `${img.fps} fps` : null],
     ].filter(([, v]) => v) : [
-      [t("pinacotheca_model"), _checkpointDisplayName(img.checkpoint), "data-checkpoint-value"],
-      [t("pinacotheca_type"), img.is_img2img ? "img2img" : "txt2img"],
-      [t("pinacotheca_sampler"), img.sampler],
-      [t("pinacotheca_scheduler"), img.scheduler],
-      [t("pinacotheca_steps"), img.steps],
-      [t("pinacotheca_cfg"), img.cfg],
-      [t("pinacotheca_upscaled"), img.upscaler],
+      [t("gallery_model"), _checkpointDisplayName(img.checkpoint), "data-checkpoint-value"],
+      [t("gallery_type"), img.is_img2img ? "img2img" : "txt2img"],
+      [t("gallery_sampler"), img.sampler],
+      [t("gallery_scheduler"), img.scheduler],
+      [t("gallery_steps"), img.steps],
+      [t("gallery_cfg"), img.cfg],
+      [t("gallery_upscaled"), img.upscaler],
     ].filter(([, v]) => v);
     if (!rows.length) return "";
     return `
@@ -255,7 +255,7 @@ class ExploreMediaView {
 
   detailHtml(img, { hideShare = false, context = null } = {}) {
     const isOwn = ME && img.user_id === ME.id;
-    const owner = img.owner_display_name || img.owner_username || t("pinacotheca_unknown_creator");
+    const owner = img.owner_display_name || img.owner_username || t("gallery_unknown_creator");
     const when = img.created ? new Date(img.created * 1000).toLocaleString() : "";
     const censored = img.is_explicit && !ME?.nsfw_allowed;
     return `
@@ -265,37 +265,37 @@ class ExploreMediaView {
             ${mediaTagHtml(img, { style: censored ? "filter:blur(24px) saturate(60%)" : "", controls: img.media_type === "video" })}
             ${censored ? `
               <button type="button" class="ig-reveal-btn" data-act="reveal">
-                <span>${t("pinacotheca_nsfw_label")}</span>
-                <span class="ig-reveal-sub">${t("pinacotheca_tap_to_view")}</span>
+                <span>${t("gallery_nsfw_label")}</span>
+                <span class="ig-reveal-sub">${t("gallery_tap_to_view")}</span>
               </button>
             ` : ""}
           </div>
           <div class="ig-detail-icons">
             ${ME ? `
-            <button type="button" class="ig-icon-btn" data-act="like" data-tooltip="${_attr(t("pinacotheca_like"))}" aria-label="${_attr(t("pinacotheca_like"))}" style="color:${img.liked_by_me ? "var(--color-accent)" : ""}">
+            <button type="button" class="ig-icon-btn" data-act="like" data-tooltip="${_attr(t("gallery_like"))}" aria-label="${_attr(t("gallery_like"))}" style="color:${img.liked_by_me ? "var(--color-accent)" : ""}">
               <svg viewBox="0 0 24 24" fill="${img.liked_by_me ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
               ${img.like_count ? `<span style="font-size:11px;margin-left:3px">${img.like_count}</span>` : ""}
             </button>
             ` : ""}
-            <button type="button" class="ig-icon-btn" data-act="download" data-tooltip="${_attr(t("pinacotheca_download"))}" aria-label="${_attr(t("pinacotheca_download"))}">
+            <button type="button" class="ig-icon-btn" data-act="download" data-tooltip="${_attr(t("gallery_download"))}" aria-label="${_attr(t("gallery_download"))}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             </button>
             ${hideShare ? "" : `
-            <button type="button" class="ig-icon-btn" data-act="share" data-tooltip="${_attr(t("pinacotheca_copy_link"))}" aria-label="${_attr(t("pinacotheca_copy_link"))}">
+            <button type="button" class="ig-icon-btn" data-act="share" data-tooltip="${_attr(t("gallery_copy_link"))}" aria-label="${_attr(t("gallery_copy_link"))}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
             </button>
             `}
             ${img.media_type === "video" ? "" : (context === "forge" ? `
-              <button type="button" class="ig-icon-btn" data-act="use-reference" data-tooltip="${_attr(t("pinacotheca_use_as_reference_image"))}" aria-label="${_attr(t("pinacotheca_use_as_reference_image"))}">
+              <button type="button" class="ig-icon-btn" data-act="use-reference" data-tooltip="${_attr(t("gallery_use_as_reference_image"))}" aria-label="${_attr(t("gallery_use_as_reference_image"))}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M15 9l-9.5 9.5a1.5 1.5 0 0 1-2.1-2.1L13 6.9M17.8 6.2L19 5"/></svg>
               </button>
             ` : ME ? `
-              <button type="button" class="ig-icon-btn" data-act="studio" data-tooltip="${_attr(t("pinacotheca_send_to_studio"))}" aria-label="${_attr(t("pinacotheca_send_to_studio"))}">
+              <button type="button" class="ig-icon-btn" data-act="studio" data-tooltip="${_attr(t("gallery_send_to_studio"))}" aria-label="${_attr(t("gallery_send_to_studio"))}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M15 9l-9.5 9.5a1.5 1.5 0 0 1-2.1-2.1L13 6.9M17.8 6.2L19 5"/></svg>
               </button>
             ` : "")}
             ${context !== "forge" && ME && ME.id === img.user_id ? `
-              <button type="button" class="ig-icon-btn danger" data-act="delete" data-tooltip="${_attr(t("pinacotheca_delete"))}" aria-label="${_attr(t("pinacotheca_delete"))}">
+              <button type="button" class="ig-icon-btn danger" data-act="delete" data-tooltip="${_attr(t("gallery_delete"))}" aria-label="${_attr(t("gallery_delete"))}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
               </button>
             ` : ""}
@@ -312,9 +312,9 @@ class ExploreMediaView {
           </div>
           `}
           <div class="ig-rating-row">
-            <span class="ig-rating-badge ${img.is_explicit ? "nsfw" : "sfw"}">${img.is_explicit ? t("pinacotheca_nsfw_label") : t("pinacotheca_sfw_label")}</span>
-            <span class="ig-rating-text">${t("pinacotheca_rated_prefix")} ${img.is_explicit ? t("pinacotheca_nsfw_label") : t("pinacotheca_sfw_label")} (${img.human_reviewed ? t("pinacotheca_human_verified") : t("pinacotheca_ai_rated_not_human_verified")})</span>
-            ${ME ? `<span class="ig-rating-report" data-act="report">${t("pinacotheca_lodge_a_report")}</span>` : ""}
+            <span class="ig-rating-badge ${img.is_explicit ? "nsfw" : "sfw"}">${img.is_explicit ? t("gallery_nsfw_label") : t("gallery_sfw_label")}</span>
+            <span class="ig-rating-text">${t("gallery_rated_prefix")} ${img.is_explicit ? t("gallery_nsfw_label") : t("gallery_sfw_label")} (${img.human_reviewed ? t("gallery_human_verified") : t("gallery_ai_rated_not_human_verified")})</span>
+            ${ME ? `<span class="ig-rating-report" data-act="report">${t("gallery_lodge_a_report")}</span>` : ""}
           </div>
           ${this.tagsRowHtml(img.positive, "pos")}
           ${this.tagsRowHtml(img.negative, "neg")}
@@ -322,7 +322,7 @@ class ExploreMediaView {
         </div>
       </div>
       <div class="ig-comments-full">
-        <div class="font-mono" style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-muted)">${t("pinacotheca_comments_label")} ${commentCountSpanHtml(this._commentsUidFor(img))}</div>
+        <div class="font-mono" style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-muted)">${t("gallery_comments_label")} ${commentCountSpanHtml(this._commentsUidFor(img))}</div>
         <div id="pinCommentMount_${_attr(this._commentsUidFor(img))}"></div>
       </div>
     `;
@@ -371,7 +371,7 @@ class ExploreMediaView {
       if (forge.referenceImage !== before) {
         closeTopModal();
         closeTopModal();
-        toast(t("pinacotheca_set_as_reference_image"));
+        toast(t("gallery_set_as_reference_image"));
       }
     });
     container.querySelector("[data-owner]")?.addEventListener("click", () => {
@@ -383,15 +383,15 @@ class ExploreMediaView {
         const tags = btn.closest("[data-tags]").dataset.tags;
         if (navigator.clipboard?.writeText) {
           navigator.clipboard.writeText(tags)
-            .then(() => toast(t("pinacotheca_tags_copied")))
+            .then(() => toast(t("gallery_tags_copied")))
             .catch(() => {
-              if (copyTextFallback(tags)) toast(t("pinacotheca_tags_copied"));
-              else errorToast(t("pinacotheca_copy_tags_failed"));
+              if (copyTextFallback(tags)) toast(t("gallery_tags_copied"));
+              else errorToast(t("gallery_copy_tags_failed"));
             });
           return;
         }
-        if (copyTextFallback(tags)) toast(t("pinacotheca_tags_copied"));
-        else errorToast(t("pinacotheca_copy_tags_failed"));
+        if (copyTextFallback(tags)) toast(t("gallery_tags_copied"));
+        else errorToast(t("gallery_copy_tags_failed"));
       };
     });
     container.querySelector("[data-act='like']")?.addEventListener("click", (e) => this.toggleLike(img, e.currentTarget));
@@ -433,7 +433,7 @@ class ExploreMediaView {
     } catch (err) {
       img.liked_by_me = wasLiked;
       img.like_count = previousCount;
-      errorToast(err.message || t("pinacotheca_couldnt_update_like"));
+      errorToast(err.message || t("gallery_couldnt_update_like"));
     }
     this._renderLikeButton(btn, img);
   }
@@ -449,7 +449,7 @@ class ExploreMediaView {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     } catch (err) {
-      toast(t("pinacotheca_download_failed_prefix") + (err.message || t("pinacotheca_unknown_error")));
+      toast(t("gallery_download_failed_prefix") + (err.message || t("gallery_unknown_error")));
     }
   }
 
@@ -459,34 +459,34 @@ class ExploreMediaView {
   }
 
   async deleteImage(img) {
-    if (!(await confirmDialog(t("pinacotheca_delete_image_confirm")))) return;
+    if (!(await confirmDialog(t("gallery_delete_image_confirm")))) return;
     try {
       await api(`/api/imagegen/standalone/${encodeURIComponent(img.id)}`, { method: "DELETE" });
       closeTopModal();
       this.images = this.images.filter((i) => i.id !== img.id);
       this.render();
-      toast(t("pinacotheca_image_deleted"));
+      toast(t("gallery_image_deleted"));
     } catch (err) {
-      toast(err.message || t("pinacotheca_delete_image_error"));
+      toast(err.message || t("gallery_delete_image_error"));
     }
   }
 
   openStudioModal(img) {
     openModal(`
       <div style="display:flex;flex-direction:column;gap:10px;max-width:420px">
-        <div class="font-display" style="font-size:16px;font-weight:600;color:var(--color-ink)">${t("pinacotheca_send_to_generate")}</div>
+        <div class="font-display" style="font-size:16px;font-weight:600;color:var(--color-ink)">${t("gallery_send_to_generate")}</div>
         <button type="button" class="tool" data-studio-use="inpaint"
           style="text-align:left;border:1px solid var(--color-line-2);border-radius:8px;padding:10px 12px;color:var(--color-ink)">
-          <div style="font-weight:600;font-size:13.5px">${t("pinacotheca_use_for_inpainting")}</div>
-          <div style="font-size:11.5px;color:var(--color-sec);margin-top:2px">${t("pinacotheca_use_for_inpainting_desc")}</div>
+          <div style="font-weight:600;font-size:13.5px">${t("gallery_use_for_inpainting")}</div>
+          <div style="font-size:11.5px;color:var(--color-sec);margin-top:2px">${t("gallery_use_for_inpainting_desc")}</div>
         </button>
         <button type="button" class="tool" data-studio-use="image"
           style="text-align:left;border:1px solid var(--color-line-2);border-radius:8px;padding:10px 12px;color:var(--color-ink)">
-          <div style="font-weight:600;font-size:13.5px">${t("pinacotheca_use_as_reference")}</div>
-          <div style="font-size:11.5px;color:var(--color-sec);margin-top:2px">${t("pinacotheca_use_as_reference_desc")}</div>
+          <div style="font-weight:600;font-size:13.5px">${t("gallery_use_as_reference")}</div>
+          <div style="font-size:11.5px;color:var(--color-sec);margin-top:2px">${t("gallery_use_as_reference_desc")}</div>
         </button>
         <div style="display:flex;justify-content:flex-end">
-          <button type="button" id="pinStudioCancel" class="tool" style="border:1px solid var(--color-line-2);border-radius:8px;padding:7px 14px">${t("pinacotheca_close")}</button>
+          <button type="button" id="pinStudioCancel" class="tool" style="border:1px solid var(--color-line-2);border-radius:8px;padding:7px 14px">${t("gallery_close")}</button>
         </div>
       </div>
     `);
@@ -505,14 +505,14 @@ class ExploreMediaView {
   openReportModal(img) {
     openModal(`
       <div style="display:flex;flex-direction:column;gap:10px;max-width:420px">
-        <div class="font-display" style="font-size:16px;font-weight:600;color:var(--color-ink)">${t("pinacotheca_lodge_a_report")}</div>
-        <p style="font-size:12.5px;color:var(--color-sec)">${t("pinacotheca_report_desc")}</p>
-        <textarea id="pinReportNote" rows="3" placeholder="${_attr(t("pinacotheca_optional_note_placeholder"))}"
+        <div class="font-display" style="font-size:16px;font-weight:600;color:var(--color-ink)">${t("gallery_lodge_a_report")}</div>
+        <p style="font-size:12.5px;color:var(--color-sec)">${t("gallery_report_desc")}</p>
+        <textarea id="pinReportNote" rows="3" placeholder="${_attr(t("gallery_optional_note_placeholder"))}"
           style="padding:10px 12px;border-radius:8px;border:1px solid var(--color-line-2);background:var(--color-surface);color:var(--color-ink);font-size:13px;resize:vertical"></textarea>
         <div style="display:flex;justify-content:flex-end;gap:8px">
-          <button type="button" id="pinReportCancel" class="tool" style="border:1px solid var(--color-line-2);border-radius:8px;padding:7px 14px">${t("pinacotheca_cancel")}</button>
-          <button type="button" id="pinReportSfw" class="tool" style="border:1px solid var(--color-line-2);border-radius:8px;padding:7px 14px">${t("pinacotheca_report_as_sfw")}</button>
-          <button type="button" id="pinReportNsfw" class="tool" style="border:1px solid var(--color-warn);border-radius:8px;padding:7px 14px;color:var(--color-warn)">${t("pinacotheca_report_as_nsfw")}</button>
+          <button type="button" id="pinReportCancel" class="tool" style="border:1px solid var(--color-line-2);border-radius:8px;padding:7px 14px">${t("gallery_cancel")}</button>
+          <button type="button" id="pinReportSfw" class="tool" style="border:1px solid var(--color-line-2);border-radius:8px;padding:7px 14px">${t("gallery_report_as_sfw")}</button>
+          <button type="button" id="pinReportNsfw" class="tool" style="border:1px solid var(--color-warn);border-radius:8px;padding:7px 14px;color:var(--color-warn)">${t("gallery_report_as_nsfw")}</button>
         </div>
       </div>
     `);
@@ -526,9 +526,9 @@ class ExploreMediaView {
           body: JSON.stringify({ claimed_explicit: claimed, note }),
         });
         closeTopModal();
-        toast(t("pinacotheca_report_sent"));
+        toast(t("gallery_report_sent"));
       } catch (err) {
-        toast(err.message || t("pinacotheca_report_send_error"));
+        toast(err.message || t("gallery_report_send_error"));
       }
     };
     layer.querySelector("#pinReportSfw").onclick = () => submit(false);
@@ -552,13 +552,13 @@ class ExploreMediaView {
           ${this.creatorFilters.map((c) => `
             <span class="inline-pill pill-creator">@${_esc(c)}<span class="x" data-remove-creator="${_esc(c)}">&times;</span></span>
           `).join("")}
-          <input type="text" id="pinSearch" value="${_esc(this.q)}" placeholder="${this.creatorFilters.length ? "" : _attr(t("pinacotheca_search_placeholder"))}"
+          <input type="text" id="pinSearch" value="${_esc(this.q)}" placeholder="${this.creatorFilters.length ? "" : _attr(t("gallery_search_placeholder"))}"
             style="flex:1;min-width:70px;border:none;background:none;outline:none;color:var(--color-ink);font-size:13.5px;padding:4px 0">
           <div id="pinSuggest" class="dropdown-menu" style="left:0;right:0;top:calc(100% + 4px)"></div>
         </div>
-        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("pinacotheca_loading")}</p>` : ""}
+        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("gallery_loading")}</p>` : ""}
         ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${_esc(this.error)}</p>` : ""}
-        ${!this.loading && !this.error && !visible.length ? `<p style="color:var(--color-sec);font-size:13px">${this.images.length ? t("pinacotheca_no_search_matches") : t("pinacotheca_no_images_shared")}</p>` : ""}
+        ${!this.loading && !this.error && !visible.length ? `<p style="color:var(--color-sec);font-size:13px">${this.images.length ? t("gallery_no_search_matches") : t("gallery_no_images_shared")}</p>` : ""}
         ${!this.loading && visible.length ? `<div class="pin-wall">${visible.map((img) => this.frameHtml(img)).join("")}</div>` : ""}
       </div>
     `;
@@ -627,9 +627,9 @@ class ExploreMediaView {
     this.main = main;
     main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:14px;max-width:640px;margin:0 auto;padding:16px">
-        <div class="font-mono" style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent)">${t("pinacotheca_media_gallery")}</div>
+        <div class="font-mono" style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-accent)">${t("gallery_media_gallery")}</div>
         ${this.detailHtml(img)}
-        ${!ME ? `<a href="/login" onclick="event.preventDefault();navigate('/login')" class="sym-cta" style="text-decoration:none;justify-content:center">${t("pinacotheca_sign_in_to_engage")}</a>` : ""}
+        ${!ME ? `<a href="/login" onclick="event.preventDefault();navigate('/login')" class="sym-cta" style="text-decoration:none;justify-content:center">${t("gallery_sign_in_to_engage")}</a>` : ""}
       </div>
     `;
     this.wireDetail(main, img);

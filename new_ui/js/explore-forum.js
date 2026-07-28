@@ -2,7 +2,7 @@
 
 const FORUM_PAGE_SIZE = 20;
 
-function symposiumMd(text) {
+function forumMd(text) {
   try {
     const div = document.createElement("div");
     div.innerHTML = DOMPurify.sanitize(marked.parse(String(text || ""), { gfm: true, breaks: true }));
@@ -19,7 +19,7 @@ function timeAgo(ts) {
     const n = Math.floor(seconds / secs);
     if (n >= 1) return `${n}${label} ago`;
   }
-  return t("symposium_time_just_now");
+  return t("forum_time_just_now");
 }
 
 const SYM_HOT_THRESHOLD = 5;
@@ -106,7 +106,7 @@ class ExploreForumView {
         this.categories = [...new Set(this.threads.map((t) => t.category).filter(Boolean))];
       }
     } catch (err) {
-      this.error = err.message || t("symposium_load_error");
+      this.error = err.message || t("forum_load_error");
       this.threads = [];
     }
     this.loading = false;
@@ -127,7 +127,7 @@ class ExploreForumView {
       th.score += prevVote - nextVote;
       th.my_vote = prevVote;
       this.paintVote(container, th);
-      toast(err.message || t("symposium_vote_update_error"));
+      toast(err.message || t("forum_vote_update_error"));
     }
   }
 
@@ -143,11 +143,11 @@ class ExploreForumView {
   voteBlockHtml(th) {
     return `
       <div class="sym-votes">
-        <button type="button" class="sym-vote-btn${th.my_vote === 1 ? " on" : ""}" data-vote-up="${_esc(th.id)}" aria-label="${_attr(t("symposium_upvote_aria"))}">
+        <button type="button" class="sym-vote-btn${th.my_vote === 1 ? " on" : ""}" data-vote-up="${_esc(th.id)}" aria-label="${_attr(t("forum_upvote_aria"))}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5l7 8h-4.5v6h-5v-6H5z"/></svg>
         </button>
         <span class="sym-vote-score" data-score="${_esc(th.id)}">${th.score}</span>
-        <button type="button" class="sym-vote-btn${th.my_vote === -1 ? " on down" : ""}" data-vote-down="${_esc(th.id)}" aria-label="${_attr(t("symposium_downvote_aria"))}">
+        <button type="button" class="sym-vote-btn${th.my_vote === -1 ? " on down" : ""}" data-vote-down="${_esc(th.id)}" aria-label="${_attr(t("forum_downvote_aria"))}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l-7-8h4.5V5h5v6H19z"/></svg>
         </button>
       </div>
@@ -162,7 +162,7 @@ class ExploreForumView {
         <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:5px">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             ${th.category ? `<span class="sym-tag">${_esc(th.category)}</span>` : ""}
-            ${hot ? `<span class="sym-hot">▲ ${t("symposium_hot_badge")}</span>` : ""}
+            ${hot ? `<span class="sym-hot">▲ ${t("forum_hot_badge")}</span>` : ""}
           </div>
           <div class="sym-row-title">${_esc(th.title)}</div>
           <div class="sym-meta" style="display:flex;align-items:center;gap:5px">
@@ -182,16 +182,16 @@ class ExploreForumView {
   newThreadModalHtml() {
     return `
       <div style="display:flex;flex-direction:column;gap:10px;max-width:480px">
-        <div class="font-display" style="font-size:17px;font-weight:600;color:var(--color-ink)">${t("symposium_new_thread")}</div>
-        <input id="symTitle" type="text" placeholder="${_attr(t("symposium_title_placeholder"))}" maxlength="200"
+        <div class="font-display" style="font-size:17px;font-weight:600;color:var(--color-ink)">${t("forum_new_thread")}</div>
+        <input id="symTitle" type="text" placeholder="${_attr(t("forum_title_placeholder"))}" maxlength="200"
           style="padding:10px 12px;border-radius:8px;border:1px solid var(--color-line-2);background:var(--color-surface);color:var(--color-ink);font-size:13.5px">
-        <input id="symCategory" type="text" placeholder="${_attr(t("symposium_category_optional_placeholder"))}" maxlength="40"
+        <input id="symCategory" type="text" placeholder="${_attr(t("forum_category_optional_placeholder"))}" maxlength="40"
           style="padding:10px 12px;border-radius:8px;border:1px solid var(--color-line-2);background:var(--color-surface);color:var(--color-ink);font-size:13.5px">
-        <textarea id="symBody" placeholder="${_attr(t("symposium_body_placeholder"))}" rows="6" maxlength="10000"
+        <textarea id="symBody" placeholder="${_attr(t("forum_body_placeholder"))}" rows="6" maxlength="10000"
           style="padding:10px 12px;border-radius:8px;border:1px solid var(--color-line-2);background:var(--color-surface);color:var(--color-ink);font-size:13.5px;resize:vertical"></textarea>
         <div style="display:flex;justify-content:flex-end;gap:8px">
-          <button type="button" id="symCancel" class="tool" style="border:1px solid var(--color-line-2);border-radius:8px;padding:7px 14px">${t("symposium_cancel")}</button>
-          <button type="button" id="symPost" class="tool" data-feature="forum" style="border:1px solid var(--color-accent);border-radius:8px;padding:7px 14px;background:var(--color-accent);color:var(--color-paper-base,#0C0C0E);font-weight:600">${t("symposium_post")}</button>
+          <button type="button" id="symCancel" class="tool" style="border:1px solid var(--color-line-2);border-radius:8px;padding:7px 14px">${t("forum_cancel")}</button>
+          <button type="button" id="symPost" class="tool" data-feature="forum" style="border:1px solid var(--color-accent);border-radius:8px;padding:7px 14px;background:var(--color-accent);color:var(--color-paper-base,#0C0C0E);font-weight:600">${t("forum_post")}</button>
         </div>
       </div>
     `;
@@ -204,7 +204,7 @@ class ExploreForumView {
       const title = document.getElementById("symTitle").value.trim();
       const category = document.getElementById("symCategory").value.trim();
       const content = document.getElementById("symBody").value.trim();
-      if (!title || !content) { toast(t("symposium_title_body_required")); return; }
+      if (!title || !content) { toast(t("forum_title_body_required")); return; }
       const postBtn = document.getElementById("symPost");
       if (postBtn.disabled) return;
       postBtn.disabled = true;
@@ -216,7 +216,7 @@ class ExploreForumView {
         closeTopModal();
         navigate(`/explore/forum/${th.id}`);
       } catch (err) {
-        toast(err.message || t("symposium_post_thread_error"));
+        toast(err.message || t("forum_post_thread_error"));
       } finally {
         postBtn.disabled = false;
       }
@@ -231,28 +231,28 @@ class ExploreForumView {
         ${ME ? `
           <button type="button" id="symNewBtn" class="sym-cta">
             <span class="sym-cta-icon">+</span>
-            <span>${t("symposium_start_a_discussion")}</span>
+            <span>${t("forum_start_a_discussion")}</span>
           </button>
         ` : ""}
         <div id="symSearchBox" style="position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface)">
           ${this.authorFilters.map((a) => `
             <span class="inline-pill pill-creator">@${_esc(a)}<span class="x" data-remove-author="${_esc(a)}">&times;</span></span>
           `).join("")}
-          <input type="text" id="symSearch" value="${_esc(this.q)}" placeholder="${this.authorFilters.length ? "" : _attr(t("symposium_search_placeholder"))}"
+          <input type="text" id="symSearch" value="${_esc(this.q)}" placeholder="${this.authorFilters.length ? "" : _attr(t("forum_search_placeholder"))}"
             style="flex:1;min-width:70px;border:none;background:none;outline:none;color:var(--color-ink);font-size:13.5px;padding:4px 0">
           <div id="symSuggest" class="dropdown-menu" style="left:0;right:0;top:calc(100% + 4px)"></div>
         </div>
         <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">
-          <button type="button" class="filter-chip${this.category === "" ? " on" : ""}" data-category="">${t("symposium_all")}</button>
+          <button type="button" class="filter-chip${this.category === "" ? " on" : ""}" data-category="">${t("forum_all")}</button>
           ${this.categories.map((c) => `<button type="button" class="filter-chip${this.category === c ? " on" : ""}" data-category="${_esc(c)}">${_esc(c)}</button>`).join("")}
         </div>
         <div style="display:flex;gap:6px">
-          <button type="button" data-sort="new" class="tool" style="border:1px solid var(--color-line-2);border-radius:999px;padding:5px 12px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;${this.sort === "new" ? "background:var(--color-accent);color:var(--color-paper-base,#0C0C0E);border-color:var(--color-accent)" : "color:var(--color-sec)"}">${t("symposium_sort_new")}</button>
-          <button type="button" data-sort="top" class="tool" style="border:1px solid var(--color-line-2);border-radius:999px;padding:5px 12px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;${this.sort === "top" ? "background:var(--color-accent);color:var(--color-paper-base,#0C0C0E);border-color:var(--color-accent)" : "color:var(--color-sec)"}">${t("symposium_sort_top")}</button>
+          <button type="button" data-sort="new" class="tool" style="border:1px solid var(--color-line-2);border-radius:999px;padding:5px 12px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;${this.sort === "new" ? "background:var(--color-accent);color:var(--color-paper-base,#0C0C0E);border-color:var(--color-accent)" : "color:var(--color-sec)"}">${t("forum_sort_new")}</button>
+          <button type="button" data-sort="top" class="tool" style="border:1px solid var(--color-line-2);border-radius:999px;padding:5px 12px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;${this.sort === "top" ? "background:var(--color-accent);color:var(--color-paper-base,#0C0C0E);border-color:var(--color-accent)" : "color:var(--color-sec)"}">${t("forum_sort_top")}</button>
         </div>
-        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("symposium_loading")}</p>` : ""}
+        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("forum_loading")}</p>` : ""}
         ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${_esc(this.error)}</p>` : ""}
-        ${!this.loading && !this.error && !visible.length ? `<p style="color:var(--color-sec);font-size:13px">${this.threads.length ? t("symposium_no_search_matches") : t("symposium_no_threads_yet")}</p>` : ""}
+        ${!this.loading && !this.error && !visible.length ? `<p style="color:var(--color-sec);font-size:13px">${this.threads.length ? t("forum_no_search_matches") : t("forum_no_threads_yet")}</p>` : ""}
         <div style="display:flex;flex-direction:column;gap:10px">${visible.map((th) => this.rowHtml(th)).join("")}</div>
         ${paginationHtml("forum-threads", { rows: visible, page: this.page, pages: Math.max(1, Math.ceil(this.totalThreads / FORUM_PAGE_SIZE)), total: this.totalThreads, start: (this.page - 1) * FORUM_PAGE_SIZE, pageSize: FORUM_PAGE_SIZE })}
       </div>
@@ -361,7 +361,7 @@ class ExploreForumThreadView {
     try {
       this.thread = await api(`/api/forum/threads/${encodeURIComponent(this.tid)}`);
     } catch (err) {
-      this.error = err.message || t("symposium_thread_not_found");
+      this.error = err.message || t("forum_thread_not_found");
       this.render();
       return;
     }
@@ -394,7 +394,7 @@ class ExploreForumThreadView {
       const replyMeta = this.main.querySelector("#symReplyCount");
       if (replyMeta) replyMeta.textContent = `${this.thread.reply_count} ${this.thread.reply_count === 1 ? "reply" : "replies"}`;
     } catch (err) {
-      toast(err.message || t("symposium_load_replies_error"));
+      toast(err.message || t("forum_load_replies_error"));
       this.commentsPanel.comments = [];
     }
     this.repliesLoading = false;
@@ -416,18 +416,18 @@ class ExploreForumThreadView {
       th.score += prevVote - nextVote;
       th.my_vote = prevVote;
       this.render();
-      toast(err.message || t("symposium_vote_update_error"));
+      toast(err.message || t("forum_vote_update_error"));
     }
   }
 
   deleteThread() {
     const layer = openModal(`
       <div style="padding:4px 2px 2px">
-        <h3 class="font-display" style="font-size:16px;font-weight:600;color:var(--color-ink);margin:0 0 6px">${t("symposium_delete_thread_confirm_title")}</h3>
-        <p style="font-size:13px;color:var(--color-sec);margin:0 0 18px">${t("symposium_cannot_be_undone")}</p>
+        <h3 class="font-display" style="font-size:16px;font-weight:600;color:var(--color-ink);margin:0 0 6px">${t("forum_delete_thread_confirm_title")}</h3>
+        <p style="font-size:13px;color:var(--color-sec);margin:0 0 18px">${t("forum_cannot_be_undone")}</p>
         <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button type="button" class="pe-gen-btn" id="symCancelDel" style="border-color:var(--color-line-2);color:var(--color-sec)">${t("symposium_keep_it")}</button>
-          <button type="button" class="pe-gen-btn" id="symConfirmDel" style="border-color:var(--color-warn);color:var(--color-warn)">${t("symposium_delete")}</button>
+          <button type="button" class="pe-gen-btn" id="symCancelDel" style="border-color:var(--color-line-2);color:var(--color-sec)">${t("forum_keep_it")}</button>
+          <button type="button" class="pe-gen-btn" id="symConfirmDel" style="border-color:var(--color-warn);color:var(--color-warn)">${t("forum_delete")}</button>
         </div>
       </div>
     `);
@@ -438,7 +438,7 @@ class ExploreForumThreadView {
         await api(`/api/forum/threads/${encodeURIComponent(this.tid)}`, { method: "DELETE" });
         navigate("/explore/forum");
       } catch (err) {
-        toast(err.message || t("symposium_delete_thread_error"));
+        toast(err.message || t("forum_delete_thread_error"));
       }
     };
   }
@@ -457,7 +457,7 @@ class ExploreForumThreadView {
       this.main.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:14px">
           ${pageHeaderHtml("Explore", "Forum", t("ph_forum_title"), "")}
-          <p style="color:var(--color-sec);font-size:13px">${t("symposium_loading")}</p>
+          <p style="color:var(--color-sec);font-size:13px">${t("forum_loading")}</p>
         </div>
       `;
       return;
@@ -467,27 +467,27 @@ class ExploreForumThreadView {
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:14px">
         <a href="/explore/forum" onclick="event.preventDefault();navigate('/explore/forum')"
-          class="font-mono" style="font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent);cursor:pointer">${dirMark("&larr;", "&rarr;")} ${t("symposium_forum_breadcrumb")}</a>
+          class="font-mono" style="font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--color-accent);cursor:pointer">${dirMark("&larr;", "&rarr;")} ${t("forum_breadcrumb")}</a>
         ${th.category ? `<span class="sym-tag">${_esc(th.category)}</span>` : ""}
         <h1 class="font-display" style="font-size:24px;font-weight:700;color:var(--color-ink)">${_esc(th.title)}</h1>
-        <div class="sym-meta">${t("symposium_by_prefix")} ${_esc(th.author_display_name || th.author_username)} · ${timeAgo(th.created)}</div>
-        <div class="sym-body" style="font-size:14px;line-height:1.6;color:var(--color-ink)">${symposiumMd(th.content)}</div>
+        <div class="sym-meta">${t("forum_by_prefix")} ${_esc(th.author_display_name || th.author_username)} · ${timeAgo(th.created)}</div>
+        <div class="sym-body" style="font-size:14px;line-height:1.6;color:var(--color-ink)">${forumMd(th.content)}</div>
         <div style="display:flex;gap:10px;align-items:center;padding-top:6px;border-top:1px solid var(--color-line)">
           <div class="sym-votes" style="flex-direction:row">
-            <button type="button" id="symVoteUp" class="sym-vote-btn${th.my_vote === 1 ? " on" : ""}" aria-label="${_attr(t("symposium_upvote_aria"))}">
+            <button type="button" id="symVoteUp" class="sym-vote-btn${th.my_vote === 1 ? " on" : ""}" aria-label="${_attr(t("forum_upvote_aria"))}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5l7 8h-4.5v6h-5v-6H5z"/></svg>
             </button>
             <span class="sym-vote-score" id="symVoteScore">${th.score}</span>
-            <button type="button" id="symVoteDown" class="sym-vote-btn${th.my_vote === -1 ? " on down" : ""}" aria-label="${_attr(t("symposium_downvote_aria"))}">
+            <button type="button" id="symVoteDown" class="sym-vote-btn${th.my_vote === -1 ? " on down" : ""}" aria-label="${_attr(t("forum_downvote_aria"))}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l-7-8h4.5V5h5v6H19z"/></svg>
             </button>
           </div>
           <span class="sym-meta" id="symReplyCount">${th.reply_count} ${th.reply_count === 1 ? "reply" : "replies"}</span>
-          ${canDelete ? `<button type="button" id="symDeleteBtn" class="tool" style="margin-left:auto;border:1px solid var(--color-warn);border-radius:999px;padding:6px 12px;font-size:13px;color:var(--color-warn)">${t("symposium_delete")}</button>` : ""}
+          ${canDelete ? `<button type="button" id="symDeleteBtn" class="tool" style="margin-left:auto;border:1px solid var(--color-warn);border-radius:999px;padding:6px 12px;font-size:13px;color:var(--color-warn)">${t("forum_delete")}</button>` : ""}
         </div>
         <div style="display:flex;flex-direction:column;gap:12px;padding-top:8px">
-          <div class="font-mono" style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-muted)">${t("symposium_replies_label")}</div>
-          ${this.repliesLoading ? `<p style="color:var(--color-sec);font-size:13px">${t("symposium_loading_replies")}</p>` : ""}
+          <div class="font-mono" style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-muted)">${t("forum_replies_label")}</div>
+          ${this.repliesLoading ? `<p style="color:var(--color-sec);font-size:13px">${t("forum_loading_replies")}</p>` : ""}
           <div id="symReplyMount"></div>
         </div>
       </div>

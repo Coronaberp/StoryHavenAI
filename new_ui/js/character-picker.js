@@ -62,9 +62,9 @@ function openCharacterPickerModal(onPick, opts = {}) {
       ${ownershipChip("all", t("masks_link_character_filter_all", "All"))}
       ${ownershipChip("mine", t("masks_link_character_mine", "Yours"))}
       ${ownershipChip("explore", t("masks_link_character_explore", "Explore"))}
-      ${modeChip("all", t("pantheon_filter_all", "All modes"))}
-      ${modeChip("character", t("pantheon_filter_character", "Character"))}
-      ${modeChip("rpg", t("pantheon_filter_rpg", "RPG"))}
+      ${modeChip("all", t("compendium_filter_all", "All modes"))}
+      ${modeChip("character", t("compendium_filter_character", "Character"))}
+      ${modeChip("rpg", t("compendium_filter_rpg", "RPG"))}
     `;
     drawer.querySelectorAll("[data-cp-ownership]").forEach((b) => b.onclick = () => {
       state.ownership = b.dataset.cpOwnership;

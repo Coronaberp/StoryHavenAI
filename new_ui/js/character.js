@@ -367,7 +367,7 @@ class CharacterView {
           ${(e.keys || []).length ? `<div style="display:flex;flex-wrap:wrap;gap:6px">${e.keys.map((k) => `<span class="sym-tag">${_esc(k)}</span>`).join("")}</div>` : ""}
           <div class="ig-tags-label">${t("char_content_label")}</div>
           <div class="sym-body" style="font-size:13.5px;line-height:1.6;${hiddenFromViewer ? "font-style:italic;color:var(--color-muted)" : ""}">
-            ${hiddenFromViewer ? t("char_entry_hidden_by_creator") : symposiumMd(e.content || "")}
+            ${hiddenFromViewer ? t("char_entry_hidden_by_creator") : forumMd(e.content || "")}
           </div>
           <div class="${e.image ? "lore-modal-bools-inline" : ""}" style="border-top:1px solid var(--color-line)">${boolsHtml}</div>
         </div>
@@ -414,7 +414,7 @@ class CharacterView {
 
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column">
-        <div class="char-hero artisan-hero-bleed" style="margin-bottom:0">
+        <div class="char-hero creator-hero-bleed" style="margin-bottom:0">
           <div style="position:relative;height:190px;overflow:hidden;${bannerArt}">
             <div style="position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;align-items:center;z-index:2">
               <button type="button" id="charBack" class="ig-icon-btn" aria-label="${t("char_back")}">

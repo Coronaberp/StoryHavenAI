@@ -38,7 +38,7 @@ function socialLinksHtml(links) {
   `;
 }
 
-class ArtisanProfileView {
+class CreatorProfileView {
   constructor() {
     this.profile = null;
     this.chars = [];
@@ -65,7 +65,7 @@ class ArtisanProfileView {
       this.profile = await api(`/api/users/${encodeURIComponent(this.username)}`);
       this.chars = this.profile.characters || [];
     } catch (err) {
-      this.error = err.message || "Couldn't find that artisan.";
+      this.error = err.message || "Couldn't find that creator.";
     }
     this.loading = false;
     this.render();
@@ -136,23 +136,23 @@ class ArtisanProfileView {
         ${this.loading ? `<p style="color:var(--color-sec);font-size:13px;padding:0 16px">Consulting the archive…</p>` : ""}
         ${this.error ? `<p style="color:var(--color-warn);font-size:13px;padding:0 16px">${this.error}</p>` : ""}
         ${p ? `
-          <div class="artisan-card" style="margin:-16px -16px 4px;border-radius:0;border-left:none;border-right:none;border-top:none">
-            <div class="artisan-banner" style="${banner};border-radius:0"></div>
-            <span class="artisan-ring" style="background:${ring}">
-              <span class="artisan-ring-inner">${avatarInner}</span>
+          <div class="creator-card" style="margin:-16px -16px 4px;border-radius:0;border-left:none;border-right:none;border-top:none">
+            <div class="creator-banner" style="${banner};border-radius:0"></div>
+            <span class="creator-ring" style="background:${ring}">
+              <span class="creator-ring-inner">${avatarInner}</span>
             </span>
-            <button type="button" onclick="event.stopPropagation();this.closest('.artisan-card').__view.shareProfile()"
+            <button type="button" onclick="event.stopPropagation();this.closest('.creator-card').__view.shareProfile()"
               style="position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:999px;display:grid;place-items:center;background:rgba(10,10,12,.55);border:1px solid rgba(255,255,255,.25);color:#fff">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
             </button>
-            <div class="artisan-body">
+            <div class="creator-body">
               <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
-                <div class="artisan-name">${p.display_name || p.username}</div>
+                <div class="creator-name">${p.display_name || p.username}</div>
                 ${badge}
               </div>
-              <div class="artisan-handle">@${p.username}</div>
-              ${p.bio ? `<p class="artisan-bio">${p.bio}</p>` : ""}
-              <div class="artisan-stats" style="display:flex;gap:14px;flex-wrap:wrap">
+              <div class="creator-handle">@${p.username}</div>
+              ${p.bio ? `<p class="creator-bio">${p.bio}</p>` : ""}
+              <div class="creator-stats" style="display:flex;gap:14px;flex-wrap:wrap">
                 <span><b>${charCount}</b> ${charLabel}</span>
                 <span><b>${chatCount}</b> ${chatLabel}</span>
                 ${joined ? `<span>Joined ${joined}</span>` : ""}
@@ -169,7 +169,7 @@ class ArtisanProfileView {
                     Edit Profile
                   </button>
                 ` : `
-                  <button type="button" onclick="event.stopPropagation();this.closest('.artisan-card').__view.toggleBlock()" class="filter-chip" style="display:inline-flex;align-items:center;gap:5px">
+                  <button type="button" onclick="event.stopPropagation();this.closest('.creator-card').__view.toggleBlock()" class="filter-chip" style="display:inline-flex;align-items:center;gap:5px">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.5 5.5l13 13"/></svg>
                     ${p.blocked_by_viewer ? "Unblock" : "Block"}
                   </button>
@@ -186,11 +186,11 @@ class ArtisanProfileView {
         ` : ""}
       </div>
     `;
-    const card = this.main.querySelector(".artisan-card");
+    const card = this.main.querySelector(".creator-card");
     if (card) card.__view = this;
   }
 }
 
 if (typeof window !== "undefined") {
-  window.ArtisanProfileView = ArtisanProfileView;
+  window.CreatorProfileView = CreatorProfileView;
 }

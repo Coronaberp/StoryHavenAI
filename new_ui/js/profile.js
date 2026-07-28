@@ -66,7 +66,7 @@ class ProfileView {
       this.profile = await api(`/api/users/${encodeURIComponent(this.username)}`);
       this.chars = this.profile.characters || [];
     } catch (err) {
-      this.error = err.message || t("artisans_couldnt_find_that_artisan");
+      this.error = err.message || t("creators_couldnt_find_that_creator");
     }
     this.loading = false;
     this.render();
@@ -101,20 +101,20 @@ class ProfileView {
     try {
       if (p.blocked_by_viewer) {
         await api(`/api/users/${encodeURIComponent(p.username)}/unblock`, { method: "POST" });
-        toast(t("artisans_unblocked"));
+        toast(t("creators_unblocked"));
       } else {
-        if (!(await confirmDialog(t("artisans_confirm_block_user"), { confirmLabel: t("artisans_block"), danger: false }))) return;
+        if (!(await confirmDialog(t("creators_confirm_block_user"), { confirmLabel: t("creators_block"), danger: false }))) return;
         await api(`/api/users/${encodeURIComponent(p.username)}/block`, { method: "POST", body: JSON.stringify({ reason: "" }) });
-        toast(t("artisans_blocked"));
+        toast(t("creators_blocked"));
       }
       await this.load();
     } catch (err) {
-      errorToast(err.message || t("artisans_couldnt_update_block_status"));
+      errorToast(err.message || t("creators_couldnt_update_block_status"));
     }
   }
 
   renderCustom(p, own) {
-    this.main.innerHTML = `<div id="pfCustom" class="artisan-hero-bleed" style="margin-left:-16px;margin-right:-16px;margin-bottom:-16px"></div>`;
+    this.main.innerHTML = `<div id="pfCustom" class="creator-hero-bleed" style="margin-left:-16px;margin-right:-16px;margin-bottom:-16px"></div>`;
     mountSandboxedHTML(this.main.querySelector("#pfCustom"), substituteProfileTemplate(p.profile_html, p, own), {
       onReady: (doc) => {
         wireProfileShareButton(doc);
@@ -146,83 +146,83 @@ class ProfileView {
       ? `<img src="${_attr(p.avatar)}" alt="">`
       : `<span>${_esc((p?.display_name || this.username || "?")[0]?.toUpperCase() || "?")}</span>`;
     const charCount = p?.stats?.characters ?? 0;
-    const charLabel = charCount === 1 ? t("artisans_character_singular") : t("artisans_character_plural");
+    const charLabel = charCount === 1 ? t("creators_character_singular") : t("creators_character_plural");
     const chatCount = p?.stats?.chats ?? 0;
-    const chatLabel = chatCount === 1 ? t("artisans_chat_singular") : t("artisans_chat_plural");
+    const chatLabel = chatCount === 1 ? t("creators_chat_singular") : t("creators_chat_plural");
     const joined = p?.joined ? new Date(p.joined * 1000).toLocaleDateString() : "";
     const badge = p?.title_status === "approved" && p?.title
       ? `<span style="font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));border:1px solid var(--color-accent);color:var(--color-accent)">${_esc(p.title)}</span>`
       : p?.is_admin
-        ? `<span style="font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));border:1px solid var(--color-accent);color:var(--color-accent)">${p.role === "dev" ? t("artisans_dev") : t("artisans_admin")}</span>`
+        ? `<span style="font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));border:1px solid var(--color-accent);color:var(--color-accent)">${p.role === "dev" ? t("creators_dev") : t("creators_admin")}</span>`
         : "";
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:16px">
-        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px;padding:0 16px">${t("artisans_consulting_archive")}</p>` : ""}
+        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px;padding:0 16px">${t("creators_consulting_archive")}</p>` : ""}
         ${this.error ? `<p style="color:var(--color-warn);font-size:13px;padding:0 16px">${_esc(this.error)}</p>` : ""}
         ${p ? `
-          <div class="artisan-card artisan-hero-bleed" style="border-radius:0;border-left:none;border-right:none;border-top:none">
-            <div class="artisan-banner" style="${banner};border-radius:0"></div>
-            <span class="artisan-ring" style="background:${ring}">
-              <span class="artisan-ring-inner">${avatarInner}</span>
+          <div class="creator-card creator-hero-bleed" style="border-radius:0;border-left:none;border-right:none;border-top:none">
+            <div class="creator-banner" style="${banner};border-radius:0"></div>
+            <span class="creator-ring" style="background:${ring}">
+              <span class="creator-ring-inner">${avatarInner}</span>
             </span>
-            <button type="button" onclick="event.stopPropagation();this.closest('.artisan-card').__view.shareProfile()"
+            <button type="button" onclick="event.stopPropagation();this.closest('.creator-card').__view.shareProfile()"
               style="position:absolute;top:10px;right:10px;width:36px;height:36px;border-radius:999px;display:grid;place-items:center;background:rgba(10,10,12,.55);border:1px solid rgba(255,255,255,.25);color:#fff">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v13"/></svg>
             </button>
-            <div class="artisan-body">
+            <div class="creator-body">
               <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
-                <div class="artisan-name">${_esc(p.display_name || p.username)}</div>
+                <div class="creator-name">${_esc(p.display_name || p.username)}</div>
                 ${badge}
               </div>
-              <div class="artisan-handle">@${_esc(p.username)}</div>
-              ${p.bio ? `<p class="artisan-bio">${_esc(p.bio)}</p>` : ""}
-              <div class="artisan-stats" style="display:flex;gap:14px;flex-wrap:wrap">
+              <div class="creator-handle">@${_esc(p.username)}</div>
+              ${p.bio ? `<p class="creator-bio">${_esc(p.bio)}</p>` : ""}
+              <div class="creator-stats" style="display:flex;gap:14px;flex-wrap:wrap">
                 <span><b>${charCount}</b> ${charLabel}</span>
                 <span><b>${chatCount}</b> ${chatLabel}</span>
-                ${joined ? `<span>${t("artisans_joined")} ${joined}</span>` : ""}
+                ${joined ? `<span>${t("creators_joined")} ${joined}</span>` : ""}
               </div>
               ${socialLinksHtml(p.social_links)}
               <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
                 <button type="button" onclick="event.stopPropagation();openCommentsModal('user','${_attr(p.username)}')" class="filter-chip" style="display:inline-flex;align-items:center;gap:5px">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v11H9l-4 4V4z"/></svg>
-                  ${t("artisans_comments")}
+                  ${t("creators_comments")}
                 </button>
                 ${own ? `
                   <button type="button" onclick="event.stopPropagation();openFollowersModal('${_attr(p.username)}')" class="filter-chip" style="display:inline-flex;align-items:center;gap:5px">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     <b>${p.follower_count || 0}</b> ${t("profile_followers", "Followers")}
                   </button>
-                  <button type="button" onclick="event.stopPropagation();const v=this.closest('.artisan-card').__view;openProfileEditor(v.profile, () => v.load())" class="filter-chip" style="display:inline-flex;align-items:center;gap:5px">
+                  <button type="button" onclick="event.stopPropagation();const v=this.closest('.creator-card').__view;openProfileEditor(v.profile, () => v.load())" class="filter-chip" style="display:inline-flex;align-items:center;gap:5px">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 0 1 4 4L7 21l-4 1 1-4z"/></svg>
-                    ${t("artisans_edit_profile")}
+                    ${t("creators_edit_profile")}
                   </button>
                   <button type="button" onclick="event.stopPropagation();openGroupCreate()" class="filter-chip" style="display:inline-flex;align-items:center;gap:5px">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     ${t("group_create_button", "New group")}
                   </button>
                 ` : ME ? `
-                  <button type="button" onclick="event.stopPropagation();this.closest('.artisan-card').__view.toggleFollow(this)" data-feature="follows" class="filter-chip${p.following ? " on" : ""}" style="display:inline-flex;align-items:center;gap:5px">
+                  <button type="button" onclick="event.stopPropagation();this.closest('.creator-card').__view.toggleFollow(this)" data-feature="follows" class="filter-chip${p.following ? " on" : ""}" style="display:inline-flex;align-items:center;gap:5px">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${p.following ? '<path d="M20 6 9 17l-5-5"/>' : '<path d="M12 5v14M5 12h14"/>'}</svg>
                     <span data-follow-label>${p.following ? t("profile_following", "Following") : t("profile_follow_creator", "Follow this creator")}</span>
                   </button>
-                  <button type="button" onclick="event.stopPropagation();this.closest('.artisan-card').__view.toggleBlock()" class="filter-chip" style="display:inline-flex;align-items:center;gap:5px">
+                  <button type="button" onclick="event.stopPropagation();this.closest('.creator-card').__view.toggleBlock()" class="filter-chip" style="display:inline-flex;align-items:center;gap:5px">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M5.5 5.5l13 13"/></svg>
-                    ${p.blocked_by_viewer ? t("artisans_unblock") : t("artisans_block")}
+                    ${p.blocked_by_viewer ? t("creators_unblock") : t("creators_block")}
                   </button>
                 ` : ""}
               </div>
             </div>
           </div>
           <div>
-            <div class="font-mono" style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-muted);margin-bottom:8px">${t("artisans_characters")}</div>
+            <div class="font-mono" style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-muted);margin-bottom:8px">${t("creators_characters")}</div>
             ${this.chars.length
               ? `<div class="card-grid">${this.chars.map((c) => characterCardHtml(c, p)).join("")}</div>`
-              : `<p style="color:var(--color-sec);font-size:13px">${t("artisans_no_public_characters_yet")}</p>`}
+              : `<p style="color:var(--color-sec);font-size:13px">${t("creators_no_public_characters_yet")}</p>`}
           </div>
         ` : ""}
       </div>
     `;
-    const card = this.main.querySelector(".artisan-card");
+    const card = this.main.querySelector(".creator-card");
     if (card) card.__view = this;
     wireCharCardDominantColors(this.main);
   }

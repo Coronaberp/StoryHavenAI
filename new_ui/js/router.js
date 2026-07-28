@@ -400,7 +400,7 @@ function ensurePublicHeaderContent() {
       <svg viewBox="0 0 500 500" class="h-7 w-7 shrink-0"><g>${SH_LOGO_PATHS}</g></svg>
       <span class="flex flex-col leading-tight" style="min-width:0">
         <span class="font-display text-sm font-semibold tracking-wide truncate">StoryHaven AI</span>
-        <span class="text-[10px] italic text-muted truncate">${t("pantheon_tagline")}</span>
+        <span class="text-[10px] italic text-muted truncate">${t("compendium_tagline")}</span>
       </span>
     </a>
     <div class="flex items-center gap-2" style="flex:none">
@@ -408,9 +408,9 @@ function ensurePublicHeaderContent() {
         <svg class="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2.5M12 19v2.5M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M2.5 12H5M19 12h2.5M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>
         <svg class="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
       </button>
-      <a href="/login" onclick="event.preventDefault();navigate('/login')" aria-label="${_attr(t("pantheon_sign_in_register"))}" class="pe-gen-btn" style="text-decoration:none;white-space:nowrap">
+      <a href="/login" onclick="event.preventDefault();navigate('/login')" aria-label="${_attr(t("compendium_sign_in_register"))}" class="pe-gen-btn" style="text-decoration:none;white-space:nowrap">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-        <span class="hidden md:inline">${t("pantheon_sign_in_register")}</span>
+        <span class="hidden md:inline">${t("compendium_sign_in_register")}</span>
       </a>
     </div>`;
 }

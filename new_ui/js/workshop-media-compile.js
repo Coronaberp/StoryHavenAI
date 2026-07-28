@@ -36,7 +36,7 @@ class WorkshopMediaCompilePanel {
 
   async openSourcePicker(kind) {
     const endpoint = kind === "creations" ? "/api/imagegen/standalone" : "/api/imagegen/community";
-    const title = kind === "creations" ? t("forge_from_my_creations_label") : t("forge_pinacotheca_label");
+    const title = kind === "creations" ? t("forge_from_my_creations_label") : t("forge_gallery_label");
     const layer = openModal(`<h3>${_esc(title)}</h3><div id="compilePickerGrid" style="margin-top:10px"><p style="font-size:13px;color:var(--color-sec)">${t("forge_loading_label")}</p></div>`, { wide: true });
     let records;
     try {
@@ -219,7 +219,7 @@ class WorkshopMediaCompilePanel {
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
           <button type="button" class="filter-chip" id="compileUploadBtn">${t("forge_upload_images_button")}</button>
           <button type="button" class="filter-chip" onclick="_activeForgeView.compile.openSourcePicker('creations')">${t("forge_from_my_creations_label")}</button>
-          <button type="button" class="filter-chip" onclick="_activeForgeView.compile.openSourcePicker('community')">${t("forge_pinacotheca_label")}</button>
+          <button type="button" class="filter-chip" onclick="_activeForgeView.compile.openSourcePicker('community')">${t("forge_gallery_label")}</button>
           <input type="file" id="compileFileInput" accept="image/*" multiple hidden>
         </div>
         ${this.items.length ? `

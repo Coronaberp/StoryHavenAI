@@ -14,7 +14,7 @@ async function syncMe() {
 function quickSearch() {
   navigate("/explore/characters");
   const main = document.getElementById("main");
-  const focusSearch = () => document.getElementById("pantheonSearch")?.focus();
+  const focusSearch = () => document.getElementById("compendiumSearch")?.focus();
   focusSearch();
   if (!main) return;
   const observer = new MutationObserver(focusSearch);
@@ -109,7 +109,7 @@ function applyAvatarRing() {
   });
   document.querySelectorAll("[data-dossier-role]").forEach((el) => {
     if (ME?.role && ME.role !== "member" && ME.role !== "guest") {
-      el.textContent = ME.role === "dev" ? t("artisans_dev") : t("artisans_admin");
+      el.textContent = ME.role === "dev" ? t("creators_dev") : t("creators_admin");
       el.hidden = false;
     } else {
       el.hidden = true;
