@@ -262,8 +262,8 @@ function substituteProfileTemplate(html, p, own) {
     "{{share}}": `<a class="gl-share" href="${_esc(shareUrl)}" data-share-url="${_esc(shareUrl)}">&#8663; ${t("profile_share")}</a>`,
     "{{edit}}": own ? `<a class="gl-edit" href="/u/${_esc(encodeURIComponent(p.username || ""))}" onclick="return false">&#9998; ${t("profile_edit_profile")}</a>` : "",
     "{{comments}}": `<button class="gl-comments" type="button">&#128172; ${t("profile_comments")}</button>`,
-    "{{block}}": (!own) ? `<button class="gl-block" type="button">${p.blocked_by_viewer ? t("profile_unblock") : `&#128683; ${t("profile_block")}`}</button>` : "",
-    "{{report}}": (!own) ? `<button class="gl-report" type="button">&#9873; ${t("profile_report")}</button>` : "",
+    "{{block}}": (!ME || own) ? "" : `<button class="gl-block" type="button">${p.blocked_by_viewer ? t("profile_unblock") : `&#128683; ${t("profile_block")}`}</button>`,
+    "{{report}}": (!ME || own) ? "" : `<button class="gl-report" type="button">&#9873; ${t("profile_report")}</button>`,
     "{{follow}}": !ME ? "" : (own
       ? `<button class="gl-followers" type="button">&#128101; ${p.follower_count || 0} ${t("profile_followers", "Followers")}</button>`
       : `<button class="gl-follow${p.following ? " following" : ""}" type="button" data-feature="follows">${p.following ? `&#10003; ${t("profile_following", "Following")}` : `&#43; ${t("profile_follow_creator", "Follow this creator")}`}</button>`),
