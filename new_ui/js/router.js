@@ -155,7 +155,7 @@ const routes = {
 };
 const UNAUTHENTICATED_ROUTE_NAMES = ["login", "register", "onboard", "wait"];
 const CHROMELESS_ROUTES = new Set(UNAUTHENTICATED_ROUTE_NAMES);
-const PUBLIC_ROUTES = new Set([...UNAUTHENTICATED_ROUTE_NAMES, "shared-image", "character", "creator-profile", "explore/characters", "group"]);
+const PUBLIC_ROUTES = new Set([...UNAUTHENTICATED_ROUTE_NAMES, "shared-image", "character", "creator-profile", "explore/characters", "explore/forum", "explore/media", "explore/creators", "group"]);
 const NAV_ROUTES = ["explore", "chats", "workshop", "dossier"];
 const SUBTAB_ROUTE_KEYS = new Set(["explore/characters", "explore/creators", "explore/media", "explore/forum"]);
 const SUBTAB_FOR_ROUTE = {
@@ -468,7 +468,7 @@ function route() {
   _preserveScrollOnRerender(main);
   if (CHROMELESS_ROUTES.has(routeName)) hideChrome(main);
   else if ((!ME && routeName === "shared-image") || routeName === "chats/show" || routeName === "character-new-chat") hideNavOnly(main);
-  else if (!ME && (routeName === "creator-profile" || routeName === "explore/characters" || routeName === "character" || routeName === "group")) hideNavKeepPadding(main);
+  else if (!ME && (routeName === "creator-profile" || routeName === "explore/characters" || routeName === "explore/forum" || routeName === "explore/media" || routeName === "explore/creators" || routeName === "character" || routeName === "group")) hideNavKeepPadding(main);
   else restoreChrome(main);
   const parts = location.pathname.split("/").filter(Boolean);
   if (routes[routeName]) routes[routeName](main);
