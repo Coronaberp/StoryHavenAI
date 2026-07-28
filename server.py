@@ -599,9 +599,9 @@ _FONT_BODY = os.path.join(STATIC_DIR, "fonts", "Inter.ttf")
 _OG_GOLD = (227, 189, 108)
 _OG_MUTED = (183, 176, 160)
 _OG_PAPER = (12, 12, 14)
-_OG_CHAT_BLUE = (108, 178, 227)
-_OG_CHAT_BLUE_HEX = "6cb2e3"
-_OG_CHAT_BG = (16, 21, 32)
+_OG_CHAT_BLUE = (226, 73, 61)
+_OG_CHAT_BLUE_HEX = "e2493d"
+_OG_CHAT_BG = (24, 15, 14)
 
 def _og_hex_rgb(value, fallback):
     text = (value or "").strip().lstrip("#")
