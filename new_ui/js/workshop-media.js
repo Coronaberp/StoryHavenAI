@@ -508,11 +508,7 @@ class WorkshopMediaView {
   async openGalleryPicker(source) {
     const layer = openModal(`
       <h3>${source === "mine" ? t("forge_from_my_creations_label") : t("forge_community_heading")}</h3>
-      <div id="forgeGallerySearchBox" style="position:relative;margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface)" hidden>
-        <input type="text" id="forgeGallerySearch" placeholder="${t("forge_search_by_prompt_placeholder")}"
-          style="flex:1;min-width:70px;border:none;background:none;outline:none;color:var(--color-ink);font-size:13.5px;padding:4px 0">
-        <div id="forgeGallerySuggest" class="dropdown-menu" style="left:0;right:0;top:calc(100% + 4px)"></div>
-      </div>
+      <div id="forgeGallerySearchBox" style="margin-top:10px" hidden></div>
       <div id="forgeGalleryGrid" style="margin-top:10px"><p style="font-size:13px;color:var(--color-sec)">${t("forge_loading_label")}</p></div>
     `, { wide: true });
     const endpoint = source === "mine" ? "/api/imagegen/standalone" : "/api/imagegen/community";
@@ -530,70 +526,23 @@ class WorkshopMediaView {
     const state = { q: "", creatorFilters: [] };
     const box = layer.querySelector("#forgeGallerySearchBox");
     box.hidden = false;
-    const searchInput = layer.querySelector("#forgeGallerySearch");
-    const renderPills = () => {
-      box.querySelectorAll(".inline-pill").forEach((p) => p.remove());
-      state.creatorFilters.forEach((c) => {
-        const pill = document.createElement("span");
-        pill.className = "inline-pill pill-creator";
-        pill.innerHTML = `@${_esc(c)}<span class="x" data-remove-gallery-creator="${_attr(c)}">&times;</span>`;
-        box.insertBefore(pill, searchInput);
-      });
-      box.querySelectorAll("[data-remove-gallery-creator]").forEach((x) => {
-        x.onclick = (e) => {
-          e.stopPropagation();
-          state.creatorFilters = state.creatorFilters.filter((c) => c !== x.dataset.removeGalleryCreator);
-          renderPills();
-          this.renderGalleryGrid(layer, images, state);
-        };
-      });
-    };
-    const updateSuggest = () => {
-      const suggest = layer.querySelector("#forgeGallerySuggest");
-      const val = searchInput.value;
-      if (source === "mine" || !val.startsWith("@")) { suggest.classList.remove("open"); suggest.innerHTML = ""; return; }
-      const q = val.slice(1).toLowerCase();
-      const allCreators = [...new Set(images.map((i) => i.owner_username).filter(Boolean))].sort();
-      const matches = allCreators.filter((c) => !state.creatorFilters.includes(c) && c.toLowerCase().includes(q)).slice(0, 8);
-      if (!matches.length) { suggest.classList.remove("open"); suggest.innerHTML = ""; return; }
-      suggest.innerHTML = matches.map((c) => `<button type="button" class="dropdown-item" data-pick-gallery-creator="${_attr(c)}">@${_esc(c)}</button>`).join("");
-      suggest.classList.add("open");
-      suggest.querySelectorAll("[data-pick-gallery-creator]").forEach((btn) => btn.onclick = () => {
-        state.creatorFilters = [...state.creatorFilters, btn.dataset.pickGalleryCreator];
-        searchInput.value = "";
-        suggest.classList.remove("open");
-        renderPills();
+    const tokens = source === "mine" ? [] : [
+      {
+        prefix: "@", param: "creator",
+        suggest: (q) => [...new Set(images.map((i) => i.owner_username).filter(Boolean))].sort().filter((n) => n.toLowerCase().includes(q)),
+      },
+    ];
+    new SearchBox({
+      container: box,
+      mode: "client",
+      tokens,
+      placeholder: t("forge_search_by_prompt_placeholder"),
+      onChange: (query, tokenValues) => {
+        state.q = query.trim();
+        state.creatorFilters = tokenValues.creator || [];
         this.renderGalleryGrid(layer, images, state);
-      });
-    };
-    let searchTimer;
-    searchInput.oninput = () => {
-      updateSuggest();
-      if (searchInput.value.startsWith("@")) return;
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => {
-        state.q = searchInput.value.trim();
-        this.renderGalleryGrid(layer, images, state);
-      }, 250);
-    };
-    searchInput.onkeydown = (e) => {
-      if (e.key === "Backspace" && searchInput.value === "" && state.creatorFilters.length) {
-        e.preventDefault();
-        state.creatorFilters = state.creatorFilters.slice(0, -1);
-        renderPills();
-        this.renderGalleryGrid(layer, images, state);
-        return;
-      }
-      if (e.key !== "Enter" || source === "mine") return;
-      const val = searchInput.value.trim();
-      if (val.startsWith("@") && val.length > 1) {
-        state.creatorFilters = [...state.creatorFilters, val.slice(1)];
-        searchInput.value = "";
-        state.q = "";
-        renderPills();
-        this.renderGalleryGrid(layer, images, state);
-      }
-    };
+      },
+    });
     this.renderGalleryGrid(layer, images, state);
   }
 
