@@ -74,6 +74,26 @@ async def test_run_blanks_leaked_ciphertext(monkeypatch, db_conn):
     done = next(e for e in events if e["type"] == "done")
     assert "enc:" not in done["message"]["content"]
 
+async def test_run_trims_narration_trailing_a_sanctioned_ooc_reply(monkeypatch, db_conn):
+    sid, char = await _make_session()
+    ooc_query = f"({chat_service.DIRECTOR_SIGIL}:[ooc] can we tone down the pacing?)"
+    monkeypatch.setattr(llm, "chat_stream", _fake_chat_stream(
+        "(OOC: sure, I'll slow it down) Meanwhile, the door creaks open and a shadow falls across the room."))
+    await chat_service._run(sid, user_content=ooc_query, current_user={"id": "owner-1"})
+    events = await _drain(sid)
+    done = next(e for e in events if e["type"] == "done")
+    assert done["message"]["content"] == "(OOC: sure, I'll slow it down)"
+
+async def test_run_keeps_nested_parens_inside_a_sanctioned_ooc_reply(monkeypatch, db_conn):
+    sid, char = await _make_session()
+    ooc_query = f"({chat_service.DIRECTOR_SIGIL}:[ooc] thoughts?)"
+    monkeypatch.setattr(llm, "chat_stream", _fake_chat_stream(
+        "(OOC: sure (though let's watch the pacing)) and then the door creaks open."))
+    await chat_service._run(sid, user_content=ooc_query, current_user={"id": "owner-1"})
+    events = await _drain(sid)
+    done = next(e for e in events if e["type"] == "done")
+    assert done["message"]["content"] == "(OOC: sure (though let's watch the pacing))"
+
 async def test_run_regenerate_adds_swipe_not_new_message(monkeypatch, db_conn):
     sid, char = await _make_session()
     monkeypatch.setattr(llm, "chat_stream", _fake_chat_stream("First reply."))

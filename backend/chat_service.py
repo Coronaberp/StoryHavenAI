@@ -33,6 +33,17 @@ def _eff_cfg(user_overrides: dict) -> dict:
     return {**CFG, **{k: v for k, v in user_overrides.items()
                       if k in USER_CFG_KEYS and v is not None}}
 
+def find_matching_paren_end(text: str) -> int | None:
+    depth = 0
+    for i, ch in enumerate(text):
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return i
+    return None
+
 def _persona_switch_note(msgs: list[dict], char_name: str) -> str | None:
     user_turns = [m for m in msgs if m["role"] == "user"]
     if len(user_turns) < 2:
@@ -976,6 +987,15 @@ async def _run_turn(s, participant_rows, is_multiplayer, eff, ep, chat_model, us
             log.info("chat: model omitted OOC wrapper on a sanctioned OOC reply, wrapping it in software: "
                      "session=%s char=%s", sid, char["id"])
             reply = f"(OOC:\n{reply.strip()})"
+        elif reply and sanctioned_ooc:
+            ooc_end = find_matching_paren_end(reply.lstrip())
+            if ooc_end is not None:
+                leading_ws = len(reply) - len(reply.lstrip())
+                trailing = reply[leading_ws + ooc_end + 1:].strip()
+                if trailing:
+                    log.info("chat: trimmed in-character narration trailing a sanctioned OOC reply: "
+                             "session=%s char=%s", sid, char["id"])
+                    reply = reply[:leading_ws + ooc_end + 1]
         if reply and "enc:" in reply:
             log.warning("ciphertext-leak-guard: blanked 'enc:' value leaking from chat stream session=%s", sid)
             reply = reply.replace("enc:", "")
