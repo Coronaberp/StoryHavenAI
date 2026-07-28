@@ -1,14 +1,5 @@
 "use strict";
 
-function _shuffleSample(arr, n) {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy.slice(0, n);
-}
-
 function _compendiumTier() {
   const w = window.innerWidth;
   if (w >= 1536) return "ultrawide";
@@ -25,14 +16,45 @@ const _COMPENDIUM_LIMITS = {
   threads: { mobile: 3, tablet: 4, desktop: 6, ultrawide: 9 },
 };
 
+const _KIND_ICONS = {
+  character: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c1-4.5 3.5-6.5 7-6.5s6 2 7 6.5"/></svg>',
+  group: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  thread: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v10H9l-4 3.5V15H4z"/></svg>',
+  image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
+  creator: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+};
+
+function _kindIconHtml(kind) {
+  return `<span class="foryou-kind-icon">${_KIND_ICONS[kind]}</span>`;
+}
+
+function _feedCardHtml(item, charCreatorProfiles) {
+  if (item._kind === "character") return `<div style="position:relative">${_kindIconHtml("character")}${characterCardHtml(item, charCreatorProfiles[item.owner_username])}</div>`;
+  if (item._kind === "group") return `<div style="position:relative">${_kindIconHtml("group")}${groupTileHtml(item)}</div>`;
+  if (item._kind === "thread") return `<div style="position:relative">${_kindIconHtml("thread")}${threadCardHtml(item)}</div>`;
+  if (item._kind === "image") return `<div style="position:relative">${_kindIconHtml("image")}${mediaFrameHtml(item, charCreatorProfiles)}</div>`;
+  return `<div style="position:relative">${_kindIconHtml("creator")}${feedCreatorCardHtml(item)}</div>`;
+}
+
+function _roundRobinMerge(queues) {
+  const merged = [];
+  let more = true;
+  let i = 0;
+  while (more) {
+    more = false;
+    for (const q of queues) {
+      if (i < q.length) { merged.push(q[i]); more = true; }
+    }
+    i++;
+  }
+  return merged;
+}
+
 class ExploreView {
   constructor() {
-    this.forYou = null;
-    this.featured = null;
-    this.creators = null;
-    this.images = null;
-    this.threads = null;
+    this.feedKind = "foryou";
     this.charCreatorProfiles = {};
+    this.feed = null;
     this._resizeTimer = null;
     this._onResize = () => {
       if (!this.main?.isConnected) { window.removeEventListener("resize", this._onResize); return; }
@@ -51,35 +73,48 @@ class ExploreView {
       api("/api/imagegen/community").catch(() => []),
       api("/api/forum/threads?sort=top").catch(() => []),
     ]);
-    const forYouItems = (forYouResult.items || []).filter((c) => c.kind !== "group" && !c.is_explicit);
-    const featuredItems = (featuredResult.items || []).filter((c) => c.kind !== "group" && !c.is_explicit);
-    this._forYouAll = forYouResult.personalized
-      ? forYouItems.slice(0, _COMPENDIUM_LIMITS.forYou.ultrawide)
-      : _shuffleSample(forYouItems, _COMPENDIUM_LIMITS.forYou.ultrawide);
-    this._featuredAll = featuredItems.slice(0, _COMPENDIUM_LIMITS.featured.ultrawide);
-    this._creatorsAll = _shuffleSample(creators, _COMPENDIUM_LIMITS.creators.ultrawide);
-    this._imagesAll = _shuffleSample(images.filter((i) => !i.is_explicit), _COMPENDIUM_LIMITS.images.ultrawide);
-    this._threadsAll = threads.slice(0, _COMPENDIUM_LIMITS.threads.ultrawide);
-    this.applyTierLimits();
+    const forYouItems = (forYouResult.items || []).map((c) => ({ ...c, _kind: c.kind === "group" ? "group" : "character" }));
+    const featuredItems = (featuredResult.items || []).map((c) => ({ ...c, _kind: c.kind === "group" ? "group" : "character" }));
+    const creatorItems = creators.map((a) => ({ ...a, _kind: "creator" }));
+    const imageItems = images.map((i) => ({ ...i, _kind: "image" }));
+    const threadItems = threads.map((th) => ({ ...th, _kind: "thread" }));
+
+    this._forYouChars = forYouItems.slice(0, _COMPENDIUM_LIMITS.forYou.ultrawide);
+    this._featuredChars = featuredItems.slice(0, _COMPENDIUM_LIMITS.featured.ultrawide);
+    this._creators = creatorItems.slice(0, _COMPENDIUM_LIMITS.creators.ultrawide);
+    this._images = imageItems.slice(0, _COMPENDIUM_LIMITS.images.ultrawide);
+    this._threads = threadItems.slice(0, _COMPENDIUM_LIMITS.threads.ultrawide);
+
+    this.buildFeeds();
     this.render();
     this.loadCharCreatorProfiles();
     window.addEventListener("resize", this._onResize);
   }
 
-  applyTierLimits() {
+  buildFeeds() {
+    this._forYouFeed = _roundRobinMerge([this._forYouChars, this._threads, this._creators, this._images]);
+    this._trendingFeed = _roundRobinMerge([this._featuredChars, this._threads, this._creators, this._images]);
+    this.applyTierLimit();
+  }
+
+  applyTierLimit() {
     const tier = _compendiumTier();
-    this.forYou = this._forYouAll.slice(0, _COMPENDIUM_LIMITS.forYou[tier]);
-    this.featured = this._featuredAll.slice(0, _COMPENDIUM_LIMITS.featured[tier]);
-    this.creators = this._creatorsAll.slice(0, _COMPENDIUM_LIMITS.creators[tier]);
-    this.images = this._imagesAll.slice(0, _COMPENDIUM_LIMITS.images[tier]);
-    this.threads = this._threadsAll.slice(0, _COMPENDIUM_LIMITS.threads[tier]);
+    const caps = { mobile: 12, tablet: 18, desktop: 24, ultrawide: 36 };
+    const source = this.feedKind === "trending" ? this._trendingFeed : this._forYouFeed;
+    this.feed = (source || []).slice(0, caps[tier]);
+  }
+
+  setFeedKind(kind) {
+    this.feedKind = kind;
+    this.applyTierLimit();
+    this.render();
   }
 
   async loadCharCreatorProfiles() {
     const usernames = [...new Set([
-      ...this.forYou.map((c) => c.owner_username),
-      ...this.featured.map((c) => c.owner_username),
-      ...this.images.map((i) => i.owner_username),
+      ...this._forYouChars.map((c) => c.owner_username),
+      ...this._featuredChars.map((c) => c.owner_username),
+      ...this._images.map((i) => i.owner_username),
     ].filter(Boolean))];
     if (!usernames.length) return;
     const fetched = await Promise.all(usernames.map(async (u) => {
@@ -90,124 +125,25 @@ class ExploreView {
     this.render();
   }
 
-  sectionHtml(title, seeAllRoute, bodyHtml, loaded, subtitle) {
-    return `
-      <div style="display:flex;flex-direction:column;gap:8px">
-        <div style="display:flex;align-items:baseline;justify-content:space-between">
-          <div>
-            <div class="font-display" style="font-size:16px;font-weight:600;color:var(--color-ink)">${title}</div>
-            <div class="font-mono" style="font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--color-muted)">${subtitle}</div>
-          </div>
-          <a href="/${seeAllRoute}" data-route="__seeall" onclick="event.preventDefault();navigate('/${seeAllRoute}')"
-            style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-accent);white-space:nowrap">${t("compendium_see_all")}</a>
-        </div>
-        ${!loaded ? `<p style="color:var(--color-sec);font-size:13px">${t("compendium_loading")}</p>` : bodyHtml}
-      </div>
-    `;
-  }
-
-  charCarouselHtml(list) {
-    if (!list.length) return `<p style="color:var(--color-sec);font-size:13px">${t("compendium_nothing_here_yet")}</p>`;
-    return `
-      <div class="compendium-row compendium-row-char">
-        ${list.map((c) => `<div class="compendium-row-item">${characterCardHtml(c, this.charCreatorProfiles[c.owner_username])}</div>`).join("")}
-      </div>
-    `;
-  }
-
-  creatorCarouselHtml() {
-    if (!this.creators.length) return `<p style="color:var(--color-sec);font-size:13px">${t("compendium_nothing_here_yet")}</p>`;
-    return `
-      <div class="compendium-row compendium-row-creator">
-        ${this.creators.map((a) => {
-          const ring = a.accent_color
-            ? `linear-gradient(135deg, ${a.accent_color}, ${a.banner_color || a.accent_color})`
-            : "linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark))";
-          const avatarInner = a.avatar
-            ? `<img src="${_attr(a.avatar)}" alt="" style="width:100%;height:100%;object-fit:cover">`
-            : `<span style="font-family:var(--font-display);font-weight:600">${_esc((a.display_name || a.username)[0].toUpperCase())}</span>`;
-          return `
-            <div class="compendium-row-item" style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer"
-              onclick="navigate('/u/${encodeURIComponent(a.username)}')">
-              <span style="width:64px;height:64px;border-radius:999px;padding:2.5px;background:${ring}">
-                <span style="width:100%;height:100%;border-radius:999px;background:var(--color-surface-2);display:grid;place-items:center;overflow:hidden">${avatarInner}</span>
-              </span>
-              <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--color-ink);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:84px">${_esc(a.display_name || a.username)}</span>
-            </div>
-          `;
-        }).join("")}
-      </div>
-    `;
-  }
-
-  imageCarouselHtml() {
-    if (!this.images.length) return `<p style="color:var(--color-sec);font-size:13px">${t("compendium_nothing_here_yet")}</p>`;
-    return `
-      <div class="compendium-row compendium-row-image">
-        ${this.images.map((img) => {
-          const blur = img.is_explicit && !ME?.nsfw_allowed;
-          const creatorName = img.owner_display_name || img.owner_username || t("compendium_you_fallback");
-          const profile = this.charCreatorProfiles[img.owner_username];
-          const avatarSrc = profile?.avatar || img.owner_avatar;
-          const avatarInner = avatarSrc
-            ? `<img src="${_attr(avatarSrc)}" alt="">`
-            : `<span>${_esc(creatorName[0].toUpperCase())}</span>`;
-          const ringGradient = profile?.accent_color
-            ? `linear-gradient(135deg, ${profile.accent_color}, ${profile.banner_color || profile.accent_color})`
-            : "linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark))";
-          const hue = [...(img.id || creatorName)].reduce((h, ch) => h + ch.charCodeAt(0), 0) % 360;
-          const dom = `hsl(${hue} 45% 20%)`;
-          return `
-            <div class="compendium-row-item" style="border-radius:12px;overflow:hidden;border:1px solid var(--color-line-2);position:relative;cursor:pointer;aspect-ratio:1;--dom:${dom}"
-              data-dom-src="${_attr(img.image)}"
-              onclick="navigate('/i/${encodeURIComponent(img.id)}')">
-              <img src="${_attr(img.image)}" alt="" ${img.is_explicit ? 'data-explicit="1"' : ""} style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;${blur ? "filter:blur(14px) saturate(60%)" : ""}">
-              ${blur ? `<span style="position:absolute;inset:0;display:grid;place-items:center;font-family:var(--font-mono);font-size:9px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)">18+</span>` : ""}
-              <div class="char-card-fade"></div>
-              <div class="char-card-creator" style="position:absolute;left:8px;right:8px;bottom:7px" ${img.owner_username ? `onclick="event.stopPropagation();navigate('/u/${encodeURIComponent(img.owner_username)}')" style="cursor:pointer"` : ""}>
-                <span class="char-card-creator-ring" style="background:${ringGradient}">
-                  <span class="char-card-creator-ring-inner">${avatarInner}</span>
-                </span>
-                <span class="char-card-creator-name">${_esc(creatorName)}</span>
-              </div>
-            </div>
-          `;
-        }).join("")}
-      </div>
-    `;
-  }
-
-  threadCarouselHtml() {
-    if (!this.threads.length) return `<p style="color:var(--color-sec);font-size:13px">${t("compendium_no_threads_yet")}</p>`;
-    return `
-      <div class="compendium-row compendium-row-thread">
-        ${this.threads.map((t) => `
-          <div class="compendium-row-item" style="padding:12px;border-radius:14px;border:1px solid var(--color-line);background:var(--color-surface);cursor:pointer"
-            onclick="navigate('/explore/forum')">
-            <h3 style="font-family:var(--font-display);font-weight:600;font-size:14px;color:var(--color-ink);margin:0 0 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${_esc(t.title)}</h3>
-            <p style="font-size:11.5px;line-height:1.4;color:var(--color-sec);margin:0;display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden">${_esc(t.content)}</p>
-            <div style="margin-top:8px;display:flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:10px;color:var(--color-muted)">
-              <span>@${_esc(t.author_username)}</span><span>·</span><span>${t.like_count} likes</span><span>·</span><span>${t.reply_count} replies</span>
-            </div>
-          </div>
-        `).join("")}
-      </div>
-    `;
-  }
-
   render() {
-    if (this._forYouAll) this.applyTierLimits();
-    const loaded = this.forYou !== null;
+    if (this._forYouFeed) this.applyTierLimit();
+    const loaded = this.feed !== null;
     this.main.innerHTML = `
-      <div style="display:flex;flex-direction:column;gap:20px">
-        ${pageHeaderHtml("Explore", "Overview", t("ph_explore_title"), t("ph_explore_sub"))}
-        ${this.sectionHtml(t("compendium_section_for_you"), "explore/characters", loaded ? this.charCarouselHtml(this.forYou) : "", loaded, t("compendium_for_you_subtitle"))}
-        ${this.sectionHtml(t("compendium_section_featured"), "explore/characters", loaded ? this.charCarouselHtml(this.featured) : "", loaded, t("compendium_featured"))}
-        ${this.sectionHtml(t("compendium_section_creators"), "explore/creators", loaded ? this.creatorCarouselHtml() : "", loaded, t("compendium_featured"))}
-        ${this.sectionHtml(t("compendium_section_media_gallery"), "explore/media", loaded ? this.imageCarouselHtml() : "", loaded, t("compendium_featured"))}
-        ${this.sectionHtml(t("compendium_section_forum"), "explore/forum", loaded ? this.threadCarouselHtml() : "", loaded, t("compendium_featured"))}
+      <div style="display:flex;flex-direction:column;gap:16px">
+        ${pageHeaderHtml("Explore", "For You", t("ph_explore_title"), t("ph_explore_sub"))}
+        ${exploreTabsHtml("foryou")}
+        <div style="display:flex;gap:6px">
+          <button type="button" class="feed-chip${this.feedKind === "foryou" ? " on" : ""}" data-feed="foryou">${t("explore_feed_for_you", "For You")}</button>
+          <button type="button" class="feed-chip${this.feedKind === "trending" ? " on" : ""}" data-feed="trending">${t("explore_feed_trending", "Trending")}</button>
+        </div>
+        ${!loaded ? `<p style="color:var(--color-sec);font-size:13px">${t("compendium_loading")}</p>` : `
+          <div class="foryou-feed">${this.feed.map((item) => _feedCardHtml(item, this.charCreatorProfiles)).join("")}</div>
+        `}
       </div>
     `;
+    this.main.querySelectorAll("[data-feed]").forEach((btn) => {
+      btn.onclick = () => this.setFeedKind(btn.dataset.feed);
+    });
     wireCharCardDominantColors(this.main);
   }
 }
