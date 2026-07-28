@@ -235,60 +235,6 @@ class ExploreCharactersView {
     return names.map((name) => ({ name, profile: this.creatorProfiles[name] }));
   }
 
-  updateSuggestions() {
-    const box = this.main.querySelector("#compendiumSuggest");
-    const search = this.main.querySelector("#compendiumSearch");
-    if (!box || !search) return;
-    const val = search.value;
-    if (this.scope === "community" && val.startsWith("@")) {
-      const q = val.slice(1).toLowerCase();
-      const matches = this.allCreators()
-        .filter((c) => !this.filters.creators.includes(c.name) && c.name.toLowerCase().includes(q))
-        .slice(0, 6);
-      if (!matches.length) { box.classList.remove("open"); box.innerHTML = ""; return; }
-      box.innerHTML = matches.map((c) => `
-        <button type="button" class="dropdown-item" style="display:flex;align-items:center;gap:8px" data-pick-creator="${_attr(c.name)}">
-          <span style="width:22px;height:22px;border-radius:999px;flex:none;overflow:hidden;background:var(--color-surface-2);display:grid;place-items:center">
-            ${c.profile?.avatar ? `<img src="${_attr(c.profile.avatar)}" style="width:100%;height:100%;object-fit:cover" alt="">` : `<span style="font-family:var(--font-mono);font-size:9px">${_esc(c.name[0].toUpperCase())}</span>`}
-          </span>
-          ${_esc(c.name)}
-        </button>
-      `).join("");
-      box.classList.add("open");
-    } else if (val.startsWith("#")) {
-      const q = val.slice(1).toLowerCase();
-      const matches = this.allTags().filter((t) => !this.filters.tags.includes(t) && t.toLowerCase().includes(q)).slice(0, 8);
-      if (!matches.length) { box.classList.remove("open"); box.innerHTML = ""; return; }
-      box.innerHTML = matches.map((t) => `<button type="button" class="dropdown-item" data-pick-tag="${_attr(t)}">#${_esc(t)}</button>`).join("");
-      box.classList.add("open");
-    } else if (val.startsWith(">")) {
-      const q = val.slice(1).toLowerCase();
-      const matches = GENRE_OPTIONS.filter((g) => !this.filters.genres.includes(g) && g.toLowerCase().includes(q));
-      if (!matches.length) { box.classList.remove("open"); box.innerHTML = ""; return; }
-      box.innerHTML = matches.map((g) => `<button type="button" class="dropdown-item" data-pick-genre="${_attr(g)}">&gt;${_esc(g)}</button>`).join("");
-      box.classList.add("open");
-    } else {
-      box.classList.remove("open");
-      box.innerHTML = "";
-    }
-    box.querySelectorAll("[data-pick-creator]").forEach((btn) => btn.onclick = () => {
-      this.filters.creators = [...this.filters.creators, btn.dataset.pickCreator];
-      search.value = "";
-      box.classList.remove("open");
-      this.load();
-    });
-    box.querySelectorAll("[data-pick-tag]").forEach((btn) => btn.onclick = () => {
-      search.value = "";
-      box.classList.remove("open");
-      this.addTag(btn.dataset.pickTag);
-    });
-    box.querySelectorAll("[data-pick-genre]").forEach((btn) => btn.onclick = () => {
-      search.value = "";
-      box.classList.remove("open");
-      this.addGenre(btn.dataset.pickGenre);
-    });
-  }
-
   cardHtml(c) {
     if (c.kind === "group") return this.groupTileHtml(c);
     return characterCardHtml(c, this.creatorProfiles[c.owner_username], { hideCreator: this.scope === "mine" });
@@ -382,23 +328,10 @@ class ExploreCharactersView {
     this.load();
   }
 
-  pillHtml(p) {
-    if (p.editable && this.editingCreator === p.value) {
-      return `<span class="inline-pill pill-${p.type}">@<input type="text" id="creatorEditInput" value="${_attr(p.value)}" data-old="${_attr(p.value)}"></span>`;
-    }
-    const solid = p.icon ? ` type-chip${p.type === "mode" ? " type-chip-mode" : ""}` : "";
-    return `
-      <span class="inline-pill pill-${p.type}${solid}" data-clear="${_attr(p.key)}" data-clear-value="${_attr(p.value || "")}" ${p.editable ? `data-editable-value="${_attr(p.value)}" title="${_attr(t("compendium_double_click_edit"))}"` : ""}>
-        ${p.icon || ""}${_esc(p.label)}<span class="x" data-clear-x="1">&times;</span>
-      </span>
-    `;
-  }
-
   render() {
     const f = this.filters;
     const count = this.activeFilterCount();
     const visible = this.visibleChars();
-    const pills = this.activeFilterPills();
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:12px">
         ${this.scope === "mine" ? `
@@ -414,12 +347,7 @@ class ExploreCharactersView {
         </div>
         `}
         <div style="display:flex;align-items:center;gap:5px">
-          <div id="compendiumSearchBox" style="position:relative;flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface)">
-            ${pills.map((p) => this.pillHtml(p)).join("")}
-            <input type="text" id="compendiumSearch" value="${_attr(f.q)}" placeholder="${pills.length ? "" : _attr(t("compendium_search_placeholder"))}"
-              style="flex:1;min-width:70px;border:none;background:none;outline:none;color:var(--color-ink);font-size:13.5px;padding:4px 0">
-            <div id="compendiumSuggest" class="dropdown-menu" style="left:0;right:0;top:calc(100% + 4px)"></div>
-          </div>
+          <div id="compendiumSearchBox" style="flex:1;min-width:0"></div>
           <button type="button" id="compendiumFilterBtn"
             style="position:relative;flex:none;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;
             border:1px solid var(--color-accent);background:${this.drawerOpen || count ? "var(--color-accent)" : "color-mix(in srgb, var(--color-accent) 14%, var(--color-surface))"};
@@ -466,86 +394,39 @@ class ExploreCharactersView {
         this.clearFilterPill(pill.dataset.clear, pill.dataset.clearValue);
       };
     });
-    this.main.querySelectorAll("[data-editable-value]").forEach((pill) => {
-      pill.ondblclick = () => {
-        this.editingCreator = pill.dataset.editableValue;
-        this.render();
-      };
-    });
-    const editInput = this.main.querySelector("#creatorEditInput");
-    if (editInput) {
-      editInput.focus();
-      editInput.select();
-      const commit = () => {
-        const old = editInput.dataset.old;
-        const val = editInput.value.trim();
-        this.editingCreator = null;
-        const idx = f.creators.indexOf(old);
-        if (idx === -1) return this.render();
-        if (!val) f.creators.splice(idx, 1);
-        else f.creators[idx] = val;
-        this.load();
-      };
-      editInput.onkeydown = (e) => {
-        if (e.key === "Enter") commit();
-        if (e.key === "Escape") { this.editingCreator = null; this.render(); }
-      };
-      editInput.onblur = commit;
-    }
     if (this.drawerOpen) this.wireDrawer(this.main.querySelector("#compendiumDrawer"));
-    const search = this.main.querySelector("#compendiumSearch");
-    let searchTimer;
-    search.oninput = () => {
-      this.updateSuggestions();
-      if (search.value.startsWith("@") || search.value.startsWith("#") || search.value.startsWith(">")) return;
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => {
-        f.q = search.value.trim();
+    if (this._searchBox) this._searchBox.destroy();
+    this._searchBox = new SearchBox({
+      container: this.main.querySelector("#compendiumSearchBox"),
+      mode: "client",
+      tokens: [
+        {
+          prefix: "@", param: "creators",
+          suggest: (q) => this.allCreators()
+            .filter((c) => c.name.toLowerCase().includes(q))
+            .map((c) => c.name),
+        },
+        {
+          prefix: "#", param: "tags",
+          suggest: (q) => this.allTags().filter((tag) => tag.toLowerCase().includes(q)),
+        },
+        {
+          prefix: ">", param: "genres",
+          suggest: (q) => GENRE_OPTIONS.filter((g) => g.toLowerCase().includes(q)),
+        },
+      ],
+      placeholder: t("compendium_search_placeholder"),
+      onChange: (query, tokenValues) => {
+        f.q = query.trim();
+        f.creators = tokenValues.creators;
+        f.tags = tokenValues.tags;
+        f.genres = tokenValues.genres;
         this.load();
-      }, 350);
-    };
-    search.onkeydown = (e) => {
-      if (e.key === "Backspace" || e.key === "Delete") {
-        if (search.value !== "") return;
-        e.preventDefault();
-        if (f.genres.length) {
-          const removed = f.genres[f.genres.length - 1];
-          f.genres = f.genres.slice(0, -1);
-          toast(`Removed >${removed} filter`);
-        } else if (f.tags.length) {
-          const removed = f.tags[f.tags.length - 1];
-          f.tags = f.tags.slice(0, -1);
-          toast(`Removed #${removed} filter`);
-        } else if (f.creators.length) {
-          const removed = f.creators[f.creators.length - 1];
-          f.creators = f.creators.slice(0, -1);
-          toast(`Removed @${removed} filter`);
-        } else return;
-        this.load();
-        return;
-      }
-      if (e.key !== "Enter") return;
-      const val = search.value.trim();
-      if (val.startsWith("@") && val.length > 1) {
-        const name = val.slice(1);
-        if (!f.creators.includes(name)) f.creators = [...f.creators, name];
-        search.value = "";
-        f.q = "";
-        this.load();
-      } else if (val.startsWith("#") && val.length > 1) {
-        this.addTag(val.slice(1));
-        search.value = "";
-        f.q = "";
-      } else if (val.startsWith(">") && val.length > 1) {
-        const q = val.slice(1).toLowerCase();
-        const match = GENRE_OPTIONS.find((g) => g.toLowerCase() === q);
-        if (match) {
-          this.addGenre(match);
-          search.value = "";
-          f.q = "";
-        }
-      }
-    };
+      },
+    });
+    this._searchBox.query = f.q;
+    this._searchBox.tokenValues = { creators: [...f.creators], tags: [...f.tags], genres: [...f.genres] };
+    this._searchBox._render();
   }
 }
 
