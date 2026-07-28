@@ -1,5 +1,30 @@
 "use strict";
 
+function feedCreatorCardHtml(a) {
+  const hue = [...a.username].reduce((h, ch) => h + ch.charCodeAt(0), 0) % 360;
+  const ring = a.accent_color
+    ? `linear-gradient(135deg, ${a.accent_color}, ${a.banner_color || a.accent_color})`
+    : "linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark))";
+  const avatarInner = a.avatar
+    ? `<img src="${_attr(a.avatar)}" alt="">`
+    : `<span>${_esc((a.display_name || a.username)[0].toUpperCase())}</span>`;
+  const charLabel = a.public_characters === 1 ? t("creators_character_singular") : t("creators_character_plural");
+  const followerLabel = a.follower_count === 1 ? t("creators_follower_singular", "follower") : t("creators_follower_plural", "followers");
+  return `
+    <div class="creator-card creator-card-compact" data-username="${_attr(a.username)}" style="cursor:pointer" onclick="navigate('/u/${encodeURIComponent(a.username)}')">
+      <span class="creator-ring" style="background:${ring}">
+        <span class="creator-ring-inner">${avatarInner}</span>
+      </span>
+      <div class="creator-body">
+        <div class="creator-name">${_esc(a.display_name || a.username)}</div>
+        <div class="creator-handle">@${_esc(a.username)}</div>
+        ${a.bio ? `<p class="creator-bio">${_esc(a.bio)}</p>` : ""}
+        <div class="creator-stats"><b>${a.public_characters}</b> ${charLabel} &middot; <b>${a.follower_count || 0}</b> ${followerLabel}</div>
+      </div>
+    </div>
+  `;
+}
+
 class ExploreCreatorsView {
   constructor() {
     this.creators = [];

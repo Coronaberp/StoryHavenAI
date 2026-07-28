@@ -45,3 +45,42 @@ def test_thread_card_html_is_a_global_function(browser):
     })""")
     assert "Best dragon builds?" in html
     assert "thread-card" in html
+
+
+MEDIA_JS = os.path.join(ROOT, "new_ui", "js", "explore-media.js")
+
+
+def test_media_frame_html_is_a_global_function_taking_creator_profiles(browser):
+    page = browser.new_page()
+    page.set_content(_STUB_HTML)
+    page.add_style_tag(path=CARDS_CSS)
+    page.evaluate("""() => {
+        window.ME = null;
+        window.mediaTagHtml = (img) => `<img src="${img.image}" alt="">`;
+    }""")
+    page.add_script_tag(path=MEDIA_JS)
+    html = page.evaluate("""() => mediaFrameHtml(
+        { id: "i1", image: "https://example.com/x.png", owner_username: "tempest", is_explicit: false },
+        { tempest: { avatar: "https://example.com/a.png", accent_color: "#E3BD6C" } }
+    )""")
+    assert "pin-frame" in html
+    assert "tempest" in html
+
+
+CREATORS_JS = os.path.join(ROOT, "new_ui", "js", "explore-creators.js")
+
+
+def test_feed_creator_card_html_is_a_global_function(browser):
+    page = browser.new_page()
+    page.set_content(_STUB_HTML)
+    page.add_style_tag(path=CARDS_CSS)
+    page.evaluate("() => { window.ME = null; }")
+    page.add_script_tag(path=CREATORS_JS)
+    html = page.evaluate("""() => feedCreatorCardHtml({
+        username: "goldkitsune", display_name: "Goldkitsune", bio: "Fox-themed everything.",
+        public_characters: 21, follower_count: 12
+    })""")
+    assert "Goldkitsune" in html
+    assert "goldkitsune" in html
+    assert "Fox-themed everything." in html
+    assert "creator-follow" not in html
