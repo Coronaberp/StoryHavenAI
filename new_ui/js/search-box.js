@@ -219,7 +219,8 @@ class SearchBox {
     });
     let results;
     try {
-      results = await api(`${this.endpoint}?${params.toString()}`);
+      const separator = this.endpoint.includes("?") ? "&" : "?";
+      results = await api(`${this.endpoint}${separator}${params.toString()}`);
     } catch (err) {
       toast(err.message || t("search_box_load_error"));
       results = null;

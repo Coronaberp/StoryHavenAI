@@ -386,7 +386,8 @@ class ExploreCharactersView {
     if (this._searchBox) this._searchBox.destroy();
     this._searchBox = new SearchBox({
       container: this.main.querySelector("#compendiumSearchBox"),
-      mode: "client",
+      mode: "server",
+      endpoint: `/api/characters?scope=${encodeURIComponent(this.scope)}`,
       tokens: [
         {
           prefix: "@", param: "creators",
@@ -404,12 +405,19 @@ class ExploreCharactersView {
         },
       ],
       placeholder: t("compendium_search_placeholder"),
-      onChange: (query, tokenValues) => {
+      onChange: (query, tokenValues, results) => {
         f.q = query.trim();
         f.creators = tokenValues.creators;
         f.tags = tokenValues.tags;
         f.genres = tokenValues.genres;
-        this.load();
+        if (results) {
+          this.chars = results;
+          this.error = "";
+        } else {
+          this.error = this.scope === "mine" ? t("compendium_load_error_mine") : t("compendium_load_error_community");
+        }
+        this.render();
+        if (results && this.scope === "community") this.loadCreatorProfiles();
       },
     });
     this._searchBox.query = f.q;
