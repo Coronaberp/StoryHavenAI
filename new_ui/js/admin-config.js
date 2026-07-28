@@ -279,6 +279,7 @@ class AdminConfigView {
   openIdentityProviderModal(i) {
     const p = this.oauthProviders[i];
     if (!p) return;
+    closeAllModals();
     openModal(`
       <div class="flex items-center gap-2.5 mb-1">
         ${this.identityProviderMedallionHtml(p, 32)}

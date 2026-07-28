@@ -38,6 +38,10 @@ function closeModal(layer, onClose) {
   onClose?.();
 }
 
+function closeAllModals() {
+  while (_modalStack.length) _modalStack[_modalStack.length - 1].close();
+}
+
 function closeTopModal() {
   const top = _modalStack[_modalStack.length - 1];
   top?.close();
@@ -103,6 +107,7 @@ if (typeof window !== "undefined") {
   window.openModal = openModal;
   window.closeModal = closeModal;
   window.closeTopModal = closeTopModal;
+  window.closeAllModals = closeAllModals;
   window.confirmDialog = confirmDialog;
   window.promptDialog = promptDialog;
 }
