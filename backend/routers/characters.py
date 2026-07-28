@@ -69,6 +69,9 @@ async def list_characters(q: str | None = None, scope: str | None = None,
         if hidden:
             rows = [c for c in rows if c.get("owner_id") not in hidden]
     if scope == "community":
+        can_see_explicit = bool(current_user and (current_user.get("nsfw_allowed") or current_user.get("is_admin")))
+        if not can_see_explicit and CFG.get("nsfw_classification", True):
+            rows = [c for c in rows if not c.get("is_explicit")]
         for g in await groups_repo.list_public(q, None):
             if g["owner_id"] in hidden:
                 continue
