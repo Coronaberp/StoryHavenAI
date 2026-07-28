@@ -5678,12 +5678,13 @@ input:focus, input:focus-visible, textarea:focus, textarea:focus-visible, select
   display: inline-flex;
   align-items: center;
   font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: .04em;
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: .03em;
   text-transform: uppercase;
-  padding: 3px 8px;
+  padding: 2px 6px;
   border-radius: 999px;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 .mode-badge-gold {
   background: rgba(227, 189, 108, .18);
