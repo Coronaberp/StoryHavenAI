@@ -66,7 +66,7 @@ def test_roleplay_group_card_gets_gold_mode_badge(browser):
         window.__view = new ExploreCharactersView({ scope: "community" });
     }""")
     html = page.evaluate("""() => {
-        return window.__view.groupTileHtml({ id: "g1", name: "RP Group", group_mode: "roleplay", cast_preview: [] });
+        return groupTileHtml({ id: "g1", name: "RP Group", group_mode: "roleplay", cast_preview: [] });
     }""")
     page.set_content(f"<div id='main'>{html}</div>")
     expect(page.locator(".mode-badge-gold")).to_have_count(1)
@@ -80,7 +80,7 @@ def test_chat_group_card_gets_crimson_mode_badge(browser):
         window.__view = new ExploreCharactersView({ scope: "community" });
     }""")
     html = page.evaluate("""() => {
-        return window.__view.groupTileHtml({ id: "g2", name: "Chat Group", group_mode: "chat", cast_preview: [] });
+        return groupTileHtml({ id: "g2", name: "Chat Group", group_mode: "chat", cast_preview: [] });
     }""")
     page.set_content(f"<div id='main'>{html}</div>")
     expect(page.locator(".mode-badge-crimson")).to_have_count(1)

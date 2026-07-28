@@ -143,6 +143,21 @@ function characterCardHtml(c, profile, opts = {}) {
   `;
 }
 
+function groupTileHtml(g) {
+  const isChat = g.group_mode === "chat";
+  const modeLabel = isChat ? t("group_mode_chat", "Chat") : t("group_mode_roleplay", "Roleplay");
+  const modeClass = isChat ? "mode-badge-crimson" : "mode-badge-gold";
+  const ringClass = isChat ? "mode-ring-crimson" : "mode-ring-gold";
+  return `
+    <button type="button" class="char-card grp-card ${ringClass}" onclick="navigate('/g/${encodeURIComponent(g.id)}')">
+      <div style="aspect-ratio:1;width:100%;border-radius:12px;overflow:hidden">${groupGridAvatar(g.cast_preview)}</div>
+      <div class="grp-card-meta">
+        <span class="grp-card-name">${_esc(g.name)}</span>
+        <span class="mode-badge ${modeClass}">${modeLabel}</span>
+      </div>
+    </button>`;
+}
+
 class ExploreCharactersView {
   constructor({ scope = "community" } = {}) {
     this.scope = scope;
@@ -258,23 +273,8 @@ class ExploreCharactersView {
   }
 
   cardHtml(c) {
-    if (c.kind === "group") return this.groupTileHtml(c);
+    if (c.kind === "group") return groupTileHtml(c);
     return characterCardHtml(c, this.creatorProfiles[c.owner_username], { hideCreator: this.scope === "mine" });
-  }
-
-  groupTileHtml(g) {
-    const isChat = g.group_mode === "chat";
-    const modeLabel = isChat ? t("group_mode_chat", "Chat") : t("group_mode_roleplay", "Roleplay");
-    const modeClass = isChat ? "mode-badge-crimson" : "mode-badge-gold";
-    const ringClass = isChat ? "mode-ring-crimson" : "mode-ring-gold";
-    return `
-      <button type="button" class="char-card grp-card ${ringClass}" onclick="navigate('/g/${encodeURIComponent(g.id)}')">
-        <div style="aspect-ratio:1;width:100%;border-radius:12px;overflow:hidden">${groupGridAvatar(g.cast_preview)}</div>
-        <div class="grp-card-meta">
-          <span class="grp-card-name">${_esc(g.name)}</span>
-          <span class="mode-badge ${modeClass}">${modeLabel}</span>
-        </div>
-      </button>`;
   }
 
   _syncSearchBox() {

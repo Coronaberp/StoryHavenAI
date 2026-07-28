@@ -25,6 +25,29 @@ function timeAgo(ts) {
 
 const SYM_HOT_THRESHOLD = 5;
 
+function threadCardHtml(th) {
+  const hot = th.score >= SYM_HOT_THRESHOLD;
+  return `
+    <div class="thread-card" data-tid="${_esc(th.id)}">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+        ${th.category ? `<span class="sym-tag">${_esc(th.category)}</span>` : ""}
+        ${hot ? `<span class="sym-hot">▲ ${t("forum_hot_badge")}</span>` : ""}
+      </div>
+      <div class="thread-card-title">${_esc(th.title)}</div>
+      <p class="thread-card-excerpt">${_esc(th.content || "")}</p>
+      <div class="thread-card-meta">
+        <span>@${_esc(th.author_username)}</span>
+        <span>·</span>
+        <span>${timeAgo(th.created)}</span>
+        <span style="display:inline-flex;align-items:center;gap:3px;margin-left:auto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px"><path d="M4 5h16v10H9l-4 3.5V15H4z"/></svg>
+          <span data-reply-count="${_esc(th.id)}">${th.reply_count}</span>
+        </span>
+      </div>
+    </div>
+  `;
+}
+
 class ExploreForumView {
   constructor() {
     this.threads = [];
@@ -169,29 +192,6 @@ class ExploreForumView {
     `;
   }
 
-  threadCardHtml(th) {
-    const hot = th.score >= SYM_HOT_THRESHOLD;
-    return `
-      <div class="thread-card" data-tid="${_esc(th.id)}">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
-          ${th.category ? `<span class="sym-tag">${_esc(th.category)}</span>` : ""}
-          ${hot ? `<span class="sym-hot">▲ ${t("forum_hot_badge")}</span>` : ""}
-        </div>
-        <div class="thread-card-title">${_esc(th.title)}</div>
-        <p class="thread-card-excerpt">${_esc(th.content || "")}</p>
-        <div class="thread-card-meta">
-          <span>@${_esc(th.author_username)}</span>
-          <span>·</span>
-          <span>${timeAgo(th.created)}</span>
-          <span style="display:inline-flex;align-items:center;gap:3px;margin-left:auto">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px"><path d="M4 5h16v10H9l-4 3.5V15H4z"/></svg>
-            <span data-reply-count="${_esc(th.id)}">${th.reply_count}</span>
-          </span>
-        </div>
-      </div>
-    `;
-  }
-
   filterDrawerHtml() {
     return `
       <div id="forumDrawer" style="display:flex;flex-direction:column;gap:12px;padding:14px;border-radius:14px;border:1px dashed color-mix(in srgb, var(--color-accent) 45%, transparent);background:var(--color-surface)">
@@ -325,7 +325,7 @@ class ExploreForumView {
       ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("forum_loading")}</p>` : ""}
       ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${_esc(this.error)}</p>` : ""}
       ${!this.loading && !this.error && !visible.length ? `<p style="color:var(--color-sec);font-size:13px">${searching ? t("forum_no_search_matches") : t("forum_no_threads_yet")}</p>` : ""}
-      <div class="card-grid">${visible.map((th) => this.threadCardHtml(th)).join("")}</div>
+      <div class="card-grid">${visible.map((th) => threadCardHtml(th)).join("")}</div>
       ${searching && this.searchCapped ? `<p style="color:var(--color-sec);font-size:12px">${t("forum_search_results_capped", "Showing the first {count} matches").replace("{count}", FORUM_SEARCH_LIMIT)}</p>` : ""}
       ${searching ? "" : paginationHtml("forum-threads", { rows: visible, page: this.page, pages: Math.max(1, Math.ceil(this.totalThreads / FORUM_PAGE_SIZE)), total: this.totalThreads, start: (this.page - 1) * FORUM_PAGE_SIZE, pageSize: FORUM_PAGE_SIZE })}
     `;
