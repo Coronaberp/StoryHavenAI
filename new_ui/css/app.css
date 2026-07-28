@@ -5676,6 +5676,8 @@ input:focus, input:focus-visible, textarea:focus, textarea:focus-visible, select
 }
 .mode-badge {
   display: inline-flex;
+  align-self: flex-start;
+  width: fit-content;
   align-items: center;
   font-family: var(--font-mono);
   font-size: 8px;
@@ -5687,12 +5689,12 @@ input:focus, input:focus-visible, textarea:focus, textarea:focus-visible, select
   margin-bottom: 5px;
 }
 .mode-badge-gold {
-  background: rgba(227, 189, 108, .18);
+  background: rgba(0, 0, 0, .6);
   color: #E3BD6C;
   border: 1px solid #E3BD6C;
 }
 .mode-badge-crimson {
-  background: rgba(226, 73, 61, .18);
+  background: rgba(0, 0, 0, .6);
   color: #e2493d;
   border: 1px solid #e2493d;
 }

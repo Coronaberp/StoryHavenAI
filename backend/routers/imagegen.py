@@ -701,7 +701,11 @@ async def get_shared_standalone_image(iid: str, current_user: dict | None = Depe
 @api.get("/imagegen/community")
 async def community_images(q: str = "", current_user: dict | None = Depends(get_current_user_optional)):
     hidden = await db.hidden_user_ids(current_user["id"]) if current_user else set()
-    return await standalone_image_repo.list_community(hidden, q=(q.strip() or None))
+    images = await standalone_image_repo.list_community(hidden, q=(q.strip() or None))
+    can_see_explicit = bool(current_user and (current_user.get("nsfw_allowed") or current_user.get("is_admin")))
+    if not can_see_explicit and CFG.get("nsfw_classification", True):
+        images = [i for i in images if not i.get("is_explicit")]
+    return images
 
 def _match_model_request_host(url: str) -> dict | None:
     try:
