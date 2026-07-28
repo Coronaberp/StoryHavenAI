@@ -320,9 +320,9 @@ class ExploreCharactersView {
 
   wireDrawer(root) {
     const f = this.filters;
-    root.querySelectorAll("[data-gender]").forEach((btn) => btn.onclick = () => { f.gender = btn.dataset.gender; this.load(); });
-    root.querySelectorAll("[data-mode]").forEach((btn) => btn.onclick = () => { f.mode = btn.dataset.mode; this.load(); });
-    root.querySelectorAll("[data-rating]").forEach((btn) => btn.onclick = () => { if (btn.disabled) return; f.rating = btn.dataset.rating; this.load(); });
+    root.querySelectorAll("[data-gender]").forEach((btn) => btn.onclick = () => { f.gender = btn.dataset.gender; this._searchBox.refreshFilter(); this.load(); });
+    root.querySelectorAll("[data-mode]").forEach((btn) => btn.onclick = () => { f.mode = btn.dataset.mode; this._searchBox.refreshFilter(); this.load(); });
+    root.querySelectorAll("[data-rating]").forEach((btn) => btn.onclick = () => { if (btn.disabled) return; f.rating = btn.dataset.rating; this._searchBox.refreshFilter(); this.load(); });
   }
 
   addTag(tag) {
@@ -355,7 +355,6 @@ class ExploreCharactersView {
         ${exploreTabsHtml("characters")}
         <div style="display:flex;align-items:center;gap:5px">
           <div id="compendiumSearchBox" style="flex:1;min-width:0"></div>
-          <div id="compendiumFilterBtnSlot"></div>
           ${ME ? `<button type="button" onclick="openGroupCreate()" aria-label="${_attr(t("group_create_button", "New group chat"))}" data-tooltip="${_attr(t("group_create_button", "New group chat"))}"
             style="flex:none;height:40px;padding:0 13px;border-radius:10px;display:inline-flex;align-items:center;gap:7px;border:none;cursor:pointer;background:linear-gradient(150deg, var(--color-accent), var(--color-accent-deep));color:var(--color-paper-base, #12100c);font-family:var(--font-display, inherit);font-size:13px;font-weight:600;white-space:nowrap">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -369,6 +368,11 @@ class ExploreCharactersView {
       container: this.main.querySelector("#compendiumSearchBox"),
       mode: "server",
       endpoint: `/api/characters?scope=${encodeURIComponent(this.scope)}`,
+      filter: {
+        count: () => this.activeFilterCount(),
+        active: () => this.drawerOpen,
+        onClick: () => { this.drawerOpen = !this.drawerOpen; this.renderResults(); this._searchBox.refreshFilter(); },
+      },
       tokens: [
         {
           prefix: "@", param: "creators",
@@ -410,20 +414,6 @@ class ExploreCharactersView {
     const f = this.filters;
     const count = this.activeFilterCount();
     const visible = this.visibleChars();
-    const filterBtnSlot = this.main.querySelector("#compendiumFilterBtnSlot");
-    filterBtnSlot.innerHTML = `
-      <button type="button" id="compendiumFilterBtn"
-        style="position:relative;flex:none;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;
-        border:1px solid var(--color-accent);background:${this.drawerOpen || count ? "var(--color-accent)" : "color-mix(in srgb, var(--color-accent) 14%, var(--color-surface))"};
-        color:${this.drawerOpen || count ? "var(--color-paper-base, var(--color-paper))" : "var(--color-accent)"}">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
-        ${count ? `<span style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:999px;background:var(--color-warn);color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center">${count}</span>` : ""}
-      </button>
-    `;
-    filterBtnSlot.querySelector("#compendiumFilterBtn").onclick = () => {
-      this.drawerOpen = !this.drawerOpen;
-      this.renderResults();
-    };
     const resultsArea = this.main.querySelector("#compendiumResultsArea");
     resultsArea.innerHTML = `
       ${this.popularTagsHtml()}
