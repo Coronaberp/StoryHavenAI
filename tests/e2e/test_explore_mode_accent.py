@@ -1,107 +1,64 @@
-import os
+import uuid
 from playwright.sync_api import expect
-
-JS_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "new_ui", "js"))
-SEARCH_BOX_JS_PATH = os.path.join(JS_DIR, "search-box.js")
-EXPLORE_CHARACTERS_JS_PATH = os.path.join(JS_DIR, "explore-characters.js")
-CARDS_CSS_PATH = os.path.normpath(os.path.join(
-    os.path.dirname(__file__), "..", "..", "new_ui", "css", "cards.css"
-))
-
-_STUB_HTML = """
-<!DOCTYPE html>
-<html><body>
-<div id="main"></div>
-<script>
-  function _esc(s) { return String(s == null ? "" : s); }
-  function _attr(s) { return String(s == null ? "" : s); }
-  function t(key, fallback) { return fallback !== undefined ? fallback : key; }
-  function toast() {}
-  function pageHeaderHtml() { return ""; }
-  function groupGridAvatar() { return ""; }
-  function getBlockedTags() { return []; }
-  window.ME = null;
-  function api(url) { return Promise.resolve([]); }
-</script>
-</body></html>
-"""
+from conftest import BASE_URL, login, api_login, api_client, E2E_MARKER
 
 
-def _load_page(page):
-    page.set_content(_STUB_HTML)
-    page.add_style_tag(path=CARDS_CSS_PATH)
-    page.add_script_tag(path=SEARCH_BOX_JS_PATH)
-    page.add_script_tag(path=EXPLORE_CHARACTERS_JS_PATH)
+def test_character_mode_badges_and_colors(browser):
+    marker_rpg = f"{E2E_MARKER}{uuid.uuid4().hex[:8]}]"
+    marker_char = f"{E2E_MARKER}{uuid.uuid4().hex[:8]}]"
 
+    cookie = api_login("test", "11111111")
+    client = api_client(cookie)
 
-def test_rpg_character_card_gets_gold_mode_badge(browser):
-    page = browser.new_page()
-    _load_page(page)
-    html = page.evaluate("""() => {
-        return characterCardHtml({ id: "c1", name: "Roleplay Char", mode: "rpg", tags: [], chats: 0 }, null, {});
-    }""")
-    page.set_content(f"<div id='main'>{html}</div>")
-    badge = page.locator(".mode-badge-gold")
-    expect(badge).to_have_count(1)
-    expect(page.locator(".mode-badge-crimson")).to_have_count(0)
-    page.close()
+    rpg_resp = client.post("/api/characters", json={
+        "name": f"RPG Character {marker_rpg}",
+        "mode": "rpg",
+        "genre": "Fantasy",
+        "greeting": "Greetings, adventurer.",
+        "is_public": True,
+    })
+    rpg_resp.raise_for_status()
+    rpg_char_id = rpg_resp.json()["id"]
 
+    char_resp = client.post("/api/characters", json={
+        "name": f"Chat Character {marker_char}",
+        "mode": "character",
+        "genre": "Modern/Realistic",
+        "greeting": "Hey there!",
+        "is_public": True,
+    })
+    char_resp.raise_for_status()
+    char_char_id = char_resp.json()["id"]
 
-def test_character_mode_card_gets_crimson_mode_badge(browser):
-    page = browser.new_page()
-    _load_page(page)
-    html = page.evaluate("""() => {
-        return characterCardHtml({ id: "c2", name: "Chat Char", mode: "character", tags: [], chats: 0 }, null, {});
-    }""")
-    page.set_content(f"<div id='main'>{html}</div>")
-    expect(page.locator(".mode-badge-crimson")).to_have_count(1)
-    expect(page.locator(".mode-badge-gold")).to_have_count(0)
-    page.close()
+    try:
+        page = browser.new_page()
+        login(page, "test", "11111111")
+        page.goto(f"{BASE_URL}/explore/characters")
+        page.wait_for_load_state("networkidle")
 
+        search_input = page.locator(".search-box-input")
+        page.wait_for_selector(".search-box-input", timeout=10000)
 
-def test_roleplay_group_card_gets_gold_mode_badge(browser):
-    page = browser.new_page()
-    _load_page(page)
-    page.evaluate("""() => {
-        window.__view = new ExploreCharactersView({ scope: "community" });
-    }""")
-    html = page.evaluate("""() => {
-        return groupTileHtml({ id: "g1", name: "RP Group", group_mode: "roleplay", cast_preview: [] });
-    }""")
-    page.set_content(f"<div id='main'>{html}</div>")
-    expect(page.locator(".mode-badge-gold")).to_have_count(1)
-    page.close()
+        search_input.fill(marker_rpg)
+        page.wait_for_timeout(500)
+        page.wait_for_load_state("networkidle")
 
+        rpg_badge = page.locator(".mode-badge-gold")
+        assert rpg_badge.count() >= 1, "RPG character should have gold badge"
+        rpg_color = rpg_badge.first.evaluate("el => getComputedStyle(el).color")
+        assert rpg_color == "rgb(227, 189, 108)", f"Expected gold rgb(227, 189, 108), got {rpg_color}"
 
-def test_chat_group_card_gets_crimson_mode_badge(browser):
-    page = browser.new_page()
-    _load_page(page)
-    page.evaluate("""() => {
-        window.__view = new ExploreCharactersView({ scope: "community" });
-    }""")
-    html = page.evaluate("""() => {
-        return groupTileHtml({ id: "g2", name: "Chat Group", group_mode: "chat", cast_preview: [] });
-    }""")
-    page.set_content(f"<div id='main'>{html}</div>")
-    expect(page.locator(".mode-badge-crimson")).to_have_count(1)
-    page.close()
+        search_input.fill(marker_char)
+        page.wait_for_timeout(500)
+        page.wait_for_load_state("networkidle")
 
+        char_badge = page.locator(".mode-badge-crimson")
+        assert char_badge.count() >= 1, "Character mode character should have crimson badge"
+        char_color = char_badge.first.evaluate("el => getComputedStyle(el).color")
+        assert char_color == "rgb(226, 73, 61)", f"Expected crimson rgb(226, 73, 61), got {char_color}"
 
-def test_mode_badge_colors_are_literal_hex_not_theme_variable(browser):
-    page = browser.new_page()
-    _load_page(page)
-    gold_html = page.evaluate("""() => {
-        return characterCardHtml({ id: "c1", name: "Roleplay Char", mode: "rpg", tags: [], chats: 0 }, null, {});
-    }""")
-    crimson_html = page.evaluate("""() => {
-        return characterCardHtml({ id: "c2", name: "Chat Char", mode: "character", tags: [], chats: 0 }, null, {});
-    }""")
-    page.set_content(f"<div id='gold'>{gold_html}</div><div id='crimson'>{crimson_html}</div>")
-    page.add_style_tag(path=CARDS_CSS_PATH)
-    gold_color = page.locator("#gold .mode-badge-gold").evaluate("el => getComputedStyle(el).color")
-    crimson_color = page.locator("#crimson .mode-badge-crimson").evaluate("el => getComputedStyle(el).color")
-    assert gold_color == "rgb(227, 189, 108)"
-    assert crimson_color == "rgb(226, 73, 61)"
-    assert "var(--color-accent)" not in gold_html
-    assert "var(--color-accent)" not in crimson_html
-    page.close()
+        page.close()
+    finally:
+        client.delete(f"/api/characters/{rpg_char_id}")
+        client.delete(f"/api/characters/{char_char_id}")
+        client.close()

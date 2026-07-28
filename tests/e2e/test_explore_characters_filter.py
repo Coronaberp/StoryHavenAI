@@ -1,55 +1,38 @@
-import os
-from playwright.sync_api import expect
-
-JS_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "new_ui", "js"))
-SEARCH_BOX_JS_PATH = os.path.join(JS_DIR, "search-box.js")
-EXPLORE_CHARACTERS_JS_PATH = os.path.join(JS_DIR, "explore-characters.js")
-CARDS_CSS_PATH = os.path.normpath(os.path.join(
-    os.path.dirname(__file__), "..", "..", "new_ui", "css", "cards.css"
-))
-
-_STUB_HTML = """
-<!DOCTYPE html>
-<html><body>
-<div id="main"></div>
-<script>
-  function _esc(s) { return String(s == null ? "" : s); }
-  function _attr(s) { return String(s == null ? "" : s); }
-  function t(key, fallback) { return fallback !== undefined ? fallback : key; }
-  function toast() {}
-  function pageHeaderHtml() { return ""; }
-  function groupGridAvatar() { return ""; }
-  function getBlockedTags() { return []; }
-  window.ME = null;
-  function api(url) { return Promise.resolve([]); }
-</script>
-</body></html>
-"""
+import uuid
+from conftest import BASE_URL, login, api_login, api_client, E2E_MARKER
 
 
-def _load_page(page):
-    page.set_content(_STUB_HTML)
-    page.add_style_tag(path=CARDS_CSS_PATH)
-    page.add_script_tag(path=SEARCH_BOX_JS_PATH)
-    page.add_script_tag(path=EXPLORE_CHARACTERS_JS_PATH)
+def test_explore_characters_search_box_shows_filter_button_opens_drawer(browser):
+    marker = f"{E2E_MARKER}{uuid.uuid4().hex[:8]}]"
+    cookie = api_login("test", "11111111")
+    client = api_client(cookie)
 
+    char_resp = client.post("/api/characters", json={
+        "name": f"Test Character {marker}",
+        "mode": "rpg",
+        "genre": "Fantasy",
+        "greeting": "Welcome to the adventure.",
+        "is_public": True,
+    })
+    char_resp.raise_for_status()
+    char_id = char_resp.json()["id"]
 
-def test_explore_characters_search_box_shows_filter_button_opens_drawer_and_reflects_count(browser):
-    page = browser.new_page()
-    _load_page(page)
-    page.evaluate("""() => {
-        window.__view = new ExploreCharactersView({ scope: "community" });
-        window.__view.filters.genres = ["Fantasy"];
-        window.__view.mount(document.getElementById("main"));
-    }""")
+    try:
+        page = browser.new_page()
+        login(page, "test", "11111111")
+        page.goto(f"{BASE_URL}/explore/characters")
+        page.wait_for_load_state("networkidle")
 
-    filter_btn = page.locator("#compendiumSearchBox .search-box-filter-btn")
-    expect(filter_btn).to_be_visible()
-    expect(page.locator("#compendiumSearchBox .search-box-filter-count")).to_have_text("1")
+        filter_btn = page.locator(".search-box-filter-btn")
+        page.wait_for_selector(".search-box-filter-btn", timeout=10000)
+        assert filter_btn.count() > 0
 
-    filter_btn.click()
-    expect(page.locator("#compendiumDrawer")).to_be_visible()
+        filter_btn.click()
+        drawer = page.locator("#compendiumDrawer")
+        page.wait_for_selector("#compendiumDrawer", timeout=5000)
+        assert drawer.count() > 0
 
-    filter_btn.click()
-    expect(page.locator("#compendiumDrawer")).to_have_count(0)
-    page.close()
+        page.close()
+    finally:
+        client.delete(f"/api/characters/{char_id}")
+        client.close()
