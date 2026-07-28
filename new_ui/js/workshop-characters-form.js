@@ -1,6 +1,6 @@
 "use strict";
 
-const GENRE_OPTIONS = [
+const WORKSHOP_GENRE_OPTIONS = [
   "Fantasy", "Sci-Fi", "Romance", "Horror", "Mystery", "Comedy",
   "Slice of Life", "Historical", "Modern/Realistic", "Adventure",
   "Drama", "Other",
@@ -636,7 +636,7 @@ class WorkshopCharactersFormView {
         ${this.fieldLabel(t("create_genre_label", "Genre"), t("create_genre_hint", "Optional. Helps others find this character."))}
         <select id="cf_genre" class="grimoire-field-input">
           <option value="">${t("create_genre_none", "No genre")}</option>
-          ${GENRE_OPTIONS.map((g) => `<option value="${_attr(g)}"${this.genre === g ? " selected" : ""}>${_esc(g)}</option>`).join("")}
+          ${WORKSHOP_GENRE_OPTIONS.map((g) => `<option value="${_attr(g)}"${this.genre === g ? " selected" : ""}>${_esc(g)}</option>`).join("")}
         </select>
       </div>
     `;
