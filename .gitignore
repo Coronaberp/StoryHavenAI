@@ -46,3 +46,7 @@ report.md
 # Infra/ops runbooks — container names, host paths, restore procedures.
 # Useful locally, not something to publish alongside app source.
 docs/RECOVERY.md
+
+# Human-readable screenshots of the live app (admin panel, user content) — not
+# safe for public git history. See docs/maintenance/README.md.
+docs/maintenance/
