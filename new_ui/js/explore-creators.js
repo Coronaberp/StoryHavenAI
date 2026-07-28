@@ -18,7 +18,7 @@ class ExploreCreatorsView {
   async load() {
     this.loading = true;
     this.error = "";
-    this.render();
+    this.renderResults();
     try {
       const params = new URLSearchParams();
       if (this.q) params.set("q", this.q);
@@ -29,7 +29,7 @@ class ExploreCreatorsView {
       this.creators = [];
     }
     this.loading = false;
-    this.render();
+    this.renderResults();
   }
 
   mountCustomCards() {
@@ -112,24 +112,35 @@ class ExploreCreatorsView {
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:12px">
         ${pageHeaderHtml("Explore", "Creators", t("ph_creators_title"), t("ph_creators_sub"))}
-        <input type="text" id="creatorsSearch" value="${_attr(this.q)}" placeholder="${t("creators_search_placeholder")}"
-          style="padding:10px 12px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface);color:var(--color-ink);font-size:13.5px">
-        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("creators_consulting_archive")}</p>` : ""}
-        ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${this.error}</p>` : ""}
-        ${!this.loading && !this.error && !this.creators.length ? `<p style="color:var(--color-sec);font-size:13px">${t("creators_no_creators_match_search")}</p>` : ""}
-        <div class="card-grid">${this.creators.map((a) => this.rowHtml(a)).join("")}</div>
+        <div id="creatorsSearchBox"></div>
+        <div id="creatorsResultsArea"></div>
       </div>
     `;
+    if (this._searchBox) this._searchBox.destroy();
+    this._searchBox = new SearchBox({
+      container: this.main.querySelector("#creatorsSearchBox"),
+      mode: "server",
+      endpoint: "/api/users",
+      tokens: [],
+      placeholder: t("creators_search_placeholder"),
+      onChange: (query, tokenValues, results) => {
+        this.q = query.trim();
+        this.creators = results || [];
+        this.renderResults();
+      },
+    });
+    this.renderResults();
+  }
+
+  renderResults() {
+    const resultsArea = this.main.querySelector("#creatorsResultsArea");
+    resultsArea.innerHTML = `
+      ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("creators_consulting_archive")}</p>` : ""}
+      ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${this.error}</p>` : ""}
+      ${!this.loading && !this.error && !this.creators.length ? `<p style="color:var(--color-sec);font-size:13px">${t("creators_no_creators_match_search")}</p>` : ""}
+      <div class="card-grid">${this.creators.map((a) => this.rowHtml(a)).join("")}</div>
+    `;
     this.mountCustomCards();
-    const search = this.main.querySelector("#creatorsSearch");
-    let searchTimer;
-    search.oninput = () => {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => {
-        this.q = search.value.trim();
-        this.load();
-      }, 350);
-    };
   }
 }
 

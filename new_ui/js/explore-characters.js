@@ -128,7 +128,6 @@ class ExploreCharactersView {
     this.error = "";
     this.filters = { q: "", creators: [], tags: [], genres: [], gender: "any", mode: "all", rating: ME?.nsfw_allowed ? "all" : "sfw" };
     this.drawerOpen = false;
-    this.editingCreator = null;
     this.creatorProfiles = {};
   }
 
@@ -144,7 +143,7 @@ class ExploreCharactersView {
   async load() {
     this.loading = true;
     this.error = "";
-    this.render();
+    this.renderResults();
     try {
       const params = new URLSearchParams({ scope: this.scope });
       if (this.filters.q) params.set("q", this.filters.q);
@@ -155,7 +154,7 @@ class ExploreCharactersView {
       this.chars = [];
     }
     this.loading = false;
-    this.render();
+    this.renderResults();
     if (this.scope === "community") this.loadCreatorProfiles();
   }
 
@@ -168,7 +167,7 @@ class ExploreCharactersView {
       catch { return [u, null]; }
     }));
     fetched.forEach(([u, profile]) => { if (profile) this.creatorProfiles[u] = profile; });
-    this.render();
+    this.renderResults();
   }
 
   visibleChars() {
@@ -235,60 +234,6 @@ class ExploreCharactersView {
     return names.map((name) => ({ name, profile: this.creatorProfiles[name] }));
   }
 
-  updateSuggestions() {
-    const box = this.main.querySelector("#compendiumSuggest");
-    const search = this.main.querySelector("#compendiumSearch");
-    if (!box || !search) return;
-    const val = search.value;
-    if (this.scope === "community" && val.startsWith("@")) {
-      const q = val.slice(1).toLowerCase();
-      const matches = this.allCreators()
-        .filter((c) => !this.filters.creators.includes(c.name) && c.name.toLowerCase().includes(q))
-        .slice(0, 6);
-      if (!matches.length) { box.classList.remove("open"); box.innerHTML = ""; return; }
-      box.innerHTML = matches.map((c) => `
-        <button type="button" class="dropdown-item" style="display:flex;align-items:center;gap:8px" data-pick-creator="${_attr(c.name)}">
-          <span style="width:22px;height:22px;border-radius:999px;flex:none;overflow:hidden;background:var(--color-surface-2);display:grid;place-items:center">
-            ${c.profile?.avatar ? `<img src="${_attr(c.profile.avatar)}" style="width:100%;height:100%;object-fit:cover" alt="">` : `<span style="font-family:var(--font-mono);font-size:9px">${_esc(c.name[0].toUpperCase())}</span>`}
-          </span>
-          ${_esc(c.name)}
-        </button>
-      `).join("");
-      box.classList.add("open");
-    } else if (val.startsWith("#")) {
-      const q = val.slice(1).toLowerCase();
-      const matches = this.allTags().filter((t) => !this.filters.tags.includes(t) && t.toLowerCase().includes(q)).slice(0, 8);
-      if (!matches.length) { box.classList.remove("open"); box.innerHTML = ""; return; }
-      box.innerHTML = matches.map((t) => `<button type="button" class="dropdown-item" data-pick-tag="${_attr(t)}">#${_esc(t)}</button>`).join("");
-      box.classList.add("open");
-    } else if (val.startsWith(">")) {
-      const q = val.slice(1).toLowerCase();
-      const matches = GENRE_OPTIONS.filter((g) => !this.filters.genres.includes(g) && g.toLowerCase().includes(q));
-      if (!matches.length) { box.classList.remove("open"); box.innerHTML = ""; return; }
-      box.innerHTML = matches.map((g) => `<button type="button" class="dropdown-item" data-pick-genre="${_attr(g)}">&gt;${_esc(g)}</button>`).join("");
-      box.classList.add("open");
-    } else {
-      box.classList.remove("open");
-      box.innerHTML = "";
-    }
-    box.querySelectorAll("[data-pick-creator]").forEach((btn) => btn.onclick = () => {
-      this.filters.creators = [...this.filters.creators, btn.dataset.pickCreator];
-      search.value = "";
-      box.classList.remove("open");
-      this.load();
-    });
-    box.querySelectorAll("[data-pick-tag]").forEach((btn) => btn.onclick = () => {
-      search.value = "";
-      box.classList.remove("open");
-      this.addTag(btn.dataset.pickTag);
-    });
-    box.querySelectorAll("[data-pick-genre]").forEach((btn) => btn.onclick = () => {
-      search.value = "";
-      box.classList.remove("open");
-      this.addGenre(btn.dataset.pickGenre);
-    });
-  }
-
   cardHtml(c) {
     if (c.kind === "group") return this.groupTileHtml(c);
     return characterCardHtml(c, this.creatorProfiles[c.owner_username], { hideCreator: this.scope === "mine" });
@@ -306,26 +251,12 @@ class ExploreCharactersView {
       </button>`;
   }
 
-  activeFilterPills() {
-    const f = this.filters;
-    const pills = [];
-    if (f.gender !== "any") pills.push({ key: "gender", type: "gender", label: f.gender, icon: GENDER_ICONS[f.gender] });
-    if (f.mode !== "all") pills.push({ key: "mode", type: "mode", label: f.mode, icon: MODE_ICONS[f.mode] });
-    f.creators.forEach((name) => pills.push({ key: "creator", type: "creator", value: name, label: `@${name}`, editable: true }));
-    f.tags.forEach((tag) => pills.push({ key: "tag", type: "tag", value: tag, label: `#${tag}` }));
-    f.genres.forEach((genre) => pills.push({ key: "genre", type: "genre", value: genre, label: `>${genre}` }));
-    return pills;
-  }
-
-  clearFilterPill(key, value) {
-    const f = this.filters;
-    if (key === "gender") f.gender = "any";
-    else if (key === "mode") f.mode = "all";
-    else if (key === "nsfw") f.rating = "sfw";
-    else if (key === "creator") f.creators = f.creators.filter((c) => c !== value);
-    else if (key === "tag") f.tags = f.tags.filter((t) => t !== value);
-    else if (key === "genre") f.genres = f.genres.filter((g) => g !== value);
-    this.load();
+  _syncSearchBox() {
+    if (!this._searchBox) return;
+    this._searchBox.setState({
+      query: this.filters.q,
+      tokenValues: { creators: [...this.filters.creators], tags: [...this.filters.tags], genres: [...this.filters.genres] },
+    });
   }
 
   filterDrawerHtml() {
@@ -374,31 +305,17 @@ class ExploreCharactersView {
 
   addTag(tag) {
     if (!this.filters.tags.includes(tag)) this.filters.tags = [...this.filters.tags, tag];
+    this._syncSearchBox();
     this.load();
   }
 
   addGenre(genre) {
     if (!this.filters.genres.includes(genre)) this.filters.genres = [...this.filters.genres, genre];
+    this._syncSearchBox();
     this.load();
   }
 
-  pillHtml(p) {
-    if (p.editable && this.editingCreator === p.value) {
-      return `<span class="inline-pill pill-${p.type}">@<input type="text" id="creatorEditInput" value="${_attr(p.value)}" data-old="${_attr(p.value)}"></span>`;
-    }
-    const solid = p.icon ? ` type-chip${p.type === "mode" ? " type-chip-mode" : ""}` : "";
-    return `
-      <span class="inline-pill pill-${p.type}${solid}" data-clear="${_attr(p.key)}" data-clear-value="${_attr(p.value || "")}" ${p.editable ? `data-editable-value="${_attr(p.value)}" title="${_attr(t("compendium_double_click_edit"))}"` : ""}>
-        ${p.icon || ""}${_esc(p.label)}<span class="x" data-clear-x="1">&times;</span>
-      </span>
-    `;
-  }
-
   render() {
-    const f = this.filters;
-    const count = this.activeFilterCount();
-    const visible = this.visibleChars();
-    const pills = this.activeFilterPills();
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:12px">
         ${this.scope === "mine" ? `
@@ -414,138 +331,102 @@ class ExploreCharactersView {
         </div>
         `}
         <div style="display:flex;align-items:center;gap:5px">
-          <div id="compendiumSearchBox" style="position:relative;flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface)">
-            ${pills.map((p) => this.pillHtml(p)).join("")}
-            <input type="text" id="compendiumSearch" value="${_attr(f.q)}" placeholder="${pills.length ? "" : _attr(t("compendium_search_placeholder"))}"
-              style="flex:1;min-width:70px;border:none;background:none;outline:none;color:var(--color-ink);font-size:13.5px;padding:4px 0">
-            <div id="compendiumSuggest" class="dropdown-menu" style="left:0;right:0;top:calc(100% + 4px)"></div>
-          </div>
-          <button type="button" id="compendiumFilterBtn"
-            style="position:relative;flex:none;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;
-            border:1px solid var(--color-accent);background:${this.drawerOpen || count ? "var(--color-accent)" : "color-mix(in srgb, var(--color-accent) 14%, var(--color-surface))"};
-            color:${this.drawerOpen || count ? "var(--color-paper-base, var(--color-paper))" : "var(--color-accent)"}">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
-            ${count ? `<span style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:999px;background:var(--color-warn);color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center">${count}</span>` : ""}
-          </button>
+          <div id="compendiumSearchBox" style="flex:1;min-width:0"></div>
+          <div id="compendiumFilterBtnSlot"></div>
           ${ME ? `<button type="button" onclick="openGroupCreate()" aria-label="${_attr(t("group_create_button", "New group chat"))}" data-tooltip="${_attr(t("group_create_button", "New group chat"))}"
             style="flex:none;height:40px;padding:0 13px;border-radius:10px;display:inline-flex;align-items:center;gap:7px;border:none;cursor:pointer;background:linear-gradient(150deg, var(--color-accent), var(--color-accent-deep));color:var(--color-paper-base, #12100c);font-family:var(--font-display, inherit);font-size:13px;font-weight:600;white-space:nowrap">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             <span class="hidden sm:inline">${t("group_create_button", "New group")}</span>
           </button>` : ""}
         </div>
-        ${this.popularTagsHtml()}
-        ${this.drawerOpen ? this.filterDrawerHtml() : ""}
-        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("compendium_loading")}</p>` : ""}
-        ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${this.error}</p>` : ""}
-        ${!this.loading && !this.error && !visible.length ? (
-          this.scope === "mine" && !count
-            ? `<p style="color:var(--color-sec);font-size:13px">${t("compendium_empty_mine_prefix")} <a href="#" onclick="event.preventDefault();navigate('/workshop/characters/new')" style="color:var(--color-accent)">${t("compendium_empty_mine_create_link")}</a>.</p>`
-            : `<p style="color:var(--color-sec);font-size:13px">${t("compendium_empty_no_match")}</p>`
-        ) : ""}
-        <div class="card-grid" id="compendiumGrid">${visible.map((c) => this.cardHtml(c)).join("")}</div>
+        <div id="compendiumResultsArea"></div>
       </div>
     `;
-    wireCharCardDominantColors(this.main);
-    this.main.querySelector("#compendiumFilterBtn").onclick = () => {
+    this._searchBox = new SearchBox({
+      container: this.main.querySelector("#compendiumSearchBox"),
+      mode: "server",
+      endpoint: `/api/characters?scope=${encodeURIComponent(this.scope)}`,
+      tokens: [
+        {
+          prefix: "@", param: "creators",
+          suggest: (q) => this.scope !== "community" ? [] : this.allCreators()
+            .filter((c) => c.name.toLowerCase().includes(q))
+            .map((c) => c.name),
+        },
+        {
+          prefix: "#", param: "tags",
+          suggest: (q) => this.allTags().filter((tag) => tag.toLowerCase().includes(q)),
+        },
+        {
+          prefix: ">", param: "genres",
+          suggest: (q) => GENRE_OPTIONS.filter((g) => g.toLowerCase().includes(q)),
+        },
+      ],
+      placeholder: t("compendium_search_placeholder"),
+      onChange: (query, tokenValues, results) => {
+        const f = this.filters;
+        f.q = query.trim();
+        f.creators = tokenValues.creators;
+        f.tags = tokenValues.tags;
+        f.genres = tokenValues.genres;
+        if (results) {
+          this.chars = results;
+          this.error = "";
+        } else {
+          this.error = this.scope === "mine" ? t("compendium_load_error_mine") : t("compendium_load_error_community");
+        }
+        this.renderResults();
+        if (results && this.scope === "community") this.loadCreatorProfiles();
+      },
+    });
+    this._syncSearchBox();
+    this.renderResults();
+  }
+
+  renderResults() {
+    const f = this.filters;
+    const count = this.activeFilterCount();
+    const visible = this.visibleChars();
+    const filterBtnSlot = this.main.querySelector("#compendiumFilterBtnSlot");
+    filterBtnSlot.innerHTML = `
+      <button type="button" id="compendiumFilterBtn"
+        style="position:relative;flex:none;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;
+        border:1px solid var(--color-accent);background:${this.drawerOpen || count ? "var(--color-accent)" : "color-mix(in srgb, var(--color-accent) 14%, var(--color-surface))"};
+        color:${this.drawerOpen || count ? "var(--color-paper-base, var(--color-paper))" : "var(--color-accent)"}">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+        ${count ? `<span style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:999px;background:var(--color-warn);color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center">${count}</span>` : ""}
+      </button>
+    `;
+    filterBtnSlot.querySelector("#compendiumFilterBtn").onclick = () => {
       this.drawerOpen = !this.drawerOpen;
-      this.render();
+      this.renderResults();
     };
-    this.main.querySelectorAll("[data-for-you]").forEach((btn) => btn.onclick = () => {
+    const resultsArea = this.main.querySelector("#compendiumResultsArea");
+    resultsArea.innerHTML = `
+      ${this.popularTagsHtml()}
+      ${this.drawerOpen ? this.filterDrawerHtml() : ""}
+      ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("compendium_loading")}</p>` : ""}
+      ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${this.error}</p>` : ""}
+      ${!this.loading && !this.error && !visible.length ? (
+        this.scope === "mine" && !count
+          ? `<p style="color:var(--color-sec);font-size:13px">${t("compendium_empty_mine_prefix")} <a href="#" onclick="event.preventDefault();navigate('/workshop/characters/new')" style="color:var(--color-accent)">${t("compendium_empty_mine_create_link")}</a>.</p>`
+          : `<p style="color:var(--color-sec);font-size:13px">${t("compendium_empty_no_match")}</p>`
+      ) : ""}
+      <div class="card-grid" id="compendiumGrid">${visible.map((c) => this.cardHtml(c)).join("")}</div>
+    `;
+    wireCharCardDominantColors(resultsArea);
+    resultsArea.querySelectorAll("[data-for-you]").forEach((btn) => btn.onclick = () => {
       f.tags = [];
+      this._syncSearchBox();
       this.load();
     });
-    this.main.querySelectorAll("[data-quick-tag]").forEach((btn) => btn.onclick = () => {
+    resultsArea.querySelectorAll("[data-quick-tag]").forEach((btn) => btn.onclick = () => {
       const tag = btn.dataset.quickTag;
       f.tags = f.tags.includes(tag) ? f.tags.filter((t) => t !== tag) : [...f.tags, tag];
+      this._syncSearchBox();
       this.load();
     });
-    this.main.querySelectorAll("[data-clear-x]").forEach((x) => {
-      x.onclick = (e) => {
-        e.stopPropagation();
-        const pill = x.closest("[data-clear]");
-        this.clearFilterPill(pill.dataset.clear, pill.dataset.clearValue);
-      };
-    });
-    this.main.querySelectorAll("[data-editable-value]").forEach((pill) => {
-      pill.ondblclick = () => {
-        this.editingCreator = pill.dataset.editableValue;
-        this.render();
-      };
-    });
-    const editInput = this.main.querySelector("#creatorEditInput");
-    if (editInput) {
-      editInput.focus();
-      editInput.select();
-      const commit = () => {
-        const old = editInput.dataset.old;
-        const val = editInput.value.trim();
-        this.editingCreator = null;
-        const idx = f.creators.indexOf(old);
-        if (idx === -1) return this.render();
-        if (!val) f.creators.splice(idx, 1);
-        else f.creators[idx] = val;
-        this.load();
-      };
-      editInput.onkeydown = (e) => {
-        if (e.key === "Enter") commit();
-        if (e.key === "Escape") { this.editingCreator = null; this.render(); }
-      };
-      editInput.onblur = commit;
-    }
-    if (this.drawerOpen) this.wireDrawer(this.main.querySelector("#compendiumDrawer"));
-    const search = this.main.querySelector("#compendiumSearch");
-    let searchTimer;
-    search.oninput = () => {
-      this.updateSuggestions();
-      if (search.value.startsWith("@") || search.value.startsWith("#") || search.value.startsWith(">")) return;
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => {
-        f.q = search.value.trim();
-        this.load();
-      }, 350);
-    };
-    search.onkeydown = (e) => {
-      if (e.key === "Backspace" || e.key === "Delete") {
-        if (search.value !== "") return;
-        e.preventDefault();
-        if (f.genres.length) {
-          const removed = f.genres[f.genres.length - 1];
-          f.genres = f.genres.slice(0, -1);
-          toast(`Removed >${removed} filter`);
-        } else if (f.tags.length) {
-          const removed = f.tags[f.tags.length - 1];
-          f.tags = f.tags.slice(0, -1);
-          toast(`Removed #${removed} filter`);
-        } else if (f.creators.length) {
-          const removed = f.creators[f.creators.length - 1];
-          f.creators = f.creators.slice(0, -1);
-          toast(`Removed @${removed} filter`);
-        } else return;
-        this.load();
-        return;
-      }
-      if (e.key !== "Enter") return;
-      const val = search.value.trim();
-      if (val.startsWith("@") && val.length > 1) {
-        const name = val.slice(1);
-        if (!f.creators.includes(name)) f.creators = [...f.creators, name];
-        search.value = "";
-        f.q = "";
-        this.load();
-      } else if (val.startsWith("#") && val.length > 1) {
-        this.addTag(val.slice(1));
-        search.value = "";
-        f.q = "";
-      } else if (val.startsWith(">") && val.length > 1) {
-        const q = val.slice(1).toLowerCase();
-        const match = GENRE_OPTIONS.find((g) => g.toLowerCase() === q);
-        if (match) {
-          this.addGenre(match);
-          search.value = "";
-          f.q = "";
-        }
-      }
-    };
+    if (this.drawerOpen) this.wireDrawer(resultsArea.querySelector("#compendiumDrawer"));
   }
 }
 

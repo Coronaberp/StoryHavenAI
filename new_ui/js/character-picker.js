@@ -27,8 +27,7 @@ function openCharacterPickerModal(onPick, opts = {}) {
   const layer = openModal(`
     <h3>${_esc(title)}</h3>
     <div style="display:flex;gap:8px;margin:12px 0 10px">
-      <input type="text" id="cpSearch" placeholder="${_attr(t("masks_link_character_search_placeholder", "Search your characters or Explore"))}"
-        class="pcp-search" style="margin:0;flex:1" autocomplete="off">
+      <div id="cpSearchBox" style="flex:1"></div>
       <button type="button" id="cpFilterBtn" class="tool" style="flex:none;position:relative;border:1px solid var(--color-line-2);border-radius:11px;width:42px;display:grid;place-items:center" aria-label="${_attr(t("masks_link_character_filter", "Filter"))}" data-tooltip="${_attr(t("masks_link_character_filter", "Filter"))}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
         <span id="cpFilterDot" style="display:none;position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--color-accent)"></span>
@@ -130,7 +129,17 @@ function openCharacterPickerModal(onPick, opts = {}) {
     renderPager(pageCount, page);
   };
 
-  layer.querySelector("#cpSearch").oninput = (e) => { state.query = e.target.value; state.page = 0; renderGrid(); };
+  new SearchBox({
+    container: layer.querySelector("#cpSearchBox"),
+    mode: "client",
+    tokens: [],
+    placeholder: t("masks_link_character_search_placeholder", "Search your characters or Explore"),
+    onChange: (query) => {
+      state.query = query.trim();
+      state.page = 0;
+      renderGrid();
+    },
+  });
   layer.querySelector("#cpFilterBtn").onclick = () => {
     const drawer = layer.querySelector("#cpFilterDrawer");
     drawer.style.display = drawer.style.display === "none" ? "flex" : "none";

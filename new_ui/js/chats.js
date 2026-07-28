@@ -62,20 +62,20 @@ class ChatsView {
   toggleGroup(key) {
     if (this.collapsed.has(key)) this.collapsed.delete(key);
     else this.collapsed.add(key);
-    this.render();
+    this.renderResults();
   }
 
   toggleSelectMode() {
     this.selectMode = !this.selectMode;
     if (!this.selectMode) this.selected.clear();
     document.body.classList.toggle("chats-select-mode", this.selectMode);
-    this.render();
+    this.renderResults();
   }
 
   toggleSelect(sid) {
     if (this.selected.has(sid)) this.selected.delete(sid);
     else this.selected.add(sid);
-    this.render();
+    this.renderResults();
   }
 
   confirmBulkDelete() {
@@ -108,7 +108,7 @@ class ChatsView {
     this.selected.clear();
     this.selectMode = false;
     document.body.classList.remove("chats-select-mode");
-    this.render();
+    this.renderResults();
     toast(failed ? t("chats_bulk_delete_partial_error", "Some conversations couldn't be deleted.") : t("chats_conversation_deleted"));
   }
 
@@ -148,16 +148,6 @@ class ChatsView {
     });
   }
 
-  addCharFilter(name) {
-    if (!this.charFilters.includes(name)) this.charFilters = [...this.charFilters, name];
-    this.render();
-  }
-
-  removeCharFilter(name) {
-    this.charFilters = this.charFilters.filter((c) => c !== name);
-    this.render();
-  }
-
   async mount(main) {
     this.main = main;
     this.selectMode = false;
@@ -179,7 +169,7 @@ class ChatsView {
       this.error = err.message || t("chats_load_error");
       this.sessions = [];
     }
-    this.render();
+    this.renderResults();
     this.loadChars();
   }
 
@@ -191,7 +181,7 @@ class ChatsView {
       catch { return [cid, null]; }
     }));
     fetched.forEach(([cid, c]) => { if (c) this.chars[cid] = c; });
-    this.render();
+    this.renderResults();
   }
 
   rowHtml(s) {
@@ -258,7 +248,7 @@ class ChatsView {
       await api(`/api/sessions/${encodeURIComponent(sid)}`, { method: "DELETE" });
       this.sessions = this.sessions.filter((s) => s.id !== sid);
       delete this.chars[sid];
-      this.render();
+      this.renderResults();
       toast(t("chats_conversation_deleted"));
     } catch (err) {
       toast(err.message || t("chats_delete_error"));
@@ -316,75 +306,49 @@ class ChatsView {
   render() {
     this.main.innerHTML = `
       ${pageHeaderHtml("Chats", "Overview", t("ph_chats_title"), t("ph_chats_sub"))}
-      ${this.sessions && this.sessions.length ? `
-        <div id="chatsSearchBox" style="position:relative;margin-bottom:16px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface)">
-          ${this.charFilters.map((c) => `
-            <span class="inline-pill pill-creator">@${_esc(c)}<span class="x" data-remove-char="${_attr(c)}">&times;</span></span>
-          `).join("")}
-          <input type="text" id="chatsSearch" value="${_attr(this.q)}" placeholder="${this.charFilters.length ? "" : _attr(t("chats_search_placeholder"))}"
-            style="flex:1;min-width:70px;border:none;background:none;outline:none;color:var(--color-ink);font-size:13.5px;padding:4px 0">
-          <button type="button" class="chats-select-toggle" id="chatsSelectToggle" aria-label="${_attr(t("chats_select_conversations", "Select conversations"))}" data-tooltip="${_attr(t("chats_select_conversations", "Select conversations"))}">${CHATS_SELECT_ICON}</button>
-          <div id="chatsSuggest" class="dropdown-menu" style="left:0;right:0;top:calc(100% + 4px)"></div>
-        </div>
-      ` : ""}
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">
+        <div id="chatsSearchBox" style="flex:1;min-width:0"></div>
+        <div id="chatsToggleSlot"></div>
+      </div>
+      <div id="chatsResultsArea"></div>
+    `;
+    const searchContainer = this.main.querySelector("#chatsSearchBox");
+    this._searchBox = new SearchBox({
+      container: searchContainer,
+      mode: "client",
+      tokens: [
+        {
+          prefix: "@", param: "characters",
+          suggest: (q) => this.allCharNames().filter((n) => n.toLowerCase().includes(q)),
+        },
+      ],
+      placeholder: t("chats_search_placeholder"),
+      onChange: (query, tokenValues) => {
+        this.q = query.trim();
+        this.charFilters = tokenValues.characters;
+        this.renderResults();
+      },
+    });
+    this._searchBox.setState({ query: this.q, tokenValues: { characters: [...this.charFilters] } });
+    this.renderResults();
+  }
+
+  renderResults() {
+    const toggleSlot = this.main.querySelector("#chatsToggleSlot");
+    toggleSlot.innerHTML = this.sessions && this.sessions.length
+      ? `<button type="button" class="chats-select-toggle" id="chatsSelectToggle" aria-label="${_attr(t("chats_select_conversations", "Select conversations"))}" data-tooltip="${_attr(t("chats_select_conversations", "Select conversations"))}">${CHATS_SELECT_ICON}</button>`
+      : "";
+    const selectToggle = toggleSlot.querySelector("#chatsSelectToggle");
+    if (selectToggle) selectToggle.onclick = () => this.toggleSelectMode();
+    const resultsArea = this.main.querySelector("#chatsResultsArea");
+    resultsArea.innerHTML = `
       ${this.toolbarHtml()}
       ${this.bodyHtml()}
       ${paginationHtml("chats", { rows: this.sessions || [], page: this.page, pages: Math.max(1, Math.ceil((this.total || 0) / CHATS_PAGE_SIZE)), total: this.total || 0, start: (this.page - 1) * CHATS_PAGE_SIZE, pageSize: CHATS_PAGE_SIZE })}
     `;
-    this.main.querySelectorAll("[data-remove-char]").forEach((x) => {
-      x.onclick = (e) => { e.stopPropagation(); this.removeCharFilter(x.dataset.removeChar); };
-    });
-    const selectToggle = this.main.querySelector("#chatsSelectToggle");
-    if (selectToggle) selectToggle.onclick = () => this.toggleSelectMode();
-    const bulkDeleteBtn = this.main.querySelector("#chatsBulkDelete");
+    const bulkDeleteBtn = resultsArea.querySelector("#chatsBulkDelete");
     if (bulkDeleteBtn) bulkDeleteBtn.onclick = () => this.confirmBulkDelete();
-    const bulkCancelBtn = this.main.querySelector("#chatsBulkCancel");
+    const bulkCancelBtn = resultsArea.querySelector("#chatsBulkCancel");
     if (bulkCancelBtn) bulkCancelBtn.onclick = () => this.toggleSelectMode();
-    const search = this.main.querySelector("#chatsSearch");
-    if (search) {
-      let searchTimer;
-      search.oninput = () => {
-        this.updateCharSuggestions();
-        if (search.value.startsWith("@")) return;
-        clearTimeout(searchTimer);
-        searchTimer = setTimeout(() => {
-          this.q = search.value.trim();
-          this.render();
-        }, 250);
-      };
-      search.onkeydown = (e) => {
-        if (e.key === "Backspace" && search.value === "" && this.charFilters.length) {
-          e.preventDefault();
-          this.charFilters = this.charFilters.slice(0, -1);
-          this.render();
-          return;
-        }
-        if (e.key !== "Enter") return;
-        const val = search.value.trim();
-        if (val.startsWith("@") && val.length > 1) {
-          this.addCharFilter(val.slice(1));
-          search.value = "";
-          this.q = "";
-        }
-      };
-    }
-  }
-
-  updateCharSuggestions() {
-    const box = this.main.querySelector("#chatsSuggest");
-    const search = this.main.querySelector("#chatsSearch");
-    if (!box || !search) return;
-    const val = search.value;
-    if (!val.startsWith("@")) { box.classList.remove("open"); box.innerHTML = ""; return; }
-    const q = val.slice(1).toLowerCase();
-    const matches = this.allCharNames().filter((n) => !this.charFilters.includes(n) && n.toLowerCase().includes(q)).slice(0, 8);
-    if (!matches.length) { box.classList.remove("open"); box.innerHTML = ""; return; }
-    box.innerHTML = matches.map((n) => `<button type="button" class="dropdown-item" data-pick-char="${_attr(n)}">@${_esc(n)}</button>`).join("");
-    box.classList.add("open");
-    box.querySelectorAll("[data-pick-char]").forEach((btn) => btn.onclick = () => {
-      search.value = "";
-      box.classList.remove("open");
-      this.addCharFilter(btn.dataset.pickChar);
-    });
   }
 }
