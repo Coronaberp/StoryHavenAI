@@ -15,15 +15,7 @@ class SearchBox {
     this.tokenValues = {};
     tokens.forEach((t) => { this.tokenValues[t.param] = []; });
     this._debounceTimer = null;
-    const existingInput = this.container.querySelector(".search-box-input");
-    const hadFocus = !!existingInput && document.activeElement === existingInput;
-    const selectionStart = hadFocus ? existingInput.selectionStart : null;
-    const selectionEnd = hadFocus ? existingInput.selectionEnd : null;
     this._render();
-    if (hadFocus && this.input) {
-      this.input.focus();
-      this.input.setSelectionRange(selectionStart, selectionEnd);
-    }
   }
 
   getState() {
