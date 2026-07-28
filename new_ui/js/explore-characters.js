@@ -143,7 +143,7 @@ class ExploreCharactersView {
   async load() {
     this.loading = true;
     this.error = "";
-    this.render();
+    this.renderResults();
     try {
       const params = new URLSearchParams({ scope: this.scope });
       if (this.filters.q) params.set("q", this.filters.q);
@@ -154,7 +154,7 @@ class ExploreCharactersView {
       this.chars = [];
     }
     this.loading = false;
-    this.render();
+    this.renderResults();
     if (this.scope === "community") this.loadCreatorProfiles();
   }
 
@@ -167,7 +167,7 @@ class ExploreCharactersView {
       catch { return [u, null]; }
     }));
     fetched.forEach(([u, profile]) => { if (profile) this.creatorProfiles[u] = profile; });
-    this.render();
+    this.renderResults();
   }
 
   visibleChars() {
@@ -317,9 +317,6 @@ class ExploreCharactersView {
   }
 
   render() {
-    const f = this.filters;
-    const count = this.activeFilterCount();
-    const visible = this.visibleChars();
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:12px">
         ${this.scope === "mine" ? `
@@ -336,54 +333,16 @@ class ExploreCharactersView {
         `}
         <div style="display:flex;align-items:center;gap:5px">
           <div id="compendiumSearchBox" style="flex:1;min-width:0"></div>
-          <button type="button" id="compendiumFilterBtn"
-            style="position:relative;flex:none;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;
-            border:1px solid var(--color-accent);background:${this.drawerOpen || count ? "var(--color-accent)" : "color-mix(in srgb, var(--color-accent) 14%, var(--color-surface))"};
-            color:${this.drawerOpen || count ? "var(--color-paper-base, var(--color-paper))" : "var(--color-accent)"}">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
-            ${count ? `<span style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:999px;background:var(--color-warn);color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center">${count}</span>` : ""}
-          </button>
+          <div id="compendiumFilterBtnSlot"></div>
           ${ME ? `<button type="button" onclick="openGroupCreate()" aria-label="${_attr(t("group_create_button", "New group chat"))}" data-tooltip="${_attr(t("group_create_button", "New group chat"))}"
             style="flex:none;height:40px;padding:0 13px;border-radius:10px;display:inline-flex;align-items:center;gap:7px;border:none;cursor:pointer;background:linear-gradient(150deg, var(--color-accent), var(--color-accent-deep));color:var(--color-paper-base, #12100c);font-family:var(--font-display, inherit);font-size:13px;font-weight:600;white-space:nowrap">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             <span class="hidden sm:inline">${t("group_create_button", "New group")}</span>
           </button>` : ""}
         </div>
-        ${this.popularTagsHtml()}
-        ${this.drawerOpen ? this.filterDrawerHtml() : ""}
-        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("compendium_loading")}</p>` : ""}
-        ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${this.error}</p>` : ""}
-        ${!this.loading && !this.error && !visible.length ? (
-          this.scope === "mine" && !count
-            ? `<p style="color:var(--color-sec);font-size:13px">${t("compendium_empty_mine_prefix")} <a href="#" onclick="event.preventDefault();navigate('/workshop/characters/new')" style="color:var(--color-accent)">${t("compendium_empty_mine_create_link")}</a>.</p>`
-            : `<p style="color:var(--color-sec);font-size:13px">${t("compendium_empty_no_match")}</p>`
-        ) : ""}
-        <div class="card-grid" id="compendiumGrid">${visible.map((c) => this.cardHtml(c)).join("")}</div>
+        <div id="compendiumResultsArea"></div>
       </div>
     `;
-    wireCharCardDominantColors(this.main);
-    this.main.querySelector("#compendiumFilterBtn").onclick = () => {
-      this.drawerOpen = !this.drawerOpen;
-      this.render();
-    };
-    this.main.querySelectorAll("[data-for-you]").forEach((btn) => btn.onclick = () => {
-      f.tags = [];
-      this.load();
-    });
-    this.main.querySelectorAll("[data-quick-tag]").forEach((btn) => btn.onclick = () => {
-      const tag = btn.dataset.quickTag;
-      f.tags = f.tags.includes(tag) ? f.tags.filter((t) => t !== tag) : [...f.tags, tag];
-      this.load();
-    });
-    this.main.querySelectorAll("[data-clear-x]").forEach((x) => {
-      x.onclick = (e) => {
-        e.stopPropagation();
-        const pill = x.closest("[data-clear]");
-        this.clearFilterPill(pill.dataset.clear, pill.dataset.clearValue);
-      };
-    });
-    if (this.drawerOpen) this.wireDrawer(this.main.querySelector("#compendiumDrawer"));
-    if (this._searchBox) this._searchBox.destroy();
     this._searchBox = new SearchBox({
       container: this.main.querySelector("#compendiumSearchBox"),
       mode: "server",
@@ -406,6 +365,7 @@ class ExploreCharactersView {
       ],
       placeholder: t("compendium_search_placeholder"),
       onChange: (query, tokenValues, results) => {
+        const f = this.filters;
         f.q = query.trim();
         f.creators = tokenValues.creators;
         f.tags = tokenValues.tags;
@@ -416,13 +376,65 @@ class ExploreCharactersView {
         } else {
           this.error = this.scope === "mine" ? t("compendium_load_error_mine") : t("compendium_load_error_community");
         }
-        this.render();
+        this.renderResults();
         if (results && this.scope === "community") this.loadCreatorProfiles();
       },
     });
-    this._searchBox.query = f.q;
-    this._searchBox.tokenValues = { creators: [...f.creators], tags: [...f.tags], genres: [...f.genres] };
+    this._searchBox.query = this.filters.q;
+    this._searchBox.tokenValues = { creators: [...this.filters.creators], tags: [...this.filters.tags], genres: [...this.filters.genres] };
     this._searchBox._render();
+    this.renderResults();
+  }
+
+  renderResults() {
+    const f = this.filters;
+    const count = this.activeFilterCount();
+    const visible = this.visibleChars();
+    const filterBtnSlot = this.main.querySelector("#compendiumFilterBtnSlot");
+    filterBtnSlot.innerHTML = `
+      <button type="button" id="compendiumFilterBtn"
+        style="position:relative;flex:none;width:40px;height:40px;border-radius:10px;display:grid;place-items:center;
+        border:1px solid var(--color-accent);background:${this.drawerOpen || count ? "var(--color-accent)" : "color-mix(in srgb, var(--color-accent) 14%, var(--color-surface))"};
+        color:${this.drawerOpen || count ? "var(--color-paper-base, var(--color-paper))" : "var(--color-accent)"}">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+        ${count ? `<span style="position:absolute;top:-5px;right:-5px;width:16px;height:16px;border-radius:999px;background:var(--color-warn);color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center">${count}</span>` : ""}
+      </button>
+    `;
+    filterBtnSlot.querySelector("#compendiumFilterBtn").onclick = () => {
+      this.drawerOpen = !this.drawerOpen;
+      this.renderResults();
+    };
+    const resultsArea = this.main.querySelector("#compendiumResultsArea");
+    resultsArea.innerHTML = `
+      ${this.popularTagsHtml()}
+      ${this.drawerOpen ? this.filterDrawerHtml() : ""}
+      ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("compendium_loading")}</p>` : ""}
+      ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${this.error}</p>` : ""}
+      ${!this.loading && !this.error && !visible.length ? (
+        this.scope === "mine" && !count
+          ? `<p style="color:var(--color-sec);font-size:13px">${t("compendium_empty_mine_prefix")} <a href="#" onclick="event.preventDefault();navigate('/workshop/characters/new')" style="color:var(--color-accent)">${t("compendium_empty_mine_create_link")}</a>.</p>`
+          : `<p style="color:var(--color-sec);font-size:13px">${t("compendium_empty_no_match")}</p>`
+      ) : ""}
+      <div class="card-grid" id="compendiumGrid">${visible.map((c) => this.cardHtml(c)).join("")}</div>
+    `;
+    wireCharCardDominantColors(resultsArea);
+    resultsArea.querySelectorAll("[data-for-you]").forEach((btn) => btn.onclick = () => {
+      f.tags = [];
+      this.load();
+    });
+    resultsArea.querySelectorAll("[data-quick-tag]").forEach((btn) => btn.onclick = () => {
+      const tag = btn.dataset.quickTag;
+      f.tags = f.tags.includes(tag) ? f.tags.filter((t) => t !== tag) : [...f.tags, tag];
+      this.load();
+    });
+    resultsArea.querySelectorAll("[data-clear-x]").forEach((x) => {
+      x.onclick = (e) => {
+        e.stopPropagation();
+        const pill = x.closest("[data-clear]");
+        this.clearFilterPill(pill.dataset.clear, pill.dataset.clearValue);
+      };
+    });
+    if (this.drawerOpen) this.wireDrawer(resultsArea.querySelector("#compendiumDrawer"));
   }
 }
 
