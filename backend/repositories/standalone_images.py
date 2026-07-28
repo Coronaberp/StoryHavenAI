@@ -122,7 +122,7 @@ async def set_public(iid: str, user_id: str, is_public: bool,
     out["is_explicit"] = bool(is_explicit) if is_explicit is not None else bool(row["is_explicit"])
     return out
 
-async def list_community(hidden_ids: set) -> list[dict]:
+async def list_community(hidden_ids: set, q: str | None = None) -> list[dict]:
     stmt = (select(standalone_images, users.c.username, users.c.display_name,
                    users.c.avatar)
             .select_from(standalone_images.join(
@@ -138,6 +138,10 @@ async def list_community(hidden_ids: set) -> list[dict]:
         d["owner_display_name"] = _decrypt_secret(d.pop("display_name", "") or "") or d.get("owner_username", "")
         d["owner_avatar"] = d.pop("avatar", "") or ""
         out.append(d)
+    if q:
+        ql = q.lower()
+        out = [d for d in out if ql in (d.get("positive") or "").lower()
+               or ql in (d.get("negative") or "").lower()]
     return out
 
 async def get_public(iid: str) -> dict | None:

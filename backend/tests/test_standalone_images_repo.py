@@ -134,3 +134,19 @@ async def test_create_video_with_classified_true(db_conn):
 
     fetched = await standalone_image_repo.get(video["id"])
     assert fetched["classified"] is True
+
+async def test_list_community_q_filters_positive_and_negative(db_conn):
+    match_positive = await _make_image(
+        db_conn, user_id="u016863391b2a", positive="a dragon soaring", negative="blurry")
+    match_negative = await _make_image(
+        db_conn, user_id="u016863391b2a", positive="a knight", negative="dragon artifacts")
+    no_match = await _make_image(
+        db_conn, user_id="u016863391b2a", positive="a castle", negative="low quality")
+    for img in (match_positive, match_negative, no_match):
+        await standalone_image_repo.set_public(img["id"], "u016863391b2a", True)
+
+    results = await standalone_image_repo.list_community(set(), q="dragon")
+    ids = {r["id"] for r in results}
+    assert match_positive["id"] in ids
+    assert match_negative["id"] in ids
+    assert no_match["id"] not in ids
