@@ -10,7 +10,7 @@ from backend.repositories import groups as groups_repo
 from backend.repositories import content_likes as content_likes_repo
 from backend.repositories import follows as follows_repo
 
-WEIGHT_CHAT_HISTORY_EXACT = 4.0
+WEIGHT_CHAT_HISTORY_EXACT = 0.5
 WEIGHT_CHAT_HISTORY_CREATOR = 2.0
 WEIGHT_LIKES_CREATOR = 2.0
 WEIGHT_GENRE_AFFINITY = 1.5

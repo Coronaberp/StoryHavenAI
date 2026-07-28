@@ -51,8 +51,11 @@ async def test_build_user_signals_from_follow(db_conn):
     assert signals["has_signal"] is True
     assert CLAUDE_ID in signals["followed_creator_ids"]
 
-async def test_score_for_you_weights_chat_history_above_others(db_conn):
-    chatted = await _make_character(owner_id=CLAUDE_ID, genre="Fantasy")
+async def test_score_for_you_treats_exact_chat_history_as_a_minor_signal(db_conn):
+    # Exact chat history is intentionally a small nudge, not a dominant signal -
+    # "For You" is a discovery feed, so it shouldn't just resurface what you've
+    # already chatted with above genuinely new-to-you matches.
+    chatted = await _make_character(owner_id=CLAUDE_ID, genre="Horror")
     liked_creator_char = await _make_character(owner_id="some-other-owner", genre="Comedy")
     signals = {
         "chatted_char_ids": {chatted["id"]},
@@ -64,7 +67,8 @@ async def test_score_for_you_weights_chat_history_above_others(db_conn):
     }
     chat_score = explore_ranking.score_for_you(chatted, signals)
     like_score = explore_ranking.score_for_you(liked_creator_char, signals)
-    assert chat_score > like_score
+    assert chat_score == explore_ranking.WEIGHT_CHAT_HISTORY_EXACT
+    assert chat_score < like_score
 
 async def test_rank_for_you_falls_back_to_input_order_when_no_signal(db_conn):
     candidates = [{"id": "a", "owner_id": None, "genre": None, "created": 1},
