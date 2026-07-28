@@ -135,6 +135,35 @@ function _wireZoomPan(img) {
   }, { passive: false });
 }
 
+function mediaFrameHtml(img, creatorProfiles) {
+  const blur = img.is_explicit && !ME?.nsfw_allowed;
+  const creatorName = img.owner_display_name || img.owner_username || t("gallery_you_fallback");
+  const profile = creatorProfiles[img.owner_username];
+  const avatarSrc = profile?.avatar || img.owner_avatar;
+  const avatarInner = avatarSrc
+    ? `<img src="${avatarSrc}" alt="">`
+    : `<span>${creatorName[0].toUpperCase()}</span>`;
+  const ringGradient = profile?.accent_color
+    ? `linear-gradient(135deg, ${profile.accent_color}, ${profile.banner_color || profile.accent_color})`
+    : "linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark))";
+  const hue = [...(img.id || creatorName)].reduce((h, ch) => h + ch.charCodeAt(0), 0) % 360;
+  const dom = `hsl(${hue} 45% 20%)`;
+  return `
+    <div class="pin-frame" data-iid="${_esc(img.id)}" style="--dom:${dom}" ${img.media_type !== "video" ? `data-dom-src="${_attr(img.image)}"` : ""}>
+      ${mediaTagHtml(img, { style: blur ? "filter:blur(16px) saturate(60%)" : "" })}
+      ${img.is_explicit ? `<span class="pin-badge">NSFW</span>` : ""}
+      <div class="char-card-fade"></div>
+      <div class="char-card-creator" style="position:absolute;left:8px;right:8px;bottom:7px"
+        ${img.owner_username ? `onclick="event.stopPropagation();navigate('/u/${encodeURIComponent(img.owner_username)}')" style="cursor:pointer"` : ""}>
+        <span class="char-card-creator-ring" style="background:${ringGradient}">
+          <span class="char-card-creator-ring-inner">${avatarInner}</span>
+        </span>
+        <span class="char-card-creator-name">${_esc(creatorName)}</span>
+      </div>
+    </div>
+  `;
+}
+
 class ExploreMediaView {
   constructor() {
     this.images = [];
@@ -181,35 +210,6 @@ class ExploreMediaView {
     }));
     fetched.forEach(([u, profile]) => { if (profile) this.creatorProfiles[u] = profile; });
     this.renderResults();
-  }
-
-  frameHtml(img) {
-    const blur = img.is_explicit && !ME?.nsfw_allowed;
-    const creatorName = img.owner_display_name || img.owner_username || t("gallery_you_fallback");
-    const profile = this.creatorProfiles[img.owner_username];
-    const avatarSrc = profile?.avatar || img.owner_avatar;
-    const avatarInner = avatarSrc
-      ? `<img src="${avatarSrc}" alt="">`
-      : `<span>${creatorName[0].toUpperCase()}</span>`;
-    const ringGradient = profile?.accent_color
-      ? `linear-gradient(135deg, ${profile.accent_color}, ${profile.banner_color || profile.accent_color})`
-      : "linear-gradient(135deg, var(--color-primary-light), var(--color-primary-dark))";
-    const hue = [...(img.id || creatorName)].reduce((h, ch) => h + ch.charCodeAt(0), 0) % 360;
-    const dom = `hsl(${hue} 45% 20%)`;
-    return `
-      <div class="pin-frame" data-iid="${_esc(img.id)}" style="--dom:${dom}" ${img.media_type !== "video" ? `data-dom-src="${_attr(img.image)}"` : ""}>
-        ${mediaTagHtml(img, { style: blur ? "filter:blur(16px) saturate(60%)" : "" })}
-        ${img.is_explicit ? `<span class="pin-badge">NSFW</span>` : ""}
-        <div class="char-card-fade"></div>
-        <div class="char-card-creator" style="position:absolute;left:8px;right:8px;bottom:7px"
-          ${img.owner_username ? `onclick="event.stopPropagation();navigate('/u/${encodeURIComponent(img.owner_username)}')" style="cursor:pointer"` : ""}>
-          <span class="char-card-creator-ring" style="background:${ringGradient}">
-            <span class="char-card-creator-ring-inner">${avatarInner}</span>
-          </span>
-          <span class="char-card-creator-name">${_esc(creatorName)}</span>
-        </div>
-      </div>
-    `;
   }
 
   tagsRowHtml(tags, kind) {
@@ -571,7 +571,7 @@ class ExploreMediaView {
       ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("gallery_loading")}</p>` : ""}
       ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${_esc(this.error)}</p>` : ""}
       ${!this.loading && !this.error && !visible.length ? `<p style="color:var(--color-sec);font-size:13px">${searching ? t("gallery_no_search_matches") : t("gallery_no_images_shared")}</p>` : ""}
-      ${!this.loading && visible.length ? `<div class="pin-wall">${visible.map((img) => this.frameHtml(img)).join("")}</div>` : ""}
+      ${!this.loading && visible.length ? `<div class="pin-wall">${visible.map((img) => mediaFrameHtml(img, this.creatorProfiles)).join("")}</div>` : ""}
     `;
     wireCharCardDominantColors(resultsArea);
     resultsArea.querySelectorAll(".pin-frame").forEach((el) => {
