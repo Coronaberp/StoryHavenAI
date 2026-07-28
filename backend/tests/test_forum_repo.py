@@ -76,3 +76,14 @@ async def test_delete_cascades_replies_and_likes(db_conn):
     await forum_thread_repo.delete(tid)
     assert await forum_thread_repo.get(tid) is None
     assert await comment_repo.get(cid) is None
+
+async def test_list_all_q_filters_title_and_content(db_conn):
+    match_title = await forum_thread_repo.create(CLAUDE_ID, "Dragon builds", "unrelated body")
+    match_content = await forum_thread_repo.create(CLAUDE_ID, "Unrelated title", "best dragon strategy")
+    no_match = await forum_thread_repo.create(CLAUDE_ID, "Something else", "nothing relevant")
+
+    results = await forum_thread_repo.list_all(set(), q="dragon")
+    ids = {t["id"] for t in results}
+    assert match_title in ids
+    assert match_content in ids
+    assert no_match not in ids

@@ -12,7 +12,7 @@ _THREAD_LIMIT = SlidingWindow(
     10, 300, "You're posting too fast — please wait a moment and try again")
 
 @api.get("/forum/threads")
-async def list_forum_threads(sort: str = "new", category: str = "",
+async def list_forum_threads(sort: str = "new", category: str = "", q: str = "",
                              limit: int = 50, offset: int = 0, paged: int = 0,
                              current_user: dict | None = Depends(get_current_user_optional)):
     viewer_id = current_user["id"] if current_user else None
@@ -21,7 +21,7 @@ async def list_forum_threads(sort: str = "new", category: str = "",
     offset = max(offset, 0)
     return await forum_thread_repo.list_all(hidden, sort=sort, category=category,
                                             limit=limit, offset=offset, viewer_id=viewer_id,
-                                            paged=bool(paged))
+                                            paged=bool(paged), q=(q.strip() or None))
 
 @api.post("/forum/threads")
 async def create_forum_thread(body: ForumThreadIn, current_user: dict = Depends(get_current_user),

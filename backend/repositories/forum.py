@@ -67,7 +67,7 @@ async def _reply_counts(ids):
 
 async def list_all(hidden_ids: set, sort: str = "new", category: str = "",
                    limit: int = 50, offset: int = 0, viewer_id: str | None = None,
-                   paged: bool = False):
+                   paged: bool = False, q: str | None = None):
     j = forum_threads.join(users, users.c.id == forum_threads.c.author_id)
     conds = []
     if category:
@@ -80,6 +80,9 @@ async def list_all(hidden_ids: set, sort: str = "new", category: str = "",
     scores, my_votes = await _vote_maps(ids, viewer_id)
     reply_counts = await _reply_counts(ids)
     shaped = [_shape_thread(r, scores, my_votes, reply_counts) for r in rows]
+    if q:
+        ql = q.lower()
+        shaped = [t for t in shaped if ql in t["title"].lower() or ql in t["content"].lower()]
     if sort == "top":
         shaped.sort(key=lambda t: (t["pinned"], t["score"], t["created"]), reverse=True)
     else:
