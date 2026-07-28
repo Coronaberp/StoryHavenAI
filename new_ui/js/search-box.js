@@ -94,6 +94,22 @@ class SearchBox {
   }
 
   _handleKeydown(e) {
+    const suggestOpen = this.suggestBox.classList.contains("open");
+    if (suggestOpen && e.key === "ArrowDown") {
+      e.preventDefault();
+      this._moveSuggestIndex(1);
+      return;
+    }
+    if (suggestOpen && e.key === "ArrowUp") {
+      e.preventDefault();
+      this._moveSuggestIndex(-1);
+      return;
+    }
+    if (suggestOpen && e.key === "Escape") {
+      this._activeSuggestIndex = -1;
+      this.suggestBox.querySelectorAll(".dropdown-item").forEach((el) => el.classList.remove("active"));
+      return;
+    }
     if (e.key === "Backspace" && this.input.value === "") {
       for (let i = this.tokens.length - 1; i >= 0; i--) {
         const param = this.tokens[i].param;
@@ -108,6 +124,11 @@ class SearchBox {
       return;
     }
     if (e.key === "Enter") {
+      if (suggestOpen && this._activeSuggestIndex >= 0) {
+        e.preventDefault();
+        this._pickSuggestion(this._activeSuggestIndex);
+        return;
+      }
       const val = this.input.value.trim();
       const matchedToken = this._matchedToken(val);
       if (matchedToken && val.length > matchedToken.prefix.length) {
@@ -153,17 +174,31 @@ class SearchBox {
       this.suggestBox.innerHTML = "";
       return;
     }
+    this._suggestMatches = matches;
+    this._suggestToken = matchedToken;
+    this._activeSuggestIndex = -1;
     this.suggestBox.innerHTML = matches.map((v, i) => `
       <button type="button" class="dropdown-item" data-suggest-index="${i}">${_esc(matchedToken.prefix)}${_esc(v)}</button>
     `).join("");
     this.suggestBox.classList.add("open");
     this.suggestBox.querySelectorAll("[data-suggest-index]").forEach((btn, i) => {
-      btn.onclick = () => {
-        this._addTokenValue(matchedToken.param, matches[i]);
-        this.input.value = "";
-        this.query = "";
-        this.suggestBox.classList.remove("open");
-      };
+      btn.onclick = () => this._pickSuggestion(i);
+    });
+  }
+
+  _pickSuggestion(i) {
+    this._addTokenValue(this._suggestToken.param, this._suggestMatches[i]);
+    this.input.value = "";
+    this.query = "";
+    this.suggestBox.classList.remove("open");
+  }
+
+  _moveSuggestIndex(delta) {
+    if (!this._suggestMatches || !this._suggestMatches.length) return;
+    const n = this._suggestMatches.length;
+    this._activeSuggestIndex = (this._activeSuggestIndex + delta + n) % n;
+    this.suggestBox.querySelectorAll(".dropdown-item").forEach((el, i) => {
+      el.classList.toggle("active", i === this._activeSuggestIndex);
     });
   }
 
