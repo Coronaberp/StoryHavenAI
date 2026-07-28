@@ -52,9 +52,6 @@ class AdminEmojisView {
     const stickerCols = "grid-cols-2 sm:grid-cols-4 lg:grid-cols-6";
     return `
       <div data-admin-emoji-grid-panel>
-        <div class="mb-3">
-          <input type="text" id="ae_search" value="${_attr(this.search)}" placeholder="${t("admin_emojis_search_placeholder", "Search :shortcode:")}" class="w-full px-2.5 py-2 rounded-md border border-line bg-surface-2 text-ink text-sm">
-        </div>
         <div class="flex items-center gap-1.5 mb-1 flex-wrap">
           ${[["all", t("admin_emojis_filter_all", "All")], ["emoji", t("admin_emojis_emoji")], ["sticker", t("admin_emojis_sticker")]].map(([key, label]) => `
             <button type="button" class="filter-chip${this.kindFilter === key ? " on" : ""}" onclick="adminEmojisView.kindFilter='${key}';adminEmojisView.render()">${label}</button>
@@ -87,14 +84,22 @@ class AdminEmojisView {
         <input type="file" id="ae_file" accept="image/*" class="w-full mb-3 text-sm text-ink">
         <button type="button" onclick="adminEmojisView.addEmoji()" data-feature="emojis" class="w-full py-2.5 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark">${t("admin_emojis_add")}</button>
       </div>
+      <div class="mb-3" id="ae_search_wrap"></div>
       ${this.gridPanelHtml()}
       </div>
     `;
     adminAttachScreenSwitcher(this.main);
-    const search = document.getElementById("ae_search");
-    if (search) {
-      search.oninput = () => { this.search = search.value; this.renderGridOnly(); };
-    }
+    if (this._searchBox) this._searchBox.destroy();
+    this._searchBox = new SearchBox({
+      container: document.getElementById("ae_search_wrap"),
+      mode: "client",
+      tokens: [],
+      placeholder: t("admin_emojis_search_placeholder", "Search :shortcode:"),
+      onChange: (query) => {
+        this.search = query.trim();
+        this.renderGridOnly();
+      },
+    });
     this.main.querySelectorAll("[data-admin-emoji-tile]").forEach((el) => {
       el.onclick = () => this.openEmojiSheet(el.dataset.adminEmojiTile);
     });
@@ -103,16 +108,10 @@ class AdminEmojisView {
   renderGridOnly() {
     const grid = this.main.querySelector("[data-admin-emoji-grid-panel]");
     if (!grid) return;
-    const focused = document.activeElement === document.getElementById("ae_search");
     grid.outerHTML = this.gridPanelHtml();
     this.main.querySelectorAll("[data-admin-emoji-tile]").forEach((el) => {
       el.onclick = () => this.openEmojiSheet(el.dataset.adminEmojiTile);
     });
-    const search = document.getElementById("ae_search");
-    if (search) {
-      search.oninput = () => { this.search = search.value; this.renderGridOnly(); };
-      if (focused) { search.focus(); search.setSelectionRange(search.value.length, search.value.length); }
-    }
   }
 
   openEmojiSheet(eid) {

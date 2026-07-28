@@ -229,13 +229,21 @@ function openPickerSheet(opts) {
   openModal(`
     <h3>${_esc(opts.title)}</h3>
     <div id="pickerSheetMainTabs"></div>
-    <input type="text" id="pickerSheetSearch" placeholder="${t("admin_picker_search_placeholder", "Search")}"
-      style="width:100%;margin:12px 0;padding:10px 13px;border-radius:11px;border:1px solid var(--color-line);background:var(--color-surface);color:var(--color-ink);font-size:13.5px">
+    <div id="pickerSheetSearchBox" style="margin:12px 0"></div>
     <div id="pickerSheetTabs"></div>
     <div id="pickerSheetGrid" style="display:flex;flex-direction:column;gap:9px;max-height:340px;overflow-y:auto;padding:2px"></div>
     <div id="pickerSheetFooter"></div>
   `, { wide: true });
-  document.getElementById("pickerSheetSearch").oninput = (e) => { state.query = e.target.value; renderGrid(); };
+  new SearchBox({
+    container: document.getElementById("pickerSheetSearchBox"),
+    mode: "client",
+    tokens: [],
+    placeholder: t("admin_picker_search_placeholder", "Search"),
+    onChange: (query) => {
+      state.query = query.trim();
+      renderGrid();
+    },
+  });
   renderMainTabs();
   renderTabs();
   renderGrid();

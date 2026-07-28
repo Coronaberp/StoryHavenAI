@@ -232,9 +232,8 @@ class AdminPreviewsView {
           ${kind.addLabel ? `<button type="button" onclick="event.stopPropagation();adminPreviewsView.openAddRequest(${_attr(JSON.stringify(kind.key))})" class="text-xs font-semibold px-2.5 py-1.5 rounded-md text-paper bg-gradient-to-br from-primary to-primary-dark">${_esc(kind.addLabel)}</button>` : ""}
         </div>
         ${isCollapsed ? "" : `
-          <input type="text" id="pv_search_${_attr(kind.key)}" placeholder="${t("admin_previews_search_placeholder")} ${_attr(kind.label.toLowerCase())}…" value="${_attr(this.search[kind.key] || "")}" oninput="adminPreviewsView.setSearch(${_attr(JSON.stringify(kind.key))}, this.value)"
-            class="w-full mb-3 px-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
-          <div class="pv-card-grid">${cards || `<p class="text-sm text-muted">${t("admin_previews_no_models_found")}</p>`}</div>
+          <div id="pv_search_wrap_${_attr(kind.key)}" class="mb-3"></div>
+          <div class="pv-card-grid" id="pv_grid_${_attr(kind.key)}">${cards || `<p class="text-sm text-muted">${t("admin_previews_no_models_found")}</p>`}</div>
         `}
       </div>
     `;
@@ -254,11 +253,10 @@ class AdminPreviewsView {
         </button>
         <div class="relative mb-3">
           <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted" style="width:14px;height:14px">${_PV_ICON_SEARCH}</span>
-          <input type="text" id="pv_mobile_search" placeholder="${t("admin_previews_search_placeholder")} ${_attr(kind.label.toLowerCase())}…" value="${_attr(this.search[kind.key] || "")}"
-            class="w-full pl-8 pr-2.5 py-2 rounded-md border border-line bg-surface text-ink text-sm">
+          <div id="pv_search_wrap_mobile" style="padding-left:26px"></div>
         </div>
         ${kind.addLabel ? `<button type="button" onclick="adminPreviewsView.openAddRequest(${_attr(JSON.stringify(kind.key))})" class="w-full mb-3 py-2 rounded-xl font-semibold text-sm text-paper bg-gradient-to-br from-primary to-primary-dark">${_esc(kind.addLabel)}</button>` : ""}
-        <div class="pv-card-grid">${cards || `<p class="text-sm text-muted">${t("admin_previews_no_models_found")}</p>`}</div>
+        <div class="pv-card-grid" id="pv_grid_mobile">${cards || `<p class="text-sm text-muted">${t("admin_previews_no_models_found")}</p>`}</div>
       </div>
     `;
   }
@@ -444,12 +442,7 @@ class AdminPreviewsView {
       </div>
     `;
     adminAttachScreenSwitcher(this.main);
-    const mobileSearch = document.getElementById("pv_mobile_search");
-    if (mobileSearch) {
-      mobileSearch.oninput = () => this.setSearch(this.activeKind, mobileSearch.value);
-      mobileSearch.focus();
-      mobileSearch.setSelectionRange(mobileSearch.value.length, mobileSearch.value.length);
-    }
+    this.wireSearchBoxes();
     const kindTrigger = document.getElementById("pv_kind_trigger");
     if (kindTrigger) kindTrigger.onclick = () => this.openKindSheet();
     const savePromptsBtn = document.getElementById("pv_default_prompts_save");
@@ -487,13 +480,65 @@ class AdminPreviewsView {
     document.body.appendChild(node);
   }
 
-  setSearch(kindKey, value) {
+  wireSearchBoxes() {
+    this._searchBoxes = this._searchBoxes || {};
+    ADMIN_PREVIEW_KINDS.forEach((kind) => {
+      if (this._searchBoxes[kind.key]) this._searchBoxes[kind.key].destroy();
+      const wrap = document.getElementById(`pv_search_wrap_${kind.key}`);
+      if (!wrap) { this._searchBoxes[kind.key] = null; return; }
+      const box = new SearchBox({
+        container: wrap,
+        mode: "client",
+        tokens: [],
+        placeholder: `${t("admin_previews_search_placeholder")} ${kind.label.toLowerCase()}…`,
+        onChange: (query) => this.setSearch(kind.key, query),
+      });
+      box.query = this.search[kind.key] || "";
+      box._render();
+      this._searchBoxes[kind.key] = box;
+    });
+    if (this._searchBoxes.mobile) this._searchBoxes.mobile.destroy();
+    const mobileWrap = document.getElementById("pv_search_wrap_mobile");
+    if (mobileWrap) {
+      const kind = ADMIN_PREVIEW_KINDS.find((k) => k.key === this.activeKind) || ADMIN_PREVIEW_KINDS[0];
+      const mobileBox = new SearchBox({
+        container: mobileWrap,
+        mode: "client",
+        tokens: [],
+        placeholder: `${t("admin_previews_search_placeholder")} ${kind.label.toLowerCase()}…`,
+        onChange: (query) => this.setSearch(this.activeKind, query, true),
+      });
+      mobileBox.query = this.search[this.activeKind] || "";
+      mobileBox._render();
+      this._searchBoxes.mobile = mobileBox;
+    } else {
+      this._searchBoxes.mobile = null;
+    }
+  }
+
+  refreshGrids(kindKey) {
+    const kind = ADMIN_PREVIEW_KINDS.find((k) => k.key === kindKey);
+    if (!kind) return;
+    const filtered = this.filteredNames(kind);
+    const cardsHtml = filtered.map((name) => this.cardHtml(kind, name)).join("") || `<p class="text-sm text-muted">${t("admin_previews_no_models_found")}</p>`;
+    const desktopGrid = document.getElementById(`pv_grid_${kindKey}`);
+    if (desktopGrid) desktopGrid.innerHTML = cardsHtml;
+    if (this.activeKind === kindKey) {
+      const mobileGrid = document.getElementById("pv_grid_mobile");
+      if (mobileGrid) mobileGrid.innerHTML = cardsHtml;
+    }
+  }
+
+  setSearch(kindKey, value, fromMobile = false) {
     this.search[kindKey] = value;
-    this.render();
-    const input = document.getElementById(`pv_search_${kindKey}`) || document.getElementById("pv_mobile_search");
-    if (input) {
-      input.focus();
-      input.setSelectionRange(value.length, value.length);
+    this.refreshGrids(kindKey);
+    if (!fromMobile && this.activeKind === kindKey && this._searchBoxes && this._searchBoxes.mobile) {
+      this._searchBoxes.mobile.query = value;
+      this._searchBoxes.mobile._render();
+    }
+    if (fromMobile && this._searchBoxes && this._searchBoxes[kindKey]) {
+      this._searchBoxes[kindKey].query = value;
+      this._searchBoxes[kindKey]._render();
     }
   }
 

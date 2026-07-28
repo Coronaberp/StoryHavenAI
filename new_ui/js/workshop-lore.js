@@ -479,7 +479,7 @@ function _grimoireEditModal(charId, entry, allEntries, onSave) {
       <label class="grimoire-field-label">${t("grimoire_linked_entries_label")}</label>
       <p style="margin:0 0 8px;color:var(--color-muted);font-size:11.5px;line-height:1.5">${t("grimoire_linked_entries_hint")}</p>
       <div id="gLinkPills" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
-      <input type="text" id="gLinkSearch" class="grimoire-field-input" placeholder="${t("grimoire_search_entries_to_link_placeholder")}" autocomplete="off">
+      <div id="gLinkSearchBox"></div>
       <div id="gLinkSuggest" class="dropdown-menu" style="position:relative;left:0;right:0;top:4px"></div>
     </div>
     <div style="margin-bottom:16px">
@@ -615,24 +615,30 @@ function _grimoireEditModal(charId, entry, allEntries, onSave) {
       input.oninput = () => { linkedTargets.set(input.dataset.linkLabel, input.value.slice(0, 60)); };
     });
   };
-  const linkSearch = layer.querySelector("#gLinkSearch");
   const linkSuggest = layer.querySelector("#gLinkSuggest");
-  linkSearch.oninput = () => {
-    const q = linkSearch.value.trim().toLowerCase();
-    const matches = candidates.filter((c) => !linkedTargets.has(c.id) &&
-      (!q || _grimoireEntryTitle(c).toLowerCase().includes(q))).slice(0, 8);
-    if (!matches.length) { linkSuggest.classList.remove("open"); linkSuggest.innerHTML = ""; return; }
-    linkSuggest.innerHTML = matches.map((c) =>
-      `<button type="button" class="dropdown-item" data-pick-link="${_attr(c.id)}">${_esc(_grimoireEntryTitle(c))}</button>`).join("");
-    linkSuggest.classList.add("open");
-    linkSuggest.querySelectorAll("[data-pick-link]").forEach((btn) => btn.onclick = () => {
-      linkedTargets.set(btn.dataset.pickLink, "");
-      linkSearch.value = "";
-      linkSuggest.classList.remove("open");
-      linkSuggest.innerHTML = "";
-      renderLinkPills();
-    });
-  };
+  const linkSearchBox = new SearchBox({
+    container: layer.querySelector("#gLinkSearchBox"),
+    mode: "client",
+    tokens: [],
+    placeholder: t("grimoire_search_entries_to_link_placeholder"),
+    onChange: (query) => {
+      const q = query.trim().toLowerCase();
+      const matches = candidates.filter((c) => !linkedTargets.has(c.id) &&
+        (!q || _grimoireEntryTitle(c).toLowerCase().includes(q))).slice(0, 8);
+      if (!matches.length) { linkSuggest.classList.remove("open"); linkSuggest.innerHTML = ""; return; }
+      linkSuggest.innerHTML = matches.map((c) =>
+        `<button type="button" class="dropdown-item" data-pick-link="${_attr(c.id)}">${_esc(_grimoireEntryTitle(c))}</button>`).join("");
+      linkSuggest.classList.add("open");
+      linkSuggest.querySelectorAll("[data-pick-link]").forEach((btn) => btn.onclick = () => {
+        linkedTargets.set(btn.dataset.pickLink, "");
+        linkSearchBox.query = "";
+        linkSearchBox._render();
+        linkSuggest.classList.remove("open");
+        linkSuggest.innerHTML = "";
+        renderLinkPills();
+      });
+    },
+  });
   renderLinkPills();
   layer.querySelector("#gImgFile").onchange = () => {
     const fileInput = layer.querySelector("#gImgFile");
@@ -727,7 +733,7 @@ function _grimoireRelationshipsHtml(entry, allEntries) {
   return `
     <div id="gRelSection" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--color-line)">
       <div class="font-mono" style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-muted);margin-bottom:8px">${t("grimoire_relationships_heading")} <span style="color:var(--color-sec)">&middot; ${total}</span></div>
-      ${needsPaging ? `<input type="text" id="gRelSearch" class="grimoire-field-input" placeholder="${t("grimoire_search_linked_entries_placeholder", "Search linked entries…")}" style="margin-bottom:8px;font-size:12.5px;padding:6px 8px" autocomplete="off">` : ""}
+      ${needsPaging ? `<div id="gRelSearchBox" style="margin-bottom:8px"></div>` : ""}
       <div id="gRelList" data-page-size="${GRIMOIRE_REL_PAGE_SIZE}" style="display:flex;flex-direction:column;gap:6px">${rows.join("")}</div>
       ${needsPaging ? `<button type="button" id="gRelShowMore" style="margin-top:6px;background:none;border:none;cursor:pointer;padding:0;font-size:12px;color:var(--color-accent)">${t("grimoire_show_all_linked", "Show all")} (${total})</button>` : ""}
     </div>
@@ -739,11 +745,12 @@ function _wireGrimoireRelationships(doc) {
   if (!list) return;
   const pageSize = Number(list.dataset.pageSize) || GRIMOIRE_REL_PAGE_SIZE;
   const rows = [...list.querySelectorAll("[data-rel-idx]")];
-  const search = doc.querySelector("#gRelSearch");
+  const searchWrap = doc.querySelector("#gRelSearchBox");
   const showMore = doc.querySelector("#gRelShowMore");
   let expanded = false;
+  let currentQuery = "";
   const applyFilter = () => {
-    const q = (search?.value || "").trim().toLowerCase();
+    const q = currentQuery.trim().toLowerCase();
     rows.forEach((row) => {
       const idx = Number(row.dataset.relIdx);
       const matchesQuery = !q || row.dataset.relName.includes(q);
@@ -752,7 +759,15 @@ function _wireGrimoireRelationships(doc) {
     });
     if (showMore) showMore.style.display = (expanded || q) ? "none" : "";
   };
-  if (search) search.oninput = applyFilter;
+  if (searchWrap) {
+    new SearchBox({
+      container: searchWrap,
+      mode: "client",
+      tokens: [],
+      placeholder: t("grimoire_search_linked_entries_placeholder", "Search linked entries…"),
+      onChange: (query) => { currentQuery = query; applyFilter(); },
+    });
+  }
   if (showMore) showMore.onclick = () => { expanded = true; applyFilter(); };
   applyFilter();
 }
