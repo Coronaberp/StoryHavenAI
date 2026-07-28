@@ -112,6 +112,7 @@ class ExploreCreatorsView {
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:12px">
         ${pageHeaderHtml("Explore", "Creators", t("ph_creators_title"), t("ph_creators_sub"))}
+        ${exploreTabsHtml("creators")}
         <div id="creatorsSearchBox"></div>
         <div id="creatorsResultsArea"></div>
       </div>
