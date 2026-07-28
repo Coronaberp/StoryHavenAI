@@ -531,6 +531,7 @@ class ExploreMediaView {
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:14px">
         ${pageHeaderHtml("Explore", "Media", t("ph_media_gallery_title"), t("ph_media_gallery_sub"))}
+        ${exploreTabsHtml("media")}
         <div id="mediaSearchBox"></div>
         <div id="mediaResultsArea"></div>
       </div>

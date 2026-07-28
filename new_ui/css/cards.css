@@ -739,7 +739,7 @@ html[data-censor="1"] [data-explicit="1"] {
 
 .pin-wall {
   column-count: 2;
-  column-gap: 10px;
+  column-gap: 12px;
 }
 @media (min-width: 640px) {
   .pin-wall { column-count: 3; }
@@ -749,18 +749,19 @@ html[data-censor="1"] [data-explicit="1"] {
 }
 .pin-frame {
   break-inside: avoid;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   position: relative;
   display: block;
-  border-radius: 4px;
+  border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--color-line);
   cursor: pointer;
   background: var(--color-surface);
-  transition: border-color .15s ease;
+  transition: border-color .15s ease, transform .15s ease;
 }
 .pin-frame:hover {
   border-color: var(--color-accent);
+  transform: translateY(-2px);
 }
 .pin-frame img {
   display: block;
