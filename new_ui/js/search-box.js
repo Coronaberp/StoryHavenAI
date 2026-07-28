@@ -49,7 +49,13 @@ class SearchBox {
   async _fetchAndNotify() {
     const params = new URLSearchParams();
     if (this.query.trim()) params.set("q", this.query.trim());
-    const results = await api(`${this.endpoint}?${params.toString()}`);
+    let results;
+    try {
+      results = await api(`${this.endpoint}?${params.toString()}`);
+    } catch (err) {
+      toast(err.message || t("search_box_load_error"));
+      results = null;
+    }
     this.onChange(this.query, this.tokenValues, results);
   }
 

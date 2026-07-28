@@ -267,6 +267,7 @@ const UI_STRINGS = {
   chats_empty_title: "Nothing on the record.",
   chats_keep_it: "Keep it",
   chats_load_error: "Couldn't reach the archive.",
+  search_box_load_error: "Couldn't reach the search.",
   chats_no_lines_exchanged: "No lines exchanged yet.",
   chats_no_search_matches: "No conversations match that search.",
   chats_search_placeholder: "Search, @character…",
