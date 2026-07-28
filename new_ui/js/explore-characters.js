@@ -128,7 +128,6 @@ class ExploreCharactersView {
     this.error = "";
     this.filters = { q: "", creators: [], tags: [], genres: [], gender: "any", mode: "all", rating: ME?.nsfw_allowed ? "all" : "sfw" };
     this.drawerOpen = false;
-    this.editingCreator = null;
     this.creatorProfiles = {};
   }
 
@@ -250,17 +249,6 @@ class ExploreCharactersView {
           <span class="grp-card-badge">${modeLabel}</span>
         </div>
       </button>`;
-  }
-
-  activeFilterPills() {
-    const f = this.filters;
-    const pills = [];
-    if (f.gender !== "any") pills.push({ key: "gender", type: "gender", label: f.gender, icon: GENDER_ICONS[f.gender] });
-    if (f.mode !== "all") pills.push({ key: "mode", type: "mode", label: f.mode, icon: MODE_ICONS[f.mode] });
-    f.creators.forEach((name) => pills.push({ key: "creator", type: "creator", value: name, label: `@${name}`, editable: true }));
-    f.tags.forEach((tag) => pills.push({ key: "tag", type: "tag", value: tag, label: `#${tag}` }));
-    f.genres.forEach((genre) => pills.push({ key: "genre", type: "genre", value: genre, label: `>${genre}` }));
-    return pills;
   }
 
   clearFilterPill(key, value) {
@@ -402,7 +390,7 @@ class ExploreCharactersView {
       tokens: [
         {
           prefix: "@", param: "creators",
-          suggest: (q) => this.allCreators()
+          suggest: (q) => this.scope !== "community" ? [] : this.allCreators()
             .filter((c) => c.name.toLowerCase().includes(q))
             .map((c) => c.name),
         },
