@@ -57,7 +57,7 @@ Or change `embed_dim` in Settings — the API calls `vectors.reset_indexes` auto
 ## SSE stream format
 
 `POST /api/sessions/{sid}/chat` (and `/regenerate`, `/roll`, `/continue`) return `text/event-stream`. Event types:
-- `meta` — `lore`/`memory` (the rendered lines actually packed into the prompt's memory block), `user_mid`, retrieve errors
+- `meta` — `lore`/`memory` (the rendered lines actually packed into the prompt's memory block, `meta_lore_lines`/`meta_memory_lines` from `memory_service.retrieve_block`), `user_mid`, retrieve errors
 - `status` — phase marker (`generating`)
 - `thinking` — chain-of-thought fragments (when thinking enabled)
 - `delta` — the reply is withheld in full (not token-streamed) until generation completes, so a trailing `[mood: X]` tag can always be stripped before anything is shown; sent as a single `delta` event, plus a leading one carrying prior text on `/continue`
