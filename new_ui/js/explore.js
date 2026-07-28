@@ -204,7 +204,7 @@ class ExploreView {
         ${this.sectionHtml(t("compendium_section_for_you"), "explore/characters", loaded ? this.charCarouselHtml(this.forYou) : "", loaded, t("compendium_for_you_subtitle"))}
         ${this.sectionHtml(t("compendium_section_featured"), "explore/characters", loaded ? this.charCarouselHtml(this.featured) : "", loaded, t("compendium_featured"))}
         ${this.sectionHtml(t("compendium_section_creators"), "explore/creators", loaded ? this.creatorCarouselHtml() : "", loaded, t("compendium_featured"))}
-        ${this.sectionHtml(t("compendium_section_media_gallery"), "explore/images", loaded ? this.imageCarouselHtml() : "", loaded, t("compendium_featured"))}
+        ${this.sectionHtml(t("compendium_section_media_gallery"), "explore/media", loaded ? this.imageCarouselHtml() : "", loaded, t("compendium_featured"))}
         ${this.sectionHtml(t("compendium_section_forum"), "explore/forum", loaded ? this.threadCarouselHtml() : "", loaded, t("compendium_featured"))}
       </div>
     `;
