@@ -5704,6 +5704,59 @@ input:focus, input:focus-visible, textarea:focus, textarea:focus-visible, select
 .mode-ring-crimson {
   box-shadow: 0 0 0 2px #e2493d inset;
 }
+.foryou-feed {
+  column-count: 2;
+  column-gap: 12px;
+}
+@media (min-width: 640px) {
+  .foryou-feed {
+    column-count: 3;
+  }
+}
+@media (min-width: 1024px) {
+  .foryou-feed {
+    column-count: 4;
+  }
+}
+.foryou-feed > * {
+  break-inside: avoid;
+  margin-bottom: 12px;
+}
+.foryou-kind-icon {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(12, 12, 14, .72);
+  display: grid;
+  place-items: center;
+  color: var(--color-ink);
+}
+.foryou-kind-icon svg {
+  width: 12px;
+  height: 12px;
+}
+.feed-chip {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-line-2);
+  background: var(--color-surface);
+  color: var(--color-sec);
+  cursor: pointer;
+}
+.feed-chip.on {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: var(--color-accent);
+  @supports (color: color-mix(in lab, red, red)) {
+    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  }
+}
 .thread-card-meta {
   font-family: var(--font-mono);
   font-size: 9.5px;

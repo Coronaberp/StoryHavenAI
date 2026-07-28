@@ -77,6 +77,7 @@ function searchByTag(tag) {
 }
 
 const EXPLORE_TABS = [
+  { key: "foryou", route: "explore", label: () => t("explore_tab_for_you", "For You") },
   { key: "characters", route: "explore/characters", label: () => t("explore_tab_characters", "Characters") },
   { key: "forum", route: "explore/forum", label: () => t("explore_tab_forum", "Forum") },
   { key: "media", route: "explore/media", label: () => t("explore_tab_media", "Media") },
