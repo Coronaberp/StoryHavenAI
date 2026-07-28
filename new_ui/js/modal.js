@@ -17,8 +17,11 @@ function openModal(innerHtml, { wide = false, onClose = null, dismissible = true
   const close = () => closeModal(layer, onClose);
   if (dismissible) {
     layer.querySelector(".modal-close").onclick = close;
+    let mousedownOnLayer = false;
+    layer.addEventListener("mousedown", (e) => { mousedownOnLayer = e.target === layer; });
     layer.addEventListener("click", (e) => {
-      if (e.target === layer) close();
+      if (e.target === layer && mousedownOnLayer) close();
+      mousedownOnLayer = false;
     });
   }
 
