@@ -34,32 +34,22 @@ class ExploreForumView {
     this.sort = "new";
     this.pollId = null;
     this.q = "";
-    this.authorFilters = [];
     this.page = 1;
     this.totalThreads = 0;
   }
 
   allAuthors() {
-    return [...new Set(this.threads.map((t) => t.author_username).filter(Boolean))].sort();
+    return [...new Set(this.threads.map((th) => th.author_username).filter(Boolean))].sort();
   }
 
-  visibleThreads() {
-    return this.threads.filter((th) => {
-      if (this.authorFilters.length && !this.authorFilters.includes(th.author_username)) return false;
-      if (!this.q) return true;
-      const q = this.q.toLowerCase();
-      return (th.title || "").toLowerCase().includes(q) || (th.content || "").toLowerCase().includes(q);
-    });
+  searchEndpoint() {
+    const params = new URLSearchParams({ sort: this.sort });
+    if (this.category) params.set("category", this.category);
+    return `/api/forum/threads?${params}`;
   }
 
-  addAuthorFilter(name) {
-    if (!this.authorFilters.includes(name)) this.authorFilters = [...this.authorFilters, name];
-    this.render();
-  }
-
-  removeAuthorFilter(name) {
-    this.authorFilters = this.authorFilters.filter((a) => a !== name);
-    this.render();
+  isSearching() {
+    return !!this.q || (this._searchBox && (this._searchBox.tokenValues.author || []).length > 0);
   }
 
   async mount(main) {
@@ -93,7 +83,7 @@ class ExploreForumView {
     onPaginate("forum-threads", () => { this.page = paginatePage("forum-threads"); this.load(); });
     this.loading = true;
     this.error = "";
-    this.render();
+    this.renderResults();
     try {
       const params = new URLSearchParams({ sort: this.sort, paged: "1",
                                           limit: String(FORUM_PAGE_SIZE),
@@ -110,7 +100,25 @@ class ExploreForumView {
       this.threads = [];
     }
     this.loading = false;
-    this.render();
+    this.renderResults();
+  }
+
+  changeSort(sort) {
+    this.sort = sort;
+    this.page = 1;
+    resetPagination("forum-threads");
+    this._searchBox.endpoint = this.searchEndpoint();
+    if (this.isSearching()) this._searchBox._fetchAndNotify();
+    else this.load();
+  }
+
+  changeCategory(category) {
+    this.category = category;
+    this.page = 1;
+    resetPagination("forum-threads");
+    this._searchBox.endpoint = this.searchEndpoint();
+    if (this.isSearching()) this._searchBox._fetchAndNotify();
+    else this.load();
   }
 
   async castVote(th, value, container) {
@@ -224,7 +232,6 @@ class ExploreForumView {
   }
 
   render() {
-    const visible = this.visibleThreads();
     this.main.innerHTML = `
       <div style="display:flex;flex-direction:column;gap:14px">
         ${pageHeaderHtml("Explore", "Forum", t("ph_forum_title"), t("ph_forum_sub"))}
@@ -234,112 +241,84 @@ class ExploreForumView {
             <span>${t("forum_start_a_discussion")}</span>
           </button>
         ` : ""}
-        <div id="symSearchBox" style="position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface)">
-          ${this.authorFilters.map((a) => `
-            <span class="inline-pill pill-creator">@${_esc(a)}<span class="x" data-remove-author="${_esc(a)}">&times;</span></span>
-          `).join("")}
-          <input type="text" id="symSearch" value="${_esc(this.q)}" placeholder="${this.authorFilters.length ? "" : _attr(t("forum_search_placeholder"))}"
-            style="flex:1;min-width:70px;border:none;background:none;outline:none;color:var(--color-ink);font-size:13.5px;padding:4px 0">
-          <div id="symSuggest" class="dropdown-menu" style="left:0;right:0;top:calc(100% + 4px)"></div>
-        </div>
-        <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">
-          <button type="button" class="filter-chip${this.category === "" ? " on" : ""}" data-category="">${t("forum_all")}</button>
-          ${this.categories.map((c) => `<button type="button" class="filter-chip${this.category === c ? " on" : ""}" data-category="${_esc(c)}">${_esc(c)}</button>`).join("")}
-        </div>
-        <div style="display:flex;gap:6px">
-          <button type="button" data-sort="new" class="tool" style="border:1px solid var(--color-line-2);border-radius:999px;padding:5px 12px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;${this.sort === "new" ? "background:var(--color-accent);color:var(--color-paper-base,#0C0C0E);border-color:var(--color-accent)" : "color:var(--color-sec)"}">${t("forum_sort_new")}</button>
-          <button type="button" data-sort="top" class="tool" style="border:1px solid var(--color-line-2);border-radius:999px;padding:5px 12px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;${this.sort === "top" ? "background:var(--color-accent);color:var(--color-paper-base,#0C0C0E);border-color:var(--color-accent)" : "color:var(--color-sec)"}">${t("forum_sort_top")}</button>
-        </div>
-        ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("forum_loading")}</p>` : ""}
-        ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${_esc(this.error)}</p>` : ""}
-        ${!this.loading && !this.error && !visible.length ? `<p style="color:var(--color-sec);font-size:13px">${this.threads.length ? t("forum_no_search_matches") : t("forum_no_threads_yet")}</p>` : ""}
-        <div style="display:flex;flex-direction:column;gap:10px">${visible.map((th) => this.rowHtml(th)).join("")}</div>
-        ${paginationHtml("forum-threads", { rows: visible, page: this.page, pages: Math.max(1, Math.ceil(this.totalThreads / FORUM_PAGE_SIZE)), total: this.totalThreads, start: (this.page - 1) * FORUM_PAGE_SIZE, pageSize: FORUM_PAGE_SIZE })}
+        <div id="forumSearchBox"></div>
+        <div id="forumResultsArea"></div>
       </div>
     `;
-    this.main.querySelectorAll("[data-sort]").forEach((btn) => {
-      btn.onclick = () => {
-        this.sort = btn.dataset.sort;
+    const newBtn = this.main.querySelector("#symNewBtn");
+    if (newBtn) newBtn.onclick = () => this.openNewThreadModal();
+    this._searchBox = new SearchBox({
+      container: this.main.querySelector("#forumSearchBox"),
+      mode: "server",
+      endpoint: this.searchEndpoint(),
+      tokens: [
+        {
+          prefix: "@", param: "author",
+          suggest: (q) => this.allAuthors().filter((name) => name.toLowerCase().includes(q)),
+        },
+      ],
+      placeholder: t("forum_search_placeholder"),
+      onChange: (query, tokenValues, results) => {
+        this.q = query.trim();
+        const authorValues = tokenValues.author || [];
+        if (!this.q && !authorValues.length) {
+          this.page = 1;
+          resetPagination("forum-threads");
+          this.load();
+          return;
+        }
+        let list = results && results.threads ? results.threads : (results || []);
+        if (authorValues.length) list = list.filter((th) => authorValues.includes(th.author_username));
+        this.threads = list;
+        this.totalThreads = list.length;
         this.page = 1;
-        resetPagination("forum-threads");
-        this.load();
-      };
+        this.renderResults();
+      },
     });
-    this.main.querySelectorAll("[data-category]").forEach((btn) => {
-      btn.onclick = () => {
-        this.category = btn.dataset.category;
-        this.page = 1;
-        resetPagination("forum-threads");
-        this.load();
-      };
+    this.renderResults();
+  }
+
+  renderResults() {
+    const visible = this.threads;
+    const searching = this.isSearching();
+    const resultsArea = this.main.querySelector("#forumResultsArea");
+    resultsArea.innerHTML = `
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">
+        <button type="button" class="filter-chip${this.category === "" ? " on" : ""}" data-category="">${t("forum_all")}</button>
+        ${this.categories.map((c) => `<button type="button" class="filter-chip${this.category === c ? " on" : ""}" data-category="${_esc(c)}">${_esc(c)}</button>`).join("")}
+      </div>
+      <div style="display:flex;gap:6px">
+        <button type="button" data-sort="new" class="tool" style="border:1px solid var(--color-line-2);border-radius:999px;padding:5px 12px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;${this.sort === "new" ? "background:var(--color-accent);color:var(--color-paper-base,#0C0C0E);border-color:var(--color-accent)" : "color:var(--color-sec)"}">${t("forum_sort_new")}</button>
+        <button type="button" data-sort="top" class="tool" style="border:1px solid var(--color-line-2);border-radius:999px;padding:5px 12px;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;${this.sort === "top" ? "background:var(--color-accent);color:var(--color-paper-base,#0C0C0E);border-color:var(--color-accent)" : "color:var(--color-sec)"}">${t("forum_sort_top")}</button>
+      </div>
+      ${this.loading ? `<p style="color:var(--color-sec);font-size:13px">${t("forum_loading")}</p>` : ""}
+      ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${_esc(this.error)}</p>` : ""}
+      ${!this.loading && !this.error && !visible.length ? `<p style="color:var(--color-sec);font-size:13px">${searching ? t("forum_no_search_matches") : t("forum_no_threads_yet")}</p>` : ""}
+      <div style="display:flex;flex-direction:column;gap:10px">${visible.map((th) => this.rowHtml(th)).join("")}</div>
+      ${searching ? "" : paginationHtml("forum-threads", { rows: visible, page: this.page, pages: Math.max(1, Math.ceil(this.totalThreads / FORUM_PAGE_SIZE)), total: this.totalThreads, start: (this.page - 1) * FORUM_PAGE_SIZE, pageSize: FORUM_PAGE_SIZE })}
+    `;
+    resultsArea.querySelectorAll("[data-sort]").forEach((btn) => {
+      btn.onclick = () => this.changeSort(btn.dataset.sort);
     });
-    this.main.querySelectorAll("[data-remove-author]").forEach((x) => {
-      x.onclick = (e) => { e.stopPropagation(); this.removeAuthorFilter(x.dataset.removeAuthor); };
+    resultsArea.querySelectorAll("[data-category]").forEach((btn) => {
+      btn.onclick = () => this.changeCategory(btn.dataset.category);
     });
-    const search = this.main.querySelector("#symSearch");
-    let searchTimer;
-    search.oninput = () => {
-      this.updateAuthorSuggestions();
-      if (search.value.startsWith("@")) return;
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => {
-        this.q = search.value.trim();
-        this.render();
-      }, 250);
-    };
-    search.onkeydown = (e) => {
-      if (e.key === "Backspace" && search.value === "" && this.authorFilters.length) {
-        e.preventDefault();
-        const removed = this.authorFilters[this.authorFilters.length - 1];
-        this.authorFilters = this.authorFilters.slice(0, -1);
-        toast(`Removed @${removed} filter`);
-        this.render();
-        return;
-      }
-      if (e.key !== "Enter") return;
-      const val = search.value.trim();
-      if (val.startsWith("@") && val.length > 1) {
-        this.addAuthorFilter(val.slice(1));
-        search.value = "";
-        this.q = "";
-      }
-    };
-    this.main.querySelectorAll(".sym-card").forEach((el) => {
+    resultsArea.querySelectorAll(".sym-card").forEach((el) => {
       el.onclick = () => navigate(`/explore/forum/${el.dataset.tid}`);
     });
-    this.main.querySelectorAll("[data-vote-up]").forEach((btn) => {
+    resultsArea.querySelectorAll("[data-vote-up]").forEach((btn) => {
       btn.onclick = (e) => {
         e.stopPropagation();
         const th = this.threads.find((t) => t.id === btn.dataset.voteUp);
         if (th) this.castVote(th, 1, this.main);
       };
     });
-    this.main.querySelectorAll("[data-vote-down]").forEach((btn) => {
+    resultsArea.querySelectorAll("[data-vote-down]").forEach((btn) => {
       btn.onclick = (e) => {
         e.stopPropagation();
         const th = this.threads.find((t) => t.id === btn.dataset.voteDown);
         if (th) this.castVote(th, -1, this.main);
       };
-    });
-    const newBtn = document.getElementById("symNewBtn");
-    if (newBtn) newBtn.onclick = () => this.openNewThreadModal();
-  }
-
-  updateAuthorSuggestions() {
-    const box = this.main.querySelector("#symSuggest");
-    const search = this.main.querySelector("#symSearch");
-    if (!box || !search) return;
-    const val = search.value;
-    if (!val.startsWith("@")) { box.classList.remove("open"); box.innerHTML = ""; return; }
-    const q = val.slice(1).toLowerCase();
-    const matches = this.allAuthors().filter((a) => !this.authorFilters.includes(a) && a.toLowerCase().includes(q)).slice(0, 8);
-    if (!matches.length) { box.classList.remove("open"); box.innerHTML = ""; return; }
-    box.innerHTML = matches.map((a) => `<button type="button" class="dropdown-item" data-pick-author="${_esc(a)}">@${_esc(a)}</button>`).join("");
-    box.classList.add("open");
-    box.querySelectorAll("[data-pick-author]").forEach((btn) => btn.onclick = () => {
-      search.value = "";
-      box.classList.remove("open");
-      this.addAuthorFilter(btn.dataset.pickAuthor);
     });
   }
 }
