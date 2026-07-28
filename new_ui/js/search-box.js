@@ -65,6 +65,7 @@ class SearchBox {
 
   _wirePills() {
     this.container.querySelectorAll("[data-pill-remove]").forEach((x) => {
+      x.onmousedown = (e) => e.preventDefault();
       x.onclick = (e) => {
         e.stopPropagation();
         const pill = x.closest("[data-remove-param]");
@@ -139,13 +140,12 @@ class SearchBox {
       if (matchedToken && val.length > matchedToken.prefix.length) {
         const value = val.slice(matchedToken.prefix.length);
         this._addTokenValue(matchedToken.param, value);
-        this.input.value = "";
-        this.query = "";
       }
     }
   }
 
   _addTokenValue(param, value) {
+    this.query = "";
     if (!this.tokenValues[param].includes(value)) {
       this.tokenValues[param] = [...this.tokenValues[param], value];
     }
@@ -193,14 +193,13 @@ class SearchBox {
     `).join("");
     this.suggestBox.classList.add("open");
     this.suggestBox.querySelectorAll("[data-suggest-index]").forEach((btn, i) => {
+      btn.onmousedown = (e) => e.preventDefault();
       btn.onclick = () => this._pickSuggestion(i);
     });
   }
 
   _pickSuggestion(i) {
     this._addTokenValue(this._suggestToken.param, this._suggestMatches[i]);
-    this.input.value = "";
-    this.query = "";
     this.suggestBox.classList.remove("open");
   }
 

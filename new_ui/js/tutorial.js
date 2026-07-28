@@ -34,7 +34,7 @@ const TUTORIAL_GROUPS = [
           { setup: () => {
               const search = document.querySelector(".search-box-input");
               if (search && search.value !== "") { search.value = ""; search.dispatchEvent(new Event("input", { bubbles: true })); }
-              _tutorialInjectDemo("#pinSearchBox", '<div class="pin-frame tutorial-injected" style="position:static;width:64px;height:64px;display:inline-block;background:var(--color-surface-2) url(/img/tutorial-demo.svg) center/cover;border-radius:8px;vertical-align:middle" onclick="event.preventDefault()"></div>');
+              _tutorialInjectDemo("#mediaSearchBox", '<div class="pin-frame tutorial-injected" style="position:static;width:64px;height:64px;display:inline-block;background:var(--color-surface-2) url(/img/tutorial-demo.svg) center/cover;border-radius:8px;vertical-align:middle" onclick="event.preventDefault()"></div>');
             },
             target: ".pin-frame.tutorial-injected", copy: t("tutorial_lesson_explore_media_step2_copy", "Click this image tile. A real one opens larger, with comments. This is the whole feature."), advanceOn: "click" },
         ] },
