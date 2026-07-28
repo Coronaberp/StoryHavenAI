@@ -122,6 +122,7 @@ function characterCardHtml(c, profile, opts = {}) {
         <div class="char-card-art" style="${art}" ${c.is_explicit ? 'data-explicit="1"' : ""}></div>
         <div class="char-card-fade"></div>
         <div class="char-card-body">
+          <span class="mode-badge ${c.mode === "rpg" ? "mode-badge-gold" : "mode-badge-crimson"}">${c.mode === "rpg" ? t("compendium_filter_rpg", "Roleplay") : t("compendium_filter_character", "Character")}</span>
           <div class="char-card-tags">${(c.tags || []).slice(0, 2).map((t) => `<span class="char-card-tag" onclick="event.stopPropagation();searchByTag('${_jsEsc(t)}')" style="cursor:pointer">#${_esc(t)}</span>`).join("")}</div>
           <h3 class="char-card-title">${_esc(c.name)}</h3>
           <p class="char-card-log">${_esc(c.description || "")}</p>
@@ -262,13 +263,15 @@ class ExploreCharactersView {
   }
 
   groupTileHtml(g) {
-    const modeLabel = g.group_mode === "chat" ? t("group_mode_chat", "Chat") : t("group_mode_roleplay", "Roleplay");
+    const isChat = g.group_mode === "chat";
+    const modeLabel = isChat ? t("group_mode_chat", "Chat") : t("group_mode_roleplay", "Roleplay");
+    const modeClass = isChat ? "mode-badge-crimson" : "mode-badge-gold";
     return `
-      <button type="button" class="char-card grp-card" onclick="navigate('/g/${encodeURIComponent(g.id)}')">
+      <button type="button" class="char-card grp-card" style="box-shadow:0 0 0 2px ${isChat ? "#e2493d" : "#E3BD6C"} inset" onclick="navigate('/g/${encodeURIComponent(g.id)}')">
         <div style="aspect-ratio:1;width:100%;border-radius:12px;overflow:hidden">${groupGridAvatar(g.cast_preview)}</div>
         <div class="grp-card-meta">
           <span class="grp-card-name">${_esc(g.name)}</span>
-          <span class="grp-card-badge">${modeLabel}</span>
+          <span class="mode-badge ${modeClass}">${modeLabel}</span>
         </div>
       </button>`;
   }

@@ -344,6 +344,27 @@ select:focus-visible {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.mode-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  margin-bottom: 6px;
+}
+.mode-badge-gold {
+  background: rgba(227, 189, 108, .18);
+  color: #E3BD6C;
+  border: 1px solid #E3BD6C;
+}
+.mode-badge-crimson {
+  background: rgba(226, 73, 61, .18);
+  color: #e2493d;
+  border: 1px solid #e2493d;
+}
 .thread-card-meta {
   font-family: var(--font-mono);
   font-size: 9.5px;
@@ -3126,7 +3147,6 @@ html[data-nsfw="1"][data-censor="0"] .comment-explicit-img { filter: none; }
 .gd-cast-av-locked { background:var(--color-surface-2); color:var(--color-muted); display:grid; place-items:center; }
 .grp-card-meta { display:flex; flex-direction:column; gap:3px; width:100%; }
 .grp-card-name { font-family:var(--font-display); font-weight:600; font-size:15px; letter-spacing:-.01em; color:var(--color-ink); line-height:1.2; }
-.grp-card-badge { display:inline-flex; align-items:center; align-self:flex-start; font-family:var(--font-mono); font-size:10px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; padding:2px 8px; border-radius:999px; color:var(--color-accent); background:color-mix(in srgb, var(--color-accent) 12%, var(--color-surface)); border:1px solid color-mix(in srgb, var(--color-accent) 30%, transparent); }
 
 .gd-wrap { max-width:720px; margin:0 auto; padding:20px 16px 40px; display:flex; flex-direction:column; gap:22px; }
 .gd-head { display:flex; flex-direction:column; gap:8px; }
