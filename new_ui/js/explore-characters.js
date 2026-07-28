@@ -251,15 +251,12 @@ class ExploreCharactersView {
       </button>`;
   }
 
-  clearFilterPill(key, value) {
-    const f = this.filters;
-    if (key === "gender") f.gender = "any";
-    else if (key === "mode") f.mode = "all";
-    else if (key === "nsfw") f.rating = "sfw";
-    else if (key === "creator") f.creators = f.creators.filter((c) => c !== value);
-    else if (key === "tag") f.tags = f.tags.filter((t) => t !== value);
-    else if (key === "genre") f.genres = f.genres.filter((g) => g !== value);
-    this.load();
+  _syncSearchBox() {
+    if (!this._searchBox) return;
+    this._searchBox.setState({
+      query: this.filters.q,
+      tokenValues: { creators: [...this.filters.creators], tags: [...this.filters.tags], genres: [...this.filters.genres] },
+    });
   }
 
   filterDrawerHtml() {
@@ -308,11 +305,13 @@ class ExploreCharactersView {
 
   addTag(tag) {
     if (!this.filters.tags.includes(tag)) this.filters.tags = [...this.filters.tags, tag];
+    this._syncSearchBox();
     this.load();
   }
 
   addGenre(genre) {
     if (!this.filters.genres.includes(genre)) this.filters.genres = [...this.filters.genres, genre];
+    this._syncSearchBox();
     this.load();
   }
 
@@ -380,9 +379,7 @@ class ExploreCharactersView {
         if (results && this.scope === "community") this.loadCreatorProfiles();
       },
     });
-    this._searchBox.query = this.filters.q;
-    this._searchBox.tokenValues = { creators: [...this.filters.creators], tags: [...this.filters.tags], genres: [...this.filters.genres] };
-    this._searchBox._render();
+    this._syncSearchBox();
     this.renderResults();
   }
 
@@ -420,19 +417,14 @@ class ExploreCharactersView {
     wireCharCardDominantColors(resultsArea);
     resultsArea.querySelectorAll("[data-for-you]").forEach((btn) => btn.onclick = () => {
       f.tags = [];
+      this._syncSearchBox();
       this.load();
     });
     resultsArea.querySelectorAll("[data-quick-tag]").forEach((btn) => btn.onclick = () => {
       const tag = btn.dataset.quickTag;
       f.tags = f.tags.includes(tag) ? f.tags.filter((t) => t !== tag) : [...f.tags, tag];
+      this._syncSearchBox();
       this.load();
-    });
-    resultsArea.querySelectorAll("[data-clear-x]").forEach((x) => {
-      x.onclick = (e) => {
-        e.stopPropagation();
-        const pill = x.closest("[data-clear]");
-        this.clearFilterPill(pill.dataset.clear, pill.dataset.clearValue);
-      };
     });
     if (this.drawerOpen) this.wireDrawer(resultsArea.querySelector("#compendiumDrawer"));
   }

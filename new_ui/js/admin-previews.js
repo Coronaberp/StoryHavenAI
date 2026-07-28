@@ -493,8 +493,7 @@ class AdminPreviewsView {
         placeholder: `${t("admin_previews_search_placeholder")} ${kind.label.toLowerCase()}…`,
         onChange: (query) => this.setSearch(kind.key, query),
       });
-      box.query = this.search[kind.key] || "";
-      box._render();
+      box.setState({ query: this.search[kind.key] || "" });
       this._searchBoxes[kind.key] = box;
     });
     if (this._searchBoxes.mobile) this._searchBoxes.mobile.destroy();
@@ -508,8 +507,7 @@ class AdminPreviewsView {
         placeholder: `${t("admin_previews_search_placeholder")} ${kind.label.toLowerCase()}…`,
         onChange: (query) => this.setSearch(this.activeKind, query, true),
       });
-      mobileBox.query = this.search[this.activeKind] || "";
-      mobileBox._render();
+      mobileBox.setState({ query: this.search[this.activeKind] || "" });
       this._searchBoxes.mobile = mobileBox;
     } else {
       this._searchBoxes.mobile = null;
@@ -533,12 +531,10 @@ class AdminPreviewsView {
     this.search[kindKey] = value;
     this.refreshGrids(kindKey);
     if (!fromMobile && this.activeKind === kindKey && this._searchBoxes && this._searchBoxes.mobile) {
-      this._searchBoxes.mobile.query = value;
-      this._searchBoxes.mobile._render();
+      this._searchBoxes.mobile.setState({ query: value });
     }
     if (fromMobile && this._searchBoxes && this._searchBoxes[kindKey]) {
-      this._searchBoxes[kindKey].query = value;
-      this._searchBoxes[kindKey]._render();
+      this._searchBoxes[kindKey].setState({ query: value });
     }
   }
 

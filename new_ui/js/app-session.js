@@ -14,7 +14,7 @@ async function syncMe() {
 function quickSearch() {
   navigate("/explore/characters");
   const main = document.getElementById("main");
-  const focusSearch = () => document.getElementById("compendiumSearch")?.focus();
+  const focusSearch = () => document.querySelector(".search-box-input")?.focus();
   focusSearch();
   if (!main) return;
   const observer = new MutationObserver(focusSearch);

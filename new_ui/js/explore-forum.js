@@ -1,6 +1,7 @@
 "use strict";
 
 const FORUM_PAGE_SIZE = 20;
+const FORUM_SEARCH_LIMIT = 100;
 
 function forumMd(text) {
   try {
@@ -36,6 +37,7 @@ class ExploreForumView {
     this.q = "";
     this.page = 1;
     this.totalThreads = 0;
+    this.searchCapped = false;
   }
 
   allAuthors() {
@@ -43,7 +45,7 @@ class ExploreForumView {
   }
 
   searchEndpoint() {
-    const params = new URLSearchParams({ sort: this.sort });
+    const params = new URLSearchParams({ sort: this.sort, limit: String(FORUM_SEARCH_LIMIT) });
     if (this.category) params.set("category", this.category);
     return `/api/forum/threads?${params}`;
   }
@@ -268,6 +270,7 @@ class ExploreForumView {
           return;
         }
         let list = results && results.threads ? results.threads : (results || []);
+        this.searchCapped = list.length >= FORUM_SEARCH_LIMIT;
         if (authorValues.length) list = list.filter((th) => authorValues.includes(th.author_username));
         this.threads = list;
         this.totalThreads = list.length;
@@ -295,6 +298,7 @@ class ExploreForumView {
       ${this.error ? `<p style="color:var(--color-warn);font-size:13px">${_esc(this.error)}</p>` : ""}
       ${!this.loading && !this.error && !visible.length ? `<p style="color:var(--color-sec);font-size:13px">${searching ? t("forum_no_search_matches") : t("forum_no_threads_yet")}</p>` : ""}
       <div style="display:flex;flex-direction:column;gap:10px">${visible.map((th) => this.rowHtml(th)).join("")}</div>
+      ${searching && this.searchCapped ? `<p style="color:var(--color-sec);font-size:12px">${t("forum_search_results_capped", "Showing the first {count} matches").replace("{count}", FORUM_SEARCH_LIMIT)}</p>` : ""}
       ${searching ? "" : paginationHtml("forum-threads", { rows: visible, page: this.page, pages: Math.max(1, Math.ceil(this.totalThreads / FORUM_PAGE_SIZE)), total: this.totalThreads, start: (this.page - 1) * FORUM_PAGE_SIZE, pageSize: FORUM_PAGE_SIZE })}
     `;
     resultsArea.querySelectorAll("[data-sort]").forEach((btn) => {

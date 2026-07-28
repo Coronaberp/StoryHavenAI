@@ -18,21 +18,21 @@ const TUTORIAL_GROUPS = [
       { key: "explore-characters", title: t("tutorial_lesson_explore_characters_title", "Characters — browsing, searching, filter pills"),
         blurb: t("tutorial_lesson_explore_characters_blurb", "A grid of cards and a search box that understands #tags and @creators."),
         steps: [
-          { route: "/explore/characters", target: "#compendiumSearch", copy: t("tutorial_lesson_explore_characters_step1_copy", "Click into this box and type exactly: <b>#tutorial</b> (yes, with the # symbol). Watch it turn into a pill."), advanceOn: "input-exact", expect: "#tutorial" },
+          { route: "/explore/characters", target: ".search-box-input", copy: t("tutorial_lesson_explore_characters_step1_copy", "Click into this box and type exactly: <b>#tutorial</b> (yes, with the # symbol). Watch it turn into a pill."), advanceOn: "input-exact", expect: "#tutorial" },
           { setup: () => _tutorialInjectDemo("#compendiumGrid", '<div class="char-card tutorial-injected" style="cursor:pointer" onclick="event.preventDefault()"><div class="char-card-frame"><div class="char-card-art" style="background-image:url(/img/tutorial-demo.svg);background-size:cover;background-position:center"></div><div class="char-card-fade"></div><div class="char-card-body"><h3 class="char-card-title">Tutorial Demo Character</h3></div></div></div>'),
             target: ".char-card.tutorial-injected", copy: t("tutorial_lesson_explore_characters_step2_copy", "This is a card. Click it. It opens the character. Groundbreaking stuff, truly."), advanceOn: "click" },
         ] },
       { key: "explore-creators", title: t("tutorial_lesson_explore_creators_title", "Creators"),
         blurb: t("tutorial_lesson_explore_creators_blurb", "People who made things. Look at their things."),
         steps: [
-          { route: "/explore/creators", target: "#creatorsSearch", copy: t("tutorial_lesson_explore_creators_step1_copy", "Click into this box and type exactly: <b>tutorial</b>. No # symbol this time, just the word."), advanceOn: "input-exact", expect: "tutorial" },
+          { route: "/explore/creators", target: ".search-box-input", copy: t("tutorial_lesson_explore_creators_step1_copy", "Click into this box and type exactly: <b>tutorial</b>. No # symbol this time, just the word."), advanceOn: "input-exact", expect: "tutorial" },
         ] },
       { key: "explore-media", title: t("tutorial_lesson_explore_media_title", "Media — browsing and the detail view"),
         blurb: t("tutorial_lesson_explore_media_blurb", "A wall of images. Click one. It gets bigger."),
         steps: [
-          { route: "/explore/media", target: "#pinSearch", copy: t("tutorial_lesson_explore_media_step1_copy", "Click into this box and type exactly: <b>tutorial</b>. That's it. Five letters."), advanceOn: "input-exact", expect: "tutorial" },
+          { route: "/explore/media", target: ".search-box-input", copy: t("tutorial_lesson_explore_media_step1_copy", "Click into this box and type exactly: <b>tutorial</b>. That's it. Five letters."), advanceOn: "input-exact", expect: "tutorial" },
           { setup: () => {
-              const search = document.getElementById("pinSearch");
+              const search = document.querySelector(".search-box-input");
               if (search && search.value !== "") { search.value = ""; search.dispatchEvent(new Event("input", { bubbles: true })); }
               _tutorialInjectDemo("#pinSearchBox", '<div class="pin-frame tutorial-injected" style="position:static;width:64px;height:64px;display:inline-block;background:var(--color-surface-2) url(/img/tutorial-demo.svg) center/cover;border-radius:8px;vertical-align:middle" onclick="event.preventDefault()"></div>');
             },
@@ -120,7 +120,7 @@ const TUTORIAL_GROUPS = [
           { key: "characters-list", title: t("tutorial_lesson_characters_list_title", "Your characters list, and searching it"),
             blurb: t("tutorial_lesson_characters_list_blurb", "A list of your creations. Find one."),
             steps: [
-              { route: "/workshop/characters", target: "#compendiumSearch", copy: t("tutorial_lesson_characters_list_step1_copy", "Click into the search box and type exactly: <b>tutorial</b>. Lowercase. That's the whole feature."), advanceOn: "input-exact", expect: "tutorial" },
+              { route: "/workshop/characters", target: ".search-box-input", copy: t("tutorial_lesson_characters_list_step1_copy", "Click into the search box and type exactly: <b>tutorial</b>. Lowercase. That's the whole feature."), advanceOn: "input-exact", expect: "tutorial" },
             ] },
           { key: "characters-identity", title: t("tutorial_lesson_characters_identity_title", "Identity — name, description, mode"),
             blurb: t("tutorial_lesson_characters_identity_blurb", "Who they are, and whether they talk in first person or narrate you."),

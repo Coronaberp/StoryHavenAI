@@ -1,12 +1,11 @@
 "use strict";
 
 class SearchBox {
-  constructor({ container, mode, endpoint = null, dataSource = null, tokens = [],
+  constructor({ container, mode, endpoint = null, tokens = [],
                 debounceMs = 350, placeholder = "", onChange }) {
     this.container = container;
     this.mode = mode;
     this.endpoint = endpoint;
-    this.dataSource = dataSource;
     this.tokens = tokens;
     this.debounceMs = debounceMs;
     this.placeholder = placeholder;
@@ -20,6 +19,12 @@ class SearchBox {
 
   getState() {
     return { query: this.query, tokenValues: { ...this.tokenValues } };
+  }
+
+  setState({ query, tokenValues }) {
+    if (query !== undefined) this.query = query;
+    if (tokenValues !== undefined) this.tokenValues = tokenValues;
+    this._render();
   }
 
   _render() {
@@ -148,7 +153,13 @@ class SearchBox {
   }
 
   _notifyChange() {
+    const hadFocus = document.activeElement === this.input;
     this._render();
+    if (hadFocus) {
+      this.input.focus();
+      const pos = this.input.value.length;
+      this.input.setSelectionRange(pos, pos);
+    }
     if (this.mode === "client") {
       this.onChange(this.query, this.tokenValues);
       return;

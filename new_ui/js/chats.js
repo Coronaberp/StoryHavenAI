@@ -329,9 +329,7 @@ class ChatsView {
         this.renderResults();
       },
     });
-    this._searchBox.query = this.q;
-    this._searchBox.tokenValues = { characters: [...this.charFilters] };
-    this._searchBox._render();
+    this._searchBox.setState({ query: this.q, tokenValues: { characters: [...this.charFilters] } });
     this.renderResults();
   }
 

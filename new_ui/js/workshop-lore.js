@@ -631,8 +631,7 @@ function _grimoireEditModal(charId, entry, allEntries, onSave) {
       linkSuggest.classList.add("open");
       linkSuggest.querySelectorAll("[data-pick-link]").forEach((btn) => btn.onclick = () => {
         linkedTargets.set(btn.dataset.pickLink, "");
-        linkSearchBox.query = "";
-        linkSearchBox._render();
+        linkSearchBox.setState({ query: "" });
         linkSuggest.classList.remove("open");
         linkSuggest.innerHTML = "";
         renderLinkPills();

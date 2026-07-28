@@ -377,6 +377,7 @@ const UI_STRINGS = {
   forum_post: "Post",
   forum_post_thread_error: "Couldn't post that thread.",
   forum_replies_label: "Replies",
+  forum_search_results_capped: "Showing the first {count} matches",
   forum_search_placeholder: "Search, @author…",
   forum_sort_new: "New",
   forum_sort_top: "Top",

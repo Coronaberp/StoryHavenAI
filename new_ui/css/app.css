@@ -10991,12 +10991,6 @@ body {
   font-size: 10.5px;
   color: var(--color-sec);
 }
-.dropdown-item.active {
-  background: var(--color-accent);
-  @supports (color: color-mix(in lab, red, red)) {
-    background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
-  }
-}
 .settings-row {
   display: flex;
   align-items: center;
