@@ -76,6 +76,28 @@ function searchByTag(tag) {
   navigate(`/explore/characters?tag=${encodeURIComponent(tag)}`);
 }
 
+const EXPLORE_TABS = [
+  { key: "characters", route: "explore/characters", label: () => t("explore_tab_characters", "Characters") },
+  { key: "forum", route: "explore/forum", label: () => t("explore_tab_forum", "Forum") },
+  { key: "media", route: "explore/media", label: () => t("explore_tab_media", "Media") },
+  { key: "creators", route: "explore/creators", label: () => t("explore_tab_creators", "Creators") },
+];
+
+function exploreTabsHtml(activeKey) {
+  return `
+    <div class="explore-tabs">
+      ${EXPLORE_TABS.map((tab) => `
+        <button type="button" class="explore-tab${tab.key === activeKey ? " active" : ""}"
+          data-tab-key="${tab.key}" onclick="navigate('/${tab.route}')">${_esc(tab.label())}</button>
+      `).join("")}
+    </div>
+  `;
+}
+
+if (typeof window !== "undefined") {
+  window.exploreTabsHtml = exploreTabsHtml;
+}
+
 function _jsEsc(s) {
   return String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
@@ -330,6 +352,7 @@ class ExploreCharactersView {
           <div style="flex:1">${pageHeaderHtml("Explore", "Characters", t("ph_characters_title"), t("ph_characters_sub"))}</div>
         </div>
         `}
+        ${exploreTabsHtml("characters")}
         <div style="display:flex;align-items:center;gap:5px">
           <div id="compendiumSearchBox" style="flex:1;min-width:0"></div>
           <div id="compendiumFilterBtnSlot"></div>
