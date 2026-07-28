@@ -2,7 +2,7 @@
 
 class SearchBox {
   constructor({ container, mode, endpoint = null, tokens = [],
-                debounceMs = 350, placeholder = "", onChange }) {
+                debounceMs = 350, placeholder = "", onChange, filter = null }) {
     this.container = container;
     this.mode = mode;
     this.endpoint = endpoint;
@@ -10,10 +10,12 @@ class SearchBox {
     this.debounceMs = debounceMs;
     this.placeholder = placeholder;
     this.onChange = onChange;
+    this.filter = filter;
     this.query = "";
     this.tokenValues = {};
     tokens.forEach((t) => { this.tokenValues[t.param] = []; });
     this._debounceTimer = null;
+    this._loading = false;
     this._render();
   }
 
@@ -27,15 +29,29 @@ class SearchBox {
     this._render();
   }
 
+  refreshFilter() {
+    this._render();
+  }
+
   _render() {
     const pills = this._activePills();
+    const filterBtnHtml = this.filter ? `
+      <button type="button" class="search-box-filter-btn${this.filter.active() ? " on" : ""}" aria-label="${_attr(t("search_box_filter_aria", "Filters"))}">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+        ${this.filter.count() > 0 ? `<span class="search-box-filter-count">${this.filter.count()}</span>` : ""}
+      </button>
+    ` : "";
     this.container.innerHTML = `
-      <div class="search-box" style="position:relative;flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface)">
-        ${pills.map((p) => this._pillHtml(p)).join("")}
-        <input type="text" class="search-box-input" value="${_attr(this.query)}"
-          placeholder="${pills.length ? "" : _attr(this.placeholder || "")}"
-          style="flex:1;min-width:70px;border:none;background:none;outline:none;color:var(--color-ink);font-size:13.5px;padding:4px 0">
-        <div class="dropdown-menu search-box-suggest" style="left:0;right:0;top:calc(100% + 4px)"></div>
+      <div style="display:flex;align-items:center;gap:5px">
+        <div class="search-box" style="position:relative;flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;border:1px solid var(--color-line-2);background:var(--color-surface)">
+          ${pills.map((p) => this._pillHtml(p)).join("")}
+          <input type="text" class="search-box-input" value="${_attr(this.query)}"
+            placeholder="${pills.length ? "" : _attr(this.placeholder || "")}"
+            style="flex:1;min-width:70px;border:none;background:none;outline:none;color:var(--color-ink);font-size:13.5px;padding:4px 0">
+          ${this._loading ? '<span class="search-box-spinner" aria-hidden="true"></span>' : ""}
+          <div class="dropdown-menu search-box-suggest" style="left:0;right:0;top:calc(100% + 4px)"></div>
+        </div>
+        ${filterBtnHtml}
       </div>
     `;
     this.input = this.container.querySelector(".search-box-input");
@@ -43,6 +59,8 @@ class SearchBox {
     this._activeSuggestIndex = -1;
     this._wireInput();
     this._wirePills();
+    const filterBtn = this.container.querySelector(".search-box-filter-btn");
+    if (filterBtn) filterBtn.onclick = () => this.filter.onClick();
   }
 
   _activePills() {
@@ -219,6 +237,8 @@ class SearchBox {
       const values = this.tokenValues[t.param] || [];
       if (values.length) params.set(t.param, values.join(","));
     });
+    this._loading = true;
+    this._renderLoadingOnly();
     let results;
     try {
       const separator = this.endpoint.includes("?") ? "&" : "?";
@@ -226,8 +246,21 @@ class SearchBox {
     } catch (err) {
       toast(err.message || t("search_box_load_error"));
       results = null;
+    } finally {
+      this._loading = false;
+      this._renderLoadingOnly();
     }
     this.onChange(this.query, this.tokenValues, results);
+  }
+
+  _renderLoadingOnly() {
+    const existing = this.container.querySelector(".search-box-spinner");
+    if (this._loading && !existing) {
+      const box = this.container.querySelector(".search-box");
+      if (box) box.insertAdjacentHTML("beforeend", '<span class="search-box-spinner" aria-hidden="true"></span>');
+    } else if (!this._loading && existing) {
+      existing.remove();
+    }
   }
 
   destroy() {
