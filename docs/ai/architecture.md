@@ -86,4 +86,4 @@ modal_app/lora_train.py  (deployed separately onto Modal — not part of this Fa
 
 ## Naming hazard across `new_ui/js/`
 
-Every `new_ui/js/*.js` file is a classic script sharing one global scope, so two files defining the same function name silently overwrite each other by load order, and the symptom appears far from the cause. This has already shipped twice — a duplicate top-level function name broke every model preview tile and made clicks no-op. Before naming a new top-level function, grep for the name across `new_ui/js/`.
+Every `new_ui/js/*.js` file is a classic script sharing one global scope, so two files defining the same function name silently overwrite each other by load order, and the symptom appears far from the cause. This has already shipped twice — `_pickerTileHtml` was defined in both `imagegen-pickers.js` and `admin-train-picker.js`, which broke every model preview tile and made clicks no-op. Before naming a new top-level function, grep for the name across `new_ui/js/`.
