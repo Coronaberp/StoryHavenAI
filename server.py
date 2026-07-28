@@ -1092,8 +1092,9 @@ def _compose_shared_chat_card(title, cast, player_count, message_count, last_act
     live_w = draw.textlength(live_label, font=live_font) + 44
     live_x = width - 48 - live_w
     draw.rounded_rectangle([live_x, 32, live_x + live_w, 68], radius=18, fill=(46, 196, 113))
-    _og_icon(draw, "bolt", live_x + 12, 38, 22, (255, 255, 255))
-    draw.text((live_x + 40, 40), live_label, font=live_font, fill=(255, 255, 255))
+    live_row_cy = 50
+    _og_icon(draw, "bolt", live_x + 12, live_row_cy - 11, 22, (255, 255, 255))
+    draw.text((live_x + 40, live_row_cy), live_label, font=live_font, fill=(255, 255, 255), anchor="lm")
     bottom_margin = 48
     stats_block_h = 98
     stats_y = height - bottom_margin - stats_block_h
@@ -1235,7 +1236,7 @@ def _load_shell() -> str:
         _SHELL_CACHE["mtime"] = mtime
     return _SHELL_CACHE["html"]
 
-_OG_IMG_VERSION = "34"
+_OG_IMG_VERSION = "35"
 
 def _share_shell(title, desc, img, og_type, canonical_url, theme_color="#E3BD6C"):
     brand_name = "StoryHaven AI"
