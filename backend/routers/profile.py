@@ -144,9 +144,16 @@ async def upload_my_banner(file: UploadFile = File(...),
     await user_repo.update_user_profile(current_user["id"], {"banner_img": url})
     if not current_user.get("is_explicit"):
         uid = current_user["id"]
-        classify_image_background(data, "image/png", uid, current_user.get("is_admin", False),
-                                  lambda: user_repo.update_user_profile(uid, {"is_explicit": 1}),
-                                  review_context="a profile banner")
+        classification_task = classify_image_background(
+            data,
+            "image/png",
+            uid,
+            current_user.get("is_admin", False),
+            lambda: user_repo.update_user_profile(uid, {"is_explicit": 1}),
+            review_context="a profile banner",
+        )
+        if classification_task is not None:
+            await classification_task
     log.info("profile: banner uploaded by=%s", current_user["username"])
     return {"banner_img": url}
 
@@ -164,9 +171,16 @@ async def upload_my_chat_background(file: UploadFile = File(...),
     await user_repo.update_user_profile(current_user["id"], {"chat_background_img": url})
     if not current_user.get("is_explicit"):
         uid = current_user["id"]
-        classify_image_background(data, "image/png", uid, current_user.get("is_admin", False),
-                                  lambda: user_repo.update_user_profile(uid, {"is_explicit": 1}),
-                                  review_context="a chat background")
+        classification_task = classify_image_background(
+            data,
+            "image/png",
+            uid,
+            current_user.get("is_admin", False),
+            lambda: user_repo.update_user_profile(uid, {"is_explicit": 1}),
+            review_context="a chat background",
+        )
+        if classification_task is not None:
+            await classification_task
     log.info("profile: chat background uploaded by=%s", current_user["username"])
     return {"chat_background_img": url}
 
@@ -185,9 +199,16 @@ async def upload_my_avatar(file: UploadFile = File(...),
     await user_repo.update_user_profile(current_user["id"], {"avatar": url})
     if not current_user.get("is_explicit"):
         uid = current_user["id"]
-        classify_image_background(data, "image/png", uid, current_user.get("is_admin", False),
-                                  lambda: user_repo.update_user_profile(uid, {"is_explicit": 1}),
-                                  review_context="a profile avatar")
+        classification_task = classify_image_background(
+            data,
+            "image/png",
+            uid,
+            current_user.get("is_admin", False),
+            lambda: user_repo.update_user_profile(uid, {"is_explicit": 1}),
+            review_context="a profile avatar",
+        )
+        if classification_task is not None:
+            await classification_task
     log.info("profile: avatar uploaded by=%s", current_user["username"])
     return {"avatar": url}
 

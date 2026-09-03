@@ -161,9 +161,16 @@ async def upload_avatar(cid: str, file: UploadFile = File(...),
     fname = f"{cid}{ext}"
     char = await characters.update(cid, {"avatar": f"/media/{fname}?v={int(time.time())}"})
     if not c.get("is_explicit"):
-        classify_image_background(data, "image/png", current_user["id"], current_user.get("is_admin", False),
-                                  lambda: characters.update(cid, {"is_explicit": True}),
-                                  review_context="a character avatar")
+        classification_task = classify_image_background(
+            data,
+            "image/png",
+            current_user["id"],
+            current_user.get("is_admin", False),
+            lambda: characters.update(cid, {"is_explicit": True}),
+            review_context="a character avatar",
+        )
+        if classification_task is not None:
+            await classification_task
     log.info("character avatar uploaded: id=%s by=%s", cid, current_user["id"])
     return {"avatar": char["avatar"]}
 
@@ -462,4 +469,3 @@ async def export_character(cid: str, spec: str = "v2",
     safe = "".join(ch for ch in c["name"] if ch.isalnum() or ch in " -_").strip() or "character"
     return Response(content=body, media_type="application/json",
                     headers={"Content-Disposition": f'attachment; filename="{safe}.{spec}.card.json"'})
-

@@ -410,10 +410,16 @@ async def post_comment(body: CommentIn, current_user: dict = Depends(get_current
                 with open(path, "rb") as fh:
                     data = fh.read()
                 mime = "image/gif" if image.endswith(".gif") else "image/webp" if image.endswith(".webp") else "image/png"
-                classify_image_background(data, mime, current_user["id"],
-                                          current_user.get("is_admin", False),
-                                          lambda: comment_repo.set_explicit(cid),
-                                          review_context="a comment attachment")
+                classification_task = classify_image_background(
+                    data,
+                    mime,
+                    current_user["id"],
+                    current_user.get("is_admin", False),
+                    lambda: comment_repo.set_explicit(cid),
+                    review_context="a comment attachment",
+                )
+                if classification_task is not None:
+                    await classification_task
     await _notify_comment_owner(body.target_type, body.target_id, owner_id,
                                 current_user, content, cid)
     mentioned = await _notify_mentioned_users(body.target_type, body.target_id, owner_id,

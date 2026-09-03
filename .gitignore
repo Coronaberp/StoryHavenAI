@@ -39,6 +39,7 @@ storyhavenai.gputemp*
 test.html
 bin/tailwindcss
 installer/models.manifest.tsv
+models/nsfw-detection-2-nano/
 
 # Local research and audit write-ups, not part of the app
 report.md

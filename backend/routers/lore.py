@@ -109,9 +109,16 @@ async def _create_entry(char_id: str | None, owner_id: str | None, body: LoreIn,
     if body.image_data:
         img_bytes, mime = _data_url_to_bytes(body.image_data)
         if img_bytes:
-            classify_image_background(img_bytes, mime or "image/png", current_user["id"],
-                                      current_user["is_admin"], lambda: lore.set_explicit(lid),
-                                      review_context="a lore entry image")
+            classification_task = classify_image_background(
+                img_bytes,
+                mime or "image/png",
+                current_user["id"],
+                current_user["is_admin"],
+                lambda: lore.set_explicit(lid),
+                review_context="a lore entry image",
+            )
+            if classification_task is not None:
+                await classification_task
     await index_lore(lid, char_id, body.content, body.name, body.category)
     if body.hidden:
         await lore_memory.ensure_secrets_indexed(
@@ -151,9 +158,16 @@ async def update_lore(lid: str, body: LoreIn, current_user: dict = Depends(get_c
                             is_explicit=is_explicit,
                             require_keys=body.require_keys, exclude_keys=body.exclude_keys)
     if img_bytes:
-        classify_image_background(img_bytes, mime or "image/png", current_user["id"],
-                                  current_user["is_admin"], lambda: lore.set_explicit(lid),
-                                  review_context="a lore entry image")
+        classification_task = classify_image_background(
+            img_bytes,
+            mime or "image/png",
+            current_user["id"],
+            current_user["is_admin"],
+            lambda: lore.set_explicit(lid),
+            review_context="a lore entry image",
+        )
+        if classification_task is not None:
+            await classification_task
     await index_lore(lid, entry.get("char_id"), body.content, body.name, body.category)
     if body.hidden:
         await lore_memory.reindex_secrets(
@@ -240,4 +254,3 @@ async def set_lore_links(lid: str, body: LoreLinksIn, current_user: dict = Depen
     await lore_links.set_outgoing_links(lid, links)
     log.info("lore: links set id=%s count=%s by=%s", lid, len(links), current_user["username"])
     return {"id": lid, "links": links}
-

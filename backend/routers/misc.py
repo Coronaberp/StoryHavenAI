@@ -8,6 +8,7 @@ from backend import db
 from backend.repositories import notifications as notification_repo
 from backend import vectors
 from backend import llm
+from backend import classify
 from backend.state import api, CFG, log
 from backend.auth import get_current_user, get_dev
 from backend.chat_service import (_eff_cfg, _endpoints, _ui_language, _chat_language,
@@ -267,6 +268,11 @@ async def summarize_session(sid: str, current_user: dict = Depends(get_current_u
 async def health(_: dict = Depends(get_current_user)):
     out = {"ok": True, "chat_model": CFG["chat_model"], "embed_model": CFG["embed_model"],
            "base_url": CFG["base_url"]}
+    safety = classify.safety_health_summary()
+    out["safety_classifier"] = safety
+    out["safety_classifier_metrics"] = classify.safety_metrics_snapshot()
+    if not safety["ready"]:
+        out["ok"] = False
     out.update(await vectors.stats())
     try:
         out["characters"] = len(await db.list_characters())

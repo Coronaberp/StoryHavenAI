@@ -167,9 +167,15 @@ async def generate_message_image(sid: str, mid: str, body: ImageGenIn,
     url = f"/media/{fname}"
     await chat_sessions.set_message_image(sid, mid, url, positive, negative, is_explicit=False)
     log.info("imagegen: message image done user=%s session=%s mid=%s", current_user["username"], sid, mid)
-    classify_image_background(image_bytes, "image/png", current_user["id"],
-                              current_user.get("is_admin", False),
-                              lambda: chat_sessions.set_message_image_explicit(sid, mid))
+    classification_task = classify_image_background(
+        image_bytes,
+        "image/png",
+        current_user["id"],
+        current_user.get("is_admin", False),
+        lambda: chat_sessions.set_message_image_explicit(sid, mid),
+    )
+    if classification_task is not None:
+        await classification_task
     return {"image": url}
 
 @api.get("/me/images")
@@ -416,11 +422,17 @@ async def save_inpaint_image(body: ImageGenSaveIn, current_user: dict = Depends(
             "admin_image_report", "Low-confidence image rating",
             f"An image was auto-flagged for review — the classifier was only {confidence}% confident.",
             "/admin/moderation")
-    classify_image_background(image_bytes, "image/png", current_user["id"],
-                              current_user.get("is_admin", False),
-                              lambda: standalone_image_repo.set_explicit(saved["id"]),
-                              on_done=lambda explicit: standalone_image_repo.mark_classified(saved["id"]),
-                              on_low_confidence=_flag_low_confidence)
+    classification_task = classify_image_background(
+        image_bytes,
+        "image/png",
+        current_user["id"],
+        current_user.get("is_admin", False),
+        lambda: standalone_image_repo.set_explicit(saved["id"]),
+        on_done=lambda explicit: standalone_image_repo.mark_classified(saved["id"]),
+        on_low_confidence=_flag_low_confidence,
+    )
+    if classification_task is not None:
+        await classification_task
     return saved
 
 @api.post("/imagegen/video")
@@ -631,11 +643,17 @@ async def save_standalone_image(body: ImageGenSaveIn, current_user: dict = Depen
             "admin_image_report", "Low-confidence image rating",
             f"An image was auto-flagged for review — the classifier was only {confidence}% confident.",
             "/admin/moderation")
-    classify_image_background(data, "image/png", current_user["id"],
-                              current_user.get("is_admin", False),
-                              lambda: standalone_image_repo.set_explicit(rec["id"]),
-                              on_done=lambda explicit: standalone_image_repo.mark_classified(rec["id"]),
-                              on_low_confidence=_flag_low_confidence)
+    classification_task = classify_image_background(
+        data,
+        "image/png",
+        current_user["id"],
+        current_user.get("is_admin", False),
+        lambda: standalone_image_repo.set_explicit(rec["id"]),
+        on_done=lambda explicit: standalone_image_repo.mark_classified(rec["id"]),
+        on_low_confidence=_flag_low_confidence,
+    )
+    if classification_task is not None:
+        await classification_task
     log.info("imagegen: standalone saved user=%s image=%s", current_user["username"], rec["id"])
     return rec
 

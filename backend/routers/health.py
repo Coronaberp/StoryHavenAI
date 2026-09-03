@@ -7,11 +7,14 @@ from fastapi import Depends
 
 from backend import db
 from backend import llm
+from backend import classify
 from backend import modal_provision
 from backend.repositories import health as health_repo
 from backend.repositories import lora_training as lora_training_repo
 from backend.state import api, CFG, VISION_CLASSIFY, log, PROCESS_START_TIME
 from backend.auth import get_current_user, require_capability
+
+client = llm
 
 SERVICES = ("database", "chat_llm", "embed_llm", "comfyui", "image_classify_llm", "modal")
 
@@ -44,8 +47,14 @@ async def _check_image_classify_llm() -> tuple[bool, float | None, str]:
 
     t0 = time.monotonic()
     try:
-        await llm.list_models(VISION_CLASSIFY["base_url"], VISION_CLASSIFY["api_key"] or None)
-        return True, (time.monotonic() - t0) * 1000, ""
+        if classify.CLASSIFIER_BACKEND == "legacy":
+            await llm.list_models(VISION_CLASSIFY["base_url"], VISION_CLASSIFY["api_key"] or None)
+            return True, (time.monotonic() - t0) * 1000, ""
+        available = await classify.safety_classifier.initialize()
+        snapshot = classify.safety_classifier.health_snapshot()
+        return available, (time.monotonic() - t0) * 1000 if available else None, (
+            "" if available else str(snapshot.get("status") or "unavailable")
+        )
     except Exception as e:
         return False, None, str(e)
 
@@ -178,6 +187,14 @@ async def admin_service_health(hours: float = 24, _: dict = Depends(require_capa
     return {
         "process_uptime_seconds": round(time.time() - PROCESS_START_TIME, 1),
         "services": services,
+    }
+
+@api.get("/admin/safety-classifier")
+async def admin_safety_classifier(_: dict = Depends(require_capability(
+        "service_health.view", "View current service health status."))) -> dict[str, object]:
+    return {
+        "classifier": classify.safety_health_snapshot(),
+        "metrics": classify.safety_metrics_snapshot(),
     }
 
 @api.get("/admin/model-latency")

@@ -8,6 +8,12 @@ from backend.repositories import notifications as notification_repo
 
 pytestmark = pytest.mark.asyncio
 
+
+@pytest.fixture(autouse=True)
+def use_legacy_backend_for_compatibility_tests(monkeypatch):
+    monkeypatch.setattr(classify, "CLASSIFIER_BACKEND", "legacy")
+
+
 def _static_png_bytes():
     buf = io.BytesIO()
     Image.new("RGB", (4, 4), color="red").save(buf, format="PNG")
@@ -76,14 +82,14 @@ class TestClassifyImageNsfw:
             raise AssertionError("classifier should never be called for animated GIFs")
         monkeypatch.setattr(classify.llm, "classify_image_explicit", _boom)
         explicit, confidence = await classify.classify_image_nsfw(_animated_gif_bytes(), mime="image/gif")
-        assert (explicit, confidence) == (False, 0)
+        assert (explicit, confidence) == (True, 0)
 
     async def test_animated_webp_bypasses_classifier_and_returns_unconfident(self, monkeypatch):
         async def _boom(*a, **kw):
             raise AssertionError("classifier should never be called for animated WebP")
         monkeypatch.setattr(classify.llm, "classify_image_explicit", _boom)
         explicit, confidence = await classify.classify_image_nsfw(_animated_webp_bytes(), mime="image/webp")
-        assert (explicit, confidence) == (False, 0)
+        assert (explicit, confidence) == (True, 0)
 
     async def test_static_image_calls_classifier_and_returns_its_verdict(self, monkeypatch):
         async def _fake_classify(data_url, model, base_url=None, api_key=None):
@@ -116,18 +122,18 @@ class TestClassifyImageNsfw:
             raise AssertionError("classifier should not be called for a non-data URL")
         monkeypatch.setattr(classify.llm, "classify_image_explicit", _boom)
         explicit, confidence = await classify.classify_image_nsfw("https://example.com/x.png")
-        assert (explicit, confidence) == (False, 0)
+        assert (explicit, confidence) == (True, 0)
 
     async def test_empty_string_returns_unconfident(self):
         explicit, confidence = await classify.classify_image_nsfw("")
-        assert (explicit, confidence) == (False, 0)
+        assert (explicit, confidence) == (True, 0)
 
     async def test_classifier_failure_does_not_raise_and_reports_unconfident(self, monkeypatch):
         async def _fail(*a, **kw):
             return False, 0, "<error: boom>"
         monkeypatch.setattr(classify.llm, "classify_image_explicit", _fail)
         explicit, confidence = await classify.classify_image_nsfw(_static_png_bytes(), mime="image/png")
-        assert (explicit, confidence) == (False, 0)
+        assert (explicit, confidence) == (True, 0)
 
 class TestClassifyImageBackground:
     async def _drain(self):

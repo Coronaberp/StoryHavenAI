@@ -19,6 +19,7 @@ from backend import db
 from backend import seed_content
 from backend import vectors
 from backend import llm
+from backend import classify
 from backend.state import (CFG, MEDIA_DIR, STATIC_DIR, APP_VERSION,
                    apply_llm_config, log, api, auth_router, _log_buffer)
 from backend.auth import _prune_login_attempts, get_current_user
@@ -52,6 +53,8 @@ async def lifespan(app: FastAPI):
     vectors.connect()
     await vectors.ensure_indexes(CFG["embed_dim"])
     apply_llm_config()
+    if not await classify.initialize_safety_classifier():
+        log.error("startup: safety classifier failed to initialize")
 
     n_stuck = await lora_training_repo.fail_stuck_jobs()
     if n_stuck:
@@ -97,6 +100,7 @@ async def lifespan(app: FastAPI):
     cleanup_task.cancel()
     health_task.cancel()
     log_prune_task.cancel()
+    await classify.safety_classifier.close()
     await db.close()
     await vectors.close()
 
