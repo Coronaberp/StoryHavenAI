@@ -52,16 +52,16 @@ Stable Diffusion等の画像生成モデルの学習、モデルによる画像�
 
 - **Version 0.11.1 (2026-06-16):**
     - Anima LoRA／LLLite学習でtorch.compileサポートを追加しました。[PR #2379](https://github.com/kohya-ss/sd-scripts/pull/2379)
-        - 学習が20%ほど高速化されるようです。動作にはTritonやMSVCコンパイラが必要です。詳細は[ドキュメント](./docs/anima_torch_compile.md)をご覧ください。
+        - 学習が20%ほど高速化されるようです。動作にはTritonやMSVCコンパイラが必要です。詳細は[ドキュメント](https://github.com/kohya-ss/sd-scripts/blob/main/docs/anima_torch_compile.md)をご覧ください。
     - 2DのみのQwen-Image VAEを追加しました。[PR #2382](https://github.com/kohya-ss/sd-scripts/pull/2382)
         - [issue #2369](https://github.com/kohya-ss/sd-scripts/issues/2369) での woct0rdho 氏の提案に基づいています。woct0rdho 氏に感謝します。
         - `--qwen_image_vae_2d` を指定すると有効になります。重みは通常版（3D版）と同じものが使用できます。
-        - latentの事前キャッシュの高速化が期待できます（学習自体は変わりません）。詳細は[ドキュメント](./docs/anima_train_network.md#memory-and-speed--メモリ速度関連)をご覧ください。
+        - latentの事前キャッシュの高速化が期待できます（学習自体は変わりません）。詳細は[ドキュメント](https://github.com/kohya-ss/sd-scripts/blob/main/docs/anima_train_network.md#memory-and-speed--メモリ速度関連)をご覧ください。
     - LLLiteインペインティングモデルの学習サポートを追加しました。[PR #2378](https://github.com/kohya-ss/sd-scripts/pull/2378)
-        - 詳細は[ドキュメント](./docs/anima_train_control_net_lllite.md)をご覧ください。
+        - 詳細は[ドキュメント](https://github.com/kohya-ss/sd-scripts/blob/main/docs/anima_train_control_net_lllite.md)をご覧ください。
     - timestep samplingの設定値のログ出力、timestepsの分布の可視化を追加しました。[PR #2384](https://github.com/kohya-ss/sd-scripts/pull/2384)
         - 可視化により学習がどのようなタイムステップで行われるかを理解しやすくなります。
-        - 詳細は[ドキュメント](./docs/anima_train_network.md#visualizing-the-timestep-distribution)をご覧ください。
+        - 詳細は[ドキュメント](https://github.com/kohya-ss/sd-scripts/blob/main/docs/anima_train_network.md#visualizing-the-timestep-distribution)をご覧ください。
 
 - **Version 0.11.0 (2026-06-12):**
     - コードベースの大規模な内部リファクタリングを行い、コードベースの品質と保守性を向上させました。[PR #2372](https://github.com/kohya-ss/sd-scripts/pull/2372)
@@ -74,12 +74,12 @@ Stable Diffusion等の画像生成モデルの学習、モデルによる画像�
     - transformersのバージョン5以降に対応しました。[PR #2315](https://github.com/kohya-ss/sd-scripts/pull/2315) および [PR #2316](https://github.com/kohya-ss/sd-scripts/pull/2316) marcus165090-spec氏に感謝します。
         - `requirements.txt`の`transformers`のバージョンは4.xのままですが、5.xでも動作します。何らかの理由で5.xを用いる場合はdiffusersもあわせて最新バージョンにしてください。
     - Anima向けのControlNet-LLLite学習に対応しました。[PR #2317](https://github.com/kohya-ss/sd-scripts/pull/2317)
-        - 詳細は[ドキュメント](./docs/anima_train_control_net_lllite.md)をご覧ください。
+        - 詳細は[ドキュメント](https://github.com/kohya-ss/sd-scripts/blob/main/docs/anima_train_control_net_lllite.md)をご覧ください。
 
 - **Version 0.10.4 (2026-05-07):**
     - Intel GPUの互換性を向上しました。[PR #2307](https://github.com/kohya-ss/sd-scripts/pull/2307) WhitePr氏に感謝します。
     - SD 1.5/SDXLのinpaintingモデルの学習に対応しました。[PR #2309](https://github.com/kohya-ss/sd-scripts/pull/2309) および [PR #2318](https://github.com/kohya-ss/sd-scripts/pull/2318)allanoepping氏に感謝します。
-        - 詳細は[ドキュメント](./docs/inpainting_training.md)をご覧ください。
+        - 詳細は[ドキュメント](https://github.com/kohya-ss/sd-scripts/blob/main/docs/inpainting_training.md)をご覧ください。
 
 ### サポートモデル
 
@@ -106,78 +106,57 @@ Stable Diffusion等の画像生成モデルの学習、モデルによる画像�
 
 日本語は折りたたまれているか、別のドキュメントにあります。
 
-* [LoRA学習の概要](./docs/train_network.md)
-* [データセット設定](./docs/config_README-ja.md) / [英語版](./docs/config_README-en.md)
-* [高度な学習オプション](./docs/train_network_advanced.md)
-* [SDXL学習](./docs/sdxl_train_network.md)
-* [SD3学習](./docs/sd3_train_network.md)
-* [FLUX.1学習](./docs/flux_train_network.md)
-* [LUMINA学習](./docs/lumina_train_network.md)
-* [HunyuanImage-2.1学習](./docs/hunyuan_image_train_network.md)
-* [Fine-tuning](./docs/fine_tune.md)
-* [Textual Inversion学習](./docs/train_textual_inversion.md)
-* [ControlNet-LLLite学習](./docs/train_lllite_README-ja.md) / [英語版](./docs/train_lllite_README.md)
-* [Anima向けControlNet-LLLite学習ガイド](./docs/anima_train_control_net_lllite.md)
-* [Validation](./docs/validation.md)
-* [マスク損失学習](./docs/masked_loss_README-ja.md) / [英語版](./docs/masked_loss_README.md)
-* [インペインティング学習](./docs/inpainting_training.md)
+* [LoRA学習の概要](https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_network.md)
+* [データセット設定](https://github.com/kohya-ss/sd-scripts/blob/main/docs/config_README-ja.md) / [英語版](https://github.com/kohya-ss/sd-scripts/blob/main/docs/config_README-en.md)
+* [高度な学習オプション](https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_network_advanced.md)
+* [SDXL学習](https://github.com/kohya-ss/sd-scripts/blob/main/docs/sdxl_train_network.md)
+* [SD3学習](https://github.com/kohya-ss/sd-scripts/blob/main/docs/sd3_train_network.md)
+* [FLUX.1学習](https://github.com/kohya-ss/sd-scripts/blob/main/docs/flux_train_network.md)
+* [LUMINA学習](https://github.com/kohya-ss/sd-scripts/blob/main/docs/lumina_train_network.md)
+* [HunyuanImage-2.1学習](https://github.com/kohya-ss/sd-scripts/blob/main/docs/hunyuan_image_train_network.md)
+* [Fine-tuning](https://github.com/kohya-ss/sd-scripts/blob/main/docs/fine_tune.md)
+* [Textual Inversion学習](https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_textual_inversion.md)
+* [ControlNet-LLLite学習](https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_lllite_README-ja.md) / [英語版](https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_lllite_README.md)
+* [Anima向けControlNet-LLLite学習ガイド](https://github.com/kohya-ss/sd-scripts/blob/main/docs/anima_train_control_net_lllite.md)
+* [Validation](https://github.com/kohya-ss/sd-scripts/blob/main/docs/validation.md)
+* [マスク損失学習](https://github.com/kohya-ss/sd-scripts/blob/main/docs/masked_loss_README-ja.md) / [英語版](https://github.com/kohya-ss/sd-scripts/blob/main/docs/masked_loss_README.md)
+* [インペインティング学習](https://github.com/kohya-ss/sd-scripts/blob/main/docs/inpainting_training.md)
 
 ### その他のドキュメント
 
-* [画像生成スクリプト](./docs/gen_img_README-ja.md) / [英語版](./docs/gen_img_README.md)
-* [WD14 Taggerによる画像タグ付け](./docs/wd14_tagger_README-ja.md) / [英語版](./docs/wd14_tagger_README-en.md)
+* [画像生成スクリプト](https://github.com/kohya-ss/sd-scripts/blob/main/docs/gen_img_README-ja.md) / [英語版](https://github.com/kohya-ss/sd-scripts/blob/main/docs/gen_img_README.md)
+* [WD14 Taggerによる画像タグ付け](https://github.com/kohya-ss/sd-scripts/blob/main/docs/wd14_tagger_README-ja.md) / [英語版](https://github.com/kohya-ss/sd-scripts/blob/main/docs/wd14_tagger_README-en.md)
 
 ### 旧ドキュメント（日本語）
 
-* [学習について、共通編](./docs/train_README-ja.md) : データ整備やオプションなど
-* [DreamBoothの学習について](./docs/train_db_README-ja.md)
+* [学習について、共通編](https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_README-ja.md) : データ整備やオプションなど
+* [DreamBoothの学習について](https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_db_README-ja.md)
 
 ## AIコーディングエージェントを使う開発者の方へ
 
-This repository provides recommended instructions to help AI agents like Claude and Gemini understand our project context and coding standards.
+This repository provides recommended instructions to help AI coding agents understand our project context and coding standards.
 
 To use them, you need to opt-in by creating your own configuration file in the project root.
 
 **Quick Setup:**
 
-1.  Create a `CLAUDE.md` and/or `GEMINI.md` file in the project root.
-2.  Add the following line to your `CLAUDE.md` to import the repository's recommended prompt:
+1.  Create the project-level instruction file supported by your coding agent.
+2.  Import the repository's recommended prompt using the syntax supported by that agent.
+3.  Add your own personal instructions below the import line (e.g., `Always respond in Japanese.`).
 
-    ```markdown
-    @./.ai/claude.prompt.md
-    ```
+This approach keeps the instructions given to your agent under your control while still using the shared project context. Keep personal agent-configuration files in `.gitignore` so they are not committed to the repository.
 
-    or for Gemini:
-
-    ```markdown
-    @./.ai/gemini.prompt.md
-    ```
-
-3.  You can now add your own personal instructions below the import line (e.g., `Always respond in Japanese.`).
-
-This approach ensures that you have full control over the instructions given to your agent while benefiting from the shared project context. Your `CLAUDE.md` and `GEMINI.md` are already listed in `.gitignore`, so they won't be committed to the repository.
-
-このリポジトリでは、AIコーディングエージェント（例：Claude、Geminiなど）がプロジェクトのコンテキストやコーディング標準を理解できるようにするための推奨プロンプトを提供しています。
+このリポジトリでは、AIコーディングエージェントがプロジェクトのコンテキストやコーディング標準を理解できるようにするための推奨プロンプトを提供しています。
 
 それらを使用するには、プロジェクトディレクトリに設定ファイルを作成して明示的に有効にする必要があります。
 
 **簡単なセットアップ手順:**
 
-1.  プロジェクトルートに `CLAUDE.md` や `GEMINI.md` ファイルを作成します。
-2.  `CLAUDE.md` に以下の行を追加して、リポジトリの推奨プロンプトをインポートします。
-
-    ```markdown
-    @./.ai/claude.prompt.md
-    ```
-
-    またはGeminiの場合:
-
-    ```markdown
-    @./.ai/gemini.prompt.md
-    ``` 
+1.  使用するコーディングエージェントが対応するプロジェクト用の指示ファイルを作成します。
+2.  そのエージェントが対応する構文で、リポジトリの推奨プロンプトをインポートします。
 3.  インポート行の下に、独自の指示を追加できます（例：`常に日本語で応答してください。`）。
 
-この方法により、エージェントに与える指示を各開発者が管理しつつ、リポジトリの推奨コンテキストを活用できます。`CLAUDE.md` および `GEMINI.md` は `.gitignore` に登録されているため、リポジトリにコミットされることはありません。
+この方法により、エージェントに与える指示を各開発者が管理しつつ、リポジトリの推奨コンテキストを活用できます。個人用のエージェント設定ファイルは `.gitignore` に登録し、リポジトリへコミットしないでください。
 
 ## Windows環境でのインストール
 

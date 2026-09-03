@@ -1,6 +1,6 @@
 # Product research
 
-Structured competitive comparisons, written by the `/product-lens` skill (`.claude/skills/product-lens/SKILL.md`, not git-tracked). One file per feature area, e.g. `memory-and-retrieval.md`, `onboarding.md`, `moderation.md`.
+Structured competitive comparisons, written with the `/product-lens` research workflow. One file per feature area, e.g. `memory-and-retrieval.md`, `onboarding.md`, `moderation.md`.
 
 ## Convention
 

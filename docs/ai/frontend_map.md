@@ -8,8 +8,8 @@
 The frontend was rebuilt from scratch with Tailwind CSS, mobile-first, replacing the original vanilla-JS SPA.
 
 - `legacy_ui/` — the original vanilla-JS/CSS SPA (all `static/js/*.js` files, `static/css/*.css` files, `index.html`), kept for reference only. Not served by anything.
-- `static/` — an old standalone maintenance page shown during the rebuild. No longer live, kept on disk but not served.
-- `new_ui/` — the live Tailwind SPA (`index.html` + `js/*.js` + `css/*.css`). Edits to `new_ui/js/*.js`/`new_ui/css/*.css` take effect immediately, no separate dev proxy step needed.
+- `static/` — the compatibility SPA and backend fallback when `STATIC_DIR` is not set. It is not the interface selected by the current deployment.
+- `new_ui/` — the current deployed Tailwind SPA (`index.html` + `js/*.js` + `css/*.css`), selected with `STATIC_DIR=./new_ui`. Edits to `new_ui/js/*.js`/`new_ui/css/*.css` take effect immediately, no separate dev proxy step needed.
 
 ## Tailwind build pipeline
 

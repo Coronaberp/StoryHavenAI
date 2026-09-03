@@ -49,16 +49,16 @@ If you find this project helpful, please consider supporting its development via
 
 - **Version 0.11.1 (2026-06-16):**
     - Added support for torch.compile in Anima LoRA/LLLite training. [PR #2379](https://github.com/kohya-ss/sd-scripts/pull/2379)
-        - It seems to speed up training by about 20%. It requires Triton and MSVC compiler. For details, please refer to the [documentation](./docs/anima_torch_compile.md).
+        - It seems to speed up training by about 20%. It requires Triton and MSVC compiler. For details, please refer to the [documentation](https://github.com/kohya-ss/sd-scripts/blob/main/docs/anima_torch_compile.md).
     - Added 2D-only Qwen-Image VAE. [PR #2382](https://github.com/kohya-ss/sd-scripts/pull/2382)
         - Based on the suggestion by woct0rdho in [issue #2369](https://github.com/kohya-ss/sd-scripts/issues/2369). Thanks to woct0rdho.
         - Enabled by specifying `--qwen_image_vae_2d`. The weights are the same as the standard (3D) version.
-        - Expected to speed up latent pre-caching (training itself remains unchanged). For details, please refer to the [documentation](./docs/anima_train_network.md#memory-and-speed--メモリ速度関連).
+        - Expected to speed up latent pre-caching (training itself remains unchanged). For details, please refer to the [documentation](https://github.com/kohya-ss/sd-scripts/blob/main/docs/anima_train_network.md#memory-and-speed--メモリ速度関連).
     - Added support for LLLite inpainting model training. [PR #2378](https://github.com/kohya-ss/sd-scripts/pull/2378)
-        - For details, please refer to the [documentation](./docs/anima_train_control_net_lllite.md).
+        - For details, please refer to the [documentation](https://github.com/kohya-ss/sd-scripts/blob/main/docs/anima_train_control_net_lllite.md).
     - Added logging of timestep sampling settings and visualization of timesteps distribution. [PR #2384](https://github.com/kohya-ss/sd-scripts/pull/2384)
         - Visualization makes it easier to understand how training is conducted at different timesteps.
-        - For details, please refer to the [documentation](./docs/anima_train_network.md#visualizing-the-timestep-distribution).
+        - For details, please refer to the [documentation](https://github.com/kohya-ss/sd-scripts/blob/main/docs/anima_train_network.md#visualizing-the-timestep-distribution).
 
 - **Version 0.11.0 (2026-06-12):**
     - A major internal refactoring of the codebase has been performed to improve code quality and maintainability. [PR #2372](https://github.com/kohya-ss/sd-scripts/pull/2372)
@@ -71,12 +71,12 @@ If you find this project helpful, please consider supporting its development via
     - Support for transformers version 5 and later has been added. Thanks to marcus165090-spec for [PR #2315](https://github.com/kohya-ss/sd-scripts/pull/2315) (followed by [PR #2316](https://github.com/kohya-ss/sd-scripts/pull/2316)).
         - The `transformers` version in `requirements.txt` remains 4.x, but it also works with 5.x. If you use 5.x for any reason, please also update `diffusers` to the latest version.
     - Support for ControlNet-LLLite training for Anima has been added. Thanks to [PR #2317](https://github.com/kohya-ss/sd-scripts/pull/2317).
-        - For details, please refer to the [documentation](./docs/anima_train_control_net_lllite.md).
+        - For details, please refer to the [documentation](https://github.com/kohya-ss/sd-scripts/blob/main/docs/anima_train_control_net_lllite.md).
 
 - **Version 0.10.4 (2026-05-07):**
     - Improved compatibility with Intel GPUs. Thanks to WhitePr for [PR #2307](https://github.com/kohya-ss/sd-scripts/pull/2307).
     - Support for training inpainting models for SD 1.5/SDXL has been added. Thanks to allanoepping for [PR #2309](https://github.com/kohya-ss/sd-scripts/pull/2309) (followed by [PR #2318](https://github.com/kohya-ss/sd-scripts/pull/2318)).
-        - For details, please refer to the [documentation](./docs/inpainting_training.md).
+        - For details, please refer to the [documentation](https://github.com/kohya-ss/sd-scripts/blob/main/docs/inpainting_training.md).
 
 ### Supported Models
 
@@ -101,51 +101,40 @@ If you find this project helpful, please consider supporting its development via
 
 ### Training Documentation (English and Japanese)
 
-* [LoRA Training Overview](./docs/train_network.md)
-* [Dataset config](./docs/config_README-en.md) / [Japanese version](./docs/config_README-ja.md)
-* [Advanced Training](./docs/train_network_advanced.md)
-* [SDXL Training](./docs/sdxl_train_network.md)
-* [SD3 Training](./docs/sd3_train_network.md)
-* [FLUX.1 Training](./docs/flux_train_network.md)
-* [LUMINA Training](./docs/lumina_train_network.md)
-* [HunyuanImage-2.1 Training](./docs/hunyuan_image_train_network.md)
-* [Fine-tuning](./docs/fine_tune.md)
-* [Textual Inversion Training](./docs/train_textual_inversion.md)
-* [ControlNet-LLLite Training](./docs/train_lllite_README.md) / [Japanese version](./docs/train_lllite_README-ja.md)
-* [Anima ControlNet-LLLite Training Guide](./docs/anima_train_control_net_lllite.md)
-* [Validation](./docs/validation.md)
-* [Masked Loss Training](./docs/masked_loss_README.md) / [Japanese version](./docs/masked_loss_README-ja.md)
-* [Inpainting Training](./docs/inpainting_training.md)
+* [LoRA Training Overview](https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_network.md)
+* [Dataset config](https://github.com/kohya-ss/sd-scripts/blob/main/docs/config_README-en.md) / [Japanese version](https://github.com/kohya-ss/sd-scripts/blob/main/docs/config_README-ja.md)
+* [Advanced Training](https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_network_advanced.md)
+* [SDXL Training](https://github.com/kohya-ss/sd-scripts/blob/main/docs/sdxl_train_network.md)
+* [SD3 Training](https://github.com/kohya-ss/sd-scripts/blob/main/docs/sd3_train_network.md)
+* [FLUX.1 Training](https://github.com/kohya-ss/sd-scripts/blob/main/docs/flux_train_network.md)
+* [LUMINA Training](https://github.com/kohya-ss/sd-scripts/blob/main/docs/lumina_train_network.md)
+* [HunyuanImage-2.1 Training](https://github.com/kohya-ss/sd-scripts/blob/main/docs/hunyuan_image_train_network.md)
+* [Fine-tuning](https://github.com/kohya-ss/sd-scripts/blob/main/docs/fine_tune.md)
+* [Textual Inversion Training](https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_textual_inversion.md)
+* [ControlNet-LLLite Training](https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_lllite_README.md) / [Japanese version](https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_lllite_README-ja.md)
+* [Anima ControlNet-LLLite Training Guide](https://github.com/kohya-ss/sd-scripts/blob/main/docs/anima_train_control_net_lllite.md)
+* [Validation](https://github.com/kohya-ss/sd-scripts/blob/main/docs/validation.md)
+* [Masked Loss Training](https://github.com/kohya-ss/sd-scripts/blob/main/docs/masked_loss_README.md) / [Japanese version](https://github.com/kohya-ss/sd-scripts/blob/main/docs/masked_loss_README-ja.md)
+* [Inpainting Training](https://github.com/kohya-ss/sd-scripts/blob/main/docs/inpainting_training.md)
 
 ### Other Documentation (English and Japanese)
 
-* [Image generation](./docs/gen_img_README.md) / [Japanese version](./docs/gen_img_README-ja.md)
-* [Tagging images with WD14 Tagger](./docs/wd14_tagger_README-en.md) / [Japanese version](./docs/wd14_tagger_README-ja.md)
+* [Image generation](https://github.com/kohya-ss/sd-scripts/blob/main/docs/gen_img_README.md) / [Japanese version](https://github.com/kohya-ss/sd-scripts/blob/main/docs/gen_img_README-ja.md)
+* [Tagging images with WD14 Tagger](https://github.com/kohya-ss/sd-scripts/blob/main/docs/wd14_tagger_README-en.md) / [Japanese version](https://github.com/kohya-ss/sd-scripts/blob/main/docs/wd14_tagger_README-ja.md)
 
 ## For Developers Using AI Coding Agents
 
-This repository provides recommended instructions to help AI agents like Claude and Gemini understand our project context and coding standards.
+This repository provides recommended instructions to help AI coding agents understand our project context and coding standards.
 
 To use them, you need to opt-in by creating your own configuration file in the project root.
 
 **Quick Setup:**
 
-1.  Create a `CLAUDE.md` and/or `GEMINI.md` file in the project root.
-2.  Add the following line to your `CLAUDE.md` to import the repository's recommended prompt:
+1.  Create the project-level instruction file supported by your coding agent.
+2.  Import the repository's recommended prompt using the syntax supported by that agent.
+3.  Add your own personal instructions below the import line (e.g., `Always respond in Japanese.`).
 
-    ```markdown
-    @./.ai/claude.prompt.md
-    ```
-
-    or for Gemini:
-
-    ```markdown
-    @./.ai/gemini.prompt.md
-    ```
-
-3.  You can now add your own personal instructions below the import line (e.g., `Always respond in Japanese.`).
-
-This approach ensures that you have full control over the instructions given to your agent while benefiting from the shared project context. Your `CLAUDE.md` and `GEMINI.md` are already listed in `.gitignore`, so they won't be committed to the repository.
+This approach keeps the instructions given to your agent under your control while still using the shared project context. Keep personal agent-configuration files in `.gitignore` so they are not committed to the repository.
 
 ## Windows Installation
 

@@ -50,9 +50,9 @@ This report also covers the infrastructure work that followed: a compose-file pr
 
 ## Infrastructure work
 
-**Compose file precedence bug found and fixed.** `~/.sillytavern/` contained both `docker-compose.yml` (the real stack, per `CLAUDE.md`) and a stray, unrelated `compose.yaml` (an old standalone ComfyUI-only file). Docker Compose's file-discovery silently prefers `compose.yaml` when both exist, so any bare `podman compose`/`docker compose` command (without an explicit `-f`) was running against the wrong file. Fixed by deleting the stray file and renaming the real one to `compose.yaml`, so default invocations now resolve correctly.
+**Compose file precedence bug found and fixed.** `~/.sillytavern/` contained both `docker-compose.yml` (the documented real stack) and a stray, unrelated `compose.yaml` (an old standalone ComfyUI-only file). Docker Compose's file-discovery silently prefers `compose.yaml` when both exist, so any bare `podman compose`/`docker compose` command (without an explicit `-f`) was running against the wrong file. Fixed by deleting the stray file and renaming the real one to `compose.yaml`, so default invocations now resolve correctly.
 
-**LLM backend swap: koboldcpp → llama.cpp, now live.** `koboldcpp` is removed; `llamacpp-chat` and `llamacpp-embed` are up (llama.cpp serves one model per instance, so this is two containers where koboldcpp was one). App defaults (`state.py`, `llm.py`, `CLAUDE.md`, `README.md`) updated to match. Context window set to 128k per your request.
+**LLM backend swap: koboldcpp → llama.cpp, now live.** `koboldcpp` is removed; `llamacpp-chat` and `llamacpp-embed` are up (llama.cpp serves one model per instance, so this is two containers where koboldcpp was one). App defaults (`state.py`, `llm.py`, the private project guidance, and `README.md`) were updated to match. Context window set to 128k per your request.
 
 **Chat model changed to `HauhauCS/Gemma-4-E4B-Uncensored-HauhauCS-Aggressive`**, pulled directly from Hugging Face rather than the old local Qwen GGUF. `llamacpp-embed` is confirmed up and serving (`nomic-embed-text`, unchanged). `llamacpp-chat` is not yet serving — see open items below.
 
@@ -63,4 +63,3 @@ This report also covers the infrastructure work that followed: a compose-file pr
 ## What's genuinely still open
 3. **Postgres isn't connected to the app.** The container exists and is healthy; wiring the app to it (data migration, `vectors.py` port to pgvector, actual cutover) is still ahead — see `MIGRATION_POSTGRES.md`.
 4. **`db._write_lock`** stays in place until the real Postgres cutover happens.
-

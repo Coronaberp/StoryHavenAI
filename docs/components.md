@@ -1,12 +1,12 @@
 # Component versions
 
-Tracks the version of each major StoryHaven AI subsystem independently, since they don't all move together. A version bump here means a real rework shipped, not a patch — see each component's own history/CLAUDE.md section for what actually changed at each version.
+Tracks the version of each major StoryHaven AI subsystem independently, since they don't all move together. A version bump here means a real rework shipped, not a patch. The linked architecture guides describe the current implementation; release reports preserve the history.
 
 ## v2.1 release line
 
 | Component | Version | Status | Notes |
 |---|---|---|---|
-| Memory | v2.1 | Shipped | Typed-fact extraction (`event`/`state`/`relationship`/`world`/`profile`), decay-weighted retention ranking, lore-override integration. See CLAUDE.md's "Memory" section for the full pipeline. |
+| Memory | v2.1 | Shipped | Typed-fact extraction (`event`/`state`/`relationship`/`world`/`profile`), decay-weighted retention ranking, lore-override integration. See `docs/ai/memory_design.md` for the full pipeline. |
 | Administration | v2.1 | Shipped | Mobile-first admin shell rework (sidebar/switcher), RBAC capability-based permissions replacing the old flat permission matrix, new Dev-only tab (test-run copy-command, translation resync + pending-status, model procurement fetch with manual fallback). |
 | Embeds | v3 | In progress | Component-based share-card rework replacing the two shared PIL composers (`_compose_profile_card`, `_compose_group_card`) with six real per-type designs. Design spec approved; genre taxonomy and content likes (its data dependencies) are implemented and merged; For You/Featured and the card rendering itself are mid-implementation. |
 | UI | v2 | Shipped | `new_ui/` (Tailwind, mobile-first) fully replaced the legacy vanilla-JS `static/` SPA as the live app. |

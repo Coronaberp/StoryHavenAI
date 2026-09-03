@@ -1,18 +1,16 @@
 # Architecture
 
 > Part of `docs/ai/` — git-tracked, public. Code-architecture facts only. Never add host
-> paths, container/network names, ports, domains, or credentials here — those live in the
-> gitignored `CLAUDE.md` at the repo root instead. See CLAUDE.md's pointer index for the
-> rest of this doc set.
+> paths, container/network names, ports, domains, or credentials here. Operational and
+> deployment details belong in private, untracked documentation.
 
-**StoryHaven AI** — a self-hosted character roleplay platform. A single FastAPI process serves both the REST API and the SPA from `static/index.html` (+ `static/js/*.js`, `static/css/*.css` — vanilla JS, no framework, no build step, no separate frontend server).
+**StoryHaven AI** — a self-hosted character roleplay platform. A single FastAPI process serves both the REST API and the selected SPA, with no separate frontend server. `STATIC_DIR` chooses the SPA directory: the backend fallback is `./static`, while the current deployment serves `./new_ui`.
 
 ```
 browser ──► server.py (FastAPI app assembly — thin composition root; the only .py outside backend/)
                ├─► backend/routers/*      (one file per domain — all route handlers live here)
-               ├─► backend/repositories/*  (one file per domain — all DB access lives here, plain
-               │                             function modules, not classes — see the OOP section
-               │                             in CLAUDE.md)
+               ├─► backend/repositories/*  (one file per domain — all DB access lives here,
+               │                             implemented as plain function modules)
                ├─► backend/chat_service.py (endpoint resolution, session ownership, the _run SSE loop)
                ├─► backend/retrieval.py   (keyword lore matching, index_lore())
                ├─► backend/lore_memory.py (unified lore+memory candidate assembly, lore-update detection)
@@ -47,7 +45,7 @@ modal_app/lora_train.py  (deployed separately onto Modal — not part of this Fa
 |---|---|
 | `server.py` | App assembly only — lifespan, router includes (in registration order), static/media mounts, background session cleanup. The only `.py` file at the repo root; everything else app-side lives under `backend/` |
 | `backend/routers/*.py` | Every `/api/*` route handler, one file per domain: `characters`, `personas`, `lore`, `session_lore` (session-scoped lore content overrides + per-secret reveal state — a distinct router from `lore`, not just a section of it), `sessions` (session/message CRUD), `chat` (chat/regenerate/roll/continue SSE + unified lore/memory retrieval), `imagegen` (in-chat + standalone image gen), `model_previews` (checkpoint/LoRA/sampler/scheduler/upscaler admin curation), `lora_training`, `profile`, `settings`, `admin`, `comments`, `emojis`, `forum`, `health`, `notifications`, `misc` (translation/localization/summarize), `rbac` (Dev-only role/capability management — see `rbac.md`) |
-| `backend/repositories/*.py` | All DB access, one plain-function module per domain (29 files: `characters`, `personas`, `chat_sessions`, `lore`, `lore_links`, `lore_secrets`, `memory_facts` (typed-fact store — see `memory_design.md`), `lora_training`, `standalone_images`, `image_rating_reports`, `flagged_endpoints`, `model_requests`, `content_reports`, `password_reset_requests`, `users`, `blocks`, `settings`, `checkpoints`, `loras`, `samplers`, `schedulers`, `upscalers`, `localization`, `health`, `comments`, `admin_notes`, `emojis`, `forum`, `notifications`, `roles` and `role_capabilities` (the RBAC grant tables — see `rbac.md`)) — see the OOP section in CLAUDE.md for why these are functions, not classes |
+| `backend/repositories/*.py` | All database access, split into plain-function modules by domain. These include users and identities, characters and personas, sessions and groups, lore and memory, moderation, community features, model administration, settings, health, and RBAC. See `memory_design.md` and `rbac.md` for the two largest cross-cutting data models. |
 | `backend/chat_service.py` | Endpoint resolution (`_endpoints`), session ownership (`_own_session`), the SSE generation loop (`_run`) |
 | `backend/retrieval.py` | Keyword-triggered lore matching for a turn (`retrieve`, always-on or key-match against recent text) and `index_lore()` (lore embedding) — no memory logic lives here anymore |
 | `backend/lore_memory.py` | Unified lore+memory candidate assembly for retrieval — see `memory_design.md` |
@@ -81,7 +79,7 @@ modal_app/lora_train.py  (deployed separately onto Modal — not part of this Fa
 | `modules/py/migrate_hash_totp_backup_codes.py` | One-time migration that decrypted, hashed and rewrote TOTP backup codes. Idempotent. Kept as the reference for how to migrate a reversibly-stored secret in place |
 | `modules/py/*.py` | Standalone scripts not imported by the running app — one-time migrations (`migrate_to_postgres.py`, `migrate_vectors_to_pgvector.py`) and backfills (`backfill_encrypt.py`, `backfill_nsfw.py`), run manually, never at startup |
 | `backend/schemas.py` | Pydantic request bodies only |
-| `static/index.html` + `static/js/*.js` + `static/css/*.css` | Entire legacy SPA — see `frontend_map.md` for current frontend status |
+| `static/index.html` + `static/js/*.js` + `static/css/*.css` | Compatibility SPA and backend fallback when `STATIC_DIR` is not overridden — see `frontend_map.md` |
 | `new_ui/` | The live Tailwind SPA — see `frontend_map.md` |
 
 ## Naming hazard across `new_ui/js/`

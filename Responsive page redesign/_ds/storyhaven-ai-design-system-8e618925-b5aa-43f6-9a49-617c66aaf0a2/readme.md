@@ -187,7 +187,7 @@ never cold or bluish.
   scalable `wordmark.svg` lockup.
 - `components/` — reusable React primitives (below).
 - `ui_kits/storyhaven-app/` — interactive full-app recreation.
-- `SKILL.md` — Agent-Skill wrapper for use in Claude Code.
+- `SKILL.md` — agent-skill wrapper for supported coding assistants.
 
 **Components** (namespace `window.StoryHavenAIDesignSystem_8e6189`)
 - `core/` — **Button**, **IconButton**, **Badge**, **Tag**, **Chip**

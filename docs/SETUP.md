@@ -156,6 +156,36 @@ copy-from-local-folder import are offered as follow-ups. Set `CIVITAI_TOKEN`
 for Civitai downloads that need an API token. The Windows wizard bundles the
 manifest at compile time if it exists next to `setup.iss`.
 
+## Image safety classifier artifact
+
+The installers provide ONNX Runtime, but the pinned classifier binary is
+intentionally excluded from Git and from the general model catalog. Until the
+artifact is present, image moderation fails closed and uploaded images are
+blocked.
+
+Build and verify the pinned artifact from the repository root in an isolated
+environment:
+
+```bash
+python -m venv .safety-export
+source .safety-export/bin/activate
+pip install -r requirements-safety-export.txt
+
+python scripts/export_safety_classifier.py \
+  --output-dir models/nsfw-detection-2-nano
+python scripts/verify_safety_artifact.py \
+  --manifest models/nsfw-detection-2-nano/manifest.json
+```
+
+The normal runtime uses
+`models/nsfw-detection-2-nano/model.onnx`, verifies its pinned checksum from
+`backend/safety/config.py`, and starts with
+`SAFETY_CLASSIFIER_BACKEND=onnx_nano`. If an operator provisions the model at
+another location or intentionally uses another verified build, set
+`NSFW_ONNX_PATH` and `NSFW_ONNX_SHA256` together. See
+[`docs/ai/safety_classifier.md`](ai/safety_classifier.md) for the moderation
+policy, artifact contract, benchmark procedure, and explicit rollback setting.
+
 ## Bundled starter content
 
 A fresh install seeds three items on first startup, alongside the auto-created

@@ -6,8 +6,8 @@ Audit performed across the whole app (server assembly, routers, db/vectors, stat
 
 - **`prompt.py` — `parse_mood`/`MOOD_RE` regex bug.** The regex matched `[mood: X]`-shaped text anywhere in a reply, not just a trailing tag. A reply that happened to contain that literal pattern mid-story (e.g. quoted dialogue) could have text silently stripped from the middle of the narration, and multiple matches meant the *last* one won arbitrarily. Anchored the regex to end-of-string so only a genuine trailing mood tag is parsed/stripped.
 - **Stale `app.js`/`style.css` comments** left over from the pre-split monolith, in `static/css/base.css` and `static/js/modal-settings.js`. Updated to reference the current `static/js/*.js` / `static/css/*.css` split.
-- **`CLAUDE.md` SSE stream format section** understated actual behavior — the `delta` event withholds the *entire* reply until generation completes (not just a trailing mood tag), by design, so a mood tag can never leak. Doc now matches the actual (intentional) implementation.
-- **`CLAUDE.md`** now has an explicit section stating this checkout *is* the live running app (bind-mounted into the `story-game` container) and that `EnterWorktree`/`git worktree` must never be used here — a worktree is a different directory the container isn't mounted to, so changes there would silently never reach the live app.
+- **The SSE stream format section in the private project guidance** understated actual behavior — the `delta` event withholds the *entire* reply until generation completes (not just a trailing mood tag), by design, so a mood tag can never leak. The guidance was updated to match the actual implementation.
+- **Private project guidance** now has an explicit section stating this checkout *is* the live running app (bind-mounted into the `story-game` container) and that an isolated worktree is a different directory the container is not mounted to, so changes there would not appear in the live app until integrated.
 
 ## Audited, confirmed correct — no fix needed
 
@@ -19,7 +19,7 @@ Audit performed across the whole app (server assembly, routers, db/vectors, stat
 - **SSRF validation**: private/loopback/link-local/metadata-IP ranges are blocked via `ipaddress`, with DNS-rebinding closed by pinning the validated IP for the actual request.
 - **Media upload validation**: magic-byte checks via `PIL.Image.verify()`, GIF frame cap, upload size cap, and path-traversal-safe deletion all present.
 - **`_endpoints()` single-resolution**: no other code path independently reads `CFG`/`user_settings` for a chat/embed base URL or API key outside the two informational, non-generation call sites in `routers/health.py` and `routers/misc.py`.
-- **Regeneration memory cleanup, think-block stripping, language threading, base-URL normalization, `ThinkSplitter` split-tag handling**: all verified correct against `CLAUDE.md`'s documented behavior.
+- **Regeneration memory cleanup, think-block stripping, language threading, base-URL normalization, `ThinkSplitter` split-tag handling**: all verified correct against the documented behavior at the time.
 - **Migration idempotency**: all `ALTER TABLE ... ADD COLUMN` migrations in `db.py` carry safe defaults for existing rows; nothing would break against a live V1.0 database.
 - **No hardcoded secrets** anywhere in the repo (excluding `venv/`).
 
