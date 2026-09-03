@@ -1,595 +1,292 @@
-# StoryHaven AI — a self-hosted roleplay platform
+# StoryHaven AI
 
-Self-hosted character chat with real per-character **lorebooks**, unlimited
-long-term **memory**, multi-user accounts with an **admin/permissions** model,
-and optional **ComfyUI image generation**. You run the model, you own the data;
-characters import from the community card ecosystem (SillyTavern / chub.ai /
-RisuAI / SpicyChat). It installs as an all-in-one stack — one setup script
-stands up the app, database, model servers, and image generation together
-(see "Setup" below).
+> Forge worlds. Remember everything.
 
+StoryHaven AI is a self-hosted character roleplay platform built for persistent
+stories rather than disposable chats. Create characters, personas, and lorebooks;
+run solo, group, or multiplayer sessions; and keep long-term memories scoped to
+each story.
+
+The platform combines a FastAPI application, PostgreSQL with pgvector,
+OpenAI-compatible chat and embedding backends, optional ComfyUI media generation,
+and a local fail-closed image safety classifier. The application and its data stay
+under the operator's control.
+
+## Highlights
+
+- Character and RPG roleplay with personas, lorebooks, dice, scene direction,
+  response styles, and visual-novel presentation.
+- Session-scoped long-term memory with typed facts, semantic retrieval, lore
+  updates, and exact rollback when a generated turn is discarded.
+- Solo, group, and multiplayer conversations with shared sessions and persona
+  claims.
+- Character-card import and export for the TavernAI and SillyTavern ecosystem.
+- Image, inpainting, upscaling, and video workflows through ComfyUI, with hosted
+  image-provider fallbacks.
+- Optional LoRA training through Modal.
+- Multi-user accounts with passwords, passkeys, TOTP, OAuth, invite codes, and
+  capability-based administration.
+- Local CPU-only ONNX image moderation with bounded resource use and fail-closed
+  decisions.
+- A mobile-first Tailwind interface served by the same FastAPI process as the API.
+
+## Architecture
+
+```text
+browser
+  └─ FastAPI (`server.py`)
+       ├─ selected SPA (`STATIC_DIR`) and uploaded media
+       ├─ `backend/routers/`         HTTP and streaming API boundaries
+       ├─ domain services           chat, memory, prompting, media, moderation
+       ├─ `backend/repositories/`    database access by domain
+       ├─ PostgreSQL + pgvector      relational data and vector retrieval
+       ├─ OpenAI-compatible APIs     chat and embeddings
+       ├─ ONNX Runtime               local image safety classification
+       ├─ ComfyUI or hosted provider image and video generation
+       └─ Modal                      optional LoRA training
 ```
-  browser ──►  server.py (FastAPI, also serves the SPA from new_ui/)
-                  │
-                  ├─► PostgreSQL + pgvector (see "Storage")
-                  │             users · characters · personas · lorebooks · sessions · messages
-                  │             (encrypted at rest — see "Encryption" below), plus vector search
-                  ├─► any OpenAI-compatible server, chat and embeddings can be different servers
-                  │             (llama.cpp, Ollama, LM Studio, vLLM, a hosted API like DeepSeek/OpenAI …)
-                  └─► ComfyUI (optional)   image generation for chat scenes / standalone gen
-```
 
-The frontend is served **by the backend**, so the UI and API share one origin —
-nothing to configure, no CORS.
+FastAPI serves the frontend and `/api/*` from one origin. `server.py` is the
+composition root: it owns application lifespan, router registration, middleware,
+and static mounts. Domain behavior lives under `backend/`, and database access is
+kept in repository modules.
 
-## File layout
+The repository includes two browser applications:
 
-```
-ai-frontend/
-├── server.py          FastAPI app assembly — lifespan, router includes, static/media mounts.
-│                       The only .py file at the repo root; everything else app-side is in backend/
+- `new_ui/` is the current mobile-first Tailwind SPA.
+- `static/` is the older compatibility SPA and remains the default value of
+  `STATIC_DIR` when no deployment override is supplied.
+
+Set `STATIC_DIR=./new_ui` to serve the current interface in a manual installation.
+The production deployment chooses its frontend with the same setting.
+
+## Repository map
+
+```text
+.
+├── server.py                       FastAPI assembly and application lifespan
 ├── backend/
-│   ├── state.py           Shared config (CFG), config-key lists, logging, upload/cookie constants
-│   ├── auth.py            Auth dependencies, session cookie, login rate limiting, /api/auth/*
-│   ├── ssrf.py            Bring-your-own chat endpoint safety checks
-│   ├── prompt.py          System prompt assembly + RPG mode prompts (splits out sampling.py,
-│   │                       mood.py, dice.py for sampling params, mood parsing, dice mechanics)
-│   ├── media.py           Image upload validation/optimization/save
-│   ├── chat_service.py    The core SSE generation loop (splits out retrieval.py — lore/memory
-│   │                       KNN, classify.py — turn-signal extraction, ai_helpers.py — side LLM calls)
-│   ├── routers/           One file per domain: characters, personas, lore, session_lore,
-│   │                       sessions, chat, imagegen, model_previews, lora_training, profile,
-│   │                       settings, admin, announcements, feature_flags, comments, emojis,
-│   │                       forum, groups, multiplayer, health, notifications, webauthn, oauth,
-│   │                       misc — every route lives here, server.py just wires them up
-│   ├── repositories/      One file per domain (users, characters, personas, lore, sessions,
-│   │                       messages, settings, forum, comments, emojis, lora_training, model
-│   │                       requests, …) — plain async functions wrapping the CRUD for that domain
-│   ├── db.py              Schema (SQLAlchemy Core Table defs) + async engine lifecycle only —
-│   │                       CRUD itself lives in repositories/
-│   ├── vectors.py         pgvector (same Postgres engine) — vector storage + similarity search
-│   ├── llm.py             OpenAI-compatible client (chat / embeddings / models)
-│   ├── imagegen.py        ComfyUI client core (submit/poll/websocket) — workflow graph building
-│   │                       and option listing split into imagegen_workflows.py / imagegen_options.py
-│   ├── modal_client.py    HTTP client for the Modal-deployed LoRA trainer (upload/download/stream)
-│   ├── modal_provision.py Auto-deploys/redeploys modal_app/lora_train.py onto Modal
-│   ├── ratelimit.py       Shared rate-limit helper used across routers
-│   ├── tests/             pytest + pytest-asyncio, transaction-rollback DB fixture
-│   └── schemas.py         Pydantic request models
-├── modal_app/         lora_train.py — the actual training app, deployed onto Modal's infra,
-│                       not run in this container (vendored kohya-ss/sd-scripts)
-├── modules/py/        Standalone scripts not imported by the running app — one-time migrations
-│                       and backfills, run manually, never at startup
-├── docs/              SETUP.md, MIGRATION_POSTGRES.md, features.md
-├── VersionReports/    Per-release audit reports
-├── requirements.txt
-├── setup.sh           All-in-one installer for Linux/macOS (setup.ps1 for Windows)
-├── installer/         Inno Setup source for the Windows wizard .exe
-├── rebuild.sh         Tailwind CSS build for new_ui (./rebuild.sh --once after editing source CSS)
-├── new_ui/            the live SPA — Tailwind CSS, mobile-first
-│   ├── index.html     app shell (nav, layout)
-│   ├── js/            one file per feature area — vanilla JS, no JS build step
-│   └── css/           cards.css/themes.css/input.css are hand-written sources,
-│                       app.css is compiled Tailwind output (never edit it directly)
-├── legacy_ui/         the original vanilla-JS SPA, kept for reference only — not served
-└── static/            the old maintenance page shown during the UI rebuild — not served
+│   ├── routers/                    API routes grouped by product domain
+│   ├── repositories/               PostgreSQL access grouped by domain
+│   ├── safety/                     persistent ONNX classifier and policy
+│   ├── imagegen*.py                ComfyUI and hosted-provider orchestration
+│   ├── chat_service.py             SSE conversation generation loop
+│   ├── memory_service.py           long-term memory extraction and retrieval
+│   ├── retrieval.py                lore matching and vector indexing
+│   ├── prompt.py                   character and RPG prompt assembly
+│   ├── auth.py                     JWT, cookie, passkey, TOTP, and OAuth auth
+│   ├── db.py                       schema, engine lifecycle, shared SQL helpers
+│   ├── vectors.py                  pgvector storage and similarity search
+│   ├── classify.py                 image-moderation facade and rollback backend
+│   └── tests/                      backend pytest suite
+├── new_ui/                         current Tailwind SPA
+├── static/                         compatibility SPA selected by default
+├── legacy_ui/                      historical frontend reference
+├── tests/                          frontend and end-to-end tests
+├── scripts/                        safety export, verification, and benchmarks
+├── benchmarks/safety_classifier/   classifier validation format and guidance
+├── modal_app/                      separately deployed LoRA training app
+├── modules/py/                     one-time migrations and backfills
+├── seed_content/                   first-run starter content
+├── docs/                           setup, feature, and architecture guides
+├── requirements.txt                application Python dependencies
+├── requirements-safety-export.txt  isolated classifier-export dependencies
+├── rebuild.sh                      Tailwind build and frontend dev server
+├── setup.sh                        Linux and macOS installer
+└── setup.ps1                       Windows installer
 ```
 
-`server.py` only assembles the app and includes the routers — it doesn't contain
-route handlers or business logic itself anymore. Everything under `backend/` imports
-its siblings with absolute `from backend.x import y` / `from backend import x` (never
-bare `import x`), since `server.py` at the root sits outside the `backend` package.
-Every router module only calls into `db`/`vectors`/`chat_service` functions, never raw SQL directly, so the
-storage layer can change underneath without touching routes.
+`VersionReports/` contains release-time audit snapshots. It is a historical paper
+trail, not the source of truth for the current application.
 
-There is no `docker-compose.yml` checked into this repo — the installer below
-generates one for your machine (the original development deployment is
-bind-mounted into a compose stack that lives outside the repo).
+## Installation
 
-### Why there's a `legacy/` and a `VersionReports/`
+### All-in-one installer
 
-Two directories exist purely for history, not for the running app:
+The installer detects Docker or Podman, prepares PostgreSQL and model services,
+generates secrets and compose configuration, starts the stack, and waits for it to
+become healthy.
 
-- **`legacy/`** holds the retired pre-Postgres SQLite database and its backups
-  (`personae.db` + snapshots), kept from before the app moved to
-  PostgreSQL + pgvector as its only backend. Nothing in the app reads from it
-  anymore — it's gitignored and left on disk only in case anyone ever needs to
-  recover something from the old database. Safe to delete once you're confident
-  you don't need it.
-- **`VersionReports/`** holds the audit report written at the end of each
-  release's prep work (`V1_FINAL_REPORT.md`, `FINAL_REPORT_V1.1.md`, …), plus a
-  frozen copy of `docs/features.md` as it read at that release (`features_v1.md`,
-  …). These are a paper trail of what was checked and fixed before each release
-  shipped — not documentation of the current app, so don't treat them as
-  up-to-date; check the live code for that instead.
-
-## Setup
-
-### The easy way — the all-in-one installer
-
-StoryHaven deploys like an all-in-one appliance (think Nextcloud AIO): one
-installer detects Docker or Podman (offering to install Docker if neither is
-present), detects an NVIDIA or AMD GPU and picks the right acceleration
-(CUDA, ROCm, or Vulkan on Linux; on Windows AMD machines it installs the
-model services natively itself, ComfyUI on ZLUDA and llama.cpp on Vulkan,
-started automatically at logon), gathers or generates every secret, writes a
-working `docker-compose.yml` + `.env` for the full stack (the app,
-Postgres+pgvector, llama.cpp chat and embed servers, ComfyUI) on its own
-isolated network, brings it all up, waits for it to become healthy, then
-offers to download the model catalog from each model's own source site with
-a working default set preselected. A fresh install also seeds starter
-content on first run (a persona, a character, and a full RPG with its
-lorebook), so day one isn't an empty app.
-
-| You have… | Run |
+| Platform | Command |
 |---|---|
-| Linux or macOS shell | `./setup.sh` |
+| Linux or macOS | `./setup.sh` |
 | Windows PowerShell | `.\setup.ps1` |
-| A fresh Windows box, want a wizard | the compiled `.exe` built from `installer/setup.iss` |
+| Windows wizard | Build `installer/setup.iss` with Inno Setup |
 
-Minimum requirements: a 64-bit OS (Linux, Windows 10/11 with WSL2, or macOS
-12+), 4 CPU cores, 16 GB RAM, and 40 GB of free disk. A GPU is optional but
-strongly recommended — an NVIDIA or AMD card with 12 GB+ VRAM gives fast
-replies and image generation, 8 GB works at reduced speed, and CPU-only means
-minutes per reply. The full model catalog needs 250 GB+ of disk. See
-`docs/SETUP.md` for the detailed table and per-platform notes.
-
-No GPU? Point chat at a hosted API instead — [DeepSeek](https://platform.deepseek.com)
-is the recommended one (`https://api.deepseek.com`, model `deepseek-chat`,
-[docs](https://api-docs.deepseek.com)): set it as the chat endpoint in
-Settings and the heavy lifting happens off-machine, while the small embedding
-model keeps memory and lore retrieval running locally on CPU.
-
-`./setup.sh --dry-run` detects and generates files without starting anything;
-`--yes` runs non-interactively with defaults. Re-running is idempotent and
-never destroys data: named volumes persist and existing compose/env values are
-reused. See `docs/SETUP.md` for details, including the warning about hosts
-that already run this stack (container names and the shared network would
-collide — add services to the existing compose file by hand there instead).
-
-### The manual way
-
-You need somewhere for the models to actually run. The simplest self-hosted
-option is [llama.cpp's server](https://github.com/ggml-org/llama.cpp), which
-speaks the OpenAI-compatible API this app expects natively and can pull models
-straight from Hugging Face:
+Useful installer modes:
 
 ```bash
-# Chat model — pick any GGUF repo/quant you like
-docker run -d --name llamacpp-chat --gpus all -p 5001:5001 \
-  -e LLAMA_ARG_HF_REPO=<hf-user>/<hf-repo> \
-  -e LLAMA_ARG_HF_FILE=<quant-filename>.gguf \
-  -e LLAMA_ARG_CTX_SIZE=32768 -e LLAMA_ARG_N_GPU_LAYERS=999 \
-  -e LLAMA_ARG_HOST=0.0.0.0 -e LLAMA_ARG_PORT=5001 \
-  ghcr.io/ggml-org/llama.cpp:server-cuda
-
-# Embedding model — a small, separate instance (llama.cpp serves one model per process)
-docker run -d --name llamacpp-embed --gpus all -p 5002:5002 \
-  -e LLAMA_ARG_HF_REPO=nomic-ai/nomic-embed-text-v1.5-GGUF \
-  -e LLAMA_ARG_EMBEDDINGS=true \
-  -e LLAMA_ARG_HOST=0.0.0.0 -e LLAMA_ARG_PORT=5002 \
-  ghcr.io/ggml-org/llama.cpp:server-cuda
+./setup.sh --dry-run
+./setup.sh --yes
 ```
 
-A repo with several GGUF quant files needs `LLAMA_ARG_HF_FILE` set explicitly —
-without it, the server can hang on startup rather than picking one on its own.
-No GPU? Drop `--gpus all` and `LLAMA_ARG_N_GPU_LAYERS` (CPU inference works,
-just slower). Any other OpenAI-compatible server (Ollama, LM Studio, vLLM, or a
-hosted API like DeepSeek/OpenAI) works too — just point `LLM_BASE_URL`/
-`EMBED_BASE_URL` at it instead.
+The installer is designed to be rerun without deleting named volumes or existing
+configuration. See [the detailed setup guide](docs/SETUP.md) for hardware,
+platform, GPU, and model notes.
 
-You also need PostgreSQL with the `pgvector` extension (for both relational data
-and vector search) reachable at `DATABASE_URL`:
-```bash
-docker run -d --name storyhaven-postgres -p 5432:5432 \
-  -e POSTGRES_USER=storyhaven -e POSTGRES_PASSWORD=storyhaven \
-  -e POSTGRES_DB=storyhaven \
-  pgvector/pgvector:pg16
-```
-The app creates its own tables and the `vector` extension on first startup —
-no manual schema step.
+### Manual installation
 
-Then the app itself:
+StoryHaven needs:
+
+1. PostgreSQL with the pgvector extension.
+2. An OpenAI-compatible chat endpoint.
+3. An OpenAI-compatible embedding endpoint.
+4. Python 3.12 or newer.
+5. The pinned image-safety ONNX artifact described below.
+
+Install and start the application:
+
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 
+export DATABASE_URL=postgresql+asyncpg://storyhaven:storyhaven@localhost:5432/storyhaven
 export LLM_BASE_URL=http://localhost:5001/v1
 export EMBED_BASE_URL=http://localhost:5002/v1
-export DATABASE_URL=postgresql+asyncpg://storyhaven:storyhaven@localhost:5432/storyhaven
+export STATIC_DIR=./new_ui
 
-uvicorn server:app --port 3000
-# open http://localhost:3000
+uvicorn server:app --host 0.0.0.0 --port 3000
 ```
 
-First run auto-creates an `admin` account and prints a random password to
-stdout — log in and change it. Every route under `/api/*` requires a session
-(`persona_session` cookie); `/api/auth/*` is public.
+Open `http://localhost:3000`. A logged-out request to `/api/health` returns `401`
+when the application is listening because health details require authentication.
 
-Sanity check: `http://localhost:3000/api/health` — a `401` with a JSON body
-means the server is up (it's an authenticated route, so 401 is the expected
-"alive" response when you're logged out). Once logged in, that same endpoint
-also reports whether the chat/embedding backends are actually reachable.
+On the first successful startup, StoryHaven creates an `admin` account, prints a
+random password to the server log, and seeds starter content. Change that password
+after signing in.
 
-Everything above (chat model, embed model, ComfyUI, encryption key) can also be
-changed later from **Settings → Admin** without restarting — env vars only set
-the *initial* values on first run.
+## Image safety classifier
 
-## Accounts, auth & permissions
+Uploaded images are moderated locally by
+[`viddexa/nsfw-detection-2-nano`](https://huggingface.co/viddexa/nsfw-detection-2-nano)
+through one persistent CPU-only ONNX Runtime session. The model revision, class
+order, input shape, preprocessing contract, and model checksum are pinned in
+`backend/safety/config.py`.
 
-- **Sessions** are an HttpOnly cookie (`persona_session`), `SameSite=Lax`, and
-  `Secure` whenever the request actually arrived over https (scheme-aware, so
-  it still works over plain `http://localhost` during local dev). Login issues
-  HS256 **JWT access/refresh tokens** signed with `JWT_SECRET_KEY` (auto-generated
-  and stored in the `settings` table if unset); every token's `jti` is also
-  whitelisted server-side, so deleting the whitelist row revokes that one token
-  immediately regardless of its stated expiry.
-- **Passkeys (WebAuthn) and OAuth** logins are supported alongside passwords
-  (`backend/routers/webauthn.py` / `oauth.py`).
-- New signups land in a **pending** state until an admin approves them (or an
-  admin creates the account directly).
-- **Admins** manage users and review flagged bring-your-own endpoints (below).
-  Admins do **not** get a bypass on ordinary content permissions — they can't
-  view, edit, or export another user's private characters/lore just by being
-  admin; the one deliberate exception is that an admin can delete *any*
-  character (community moderation), same as its owner can.
-- Characters/lore/personas are private by default; a creator can mark a
-  character public (Community), allow it to be played as a persona by others,
-  and/or allow other users to export/download its card.
-- A third role, **Dev**, sits above Admin (`users.role`, additive to the older
-  `is_admin` flag) — it's needed to grant/revoke Dev on other accounts, so an
-  Admin alone can't self-escalate.
-- Admins can **disable individual features platform-wide** (chat, forum,
-  comments, uploads, …) from the Feature Flags panel — affected users get a
-  notification with an optional message and ETA, and another when it's restored.
-- Admins can also send a free-form **announcement** (title, message, optional
-  link) to every active user, including devs, from the Announcements panel or
-  `POST /api/admin/announce` — useful for degraded-service or incident notices
-  that don't warrant disabling anything.
+The policy is fail closed. An image is accepted only when the winning class is
+`safe` or `drawing` and its confidence meets `NSFW_SAFE_THRESHOLD`, which defaults
+to `0.995`. Explicit classes, uncertainty, queue saturation, timeouts, malformed
+input, missing artifacts, and runtime failures all block the upload.
 
-## Storage
+The ONNX binary is intentionally excluded from Git. Build and verify it in an
+isolated environment:
 
-**PostgreSQL + pgvector** is the one and only backend. A single database holds
-everything: the relational tables (users, characters, personas, lorebook
-entries, sessions, messages) plus two vector tables (`memory_vectors`,
-`lore_vectors`) that store embeddings with an HNSW cosine index via the
-`pgvector` extension, queried with the `<=>` distance operator. Lore content
-stays in the relational `lore` table; `lore_vectors` stores only the lore *id*
-and its vector, so semantic search returns ids resolved back to text. Postgres's
-own MVCC handles concurrent writes.
-
-`db.py` and `vectors.py` are written with SQLAlchemy Core and share one async
-engine. Set `DATABASE_URL` (e.g.
-`postgresql+asyncpg://user:pass@host:5432/dbname`) — it is **required**, and the
-server fails fast at startup if it's unset. The app creates its own tables and
-the `vector` extension automatically on first run; there's no manual schema step.
-
-The repo also contains two historical one-time migration scripts, in
-`modules/py/` alongside the other standalone (non-app) scripts —
-`migrate_to_postgres.py` (rows) and `migrate_vectors_to_pgvector.py`
-(embeddings, copied directly rather than re-run through the embedding model) —
-for anyone migrating an old SQLite/Redis install onto Postgres from scratch.
-They are not needed for a fresh or already-Postgres deployment.
-
-## Encryption
-
-Character personas/scenarios/greetings/dialogue/system prompts, lore content,
-persona descriptions, and message content are encrypted at rest (Fernet) —
-transparently, every caller above `db.py` just sees plain strings. Per-user
-bring-your-own API keys are encrypted the same way and are never returned by
-any API response, not even to an admin.
-
-The encryption key is generated once and stored in the database by default
-(safe, no setup required — protects against casually reading the database,
-not against someone stealing it outright). Set `SECRET_ENCRYPTION_KEY` to keep
-the key outside the database for real separation — generate one with:
 ```bash
-python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+python -m venv .safety-export
+source .safety-export/bin/activate
+pip install -r requirements-safety-export.txt
+
+python scripts/export_safety_classifier.py \
+  --output-dir models/nsfw-detection-2-nano
+python scripts/verify_safety_artifact.py \
+  --manifest models/nsfw-detection-2-nano/manifest.json
 ```
-Once set for a deployment, it must stay stable — losing or rotating it makes
-every already-encrypted value permanently undecryptable.
 
-## OpenAI-compatible by design — and how bring-your-own-endpoint is kept safe
+The normal backend is `SAFETY_CLASSIFIER_BACKEND=onnx_nano`. The previous remote
+classifier remains available only as an explicit emergency rollback with
+`SAFETY_CLASSIFIER_BACKEND=legacy`; it is never selected automatically after an
+ONNX failure.
 
-Every model call goes through `llm.py` against standard OpenAI routes
-(`/v1/chat/completions`, `/v1/embeddings`, `/v1/models`). The base URL is
-normalized so a base ending in `/chat/completions`, `/models`, `/v1`, or
-`/api/v1` is handled correctly, and anything else gets `/v1` appended — point
-`LLM_BASE_URL` at Ollama, LM Studio, llama.cpp's server, vLLM, or OpenAI
-itself without code changes.
+See [the classifier architecture guide](docs/ai/safety_classifier.md) for policy,
+benchmarking, health, artifact, and rollback details.
 
-**Chat** is the only endpoint a regular user can override for themselves
-(Settings → bring your own chat endpoint). Because that means the *server*
-makes an outbound request to a URL a regular user chose, it's guarded against
-SSRF:
+## Model backends
 
-1. The hostname must resolve to a real public IP — anything private,
-   loopback, link-local, or reserved is rejected outright (this is what stops
-   a user from pointing the server at Postgres, ComfyUI, or any other container
-   on the internal network).
-2. The endpoint must actually answer like a chat server on at least one known
-   shape (OpenAI-style `/models`, Ollama-native `/api/tags`, `/api/version`) —
-   a host that resolves publicly but doesn't speak a recognized protocol is
-   treated as suspicious, not "misconfigured."
+All language-model calls use OpenAI-compatible routes. Chat and embeddings can run
+on different servers, which is useful when a large generation model uses the GPU
+and a small embedding model runs independently.
 
-A failure on either check **blocks the save** (the endpoint is never applied —
-equivalent to blocked until an admin says otherwise) and is logged to an
-admin-only **flagged endpoints** review queue with a reason, where an admin
-can explicitly **Block** or **Allow anyway** (e.g. a legitimate self-hosted
-server on a private IP). The IP check also re-runs on every actual chat
-request, not just at save time — a host that was safe when saved but starts
-resolving to a private address later (DNS rebinding, or the domain changing
-hands) falls back to the global endpoint immediately and gets flagged again,
-even if previously approved. Stored API keys (per-user and pending-review) are
-encrypted at rest with a key kept only in the database, never returned by any
-API response — not even to an admin reviewing the queue.
+Compatible choices include llama.cpp, Ollama, LM Studio, vLLM, and hosted APIs.
+Regular users may configure a personal chat endpoint. StoryHaven validates those
+URLs against SSRF and protocol checks before the server contacts them; blocked
+endpoints enter an administrator review queue.
 
-**Embeddings are never user-overridable** — the vector index is shared across
-every user, so a per-user embed endpoint/model would corrupt everyone's search
-results. Embedding endpoint/model/dimension are global, admin-only settings.
+ComfyUI is optional. When configured, StoryHaven supports standalone and in-chat
+generation, live previews, inpainting, upscaling, model and LoRA selection, and
+video workflows. Hosted image providers support the common generation paths but
+not ComfyUI-specific tools.
 
-## Personas
+## Accounts and authorization
 
-A persona is *you*. Define a name and a short description on the Personas page;
-when you start a chat you pick one (or "just You"). The persona's name fills
-`{{user}}` and its description is given to the character, so they know who
-they're talking to. Mark one as default to skip the picker.
+Authentication uses short-lived access JWTs and refresh JWTs stored in HttpOnly
+cookies:
 
-## Modes: Character vs RPG
+- `sh_access` is scoped to the application.
+- `sh_refresh` is scoped to `/api/auth`.
 
-Mode is a property of the **character**, chosen on the character sheet (and shown
-as a badge on the character). Every chat with that character uses its mode:
+Bearer access tokens are also accepted. Token identifiers are tracked server-side,
+so sessions can be revoked before JWT expiry.
 
-- **Character** — first-person roleplay; the model *is* the character and talks
-  with you directly.
-- **RPG · Game Master** — the model runs as an impartial third-person narrator:
-  it builds the world, controls NPCs, paces the scene, and calls for dice.
+New registrations normally remain pending until approved or activated by an invite
+code. Passwords, passkeys, TOTP, OAuth, and backup codes are supported. The Dev,
+Admin, and member experience is governed by named capabilities rather than route
+names or UI visibility alone. See [the RBAC guide](docs/ai/rbac.md).
 
-Change a character's mode anytime by editing it; it takes effect on the next
-message. RPG characters show the dice tray in chat.
+## Storage and encryption
 
-## Dice
+PostgreSQL is the only application database. pgvector stores memory, lore, and
+secret embeddings alongside the relational data and provides HNSW cosine search.
+`DATABASE_URL` is required; startup fails when it is absent.
 
-In RPG mode a dice tray appears above the composer (d4–d100, 2d6, and a custom
-box). In any mode you can also type `/roll 2d6+3` (or `/r d20`) **anywhere inside
-a message** — each is resolved server-side to a real number *before* the model
-sees it, so the GM reacts to the actual result rather than the literal command.
-Surrounding prose is kept: `chance of tripping: /roll 1d6` becomes
-`chance of tripping: 🎲 1d6 [3] = 3`. Expressions support multiple terms and
-modifiers, e.g. `1d20+5`, `2d6+1d4-1`.
+User-authored roleplay content and stored model credentials use the shared Fernet
+encryption layer. StoryHaven can generate and retain the encryption key in the
+database for a simple installation, or operators can provide
+`SECRET_ENCRYPTION_KEY` externally. Losing that key makes existing encrypted data
+unrecoverable.
 
-## Scene-style replies (per-user toggle)
+## Configuration
 
-Turn this on in Settings and every reply opens with a `` `DATE:` ``/`` `TIME:` ``/
-`` `LOCATION:` `` header, plus an optional present NPC's inner thoughts on their
-own line. Since this depends on the model actually following a formatting
-instruction — and live testing shows even capable hosted models skip it on a
-real fraction of turns — the server checks every reply for the header and
-synthesizes one (carrying forward the last known date/time/location) if the
-model didn't produce it, so the feature never silently no-ops.
+Core environment variables:
 
-## Settings (runtime model configuration)
-
-Settings are two-tier:
-
-- **Global** (admin-only) — seeded from env vars, then overlaid from the
-  `settings` table, applied immediately without a restart. Covers the
-  default chat/embed endpoints, sampling defaults, image-gen defaults, and the
-  instance-wide default display language.
-- **Local** (per-user) — a user's own overrides win over global for the keys
-  they set (chat endpoint/key/model, sampling, history length, interface
-  language, etc; see the SSRF note above for how the chat endpoint override is
-  guarded). The API key field is write-only — you can set it or clear it, but
-  it's never echoed back once saved.
-
-Changing the embedding dimension rebuilds the pgvector tables automatically.
-
-### Advanced sampling (SillyTavern-style)
-
-The **Advanced sampling** panel exposes the full set: temperature, top-p, top-k,
-min-p, top-a, typical-p, TFS, smoothing factor, repetition penalty + range,
-frequency/presence penalty, DynaTemp (low/high), Mirostat (mode/τ/η), DRY
-(multiplier/base/length), XTC (threshold/probability), seed, and stop sequences.
-Each is sent to the backend **only when it differs from its neutral value**
-(seed is the one exception — it's always sent explicitly, including `-1`, so
-the backend randomizes it itself rather than silently reusing whatever it
-defaults to when the field is simply absent), so strict OpenAI endpoints
-aren't broken by unknown fields while local servers (KoboldCpp,
-text-generation-webui, llama.cpp, vLLM) receive everything they support.
-Parameter *names* are backend-specific; an **Extra request fields (JSON)** box
-is merged verbatim into the request as an escape hatch for anything not
-covered, or to rename a field for your server.
-
-### Prompt options
-
-**Appended system prompt** is added to every character's system prompt (global
-flavor/jailbreak/style rules). **Post-history instructions** are injected as a
-final system message *after* the chat history — the strongest steering position,
-mirroring SillyTavern's post-history block. Both support `{{char}}`/`{{user}}`.
-
-### Appearance (this device)
-
-The UI ships 6 accent presets × 2 chrome bases (dark/light), 12 theme
-combinations total — each preset tints the whole page chrome, not just the
-accent color, with per-mode legibility handling. The choice persists per
-device, independent of the server. A fuller Settings screen for this is
-specced and in progress.
-
-### Languages
-
-The model generates directly in the resolved target language (no intermediate
-canon language). UI chrome/memory panel language follows your own interface
-language (falling back to the admin's global default); a story's language
-follows the session's own 🌐 talk-language pick (falling back to your
-interface language). Every translated display string is cached per
-(source-text, language) so it's only ever machine-translated once, ever.
-
-## Visual-novel stage (creator)
-
-Each character has a **🎬 Stage** panel in the editor. Paste image/audio URLs for
-a **default** background, music track, and sprite, then add **moods** — each mood
-maps to its own background, music, and sprite. At runtime the chat renders the
-background, overlays the sprite (bottom-right), and can play looping music
-(muted by default; click 🔇/🔊 to enable, since browsers block autoplay with
-sound until you interact).
-
-Moods are driven by the model itself: when a character defines any stage moods,
-the system prompt asks it to end each reply with a hidden `[mood: X]` tag chosen
-from the defined list. The backend parses and strips that tag (it never appears
-in the chat or in memory) and tells the UI which mood to show, swapping
-background/sprite/music to match the character's reaction. If the model omits the
-tag, the scene simply stays on the last mood.
-
-## Image generation (ComfyUI or a hosted provider)
-
-The image backend is admin-selectable in Server configuration: self-hosted
-ComfyUI (the default, full feature set), or a hosted provider for instances
-without a GPU to spare. Supported providers: any OpenAI-compatible images API,
-Stability AI, NovelAI, and AUTOMATIC1111 SD WebUI, each configured with a URL,
-model, and write-only API key (`image_provider*` settings or `IMAGE_PROVIDER*`
-env vars). Under a hosted provider, per-message and standalone generation work
-the same (NSFW classification of results included), while ComfyUI-specific
-features (upscaling, inpainting, video, live denoising previews, and
-checkpoint/LoRA listing) return a clear "Only available with the ComfyUI
-backend" response instead.
-
-Optional per-message or standalone image generation against a ComfyUI backend
-(`COMFYUI_URL`, admin-configured):
-
-- **Per-message**: generates danbooru-style positive/negative tags from the
-  scene via a dedicated LLM call, optionally primed by per-lore-entry
-  **appearance tags** (owner-only, redacted from the API response for anyone
-  else viewing that character) which take priority over the model's own
-  paraphrase. You can edit the generated tags before hitting Generate, and
-  regenerate later — each generation uses a fresh random seed, so
-  regenerating doesn't just return the same cached image back.
-- **Standalone** (`Generate Image` page): a free-form prompt page with a live
-  websocket preview of the in-progress denoising, independent of any chat.
-  Nothing is saved automatically — you choose to Save, Regenerate, or Discard
-  once it finishes.
-- **Image Gallery** page: every image you've generated in chat, grouped by
-  session, with the scene text and copyable generation tags.
-- Checkpoint/LoRA pickers are populated live from ComfyUI's own `/object_info`,
-  so they always match whatever's actually installed.
-
-## Train your own LoRA (Modal)
-
-Admins can train a LoRA (SDXL or Anima) from an uploaded image set, on rented
-GPU time via [Modal](https://modal.com) — no local GPU needed. `POST
-/admin/lora-training/jobs` returns immediately; the run itself is a fully
-decoupled background task, not tied to the request or any open connection, so
-closing the tab never stops it. The browser only ever polls for job status —
-a page reload just resumes watching the same run. Only one job trains at a
-time; further submissions queue and start automatically as the current job
-finishes. Aborting a queued or running job actually cancels the in-flight
-Modal call (not just a flag the UI stops polling for), so an abort stops
-GPU billing immediately rather than leaving an orphaned run.
-
-Base checkpoints, CLIP/VAE, and the training image set are all uploaded to a
-Modal Volume and reused/streamed directly rather than re-uploading multi-GB
-files per run or bundling images into the training request — every file goes
-through Modal's own Python SDK in one batched, concurrent transfer per job
-(multiple files/images at once, not one HTTP request per file), not a
-hand-rolled sequential upload. `MODAL_TOKEN_ID`/`MODAL_TOKEN_SECRET` (env
-vars) authenticate to Modal itself; the deployed training app is first-use
-auto-deployed and protected by a generated shared secret, both handled for
-you. The live cost estimate shown during a run reflects real elapsed billed
-GPU time (from when Modal actually starts working on the job), not queue
-wait, which Modal never bills for.
-
-A job can resume from an existing LoRA instead of always starting fresh —
-pick a previous job's checkpoint and continue training on top of it for a
-further N steps, useful after an abort or a stall. If the training process
-itself goes completely silent for too long (no output, no error), it's
-killed automatically well before the multi-hour ceiling, instead of quietly
-burning GPU time doing nothing. A transient failure (a dropped connection, a
-stall, an unexpected error) auto-retries from the last saved checkpoint
-instead of failing the whole job outright — it only gives up for good after
-a few retries, a genuinely unrecoverable error (like a missing checkpoint),
-or an explicit abort.
-
-Training quality: images of different aspect ratios are bucketed rather than
-force-resized to one shape, captions can carry per-image tags beyond the
-trigger word (typed per-image, or bulk-imported from existing `.txt` files
-matched by filename), and optional noise-offset/network-dropout knobs are
-available for datasets that need them.
-
-## Thinking (model reasoning)
-
-A **🧠 thinking** toggle in the chat header asks the model to reason inside a
-`<think>...</think>` block before replying. The backend parses that block out of
-the stream as a separate channel and the UI shows it as a collapsible **💭 Thought
-process** panel — expanded live while it streams, collapsed once the reply lands,
-and re-expandable later. If your model server emits native reasoning
-(`reasoning_content`), that's captured too, even without the prompt instruction.
-
-The chain-of-thought is stored with the message so it stays viewable, but it is
-**never fed back to the model** as history and is **excluded from memory** — only
-the final reply is embedded. Default on; set `ENABLE_THINKING=false` to default it
-off (the per-chat toggle still overrides).
-
-## How memory stays "unlimited"
-
-Your whole history is never stuffed into the prompt — context windows are finite.
-Settled exchanges are batched through an extraction pass that distills them into
-**typed facts** (event / state / relationship / world / profile), reconciled
-against what's already known (new facts are added, repeated ones reinforced,
-contradicted ones superseded rather than deleted). Each turn embeds the current
-context and pulls back a token-budgeted memory block: pinned and active state
-facts first, then the highest-scoring candidates from decay-weighted retention
-ranking over both facts and lore, plus the recent verbatim turns
-(`HISTORY_TURNS`). Regenerating a reply rolls back the discarded turn's
-extracted facts exactly, so an abandoned generation is never remembered.
-
-Memory is **scoped to the session**: each chat keeps its own recollections, so two
-separate chats with the same character don't bleed into one another. Browse or
-clear a chat's memory from the **◷ memory** button in the chat header. (Deleting a
-session also clears its memory; deleting a character clears all of its sessions'.)
-The story can also **update established lore mid-session**: when extraction
-detects that events changed something a lorebook entry asserts, a session-scoped
-override of that entry is proposed and applied without touching the shared entry
-other sessions see.
-
-## Configuration (environment variables)
-
-| Variable | Default | Meaning |
+| Variable | Default | Purpose |
 |---|---|---|
-| `LLM_BASE_URL` | `http://llamacpp-chat:5001/v1` | OpenAI-compatible base URL |
-| `EMBED_BASE_URL` | `http://llamacpp-embed:5002/v1` | llama.cpp serves one model per instance, so chat and embeddings are separate containers |
-| `LLM_API_KEY` | _(empty)_ | sent as `Authorization: Bearer …` if set |
-| `CHAT_MODEL` | `Gemma-4-E4B-Uncensored-HauhauCS-Aggressive` | generation model |
-| `EMBED_MODEL` | `Qwen3-Embedding-0.6B` | embedding model (multilingual, instruction-aware retrieval) |
-| `EMBED_DIM` | `1024` | must match the embedding model |
-| `DATABASE_URL` | _(required)_ | `postgresql+asyncpg://user:pass@host:5432/dbname` — startup fails fast if unset |
-| `HISTORY_TURNS` | `16` | recent messages kept verbatim |
-| `TOP_K_MEMORY` / `TOP_K_LORE` | `4` / `6` | items retrieved per turn |
-| `MEM_MAX_DIST` / `LORE_MAX_DIST` | `0.80` | cosine-distance cutoffs (lower = stricter) |
-| `GEN_TEMP` / `GEN_TOP_P` / `GEN_MAX_TOKENS` | `0.85` / `0.9` / `4096` | sampling |
-| `ENABLE_THINKING` | `true` | default thinking toggle |
-| `DEFAULT_LANGUAGE` | `English` | instance-wide default display language |
-| `SECRET_ENCRYPTION_KEY` | _(auto-generated, stored in the DB)_ | see "Encryption" above |
-| `JWT_SECRET_KEY` | _(auto-generated, stored in the DB)_ | signs login access/refresh JWTs — see "Accounts, auth & permissions" above |
+| `DATABASE_URL` | required | PostgreSQL and pgvector connection |
+| `LLM_BASE_URL` | `http://llamacpp-chat:5001/v1` | chat API base URL |
+| `EMBED_BASE_URL` | `http://llamacpp-embed:5002/v1` | embedding API base URL |
+| `LLM_API_KEY` | empty | bearer key for the configured model API |
+| `CHAT_MODEL` | installer-selected | generation model identifier |
+| `EMBED_MODEL` | `Qwen3-Embedding-0.6B` | embedding model identifier |
+| `EMBED_DIM` | `1024` | embedding width; must match the model |
+| `COMFYUI_URL` | `http://comfyui:8188` | ComfyUI API base URL |
+| `STATIC_DIR` | `./static` | SPA directory served at `/` |
+| `MEDIA_DIR` | `./media` | uploaded and generated media directory |
+| `SECRET_ENCRYPTION_KEY` | generated if absent | Fernet data-encryption key |
+| `JWT_SECRET_KEY` | generated if absent | access and refresh token signing key |
+| `SAFETY_CLASSIFIER_BACKEND` | `onnx_nano` | image moderation backend |
+| `NSFW_ONNX_PATH` | `./models/nsfw-detection-2-nano/model.onnx` | pinned ONNX artifact |
+| `NSFW_SAFE_THRESHOLD` | `0.995` | minimum confidence for an allowed class |
 
-`COMFYUI_URL`, `COMFYUI_CHECKPOINT`, `COMFYUI_WORKFLOW` are admin-settings-only
-(no env-var default worth documenting here — configure them from Settings).
+Most model, generation, appearance, language, and feature settings can also be
+managed in the application. Secrets are write-only in API responses.
 
-If you change the embedding model, set `EMBED_DIM` to match and rebuild the
-vector tables (vectors of different sizes can't share an index) — or just change
-it from Settings, which does this for you automatically:
+## Development
 
-```sql
-DROP TABLE IF EXISTS memory_vectors;
-DROP TABLE IF EXISTS lore_vectors;
+Run backend tests with:
+
+```bash
+python -m pytest backend/tests -q
 ```
 
-## Notes
+After changing Tailwind sources under `new_ui/css/`, rebuild the generated CSS:
 
-- Card import reads V1, V2 (`chara`) and V3 (`ccv3`) PNG cards and `.json`;
-  embedded lorebooks import alongside the character, and the PNG becomes the avatar.
-- Card export ("⤓ Export card" on a character) writes a SillyTavern/TavernAI V2
-  JSON card with the character's lorebook embedded as `character_book`, so it
-  re-imports cleanly into Tavern, chub, RisuAI, or back into StoryHaven AI. Export
-  is owner-only unless the character explicitly allows others to download it.
-- Static assets (`new_ui/js/*.js`, `new_ui/css/*.css`) are served with `Cache-Control:
-  no-cache`, so front-end edits show up without a container restart; an
-  in-app update banner polls `/version` to prompt a refresh when they change.
+```bash
+./rebuild.sh --once
+```
+
+Do not edit `new_ui/css/app.css` directly. It is generated output.
+
+Useful references:
+
+- [Detailed setup](docs/SETUP.md)
+- [Current feature guide](docs/features.md)
+- [Backend architecture](docs/ai/architecture.md)
+- [Memory and lore design](docs/ai/memory_design.md)
+- [Image safety classifier](docs/ai/safety_classifier.md)
+- [Role and capability model](docs/ai/rbac.md)
+- [LoRA training](docs/ai/lora_training.md)
+
+## License
+
+No license file is currently included. Review the repository terms before
+redistributing or offering a hosted service based on StoryHaven AI.
