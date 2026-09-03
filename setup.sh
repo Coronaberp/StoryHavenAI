@@ -538,7 +538,7 @@ ensure_venv() {
   if confirm "Build the venv now in a throwaway python container?"; then
     info "Creating venv + installing requirements.txt"
     $ENGINE run --rm -v "$REPO_DIR:/app" -w /app python:3.12-alpine sh -c \
-      "apk add --no-cache build-base 2>/dev/null; python3 -m venv venv && venv/bin/pip install --upgrade pip && venv/bin/pip install -r requirements.txt"
+      "apk add --no-cache build-base py3-onnxruntime 2>/dev/null; python3 -m venv --system-site-packages venv && venv/bin/pip install --upgrade pip && venv/bin/pip install -r requirements.txt"
     ok "venv built"
   else
     warn "Skipped — story-game will not start until venv/bin/uvicorn exists."

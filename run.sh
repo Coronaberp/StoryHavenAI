@@ -12,6 +12,16 @@
 if [ ! -x /usr/bin/python3.12 ]; then
   apk add --no-cache python3 >/tmp/apk.log 2>&1 || { cat /tmp/apk.log; exit 1; }
 fi
+venv_config=/app/ai-frontend/venv/pyvenv.cfg
+if [ -f "$venv_config" ]; then
+  sed -i 's/^include-system-site-packages = false$/include-system-site-packages = true/' "$venv_config"
+fi
+if ! /app/ai-frontend/venv/bin/python -c 'import onnxruntime' >/dev/null 2>&1; then
+  apk add --no-cache py3-onnxruntime >/tmp/apk-onnxruntime.log 2>&1 || {
+    cat /tmp/apk-onnxruntime.log
+    exit 1
+  }
+fi
 # server.py resolves STATIC_DIR/MEDIA_DIR relative to the process cwd
 # (./static, ./media) — uvicorn's --app-dir only affects where
 # it imports the `server` module from, it does NOT chdir there. The compose
