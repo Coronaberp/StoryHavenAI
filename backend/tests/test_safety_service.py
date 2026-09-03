@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import threading
 import time
 
 import numpy as np
@@ -26,6 +27,7 @@ class FakeSession:
         self.active = 0
         self.max_active = 0
         self.calls = 0
+        self.started = threading.Event()
 
     def get_inputs(self):
         return [FakeInput()]
@@ -37,6 +39,7 @@ class FakeSession:
         self.active += 1
         self.max_active = max(self.max_active, self.active)
         self.calls += 1
+        self.started.set()
         try:
             time.sleep(self.delay_seconds)
             return [self.logits]
@@ -238,7 +241,7 @@ async def test_close_fails_queued_work_and_prevents_new_inference():
     )
 
     first = asyncio.create_task(classifier.classify(b"first"))
-    await asyncio.sleep(0)
+    assert await asyncio.to_thread(session.started.wait, 1.0)
     second = asyncio.create_task(classifier.classify(b"second"))
     await asyncio.sleep(0)
     await classifier.close()
